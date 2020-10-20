@@ -1,24 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/evocert/kwe/listen"
 )
 
-func test() {
-	resp, err := http.Get("https://api.github.com/users/tensorflow")
-	if err != nil {
-		print(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		print(err)
-	}
-	fmt.Print(string(body))
-}
 func main() {
-	fmt.Print("#Hello#")
-	test()
+	cancelChan := make(chan os.Signal, 2)
+	// catch SIGETRM or SIGINTERRUPT
+	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
+
+	listen.Listening().Listen(":1002", false)
+
+	<-cancelChan
+	os.Exit(0)
 }
