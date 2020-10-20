@@ -698,6 +698,7 @@ Zip Archive	application/zip	.zip	Wikipedia: Zip
 ZVUE Media Manager	application/vnd.handheld-entertainment+xml	.zmm	IANA: ZVUE Media Manager
 Zzazz Deck	application/vnd.zzazz.deck+xml	.zaz	IANA: Zzazz`
 
+//MimeTypesCSV - return Mime Types CSV reader
 func MimeTypesCSV() io.Reader {
 	return strings.NewReader(mimetypescsv)
 }
