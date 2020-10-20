@@ -1,5 +1,5 @@
 package main
 
-func Main(arg ...string) {
+func main(arg ...string) {
 
 }
