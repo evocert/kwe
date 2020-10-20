@@ -1,4 +1,4 @@
-package resourcing
+package resources
 
 //ResourcingPath - struct
 type ResourcingPath struct {

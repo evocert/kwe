@@ -1,4 +1,4 @@
-package resourcing
+package resources
 
 //ResourcingManager - struct
 type ResourcingManager struct {

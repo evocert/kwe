@@ -6,15 +6,15 @@ import (
 	"strings"
 
 	active "github.com/evocert/kwe/iorw/active"
-	resourcing "github.com/evocert/kwe/resourcing"
+	"github.com/evocert/kwe/resources"
 )
 
 //Request -
 type Request struct {
 	*active.Active
-	rsngpaths      []*resourcing.ResourcingPath
-	rsngpthsref    map[string]*resourcing.ResourcingPath
-	currshndlr     *resourcing.ResourceHandler
+	rsngpaths      []*resources.ResourcingPath
+	rsngpthsref    map[string]*resources.ResourcingPath
+	currshndlr     *resources.ResourceHandler
 	chnl           *Channel
 	settings       map[string]interface{}
 	args           []interface{}
@@ -40,7 +40,7 @@ func (rqst *Request) AddPath(path ...string) {
 					} else {
 						if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
 							rqst.rsngpaths = append(rqst.rsngpaths, rsngpth)
-						} else if rsngpth := resourcing.NewResourcingPath(pth, nil); rsngpth != nil {
+						} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
 							rqst.rsngpaths = append(rqst.rsngpaths, rsngpth)
 							rqst.rsngpthsref[pth] = rsngpth
 						}
@@ -216,7 +216,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{Active: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resourcing.ResourcingPath{}, rsngpaths: []*resourcing.ResourcingPath{}, args: make([]interface{}, len(a))}
+	rqst = &Request{Active: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a))}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}

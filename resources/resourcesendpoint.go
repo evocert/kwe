@@ -1,4 +1,4 @@
-package resourcing
+package resources
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
