@@ -19,6 +19,6 @@ func test() {
 	fmt.Print(string(body))
 }
 func main() {
-	fmt.Print("###Hello###")
+	fmt.Print("#Hello#")
 	test()
 }
