@@ -50,6 +50,9 @@ func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 			defer func() {
 				rqst.Close()
 				d <- true
+				if r := recover(); r != nil {
+					//fmt.Printf("Recovering from panic in printAllOperations error is: %v \n", r)
+				}
 			}()
 			rqst.execute()
 		}(dne)
