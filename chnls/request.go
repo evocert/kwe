@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	active "github.com/evocert/kwe/iorw/active"
 	mimes "github.com/evocert/kwe/mimes"
@@ -200,6 +201,8 @@ func (rqst *Request) startWriting() {
 
 		httpw.Header().Set("Content-Type", rqst.mimetype)
 		httpw.Header().Del("Content-Length")
+		httpw.Header().Set("Cache-Control", "no-cache")
+		httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
 		//httpw.Header().Set("Transfer-Encoding", "chunked")
 		//rqst.zpw = gzip.NewWriter(httpw)
 		httpw.WriteHeader(200)
