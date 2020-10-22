@@ -44,10 +44,18 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 
 //ServeRW - Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	go func(rqst *Request) {
-		defer rqst.Close()
-		rqst.execute()
-	}(newRequest(chnl, r, w, a))
+	if rqst := newRequest(chnl, r, w, a); rqst != nil {
+		var dne = make(chan bool, 1)
+		go func(d chan<- bool) {
+			defer func() {
+				rqst.Close()
+				d <- true
+			}()
+			rqst.execute()
+		}(dne)
+		<-dne
+		rqst = nil
+	}
 }
 
 //Stdio - os.Stdout, os.Stdin

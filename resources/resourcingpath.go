@@ -9,7 +9,7 @@ type ResourcingPath struct {
 //NewResourcingPath - instance
 func NewResourcingPath(path string, rsngmngr *ResourcingManager) (rsngpth *ResourcingPath) {
 	if rsngmngr == nil {
-		rsngmngr = glbrsrcngmngr
+		rsngmngr = glbrscngmngr
 	}
 	rsngpth = &ResourcingPath{Path: path, rsngmngr: rsngmngr}
 
@@ -28,6 +28,11 @@ func (rsngpth *ResourcingPath) Close() (err error) {
 }
 
 //ResourceHandler - instance of Resource Handler
-func (rsngpth *ResourcingPath) ResourceHandler() (rshnflr *ResourceHandler) {
+func (rsngpth *ResourcingPath) ResourceHandler() (rshndlr *ResourceHandler) {
+	if rsngpth != nil && rsngpth.rsngmngr != nil {
+		if rs := rsngpth.rsngmngr.FindRS(rsngpth.Path); rs != nil {
+			rshndlr = newResourceHandler(rs)
+		}
+	}
 	return
 }

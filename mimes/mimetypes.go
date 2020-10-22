@@ -1,8 +1,11 @@
 package mimes
 
 import (
+	"bufio"
 	"io"
+	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const mimetypescsv string = `3D Crossword Plugin	application/vnd.hzn-3d-crossword	.x3d	IANA: 3D Crossword Plugin
@@ -701,4 +704,48 @@ Zzazz Deck	application/vnd.zzazz.deck+xml	.zaz	IANA: Zzazz`
 //MimeTypesCSV - return Mime Types CSV reader
 func MimeTypesCSV() io.Reader {
 	return strings.NewReader(mimetypescsv)
+}
+
+//FindMimeType - ext or defaulttype
+func FindMimeType(ext string, defaulttype string) (mimetype string) {
+	if defaulttype == "" {
+		defaulttype = "text/plain"
+	}
+
+	if ext = filepath.Ext(ext); ext != "" {
+		func() {
+			mtypesfoundlck.Lock()
+			defer mtypesfoundlck.Unlock()
+			if _, mimetypeok := mtypesfound[ext]; mimetypeok {
+				mimetype = mtypesfound[ext]
+			} else {
+
+				var bufr = bufio.NewReader(MimeTypesCSV())
+				for {
+					lineb, _, lineberr := bufr.ReadLine()
+					if len(lineb) > 0 {
+						var lines = strings.Split(string(lineb), "\t")
+						if len(lines) == 4 && lines[2] == ext {
+							mimetype = lines[1]
+							mtypesfound[ext] = mimetype
+						}
+					}
+					if lineberr != nil {
+						break
+					}
+				}
+				bufr = nil
+			}
+		}()
+	} else {
+		mimetype = defaulttype
+	}
+	return
+}
+
+var mtypesfound map[string]string
+var mtypesfoundlck = &sync.Mutex{}
+
+func init() {
+	mtypesfound = map[string]string{}
 }

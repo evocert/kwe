@@ -1,17 +1,19 @@
 package chnls
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"strings"
 
 	active "github.com/evocert/kwe/iorw/active"
+	mimes "github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/resources"
 )
 
 //Request -
 type Request struct {
-	*active.Active
+	atv            *active.Active
 	rsngpaths      []*resources.ResourcingPath
 	rsngpthsref    map[string]*resources.ResourcingPath
 	currshndlr     *resources.ResourceHandler
@@ -19,9 +21,14 @@ type Request struct {
 	settings       map[string]interface{}
 	args           []interface{}
 	startedWriting bool
+	mimetype       string
 	httpw          http.ResponseWriter
+	flshr          http.Flusher
+	wbytes         []byte
+	wbytesi        int
 	rqstw          io.Writer
 	httpr          *http.Request
+	zpw            *gzip.Writer
 	rqstr          io.Reader
 	Interrupted    bool
 }
@@ -54,9 +61,9 @@ func (rqst *Request) AddPath(path ...string) {
 //Close - refer io.Closer
 func (rqst *Request) Close() (err error) {
 	if rqst != nil {
-		if rqst.Active != nil {
-			rqst.Active.Close()
-			rqst.Active = nil
+		if rqst.atv != nil {
+			rqst.atv.Close()
+			rqst.atv = nil
 		}
 		if rqst.chnl != nil {
 			rqst.chnl = nil
@@ -125,9 +132,31 @@ func (rqst *Request) execute() {
 	}
 }
 
+func (rqst *Request) Write(p []byte) (n int, err error) {
+	if rqst != nil {
+		if !rqst.startedWriting {
+			rqst.startWriting()
+		}
+		if rqst.httpw != nil {
+			if rqst.zpw != nil {
+				n, err = rqst.zpw.Write(p)
+			} else {
+				n, err = rqst.httpw.Write(p)
+				if rqst.flshr != nil && n > 0 && err == nil {
+					rqst.flshr.Flush()
+				}
+			}
+		}
+	}
+	return
+}
+
 func (rqst *Request) processPaths() {
 	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
 		var rsngpth = rqst.rsngpaths[0]
+		if rqst.mimetype == "" {
+			rqst.mimetype = mimes.FindMimeType(rsngpth.Path, "application/*")
+		}
 		rqst.rsngpaths = rqst.rsngpaths[1:]
 		if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 			if _, ok := rqst.rsngpthsref[rsngpth.Path]; ok {
@@ -137,16 +166,44 @@ func (rqst *Request) processPaths() {
 			rsngpth.Close()
 			rsngpth = nil
 			continue
+		} else if rqst.currshndlr != nil {
+			io.Copy(rqst, rqst.currshndlr)
 		}
 	}
+	if !rqst.startedWriting {
+		rqst.startWriting()
+	}
+	rqst.wrapup()
+}
+
+func (rqst *Request) wrapup() (err error) {
+	if rqst != nil && rqst.httpw != nil {
+		if rqst.zpw != nil {
+			err = rqst.zpw.Close()
+			rqst.zpw = nil
+		}
+		if err == nil {
+			if wflsh, wflshok := rqst.httpw.(http.Flusher); wflshok {
+				wflsh.Flush()
+			}
+		}
+	}
+	return
 }
 
 func (rqst *Request) startWriting() {
-	if rqst.httpr != nil && rqst.httpw != nil {
+	if httpw := rqst.httpw; rqst.httpr != nil && httpw != nil {
 		if rqst.startedWriting {
 			return
 		}
 		rqst.startedWriting = true
+
+		httpw.Header().Set("Content-Type", rqst.mimetype)
+		httpw.Header().Del("Content-Length")
+		//httpw.Header().Set("Transfer-Encoding", "chunked")
+		//rqst.zpw = gzip.NewWriter(httpw)
+		httpw.WriteHeader(200)
+
 	}
 }
 
@@ -161,6 +218,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	var httpw http.ResponseWriter = nil
+	var httpflshr http.Flusher = nil
 	var httpr *http.Request = nil
 
 	var rdr io.Reader = nil
@@ -195,6 +253,9 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 				if wtr == nil {
 					wtr = httpw
 				}
+				if flshr, flshrok := httpw.(http.Flusher); flshrok {
+					httpflshr = flshr
+				}
 			}
 			a = a[1:]
 			continue
@@ -216,7 +277,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{Active: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a))}
+	rqst = &Request{mimetype: "text/javascript", zpw: nil, atv: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a))}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}
