@@ -65,6 +65,6 @@ var glbrscngmngr *ResourcingManager
 func init() {
 	if glbrscngmngr == nil {
 		glbrscngmngr = NewResourcingManager()
-		glbrscngmngr.RegisterEndpoint("/", "./")
+		glbrscngmngr.RegisterEndpoint("/", "D:/mystuff/bcoring")
 	}
 }

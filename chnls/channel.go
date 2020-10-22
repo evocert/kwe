@@ -48,11 +48,12 @@ func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 		var dne = make(chan bool, 1)
 		go func(d chan<- bool) {
 			defer func() {
-				rqst.Close()
-				d <- true
 				if r := recover(); r != nil {
 					//fmt.Printf("Recovering from panic in printAllOperations error is: %v \n", r)
 				}
+				rqst.Close()
+				d <- true
+
 			}()
 			rqst.execute()
 		}(dne)
