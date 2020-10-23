@@ -42,7 +42,7 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	}
 }
 
-//ServeRW - Reader Writer
+//ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 	if rqst := newRequest(chnl, r, w, a); rqst != nil {
 		var dne = make(chan bool, 1)

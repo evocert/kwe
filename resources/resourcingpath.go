@@ -12,7 +12,6 @@ func NewResourcingPath(path string, rsngmngr *ResourcingManager) (rsngpth *Resou
 		rsngmngr = glbrscngmngr
 	}
 	rsngpth = &ResourcingPath{Path: path, rsngmngr: rsngmngr}
-
 	return
 }
 

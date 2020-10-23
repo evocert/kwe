@@ -746,6 +746,15 @@ func FindMimeType(ext string, defaulttype string) (mimetype string) {
 var mtypesfound map[string]string
 var mtypesfoundlck = &sync.Mutex{}
 
+var mtextexts map[string]bool
+
 func init() {
 	mtypesfound = map[string]string{}
+	mtextexts = map[string]bool{}
+	mtextexts[".js"] = true
+	mtextexts[".json"] = true
+	mtextexts[".html"] = true
+	mtextexts[".xhtml"] = true
+	mtextexts[".htm"] = true
+	mtextexts[".js"] = true
 }

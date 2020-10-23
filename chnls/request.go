@@ -153,21 +153,60 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 }
 
 func (rqst *Request) processPaths() {
+	if len(rqst.rsngpaths) == 0 && !rqst.Interrupted {
+		if rqst.httpr != nil && rqst.httpw != nil {
+			rqst.AddPath("/index.html")
+		}
+	}
+	var isFirstRequest = true
 	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
 		var rsngpth = rqst.rsngpaths[0]
-		if rqst.mimetype == "" {
-			rqst.mimetype = mimes.FindMimeType(rsngpth.Path, "application/*")
-		}
+		var rspath = rsngpth.Path
 		rqst.rsngpaths = rqst.rsngpaths[1:]
 		if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 			if _, ok := rqst.rsngpthsref[rsngpth.Path]; ok {
 				rqst.rsngpthsref[rsngpth.Path] = nil
 				delete(rqst.rsngpthsref, rsngpth.Path)
 			}
-			rsngpth.Close()
+			if isFirstRequest {
+				isFirstRequest = false
+				if rqst.mimetype == "" {
+					rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+				}
+				if rspath != "" {
+					if strings.LastIndex(rspath, ".") == -1 {
+						if !strings.HasSuffix(rspath, "/") {
+							rspath = rspath + "/"
+						}
+						rspath = rspath + "index.html"
+						rsngpth.Path = rspath
+
+						rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+						if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
+							rqst.mimetype = "text/plain"
+						} else {
+							rqst.rsngpthsref[rsngpth.Path] = rsngpth
+							io.Copy(rqst, rqst.currshndlr)
+						}
+					} else {
+						rsngpth.Close()
+					}
+				} else {
+					rsngpth.Close()
+				}
+
+			} else {
+				rsngpth.Close()
+			}
 			rsngpth = nil
 			continue
 		} else if rqst.currshndlr != nil {
+			if isFirstRequest {
+				if rqst.mimetype == "" {
+					rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+				}
+				isFirstRequest = false
+			}
 			io.Copy(rqst, rqst.currshndlr)
 		}
 	}
