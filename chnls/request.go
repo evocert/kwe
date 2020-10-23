@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	active "github.com/evocert/kwe/iorw/active"
@@ -32,6 +33,7 @@ type Request struct {
 	zpw            *gzip.Writer
 	rqstr          io.Reader
 	Interrupted    bool
+	wgtxt          *sync.WaitGroup
 }
 
 //AddPath - next resource path(s) to process
@@ -122,6 +124,9 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.rsngpthsref = nil
 		}
+		if rqst.wgtxt != nil {
+			rqst.wgtxt = nil
+		}
 		rqst = nil
 	}
 	return
@@ -191,9 +196,9 @@ func (rqst *Request) processPaths() {
 							rqst.rsngpthsref[rsngpth.Path] = rsngpth
 							if isTextRequest {
 								isTextRequest = false
-								io.Copy(rqst, rqst.currshndlr)
+								rqst.copy(rqst.currshndlr, true)
 							} else {
-								io.Copy(rqst, rqst.currshndlr)
+								rqst.copy(rqst.currshndlr, false)
 							}
 						}
 					} else {
@@ -219,9 +224,9 @@ func (rqst *Request) processPaths() {
 			}
 			if isTextRequest {
 				isTextRequest = false
-				io.Copy(rqst, rqst.currshndlr)
+				rqst.copy(rqst.currshndlr, true)
 			} else {
-				io.Copy(rqst, rqst.currshndlr)
+				rqst.copy(rqst.currshndlr, false)
 			}
 		}
 	}
@@ -229,6 +234,26 @@ func (rqst *Request) processPaths() {
 		rqst.startWriting()
 	}
 	rqst.wrapup()
+}
+
+func (rqst *Request) copy(r io.Reader, istext bool) {
+	if rqst != nil {
+		if rqst.wgtxt == nil {
+			rqst.wgtxt = &sync.WaitGroup{}
+		}
+		rqst.wgtxt.Add(1)
+		pr, pw := io.Pipe()
+		go func() {
+			defer func() {
+				rqst.wgtxt.Done()
+				pw.Close()
+			}()
+			io.Copy(pw, r)
+		}()
+		io.Copy(rqst, pr)
+		rqst.wgtxt.Wait()
+		pr.Close()
+	}
 }
 
 func (rqst *Request) wrapup() (err error) {
@@ -257,6 +282,7 @@ func (rqst *Request) startWriting() {
 		httpw.Header().Del("Content-Length")
 		httpw.Header().Set("Cache-Control", "no-cache")
 		httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
+		httpw.Header().Set("Connection", "close")
 		//httpw.Header().Set("Transfer-Encoding", "chunked")
 		//rqst.zpw = gzip.NewWriter(httpw)
 		httpw.WriteHeader(200)

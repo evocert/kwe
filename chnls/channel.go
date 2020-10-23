@@ -45,19 +45,21 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 	if rqst := newRequest(chnl, r, w, a); rqst != nil {
-		var dne = make(chan bool, 1)
-		go func(d chan<- bool) {
+		//var dne = make(chan bool, 1)
+		//go func(d chan<- bool) {
+		func() {
 			defer func() {
 				if r := recover(); r != nil {
 					//fmt.Printf("Recovering from panic in printAllOperations error is: %v \n", r)
 				}
 				rqst.Close()
-				d <- true
+				//d <- true
 
 			}()
 			rqst.execute()
-		}(dne)
-		<-dne
+		}()
+		//}(dne)
+		//<-dne
 		rqst = nil
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/evocert/kwe/listen"
+	"github.com/evocert/kwe/resources"
 )
 
 func main() {
@@ -16,9 +17,8 @@ func main() {
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGETRM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
-
+	resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 	listen.Listening().Listen(":1002", false)
-
 	<-cancelChan
 	os.Exit(0)
 }

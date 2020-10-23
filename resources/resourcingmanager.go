@@ -25,6 +25,22 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path strin
 					rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
 				}
 			}
+		} else {
+			if rscngmngr.rsngendpnts[epntpath] != path {
+				if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, path, prms...); newrsngepnt != nil {
+					rsngepnt, rsngepntok := rscngmngr.rsngendpntspaths[newrsngepntpath]
+					if rsngepntok {
+						if rsngepnt != newrsngepnt {
+							rsngepnt.dispose()
+							rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
+							rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+						}
+					} else {
+						rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
+						rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+					}
+				}
+			}
 		}
 	}
 }
@@ -61,6 +77,11 @@ func NewResourcingManager() (rscngmngr *ResourcingManager) {
 }
 
 var glbrscngmngr *ResourcingManager
+
+//GLOBALRSNGMANAGER - GLOBAL ResourcingManager for app
+func GLOBALRSNGMANAGER() *ResourcingManager {
+	return glbrscngmngr
+}
 
 func init() {
 	if glbrscngmngr == nil {
