@@ -707,17 +707,20 @@ func MimeTypesCSV() io.Reader {
 }
 
 //FindMimeType - ext or defaulttype
-func FindMimeType(ext string, defaulttype string) (mimetype string) {
+func FindMimeType(ext string, defaulttype string) (mimetype string, texttype bool) {
 	if defaulttype == "" {
 		defaulttype = "text/plain"
 	}
-
+	texttype = false
 	if ext = filepath.Ext(ext); ext != "" {
 		func() {
 			mtypesfoundlck.Lock()
 			defer mtypesfoundlck.Unlock()
 			if _, mimetypeok := mtypesfound[ext]; mimetypeok {
 				mimetype = mtypesfound[ext]
+				if _, textextok := mtextexts[ext]; textextok {
+					texttype = mtextexts[ext]
+				}
 			} else {
 
 				var bufr = bufio.NewReader(MimeTypesCSV())
@@ -728,6 +731,10 @@ func FindMimeType(ext string, defaulttype string) (mimetype string) {
 						if len(lines) == 4 && lines[2] == ext {
 							mimetype = lines[1]
 							mtypesfound[ext] = mimetype
+							if _, textextok := mtextexts[ext]; textextok {
+								texttype = mtextexts[ext]
+							}
+							break
 						}
 					}
 					if lineberr != nil {

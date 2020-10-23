@@ -159,9 +159,11 @@ func (rqst *Request) processPaths() {
 		}
 	}
 	var isFirstRequest = true
+	var isTextRequest = false
 	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
 		var rsngpth = rqst.rsngpaths[0]
 		var rspath = rsngpth.Path
+		isTextRequest = false
 		rqst.rsngpaths = rqst.rsngpaths[1:]
 		if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 			if _, ok := rqst.rsngpthsref[rsngpth.Path]; ok {
@@ -171,7 +173,7 @@ func (rqst *Request) processPaths() {
 			if isFirstRequest {
 				isFirstRequest = false
 				if rqst.mimetype == "" {
-					rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+					rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
 				if rspath != "" {
 					if strings.LastIndex(rspath, ".") == -1 {
@@ -181,12 +183,18 @@ func (rqst *Request) processPaths() {
 						rspath = rspath + "index.html"
 						rsngpth.Path = rspath
 
-						rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 						if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 							rqst.mimetype = "text/plain"
+							isTextRequest = false
 						} else {
 							rqst.rsngpthsref[rsngpth.Path] = rsngpth
-							io.Copy(rqst, rqst.currshndlr)
+							if isTextRequest {
+								isTextRequest = false
+								io.Copy(rqst, rqst.currshndlr)
+							} else {
+								io.Copy(rqst, rqst.currshndlr)
+							}
 						}
 					} else {
 						rsngpth.Close()
@@ -203,11 +211,18 @@ func (rqst *Request) processPaths() {
 		} else if rqst.currshndlr != nil {
 			if isFirstRequest {
 				if rqst.mimetype == "" {
-					rqst.mimetype = mimes.FindMimeType(rspath, "text/plain")
+					rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+				} else {
+					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
 				isFirstRequest = false
 			}
-			io.Copy(rqst, rqst.currshndlr)
+			if isTextRequest {
+				isTextRequest = false
+				io.Copy(rqst, rqst.currshndlr)
+			} else {
+				io.Copy(rqst, rqst.currshndlr)
+			}
 		}
 	}
 	if !rqst.startedWriting {
