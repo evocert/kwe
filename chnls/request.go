@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/chnls/parameters"
 	active "github.com/evocert/kwe/iorw/active"
 	mimes "github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/resources"
@@ -26,6 +27,7 @@ type Request struct {
 	mimetype       string
 	httpw          http.ResponseWriter
 	flshr          http.Flusher
+	prms           *parameters.Parameters
 	wbytes         []byte
 	wbytesi        int
 	rqstw          io.Writer
@@ -59,6 +61,21 @@ func (rqst *Request) AddPath(path ...string) {
 			}
 		}
 	}
+}
+
+//ResponseHeader wrap arround current ResponseWriter.Header
+func (rqst *Request) ResponseHeader() http.Header {
+	return rqst.httpw.Header()
+}
+
+//RequestHeader wrap arround current Request.Header
+func (rqst *Request) RequestHeader() http.Header {
+	return rqst.httpr.Header
+}
+
+//Parameters - Request web Parameters
+func (rqst *Request) Parameters() *parameters.Parameters {
+	return rqst.prms
 }
 
 //Close - refer io.Closer
@@ -127,7 +144,18 @@ func (rqst *Request) Close() (err error) {
 		if rqst.wgtxt != nil {
 			rqst.wgtxt = nil
 		}
+		if rqst.prms != nil {
+			rqst.prms.CleanupParameters()
+			rqst.prms = nil
+		}
+		if rqst.httpr != nil {
+			rqst.httpr = nil
+		}
+		if rqst.httpw != nil {
+			rqst.httpw = nil
+		}
 		rqst = nil
+
 	}
 	return
 }
@@ -292,6 +320,8 @@ func (rqst *Request) startWriting() {
 
 func (rqst *Request) executeHTTP() {
 	if rqst != nil {
+		rqst.prms = parameters.NewParameters()
+		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
 		rqst.AddPath(rqst.httpr.URL.Path)
 		rqst.processPaths()
 	}
