@@ -438,6 +438,15 @@ func (atvrntme *atvruntime) run() (err error) {
 		if err == nil {
 			_, err = atvrntme.vm.RunProgram(p)
 		}
+		if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
+			if ks := gbl.Keys(); len(ks) > 0 {
+				for _, k := range ks {
+					gbl.Delete(k)
+				}
+				ks = nil
+			}
+			gbl = nil
+		}
 	}
 	return
 }
