@@ -3,8 +3,6 @@ package main
 import (
 	"os"
 	"os/signal"
-	runtime "runtime"
-	"runtime/debug"
 	"syscall"
 
 	"github.com/evocert/kwe/listen"
@@ -12,8 +10,6 @@ import (
 )
 
 func main() {
-	debug.SetGCPercent(25)
-	runtime.GOMAXPROCS(runtime.NumCPU() * 10)
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGTERM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)

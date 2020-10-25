@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/lnksnk/ecma/es6/unistring"
+	"github.com/evocert/kwe/ecma/es6/unistring"
 )
 
 type objectGoSliceReflect struct {

@@ -166,38 +166,55 @@ func (rqst *Request) execute() {
 	}
 }
 
-func (rqst *Request) Write(p []byte) (n int, err error) {
-	if rqst != nil {
-		if !rqst.startedWriting {
-			rqst.startWriting()
-		}
-		if rqst.httpw != nil {
-			if rqst.zpw != nil {
-				n, err = rqst.zpw.Write(p)
-			} else {
-				n, err = rqst.httpw.Write(p)
-				if rqst.flshr != nil && n > 0 && err == nil {
-					rqst.flshr.Flush()
-				}
+func (rqst *Request) internWrite(p []byte) (n int, err error) {
+	if rqst.httpw != nil {
+		if rqst.zpw != nil {
+			n, err = rqst.zpw.Write(p)
+		} else {
+			n, err = rqst.httpw.Write(p)
+			if rqst.flshr != nil && n > 0 && err == nil {
+				rqst.flshr.Flush()
 			}
 		}
 	}
 	return
 }
 
-func (rqst *Request) processPaths() {
-	if len(rqst.rsngpaths) == 0 && !rqst.Interrupted {
-		if rqst.httpr != nil && rqst.httpw != nil {
-			rqst.AddPath("/index.html")
+func (rqst *Request) Write(p []byte) (n int, err error) {
+	if rqst != nil {
+		if pl := len(p); pl > 0 {
+			if !rqst.startedWriting {
+				rqst.startWriting()
+			}
+			n, err = rqst.internWrite(p)
+			/*
+				for n < pl && err == nil {
+					if cl := (len(rqst.wbytes) - rqst.wbytesi); (pl - n) >= cl {
+						copy(rqst.wbytes[rqst.wbytesi:rqst.wbytesi+cl], p[n:n+cl])
+						n += cl
+						rqst.wbytesi += cl
+					} else if cl := (pl - n); (pl - n) < (len(rqst.wbytes) - rqst.wbytesi) {
+						copy(rqst.wbytes[rqst.wbytesi:rqst.wbytesi+cl], p[n:n+cl])
+						n += cl
+						rqst.wbytesi += cl
+					}
+					if rqst.wbytesi == len(rqst.wbytes) {
+						_, err = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
+					}
+				}*/
 		}
 	}
+	return
+}
+
+func (rqst *Request) processPaths() {
 	var isFirstRequest = true
 	var isTextRequest = false
 	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
 		var rsngpth = rqst.rsngpaths[0]
+		rqst.rsngpaths = rqst.rsngpaths[1:]
 		var rspath = rsngpth.Path
 		isTextRequest = false
-		rqst.rsngpaths = rqst.rsngpaths[1:]
 		if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 			if _, ok := rqst.rsngpthsref[rsngpth.Path]; ok {
 				rqst.rsngpthsref[rsngpth.Path] = nil
@@ -224,6 +241,9 @@ func (rqst *Request) processPaths() {
 							rqst.rsngpthsref[rsngpth.Path] = rsngpth
 							if isTextRequest {
 								isTextRequest = false
+								if rqst.atv == nil {
+									rqst.atv = active.NewActive()
+								}
 								rqst.copy(rqst.currshndlr, true)
 							} else {
 								rqst.copy(rqst.currshndlr, false)
@@ -252,11 +272,17 @@ func (rqst *Request) processPaths() {
 			}
 			if isTextRequest {
 				isTextRequest = false
+				if rqst.atv == nil {
+					rqst.atv = active.NewActive()
+				}
 				rqst.copy(rqst.currshndlr, true)
 			} else {
 				rqst.copy(rqst.currshndlr, false)
 			}
 		}
+	}
+	if rqst.wbytesi > 0 {
+		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
 	}
 	if !rqst.startedWriting {
 		rqst.startWriting()
@@ -266,21 +292,11 @@ func (rqst *Request) processPaths() {
 
 func (rqst *Request) copy(r io.Reader, istext bool) {
 	if rqst != nil {
-		if rqst.wgtxt == nil {
-			rqst.wgtxt = &sync.WaitGroup{}
+		if istext {
+			rqst.atv.Eval(rqst, r)
+		} else {
+			io.Copy(rqst, r)
 		}
-		rqst.wgtxt.Add(1)
-		pr, pw := io.Pipe()
-		go func() {
-			defer func() {
-				rqst.wgtxt.Done()
-				pw.Close()
-			}()
-			io.Copy(pw, r)
-		}()
-		io.Copy(rqst, pr)
-		rqst.wgtxt.Wait()
-		pr.Close()
 	}
 }
 

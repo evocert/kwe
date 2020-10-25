@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/lnksnk/ecma/es6/unistring"
+	"github.com/evocert/kwe/ecma/es6/unistring"
 )
 
 type byteOrder bool

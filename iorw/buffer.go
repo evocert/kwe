@@ -75,6 +75,20 @@ func (buff *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 	return
 }
 
+//WriteRune - Write singe rune
+func (buff *Buffer) WriteRune(r rune) (err error) {
+	_, err = buff.Write([]byte(string(r)))
+	return
+}
+
+//WriteRunes - Write runes
+func (buff *Buffer) WriteRunes(p []rune) (err error) {
+	if pl := len(p); pl > 0 {
+		_, err = buff.Write([]byte(string(p[:pl])))
+	}
+	return
+}
+
 //Write - refer io.Writer
 func (buff *Buffer) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
@@ -226,8 +240,6 @@ func (bufr *BuffReader) Close() (err error) {
 	if bufr != nil {
 		if bufr.buffer != nil {
 			func() {
-				bufr.buffer.lck.Lock()
-				defer bufr.buffer.lck.Unlock()
 				if _, ok := bufr.buffer.bufrs[bufr]; ok {
 					bufr.buffer.bufrs[bufr] = nil
 					delete(bufr.buffer.bufrs, bufr)
@@ -319,8 +331,10 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 					var rnbufi = 0
 					var bufl = bufr.buffer.BuffersLen()
 					var bflen = 0
+					var bufbfs = int64(0)
 					if bufl > 0 {
 						bflen = len(bufr.buffer.buffer[0])
+						bufbfs = (int64(bufl) * int64(bflen))
 					}
 					if n < (int64(bufl) * int64(bflen)) {
 						if n < int64(bflen) {
@@ -333,7 +347,7 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						bufr.rbufferi = rnbufi
 					} else if n < bufs {
 						bufr.rbufferi = rnbufi
-						bufr.rbytesi = int(n % int64(bflen))
+						bufr.rbytesi = int(n % (bufs - bufbfs))
 						bufr.rbytes = bufr.buffer.bytes[:bufr.buffer.bytesi]
 					}
 					bufr.roffset = n

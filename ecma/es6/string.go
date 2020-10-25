@@ -7,7 +7,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/lnksnk/ecma/es6/unistring"
+	"github.com/evocert/kwe/ecma/es6/unistring"
 )
 
 const (

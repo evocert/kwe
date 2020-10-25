@@ -9,7 +9,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/dlclark/regexp2"
-	"github.com/lnksnk/ecma/es6/unistring"
+	"github.com/evocert/kwe/ecma/es6/unistring"
 )
 
 type regexp2Wrapper regexp2.Regexp

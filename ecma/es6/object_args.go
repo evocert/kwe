@@ -1,6 +1,6 @@
 package es6
 
-import "github.com/lnksnk/ecma/es6/unistring"
+import "github.com/evocert/kwe/ecma/es6/unistring"
 
 type argumentsObject struct {
 	baseObject
