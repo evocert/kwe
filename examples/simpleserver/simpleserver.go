@@ -20,7 +20,6 @@ func main() {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 		listen.Listening().Listen(":1002", false)
 	}
-
 	<-cancelChan
 	os.Exit(0)
 }

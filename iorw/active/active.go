@@ -9,6 +9,7 @@ import (
 
 	//"github.com/evocert/kwe/ecma/es6"
 	"github.com/dop251/goja"
+	"github.com/dop251/goja/parser"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -434,9 +435,13 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
-		p, err := goja.Compile("", cde, false)
+		prsd, err := parser.ParseFile(nil, "", cde, 0) //es6.CompileAST("", cde, false)
 		if err == nil {
-			_, err = atvrntme.vm.RunProgram(p)
+			if p, perr := goja.CompileAST(prsd, false); perr == nil {
+				_, err = atvrntme.vm.RunProgram(p)
+			} else {
+				err = perr
+			}
 		}
 		if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
 			if ks := gbl.Keys(); len(ks) > 0 {
