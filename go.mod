@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/dlclark/regexp2 v1.4.0
-	github.com/dop251/goja v0.0.0-20201021154221-bf9dcfbbe798
+	github.com/dop251/goja v0.0.0-20201022115936-e21ccf39bfce
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gorilla/websocket v1.4.2
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974

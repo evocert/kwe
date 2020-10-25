@@ -7,7 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/kwe/ecma/es6"
+	//"github.com/evocert/kwe/ecma/es6"
+	"github.com/dop251/goja"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -415,7 +416,7 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 type atvruntime struct {
 	*parsing
 	atv *Active
-	vm  *es6.Runtime
+	vm  *goja.Runtime
 }
 
 func (atvrntme *atvruntime) run() (err error) {
@@ -433,7 +434,7 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
-		p, err := es6.Compile("", cde, false)
+		p, err := goja.Compile("", cde, false)
 		if err == nil {
 			_, err = atvrntme.vm.RunProgram(p)
 		}
@@ -497,6 +498,6 @@ func (atvrntme *atvruntime) close() {
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es6.New()}
+	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: goja.New()}
 	return
 }
