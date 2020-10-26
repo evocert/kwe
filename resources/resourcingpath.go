@@ -1,9 +1,12 @@
 package resources
 
+import "strings"
+
 //ResourcingPath - struct
 type ResourcingPath struct {
-	Path     string
-	rsngmngr *ResourcingManager
+	Path       string
+	LookupPath string
+	rsngmngr   *ResourcingManager
 }
 
 //NewResourcingPath - instance
@@ -11,7 +14,13 @@ func NewResourcingPath(path string, rsngmngr *ResourcingManager) (rsngpth *Resou
 	if rsngmngr == nil {
 		rsngmngr = glbrscngmngr
 	}
-	rsngpth = &ResourcingPath{Path: path, rsngmngr: rsngmngr}
+	var lkppath = path
+	var lkpi = strings.Index(path, "@")
+	var lkpli = strings.LastIndex(path, "@")
+	if lkpi >= 0 && lkpi < lkpli {
+		lkppath = path[:lkpi] + path[lkpi+1:lkpli] + path[lkpli+1:]
+	}
+	rsngpth = &ResourcingPath{Path: path, LookupPath: lkppath, rsngmngr: rsngmngr}
 	return
 }
 
@@ -29,7 +38,7 @@ func (rsngpth *ResourcingPath) Close() (err error) {
 //ResourceHandler - instance of Resource Handler
 func (rsngpth *ResourcingPath) ResourceHandler() (rshndlr *ResourceHandler) {
 	if rsngpth != nil && rsngpth.rsngmngr != nil {
-		if rs := rsngpth.rsngmngr.FindRS(rsngpth.Path); rs != nil {
+		if rs := rsngpth.rsngmngr.FindRS(rsngpth.LookupPath); rs != nil {
 			rshndlr = newResourceHandler(rs)
 		}
 	}

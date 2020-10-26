@@ -232,13 +232,16 @@ func (rqst *Request) processPaths() {
 						}
 						rspath = rspath + "index.html"
 						rsngpth.Path = rspath
-
+						rsngpth.LookupPath = rsngpth.Path
 						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 						if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
 							rqst.mimetype = "text/plain"
 							isTextRequest = false
 						} else {
 							rqst.rsngpthsref[rsngpth.Path] = rsngpth
+							if isTextRequest && rsngpth.Path != rsngpth.LookupPath {
+								isTextRequest = false
+							}
 							if isTextRequest {
 								isTextRequest = false
 								if rqst.atv == nil {
@@ -269,6 +272,10 @@ func (rqst *Request) processPaths() {
 					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
 				isFirstRequest = false
+			}
+			rqst.rsngpthsref[rsngpth.Path] = rsngpth
+			if isTextRequest && rsngpth.Path != rsngpth.LookupPath {
+				isTextRequest = false
 			}
 			if isTextRequest {
 				isTextRequest = false
