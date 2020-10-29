@@ -26,6 +26,32 @@ func (buff *Buffer) BuffersLen() (s int) {
 	return len(buff.buffer)
 }
 
+//Print - same as fmt.Print just on buffer
+func (buff *Buffer) Print(a ...interface{}) {
+	Fprint(buff, a...)
+}
+
+//Println - same as fmt.Println just on buffer
+func (buff *Buffer) Println(a ...interface{}) {
+	Fprintln(buff, a...)
+}
+
+//String - return buffer as string value
+func (buff *Buffer) String() (s string) {
+	s = ""
+	if buff != nil {
+		if buf := buff.buffer; len(buf) > 0 {
+			for _, b := range buf {
+				s += string(b)
+			}
+		}
+		if buff.bytesi > 0 {
+			s += string(buff.bytes[:buff.bytesi])
+		}
+	}
+	return
+}
+
 //Size - total size of Buffer
 func (buff *Buffer) Size() (s int64) {
 	s = 0

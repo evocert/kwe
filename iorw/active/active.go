@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	//"github.com/evocert/kwe/ecma/es6"
@@ -117,6 +116,7 @@ type parsing struct {
 	psvmap         map[int][]int64
 	psvr           []rune
 	psvri          int
+	psvctrl        *passivecontrol
 }
 
 func (prsng *parsing) print(a ...interface{}) {
@@ -174,6 +174,10 @@ func (prsng *parsing) close() {
 		if prsng.atvrntme != nil {
 			prsng.atvrntme.close()
 			prsng.atvrntme = nil
+		}
+		if prsng.psvctrl != nil {
+			prsng.psvctrl.close()
+			prsng.psvctrl = nil
 		}
 
 		prsng = nil
@@ -260,47 +264,12 @@ func parsepsvrunes(prsng *parsing, p []rune) (err error) {
 	return
 }
 
-func parsepsvrune(prsng *parsing, rn rune) (err error) {
-	prsng.flushCde()
-	if prsng.hascde {
-		prsng.hascde = false
-	}
-	prsng.psvr[prsng.psvri] = rn
-	prsng.psvri++
-	if prsng.psvri == len(prsng.psvr) {
-		prsng.psvri = 0
-		err = prsng.writePsv(prsng.psvr)
-	}
-	return
-}
-
 func parseatvrunes(prsng *parsing, p []rune) (err error) {
 	if len(p) > 0 {
 		for _, rn := range p {
 			if err = parseatvrune(prsng, rn); err != nil {
 				break
 			}
-		}
-	}
-	return
-}
-
-func parseatvrune(prsng *parsing, rn rune) (err error) {
-	if !prsng.hascde {
-		prsng.flushPsv()
-		if !prsng.foundcde {
-			prsng.foundcde = true
-		}
-		if strings.TrimSpace(string(rn)) != "" {
-			prsng.hascde = true
-		}
-	}
-	if prsng.hascde {
-		prsng.cder[prsng.cderi] = rn
-		prsng.cderi++
-		if prsng.cderi == len(prsng.cder) {
-			prsng.cderi = 0
-			err = prsng.writeCde(prsng.cder)
 		}
 	}
 	return

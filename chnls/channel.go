@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/gorilla/websocket"
 )
 
@@ -36,8 +37,45 @@ func (chnl *Channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 //ServeWS - server websocket Connection
 func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
+
 	if wsrw := NewWsReaderWriter(wscon); wsrw != nil {
-		chnl.ServeRW(wsrw, wsrw, a...)
+		//var rruns = make([]rune, 1024)
+		//var rrunsi = 0
+		var tmpbuf = iorw.NewBuffer()
+		for {
+			if wsrw.CanWrite() {
+				io.Copy(tmpbuf, wsrw)
+				/*for {
+					rn, size, rnerr := wsrw.ReadRune()
+					if size > 0 {
+						rruns[rrunsi] = rn
+						rrunsi++
+						if rrunsi == len(rruns) {
+							//fmt.Print(string(rruns[:rrunsi]))
+							rrunsi = 0
+						}
+					}
+					if rnerr != nil {
+						break
+					}
+				}
+				if rrunsi > 0 {
+					//fmt.Print(string(rruns[:rrunsi]))
+					rrunsi = 0
+				}*/
+
+			}
+			if wsrw.CanRead() {
+				wsrw.Print(tmpbuf.String())
+				tmpbuf.Clear()
+				wsrw.Flush()
+			} else {
+				break
+			}
+		}
+		tmpbuf.Close()
+		tmpbuf = nil
+		//chnl.ServeRW(wsrw, wsrw, a...)
 		wsrw.Close()
 	}
 }

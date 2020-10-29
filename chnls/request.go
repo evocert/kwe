@@ -247,9 +247,9 @@ func (rqst *Request) processPaths() {
 								if rqst.atv == nil {
 									rqst.atv = active.NewActive()
 								}
-								rqst.copy(rqst.currshndlr, true)
+								rqst.copy(rqst.currshndlr, nil, true)
 							} else {
-								rqst.copy(rqst.currshndlr, false)
+								rqst.copy(rqst.currshndlr, nil, false)
 							}
 						}
 					} else {
@@ -282,9 +282,9 @@ func (rqst *Request) processPaths() {
 				if rqst.atv == nil {
 					rqst.atv = active.NewActive()
 				}
-				rqst.copy(rqst.currshndlr, true)
+				rqst.copy(rqst.currshndlr, nil, true)
 			} else {
-				rqst.copy(rqst.currshndlr, false)
+				rqst.copy(rqst.currshndlr, nil, false)
 			}
 		}
 	}
@@ -297,12 +297,20 @@ func (rqst *Request) processPaths() {
 	rqst.wrapup()
 }
 
-func (rqst *Request) copy(r io.Reader, istext bool) {
+func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool) {
 	if rqst != nil {
 		if istext {
-			rqst.atv.Eval(rqst, r)
+			if altw == nil {
+				rqst.atv.Eval(rqst, r)
+			} else {
+				rqst.atv.Eval(altw, r)
+			}
 		} else {
-			io.Copy(rqst, r)
+			if altw == nil {
+				io.Copy(rqst, r)
+			} else {
+				io.Copy(altw, r)
+			}
 		}
 	}
 }
