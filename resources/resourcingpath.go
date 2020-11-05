@@ -36,9 +36,13 @@ func (rsngpth *ResourcingPath) Close() (err error) {
 }
 
 //ResourceHandler - instance of Resource Handler
-func (rsngpth *ResourcingPath) ResourceHandler() (rshndlr *ResourceHandler) {
+func (rsngpth *ResourcingPath) ResourceHandler(altpath ...string) (rshndlr *ResourceHandler) {
 	if rsngpth != nil && rsngpth.rsngmngr != nil {
-		if rs := rsngpth.rsngmngr.FindRS(rsngpth.LookupPath); rs != nil {
+		if len(altpath) > 0 && altpath[0] != "" {
+			if rs := rsngpth.rsngmngr.FindRS(altpath[0]); rs != nil {
+				rshndlr = newResourceHandler(rs)
+			}
+		} else if rs := rsngpth.rsngmngr.FindRS(rsngpth.LookupPath); rs != nil {
 			rshndlr = newResourceHandler(rs)
 		}
 	}

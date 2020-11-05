@@ -14,11 +14,12 @@ import (
 
 //Active - struct
 type Active struct {
-	Print    func(a ...interface{})
-	Println  func(a ...interface{})
-	FPrint   func(w io.Writer, a ...interface{})
-	FPrintLn func(w io.Writer, a ...interface{})
-	lckprnt  *sync.Mutex
+	Print          func(a ...interface{})
+	Println        func(a ...interface{})
+	FPrint         func(w io.Writer, a ...interface{})
+	FPrintLn       func(w io.Writer, a ...interface{})
+	LookupTemplate func(string, ...interface{}) io.Reader
+	lckprnt        *sync.Mutex
 }
 
 //NewActive - instance
@@ -82,7 +83,7 @@ func (atv *Active) Eval(wout io.Writer, rin io.Reader) {
 		bfr = bufio.NewReader(rin)
 		rnr = bfr
 	}
-	parseprsngrunerdr(parsing, rnr)
+	parseprsngrunerdr(parsing, rnr, true)
 
 	parsing.Close()
 }
@@ -95,12 +96,13 @@ func (atv *Active) Close() (err error) {
 	return
 }
 
+var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
+
 type parsing struct {
 	*iorw.Buffer
 	atv            *Active
 	atvrntme       *atvruntime
 	wout           io.Writer
-	prslbl         [][]rune
 	prslbli        []int
 	prslblprv      []rune
 	prntprsng      *parsing
@@ -116,7 +118,8 @@ type parsing struct {
 	psvmap         map[int][]int64
 	psvr           []rune
 	psvri          int
-	psvctrl        *passivecontrol
+	psvctrl        *passivectrl
+	prvpsvctrls    map[*passivectrl]*passivectrl
 }
 
 func (prsng *parsing) print(a ...interface{}) {
@@ -154,9 +157,6 @@ func (prsng *parsing) close() {
 		}
 		if prsng.prntprsng != nil {
 			prsng.prntprsng = nil
-		}
-		if prsng.prslbl != nil {
-			prsng.prslbl = nil
 		}
 		if prsng.prslbli != nil {
 			prsng.prslbli = nil
@@ -241,9 +241,13 @@ func (prsng *parsing) foundCode() bool {
 func (prsng *parsing) flushPsv() (err error) {
 	if pi := prsng.psvri; pi > 0 {
 		prsng.psvri = 0
-		prsng.writePsv(prsng.psvr[:pi])
+		if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
+			err = prsng.psvctrl.cachedbuf().WriteRunes(prsng.psvr[:pi])
+		} else {
+			err = prsng.writePsv(prsng.psvr[:pi])
+		}
 	}
-	if prsng.foundCode() {
+	if (prsng.psvctrl == nil || prsng.psvctrl.lastElmType == elemnone) && prsng.foundCode() {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
 			prsng.psvoffsetstart = -1
 			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
@@ -287,7 +291,7 @@ func (prsng *parsing) flushCde() (err error) {
 	return
 }
 
-func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader) (err error) {
+func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err error) {
 	var crunes = make([]rune, 4096)
 	var crunesi = 0
 	for err == nil {
@@ -299,7 +303,7 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader) (err error) {
 				cl := crunesi
 				crunesi = 0
 				for _, cr := range crunes[:cl] {
-					parseprsng(prsng, prsng.prslbl, prsng.prslbli, prsng.prslblprv, cr)
+					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
 				}
 			}
 		}
@@ -312,74 +316,81 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader) (err error) {
 			cl := crunesi
 			crunesi = 0
 			for _, cr := range crunes[:cl] {
-				parseprsng(prsng, prsng.prslbl, prsng.prslbli, prsng.prslblprv, cr)
+				parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
 			}
 		}
 		prsng.flushPsv()
 		prsng.flushCde()
-		if prsng.foundCode() {
-			prsng.atvrntme = newatvruntime(prsng.atv, prsng)
-			prsng.atvrntme.run()
-		} else {
-			if rdr := prsng.Reader(); rdr != nil {
-				io.Copy(prsng.wout, rdr)
-				rdr.Close()
-				rdr = nil
+		if canexec {
+			if prsng.foundCode() {
+				prsng.atvrntme = newatvruntime(prsng.atv, prsng)
+				prsng.atvrntme.run()
+			} else {
+				if rdr := prsng.Reader(); rdr != nil {
+					io.Copy(prsng.wout, rdr)
+					rdr.Close()
+					rdr = nil
+				}
 			}
 		}
 	}
 	return
 }
 
-func parseprsng(prsng *parsing, prslbl [][]rune, prslbli []int, prslblprv []rune, pr rune) {
-	if prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
-		if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
-			if psvl := prslbli[0]; psvl > 0 {
-				prslbli[0] = 0
-				prslblprv[0] = 0
-				parsepsvrunes(prsng, prslbl[0][0:psvl])
+func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err error) {
+	if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
+		err = prsng.psvctrl.processrn(pr)
+	} else {
+		if prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
+			if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
+				if psvl := prslbli[0]; psvl > 0 {
+					prslbli[0] = 0
+					prslblprv[0] = 0
+					err = parsepsvrunes(prsng, prslbl[0][0:psvl])
+				}
 			}
-		}
-		if prslbl[0][prslbli[0]] == pr {
-			prslbli[0]++
-			if prslbli[0] == len(prslbl[0]) {
+			if prslbl[0][prslbli[0]] == pr {
+				prslbli[0]++
+				if prslbli[0] == len(prslbl[0]) {
 
-				prslblprv[0] = 0
+					prslblprv[0] = 0
+				} else {
+					prslblprv[0] = pr
+				}
 			} else {
+				if psvl := prslbli[0]; psvl > 0 {
+					prslbli[0] = 0
+					prslblprv[0] = 0
+					err = parsepsvrunes(prsng, prslbl[0][0:psvl])
+				}
 				prslblprv[0] = pr
+				err = parsepsvrune(prsng, pr)
 			}
-		} else {
-			if psvl := prslbli[0]; psvl > 0 {
-				prslbli[0] = 0
-				prslblprv[0] = 0
-				parsepsvrunes(prsng, prslbl[0][0:psvl])
-			}
-			prslblprv[0] = pr
-			parsepsvrune(prsng, pr)
-		}
-	} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
-		if prslbl[1][prslbli[1]] == pr {
-			prslbli[1]++
-			if prslbli[1] == len(prslbl[1]) {
-				prslbli[0] = 0
-				prslblprv[1] = 0
-				prslbli[1] = 0
+		} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
+			if prslbl[1][prslbli[1]] == pr {
+				prslbli[1]++
+				if prslbli[1] == len(prslbl[1]) {
+					prslbli[0] = 0
+					prslblprv[1] = 0
+					prslbli[1] = 0
+				} else {
+					prslblprv[1] = pr
+				}
 			} else {
+				if prsl := prslbli[1]; prsl > 0 {
+					prslbli[1] = 0
+					err = parseatvrunes(prsng, prslbl[1][:prsl])
+				}
 				prslblprv[1] = pr
+				err = parseatvrune(prsng, pr)
 			}
-		} else {
-			if prsl := prslbli[1]; prsl > 0 {
-				prslbli[1] = 0
-				parseatvrunes(prsng, prslbl[1][:prsl])
-			}
-			prslblprv[1] = pr
-			parseatvrune(prsng, pr)
 		}
 	}
+	return
 }
 
 func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, prslbl: [][]rune{[]rune("<@"), []rune("@>")}, prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192)}
+	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192)}
 	return
 }
 

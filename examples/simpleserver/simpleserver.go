@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/resources"
 )
@@ -20,6 +21,7 @@ func main() {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 		listen.Listening().Listen(":1002", false)
 	}
+	database.GLOBALDBMS()
 	<-cancelChan
 	os.Exit(0)
 }

@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -210,8 +211,37 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 func (rqst *Request) processPaths() {
 	var isFirstRequest = true
 	var isTextRequest = false
+	var rsngpth *resources.ResourcingPath = nil
+	var rqstTmpltLkp = func(tmpltpath string, a ...interface{}) (rdr io.Reader) {
+		if rsngpth != nil {
+			var tmpltpathroot = ""
+			var tmpltext = filepath.Ext(tmpltpath)
+			if tmpltext == "" {
+				tmpltext = filepath.Ext(rsngpth.LookupPath)
+			}
+			tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
+			if !strings.HasPrefix(tmpltpath, "/") {
+				tmpltpathroot = rsngpth.LookupPath
+				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
+					if strings.LastIndex(tmpltpathroot, "/") > -1 {
+						tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
+						if tmpltpathroot != "/" && !strings.HasPrefix(tmpltpathroot, "/") {
+							tmpltpathroot = "/" + tmpltpathroot
+						}
+					} else {
+						tmpltpathroot = "/"
+					}
+				}
+				if tmpltpath = tmpltpathroot + tmpltpath + tmpltext; tmpltpath != "" {
+					rdr = rsngpth.ResourceHandler(tmpltpath)
+					tmpltpath = ""
+				}
+			}
+		}
+		return
+	}
 	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
-		var rsngpth = rqst.rsngpaths[0]
+		rsngpth = rqst.rsngpaths[0]
 		rqst.rsngpaths = rqst.rsngpaths[1:]
 		var rspath = rsngpth.Path
 		isTextRequest = false
@@ -247,6 +277,9 @@ func (rqst *Request) processPaths() {
 								if rqst.atv == nil {
 									rqst.atv = active.NewActive()
 								}
+								if rqst.atv.LookupTemplate == nil {
+									rqst.atv.LookupTemplate = rqstTmpltLkp
+								}
 								rqst.copy(rqst.currshndlr, nil, true)
 							} else {
 								rqst.copy(rqst.currshndlr, nil, false)
@@ -281,6 +314,9 @@ func (rqst *Request) processPaths() {
 				isTextRequest = false
 				if rqst.atv == nil {
 					rqst.atv = active.NewActive()
+				}
+				if rqst.atv.LookupTemplate == nil {
+					rqst.atv.LookupTemplate = rqstTmpltLkp
 				}
 				rqst.copy(rqst.currshndlr, nil, true)
 			} else {

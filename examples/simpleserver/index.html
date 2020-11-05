@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html>
+<html><!--<@print("test-this");@>-->
 <head>
     <meta charset='utf-8'>
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
@@ -9,7 +8,6 @@
     <script src='main.js'></script>
 </head>
 <body>
-    <#test/>
-    <@for(var i=0;i<10000;i++){@><h1><@print("hello");@></h1><@}@>
+    <:test/><@for(var i=0;i<10000;i++){@><h1><:test><:west/></:test><@print("hello");@></h1><@}@>
 </body>
-</html><@print("<!-- BLA -->")@>
+</html>
