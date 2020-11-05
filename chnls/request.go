@@ -99,6 +99,7 @@ func (rqst *Request) Parameters() *parameters.Parameters {
 	return rqst.prms
 }
 
+//RequestBodyS - wrap request.RequestBody() as string
 func (rqst *Request) RequestBodyS() (s string) {
 	if bf := rqst.RequestBody(); bf != nil {
 		var rns = make([]rune, 1024)
