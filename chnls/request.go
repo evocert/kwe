@@ -293,6 +293,8 @@ func (rqst *Request) processPaths() {
 								isTextRequest = false
 								if rqst.atv == nil {
 									rqst.atv = active.NewActive()
+								}
+								if rqst.atv.ObjectMapRef == nil {
 									rqst.atv.ObjectMapRef = func() map[string]interface{} {
 										return rqst.objmap
 									}
@@ -334,6 +336,8 @@ func (rqst *Request) processPaths() {
 				isTextRequest = false
 				if rqst.atv == nil {
 					rqst.atv = active.NewActive()
+				}
+				if rqst.atv.ObjectMapRef == nil {
 					rqst.atv.ObjectMapRef = func() map[string]interface{} {
 						return rqst.objmap
 					}
