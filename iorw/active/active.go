@@ -19,6 +19,7 @@ type Active struct {
 	FPrint         func(w io.Writer, a ...interface{})
 	FPrintLn       func(w io.Writer, a ...interface{})
 	LookupTemplate func(string, ...interface{}) io.Reader
+	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
 }
 
@@ -402,6 +403,13 @@ type atvruntime struct {
 
 func (atvrntme *atvruntime) run() (err error) {
 	if cde := atvrntme.code(); cde != "" {
+		if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
+			if objmapref := atvrntme.atv.ObjectMapRef(); objmapref != nil && len(objmapref) > 0 {
+				for k, ref := range objmapref {
+					atvrntme.vm.Set(k, ref)
+				}
+			}
+		}
 		atvrntme.vm.Set("_passiveout", func(i int) {
 			atvrntme.passiveout(i)
 		})

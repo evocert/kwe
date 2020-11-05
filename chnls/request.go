@@ -37,6 +37,7 @@ type Request struct {
 	rqstr          io.Reader
 	Interrupted    bool
 	wgtxt          *sync.WaitGroup
+	objmap         map[string]interface{}
 }
 
 //AddPath - next resource path(s) to process
@@ -154,6 +155,22 @@ func (rqst *Request) Close() (err error) {
 		}
 		if rqst.httpw != nil {
 			rqst.httpw = nil
+		}
+		if rqst.objmap != nil {
+			if l := len(rqst.objmap); l > 0 {
+				var ks = make([]string, l)
+				var ksi = 0
+				for k := range rqst.objmap {
+					ks[ksi] = k
+					ksi++
+				}
+				for _, k := range ks {
+					rqst.objmap[k] = nil
+					delete(rqst.objmap, k)
+				}
+				ks = nil
+			}
+			rqst.objmap = nil
 		}
 		rqst = nil
 
@@ -276,6 +293,9 @@ func (rqst *Request) processPaths() {
 								isTextRequest = false
 								if rqst.atv == nil {
 									rqst.atv = active.NewActive()
+									rqst.atv.ObjectMapRef = func() map[string]interface{} {
+										return rqst.objmap
+									}
 								}
 								if rqst.atv.LookupTemplate == nil {
 									rqst.atv.LookupTemplate = rqstTmpltLkp
@@ -314,6 +334,9 @@ func (rqst *Request) processPaths() {
 				isTextRequest = false
 				if rqst.atv == nil {
 					rqst.atv = active.NewActive()
+					rqst.atv.ObjectMapRef = func() map[string]interface{} {
+						return rqst.objmap
+					}
 				}
 				if rqst.atv.LookupTemplate == nil {
 					rqst.atv.LookupTemplate = rqstTmpltLkp
@@ -457,7 +480,9 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a))}
+	rqst = &Request{mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}}
+	rqst.objmap["request"] = rqst
+	rqst.objmap["channel"] = chnl
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}
