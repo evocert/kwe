@@ -1,6 +1,7 @@
 package chnls
 
 import (
+	"bufio"
 	"compress/gzip"
 	"io"
 	"net/http"
@@ -96,6 +97,40 @@ func (rqst *Request) RequestHeader() http.Header {
 //Parameters - Request web Parameters
 func (rqst *Request) Parameters() *parameters.Parameters {
 	return rqst.prms
+}
+
+func (rqst *Request) RequestBodyS() (s string) {
+	if bf := rqst.RequestBody(); bf != nil {
+		var rns = make([]rune, 1024)
+		var rnsi = 0
+		for {
+			r, size, rerr := bf.ReadRune()
+			if size > 0 {
+				rns[rnsi] = r
+				rnsi++
+				if rnsi == len(rns) {
+					s += string(rns)
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+		if rnsi > 0 {
+			s += string(rns[:rnsi])
+		}
+	}
+	return s
+}
+
+//RequestBody - RequestBody as bufio.Reader
+func (rqst *Request) RequestBody() (bf *bufio.Reader) {
+	if rqst.httpr != nil {
+		if bdy := rqst.httpr.Body; bdy == nil {
+			bf = bufio.NewReader(bdy)
+		}
+	}
+	return
 }
 
 //Close - refer io.Closer
