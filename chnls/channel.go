@@ -21,8 +21,8 @@ func NewChannel() (chnl *Channel) {
 	return
 }
 
-func (chnl *Channel) nextRequest() (rqst *Request) {
-	rqst = newRequest(chnl)
+func (chnl *Channel) nextRequest() (rqst *Request, interrupt func()) {
+	rqst, interrupt = newRequest(chnl)
 	return
 }
 
@@ -82,7 +82,7 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	if rqst := newRequest(chnl, r, w, a); rqst != nil {
+	if rqst, interrupt := newRequest(chnl, r, w, a); rqst != nil {
 		//var dne = make(chan bool, 1)
 		//go func(d chan<- bool) {
 		func() {
@@ -94,7 +94,7 @@ func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 				//d <- true
 
 			}()
-			rqst.execute()
+			rqst.execute(interrupt)
 		}()
 		//}(dne)
 		//<-dne

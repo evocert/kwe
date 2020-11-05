@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/evocert/kwe/chnls/parameters"
-	active "github.com/evocert/kwe/iorw/active"
-	mimes "github.com/evocert/kwe/mimes"
+	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/resources"
 )
 
@@ -39,6 +39,13 @@ type Request struct {
 	Interrupted    bool
 	wgtxt          *sync.WaitGroup
 	objmap         map[string]interface{}
+}
+
+//Interrupt - Request execution
+func (rqst *Request) Interrupt() {
+	if rqst.atv != nil {
+		rqst.atv.Interrupt()
+	}
 }
 
 //AddPath - next resource path(s) to process
@@ -232,9 +239,24 @@ func (rqst *Request) Close() (err error) {
 	return
 }
 
-func (rqst *Request) execute() {
+func (rqst *Request) execute(interrupt func()) {
 	if rqst.httpr != nil && rqst.httpw != nil {
-		rqst.executeHTTP()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+
+				}
+			}()
+			ctx := rqst.httpr.Context()
+			rqst.executeHTTP(interrupt)
+			select {
+			case <-ctx.Done():
+				if interrupt != nil {
+					interrupt()
+				}
+			default:
+			}
+		}()
 	}
 }
 
@@ -466,7 +488,7 @@ func (rqst *Request) startWriting() {
 	}
 }
 
-func (rqst *Request) executeHTTP() {
+func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
 		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
@@ -475,7 +497,7 @@ func (rqst *Request) executeHTTP() {
 	}
 }
 
-func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
+func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func()) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	var httpw http.ResponseWriter = nil
@@ -543,6 +565,10 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request) {
 	rqst.objmap["channel"] = chnl
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
+	}
+
+	interrupt = func() {
+		rqst.Interrupt()
 	}
 	return
 }

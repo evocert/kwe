@@ -21,6 +21,7 @@ type Active struct {
 	LookupTemplate func(string, ...interface{}) io.Reader
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
+	InterruptVM    func(v interface{})
 }
 
 //NewActive - instance
@@ -95,6 +96,13 @@ func (atv *Active) Close() (err error) {
 		atv.lckprnt = nil
 	}
 	return
+}
+
+//Interrupt - Active processing
+func (atv *Active) Interrupt() {
+	if atv.InterruptVM != nil {
+		atv.InterruptVM("exit")
+	}
 }
 
 var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
@@ -403,6 +411,10 @@ type atvruntime struct {
 
 func (atvrntme *atvruntime) run() (err error) {
 	if cde := atvrntme.code(); cde != "" {
+		atvrntme.vm.ClearInterrupt()
+		atvrntme.atv.InterruptVM = func(v interface{}) {
+			atvrntme.vm.Interrupt(v)
+		}
 		if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
 			if objmapref := atvrntme.atv.ObjectMapRef(); objmapref != nil && len(objmapref) > 0 {
 				for k, ref := range objmapref {
