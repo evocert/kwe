@@ -65,9 +65,27 @@ func (rqst *Request) AddPath(path ...string) {
 	}
 }
 
+//ResponseHeaders wrap arround current ResponseWriter.Header
+func (rqst *Request) ResponseHeaders() (hdrs []string) {
+	hdrs = []string{}
+	for k := range rqst.httpw.Header() {
+		hdrs = append(hdrs, k)
+	}
+	return
+}
+
 //ResponseHeader wrap arround current ResponseWriter.Header
 func (rqst *Request) ResponseHeader() http.Header {
 	return rqst.httpw.Header()
+}
+
+//RequestHeaders wrap arround current Request.Header
+func (rqst *Request) RequestHeaders() (hdrs []string) {
+	hdrs = []string{}
+	for k := range rqst.httpr.Header {
+		hdrs = append(hdrs, k)
+	}
+	return
 }
 
 //RequestHeader wrap arround current Request.Header
