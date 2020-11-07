@@ -39,14 +39,14 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 		}
 	} else if atv.FPrint != nil && w != nil {
 		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			//atv.lckprnt.Lock()
+			//defer atv.lckprnt.Unlock()
 			atv.FPrint(w, a...)
 		}
 	} else if w != nil {
 		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			//atv.lckprnt.Lock()
+			//defer atv.lckprnt.Unlock()
 			iorw.Fprint(w, a...)
 		}
 	}
@@ -435,23 +435,30 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
-		prsd, err := parser.ParseFile(nil, "", cde, 0) //es6.CompileAST("", cde, false)
-		if err == nil {
-			if p, perr := goja.CompileAST(prsd, false); perr == nil {
-				_, err = atvrntme.vm.RunProgram(p)
-			} else {
-				err = perr
-			}
-		}
-		if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
-			if ks := gbl.Keys(); len(ks) > 0 {
-				for _, k := range ks {
-					gbl.Delete(k)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("%v", r)
 				}
-				ks = nil
+			}()
+			prsd, err := parser.ParseFile(nil, "", cde, 0) //es6.CompileAST("", cde, false)
+			if err == nil {
+				if p, perr := goja.CompileAST(prsd, false); perr == nil {
+					_, err = atvrntme.vm.RunProgram(p)
+				} else {
+					err = perr
+				}
 			}
-			gbl = nil
-		}
+			if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
+				if ks := gbl.Keys(); len(ks) > 0 {
+					for _, k := range ks {
+						gbl.Delete(k)
+					}
+					ks = nil
+				}
+				gbl = nil
+			}
+		}()
 	}
 	return
 }

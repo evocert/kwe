@@ -8,9 +8,14 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 )
 
+//Open -wrap sql.Open("sqlserver", datasource)
+func Open(datasource string) (*sql.DB, error) {
+	return sql.Open("sqlserver", datasource)
+}
+
 func init() {
 	database.GLOBALDBMS().RegisterDriver("sqlserver", func(datasource string) (db *sql.DB, err error) {
-		db, err = sql.Open("sqlserver", datasource)
+		db, err = Open(datasource)
 		return
 	})
 }

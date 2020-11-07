@@ -3,6 +3,7 @@ package chnls
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -10,9 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/kwe/chnls/parameters"
+	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/mimes"
+	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/resources"
 )
 
@@ -247,14 +249,20 @@ func (rqst *Request) execute(interrupt func()) {
 
 				}
 			}()
-			ctx := rqst.httpr.Context()
-			rqst.executeHTTP(interrupt)
+			ctx, cancel := context.WithCancel(rqst.httpr.Context())
+			go func() {
+				defer cancel()
+				rqst.executeHTTP(interrupt)
+			}()
 			select {
 			case <-ctx.Done():
-				if interrupt != nil {
-					interrupt()
+				if ctxerr := ctx.Err(); ctxerr != nil {
+					if ctxerr.Error() != "context canceled" {
+						if interrupt != nil {
+							interrupt()
+						}
+					}
 				}
-			default:
 			}
 		}()
 	}
@@ -281,21 +289,6 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 				rqst.startWriting()
 			}
 			n, err = rqst.internWrite(p)
-			/*
-				for n < pl && err == nil {
-					if cl := (len(rqst.wbytes) - rqst.wbytesi); (pl - n) >= cl {
-						copy(rqst.wbytes[rqst.wbytesi:rqst.wbytesi+cl], p[n:n+cl])
-						n += cl
-						rqst.wbytesi += cl
-					} else if cl := (pl - n); (pl - n) < (len(rqst.wbytes) - rqst.wbytesi) {
-						copy(rqst.wbytes[rqst.wbytesi:rqst.wbytesi+cl], p[n:n+cl])
-						n += cl
-						rqst.wbytesi += cl
-					}
-					if rqst.wbytesi == len(rqst.wbytes) {
-						_, err = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
-					}
-				}*/
 		}
 	}
 	return
@@ -563,6 +556,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	rqst = &Request{mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}}
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
+	rqst.objmap["dbms"] = database.GLOBALDBMS()
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}

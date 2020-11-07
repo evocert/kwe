@@ -37,6 +37,43 @@ func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string) (*sql.
 	}
 }
 
+func (dbms *DBMS) aliasExists(alias string) (exists bool, dbcn *Connection) {
+	if alias != "" && len(dbms.cnctns) > 0 {
+		dbcn, exists = dbms.cnctns[alias]
+	}
+	return
+}
+
+func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string) (*sql.DB, error), hasdbinvoker bool) {
+	if driver != "" && len(dbms.drivers) > 0 {
+		dbinvoker, hasdbinvoker = dbms.drivers[driver]
+	}
+	return
+}
+
+//Query - query database by alias - return Reader for underlying dataset
+func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
+	if exists, dbcn := dbms.aliasExists(alias); exists {
+		var err error = nil
+		reader, _, err = dbcn.query(query, false, prms...)
+		if err != nil && reader == nil {
+
+		}
+	}
+	return
+}
+
+//Execute - query database by alias - no result actions
+func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) (exctr *Executor) {
+	if exists, dbcn := dbms.aliasExists(alias); exists {
+		var err error = nil
+		if _, exctr, err = dbcn.query(query, true, prms...); err != nil {
+
+		}
+	}
+	return
+}
+
 //NewDBMS - instance
 func NewDBMS() (dbms *DBMS) {
 	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string) (*sql.DB, error){}}

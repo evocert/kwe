@@ -4,13 +4,18 @@ import (
 	"database/sql"
 
 	"github.com/evocert/kwe/database"
-	//helper registration sql server driver
+	//helper registration mysql server driver
 	_ "github.com/go-sql-driver/mysql"
 )
 
+//Open -wrap sql.Open("mysql", datasource)
+func Open(datasource string) (*sql.DB, error) {
+	return sql.Open("mysql", datasource)
+}
+
 func init() {
 	database.GLOBALDBMS().RegisterDriver("mysql", func(datasource string) (db *sql.DB, err error) {
-		db, err = sql.Open("mysql", datasource)
+		db, err = Open(datasource)
 		return
 	})
 }
