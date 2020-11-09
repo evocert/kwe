@@ -11,10 +11,13 @@ type Executor struct {
 	lasterr      error
 	lastInsertID int64
 	rowsAffected int64
+	mappedArgs   map[string]interface{}
+	qryArgs      []interface{}
 }
 
-func newExecutor(cn *Connection, db *sql.DB, stmnt string) (exctr *Executor) {
-	exctr = &Executor{stmnt: stmnt, db: db, cn: cn}
+func newExecutor(cn *Connection, db *sql.DB, query interface{}, prms ...interface{}) (exctr *Executor) {
+	exctr = &Executor{db: db, cn: cn}
+	exctr.stmnt, exctr.qryArgs, exctr.mappedArgs = queryToStatement(exctr, query, prms...)
 	return
 }
 
