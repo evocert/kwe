@@ -136,7 +136,7 @@ func (rqst *Request) RequestBodyS() (s string) {
 //RequestBody - RequestBody as bufio.Reader
 func (rqst *Request) RequestBody() (bf *bufio.Reader) {
 	if rqst.httpr != nil {
-		if bdy := rqst.httpr.Body; bdy == nil {
+		if bdy := rqst.httpr.Body; bdy != nil {
 			bf = bufio.NewReader(bdy)
 		}
 	}
@@ -483,8 +483,8 @@ func (rqst *Request) startWriting() {
 
 func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
-		rqst.prms = parameters.NewParameters()
-		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
+		//rqst.prms = parameters.NewParameters()
+		//parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
 		rqst.AddPath(rqst.httpr.URL.Path)
 		rqst.processPaths()
 	}
