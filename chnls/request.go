@@ -119,6 +119,7 @@ func (rqst *Request) RequestBodyS() (s string) {
 				rns[rnsi] = r
 				rnsi++
 				if rnsi == len(rns) {
+					rnsi = 0
 					s += string(rns)
 				}
 			}
