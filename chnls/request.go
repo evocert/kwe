@@ -483,8 +483,8 @@ func (rqst *Request) startWriting() {
 
 func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
-		//rqst.prms = parameters.NewParameters()
-		//parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
+		rqst.prms = parameters.NewParameters()
+		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
 		rqst.AddPath(rqst.httpr.URL.Path)
 		rqst.processPaths()
 	}
