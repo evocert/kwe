@@ -21,19 +21,30 @@ type Reader struct {
 	wg       *sync.WaitGroup
 }
 
+//ColumnTypes return Column types in form of a slice, 'array', of []*ColumnType values
+func (rdr *Reader) ColumnTypes() []*ColumnType {
+	return rdr.cltpes
+}
+
+//Columns return Column names in form of a slice, 'array', of string values
+func (rdr *Reader) Columns() []string {
+	return rdr.cls
+}
+
 //Data return Displayable data in the form of a slice, 'array', of interface{} values
 func (rdr *Reader) Data() []interface{} {
 	//go func(somethingDone chan bool) {
 	//	defer func() {
 	//		somethingDone <- true
 	//	}()
+
 	for n := range rdr.data {
-		coltype := rdr.cltpes[n]
-		rdr.dispdata[n] = castSQLTypeValue(rdr.data[n], coltype)
+		rdr.dispdata[n] = castSQLTypeValue(rdr.data[n], rdr.cltpes[n])
 	}
 	//}(rset.dosomething)
 	//<-rset.dosomething
-	return rdr.dispdata
+
+	return rdr.dispdata[:]
 }
 
 //MoveNext - Move next
@@ -69,6 +80,7 @@ func (rdr *Reader) Next() (next bool, err error) {
 				next = false
 			}
 		}(wg)
+		wg.Wait()
 		//}(rset.dosomething)
 		//<-rset.dosomething
 	} else {

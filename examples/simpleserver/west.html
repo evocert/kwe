@@ -1,8 +1,14 @@
 <@
 try{
-    var r=dbms.Query("test","select @@VAL@@",{"VAL":42});
+    var r=dbms.Query("test","select @@VAL@@ as col",{"VAL":42});
+    r.Columns().forEach(function(val){
+        print(val,",");
+    });
+    println();
     while(r.MoveNext()){
-        print(r.Data());
+        r.Data().forEach(function(val){
+            print(val,",");
+        });        
     }
     r.Close();
 }catch(e){

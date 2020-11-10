@@ -59,18 +59,19 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 			defer atv.lckprnt.Unlock()
 			atv.Println(a...)
 		}
-	} else if atv.FPrint != nil && w != nil {
-		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
-			atv.FPrint(w, a...)
-		}
+	} else if atv.FPrintLn != nil && w != nil {
+		//if len(a) > 0 {
+		atv.lckprnt.Lock()
+		defer atv.lckprnt.Unlock()
+		atv.FPrint(w, a...)
+		//}
 	} else if w != nil {
 		if len(a) > 0 {
 			atv.lckprnt.Lock()
 			defer atv.lckprnt.Unlock()
 			fmt.Fprint(w, a...)
 		}
+		fmt.Fprintln(w)
 	}
 }
 
