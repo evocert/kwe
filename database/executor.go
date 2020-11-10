@@ -24,11 +24,20 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, prms ...interfac
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.ColumnType, cls []string) {
 	if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr == nil && exctr.stmt != nil {
 		exctr.lastInsertID = -1
-		exctr.rowsAffected = 0
+		exctr.rowsAffected = -1
 		if len(forrows) >= 1 && forrows[0] {
-			if rws, exctr.lasterr = exctr.stmt.Query(); rws != nil && exctr.lasterr == nil {
+			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
 				cltpes, _ = rws.ColumnTypes()
 				cls, _ = rws.Columns()
+			}
+		} else {
+			if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
+				if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
+					exctr.lastInsertID = -1
+				}
+				if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
+					exctr.rowsAffected = -1
+				}
 			}
 		}
 	}

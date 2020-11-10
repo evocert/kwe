@@ -445,6 +445,9 @@ func (atvrntme *atvruntime) run() (err error) {
 			if err == nil {
 				if p, perr := goja.CompileAST(prsd, false); perr == nil {
 					_, err = atvrntme.vm.RunProgram(p)
+					if err != nil {
+						fmt.Println(err.Error())
+					}
 				} else {
 					err = perr
 				}
@@ -459,6 +462,9 @@ func (atvrntme *atvruntime) run() (err error) {
 				gbl = nil
 			}
 		}()
+	}
+	if err != nil {
+		fmt.Println(err.Error())
 	}
 	return
 }

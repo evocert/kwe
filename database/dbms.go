@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
+	"io"
 )
 
 //DBMS - struct
@@ -59,6 +61,24 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 		if err != nil && reader == nil {
 
 		}
+	}
+	return
+}
+
+//InOut - OO{ in io.Reader -> out io.Writer } loop till no input
+func (dbms *DBMS) InOut(in io.Reader, out io.Writer, outformat string) (err error) {
+	var decoder *json.Decoder = nil
+	if in != nil {
+		decoder = json.NewDecoder(in)
+		decoder.Token()
+	}
+
+	var data map[string]interface{} = nil
+	for decoder != nil {
+		if data == nil {
+			data = map[string]interface{}{}
+		}
+
 	}
 	return
 }

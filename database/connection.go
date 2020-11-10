@@ -50,7 +50,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 				} else {
 					//validNames = append(validNames, pmk)
-					mappedVals[pmk] = fmt.Sprint(pmv)
+					mappedVals[pmk] = pmv
 				}
 			}
 		}
@@ -60,8 +60,8 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 	var parseParam = func(prmval interface{}) (s string) {
 		if exctr.cn.driverName == "sqlserver" {
-			qryArgs = append(qryArgs, prmval)
 			s = ("@p" + fmt.Sprintf("%d", len(qryArgs)))
+			qryArgs = append(qryArgs, sql.Named("p"+fmt.Sprintf("%d", len(qryArgs)), prmval))
 		} else if exctr.cn.driverName == "postgres" {
 			//qry += ("$S" + fmt.Sprintf("%d", len(txtArgs)))
 			/*argv := prmval
@@ -70,9 +70,9 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 			} else {
 				qry += fmt.Sprint(argv)
 			}*/
-			qryArgs = append(qryArgs, prmval)
-			prmname := "$" + fmt.Sprintf("%d", len(qryArgs))
 
+			prmname := "$" + fmt.Sprintf("%d", len(qryArgs))
+			qryArgs = append(qryArgs, prmval)
 			s = (prmname)
 		} else {
 			qryArgs = append(qryArgs, prmval)

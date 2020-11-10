@@ -250,15 +250,19 @@ func (rqst *Request) execute(interrupt func()) {
 
 				}
 			}()
+			isCancelled := false
 			ctx, cancel := context.WithCancel(rqst.httpr.Context())
 			go func() {
-				defer cancel()
+				defer func() {
+					isCancelled = true
+					cancel()
+				}()
 				rqst.executeHTTP(interrupt)
 			}()
 			select {
 			case <-ctx.Done():
 				if ctxerr := ctx.Err(); ctxerr != nil {
-					if ctxerr.Error() != "context canceled" {
+					if !isCancelled {
 						if interrupt != nil {
 							interrupt()
 						}

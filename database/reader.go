@@ -36,6 +36,14 @@ func (rdr *Reader) Data() []interface{} {
 	return rdr.dispdata
 }
 
+//MoveNext - Move next
+func (rdr *Reader) MoveNext() (next bool) {
+	if rdr != nil {
+		next, _ = rdr.Next()
+	}
+	return
+}
+
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {

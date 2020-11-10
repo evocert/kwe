@@ -1,1 +1,11 @@
-<div>WEST-{:content:}-TSEW</div>
+<@
+try{
+    var r=dbms.Query("test","select @@VAL@@",{"VAL":42});
+    while(r.MoveNext()){
+        print(r.Data());
+    }
+    r.Close();
+}catch(e){
+    
+}
+@>

@@ -6,11 +6,13 @@ import (
 	"syscall"
 
 	"github.com/evocert/kwe/database"
+	_ "github.com/evocert/kwe/database/sqlserver"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/resources"
 )
 
 func main() {
+	database.GLOBALDBMS().RegisterConnection("test", "sqlserver", "server=localhost;user id=bcoring;password=bc@r1ng;")
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGTERM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
