@@ -2,7 +2,11 @@
 for(var i=0;i<1000;i++) {
     print("<h2>",(i+1),"</h2>");
 try{
-    var r=dbms.Query("test","select @@VAL@@ as col",{"VAL":42});
+    var r=dbms.Query("test","select @@VAL@@ as col",function(){
+        print("success");
+    },function(err){
+
+    },{"VAL":42});
     print("<table>");
     print("<tr>");
     r.Columns().forEach(function(val){

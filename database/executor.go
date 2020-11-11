@@ -1,6 +1,10 @@
 package database
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/evocert/kwe/parameters"
+)
 
 //Executor - struct
 type Executor struct {
@@ -13,11 +17,38 @@ type Executor struct {
 	rowsAffected int64
 	mappedArgs   map[string]interface{}
 	qryArgs      []interface{}
+	OnSuccess    interface{}
+	OnError      interface{}
+	OnFinalize   interface{}
 }
 
-func newExecutor(cn *Connection, db *sql.DB, query interface{}, prms ...interface{}) (exctr *Executor) {
-	exctr = &Executor{db: db, cn: cn}
-	exctr.stmnt, exctr.qryArgs, exctr.mappedArgs = queryToStatement(exctr, query, prms...)
+func newExecutor(cn *Connection, db *sql.DB, query interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
+	var argsn = 0
+	for argsn < len(args) {
+		var d = args[argsn]
+		if _, dok := d.(*parameters.Parameters); dok {
+			argsn++
+		} else if _, dok := d.(map[string]interface{}); dok {
+			argsn++
+		} else {
+			if d != nil {
+				if onsuccess == nil {
+					onsuccess = d
+				} else if onerror == nil {
+					onerror = d
+				} else if onfinalize == nil {
+					onfinalize = d
+				}
+				if argsn == len(args) {
+					args = append(args[:argsn])
+				} else if argsn < len(args) {
+					args = append(args[:argsn], args[argsn+1:]...)
+				}
+			}
+		}
+	}
+	exctr = &Executor{db: db, cn: cn, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
+	exctr.stmnt, exctr.qryArgs, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
 
@@ -27,8 +58,11 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 		exctr.rowsAffected = -1
 		if len(forrows) >= 1 && forrows[0] {
 			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
+				invokeSuccess(exctr.OnSuccess)
 				cltpes, _ = rws.ColumnTypes()
 				cls, _ = rws.Columns()
+			} else if exctr.lasterr != nil {
+				invokeError(exctr.lasterr, exctr.OnError)
 			}
 		} else {
 			if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
@@ -38,6 +72,11 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 				if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
 					exctr.rowsAffected = -1
 				}
+				invokeSuccess(exctr.OnSuccess)
+
+			} else {
+				exctr.lasterr = rslterr
+				invokeError(exctr.lasterr, exctr.OnSuccess)
 			}
 		}
 	}
@@ -59,6 +98,16 @@ func (exctr *Executor) Close() (err error) {
 		}
 		if exctr.lasterr != nil {
 			exctr.lasterr = nil
+		}
+		invokeFinalize(exctr.OnFinalize)
+		if exctr.OnSuccess != nil {
+			exctr.OnSuccess = nil
+		}
+		if exctr.OnError != nil {
+			exctr.OnError = nil
+		}
+		if exctr.OnFinalize != nil {
+			exctr.OnFinalize = nil
 		}
 		exctr = nil
 	}

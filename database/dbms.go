@@ -57,7 +57,7 @@ func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...inte
 func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
 	if exists, dbcn := dbms.aliasExists(alias); exists {
 		var err error = nil
-		reader, _, err = dbcn.query(query, false, prms...)
+		reader, _, err = dbcn.query(query, false, nil, nil, nil, prms...)
 		if err != nil && reader == nil {
 
 		}
@@ -87,7 +87,7 @@ func (dbms *DBMS) InOut(in io.Reader, out io.Writer, outformat string) (err erro
 func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) (exctr *Executor) {
 	if exists, dbcn := dbms.aliasExists(alias); exists {
 		var err error = nil
-		if _, exctr, err = dbcn.query(query, true, prms...); err != nil {
+		if _, exctr, err = dbcn.query(query, true, nil, nil, nil, prms...); err != nil {
 
 		}
 	}

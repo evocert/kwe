@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/dop251/goja"
 	"github.com/evocert/kwe/parameters"
 )
 
@@ -232,7 +233,31 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 	return
 }
 
-func (cn *Connection) query(query interface{}, noreader bool, prms ...interface{}) (reader *Reader, exctr *Executor, err error) {
+func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
+	var argsn = 0
+	for argsn < len(args) {
+		var d = args[argsn]
+		if _, dok := d.(*parameters.Parameters); dok {
+			argsn++
+		} else if _, dok := d.(map[string]interface{}); dok {
+			argsn++
+		} else {
+			if d != nil {
+				if onsuccess == nil {
+					onsuccess = d
+				} else if onerror == nil {
+					onerror = d
+				} else if onfinalize == nil {
+					onfinalize = d
+				}
+				if argsn == len(args) {
+					args = append(args[:argsn])
+				} else if argsn < len(args) {
+					args = append(args[:argsn], args[argsn+1:]...)
+				}
+			}
+		}
+	}
 	if cn.db == nil {
 		if cn.dbinvoker == nil {
 			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
@@ -242,10 +267,13 @@ func (cn *Connection) query(query interface{}, noreader bool, prms ...interface{
 		if cn.db, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.db != nil {
 			cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
 		}
+		if err != nil && onerror != nil {
+			invokeError(err, onerror)
+		}
 	}
 	if cn.db != nil {
 		if query != nil {
-			exctr = newExecutor(cn, cn.db, query, prms...)
+			exctr = newExecutor(cn, cn.db, query, onsuccess, onerror, onfinalize, args...)
 			if noreader {
 				exctr.execute()
 			} else {
@@ -255,6 +283,44 @@ func (cn *Connection) query(query interface{}, noreader bool, prms ...interface{
 		}
 	}
 	return
+}
+
+func invokeError(err error, onerror interface{}) {
+	if onerror != nil {
+		if fncerror, fncerrorok := onerror.(func(error)); fncerrorok {
+			fncerror(err)
+		} else if atverror, atverrorok := onerror.(func(goja.FunctionCall) goja.Value); atverrorok {
+			var fnccall = goja.FunctionCall{}
+			if atvval, atvvalok := onerror.(*goja.Callable); atvvalok {
+				if atvval != nil {
+
+				}
+			}
+			atverror(fnccall)
+		}
+	}
+}
+
+func invokeSuccess(onsuccess interface{}) {
+	if onsuccess != nil {
+		if fncsuccess, fncsuccessok := onsuccess.(func()); fncsuccessok {
+			fncsuccess()
+		} else if atvsuccess, atvsuccessok := onsuccess.(func(goja.FunctionCall) goja.Value); atvsuccessok {
+			var fnccall = goja.FunctionCall{}
+			atvsuccess(fnccall)
+		}
+	}
+}
+
+func invokeFinalize(onfinalize interface{}) {
+	if onfinalize != nil {
+		if fncfinalize, fncfinalizeok := onfinalize.(func()); fncfinalizeok {
+			fncfinalize()
+		} else if atvfinalize, atvfinalizeok := onfinalize.(func(goja.FunctionCall) goja.Value); atvfinalizeok {
+
+			atvfinalize(goja.FunctionCall{})
+		}
+	}
 }
 
 //NewConnection - dbms,driver name and datasource name (cn-string)

@@ -562,6 +562,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
+
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}
