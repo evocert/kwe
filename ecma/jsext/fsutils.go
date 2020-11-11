@@ -12,6 +12,8 @@ func Register_jsext_fsutils(vm*goja.Runtime){
 		Minor int`json:"minor"`
 		Bump int`json:"bump"`
 	}
+	//todo: namespace everything kwe.fsutils.etcetcetc
+	//first test for kwe then do set fsutils on kwe
 	vm.Set("fsutils",struct{
 		Version Version`json:"version"`
 		File2String func(string)(string)`json:"file2string"`

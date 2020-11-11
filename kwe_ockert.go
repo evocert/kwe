@@ -10,9 +10,6 @@ import (
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/database/postgres"
-/*
-*/
-
 )
 
 func main() {
@@ -21,8 +18,9 @@ func main() {
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGTERM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
-	database.GLOBALDBMS().RegisterConnection("mydb", "postgres", "user=postgres password=1234!@#$qwerQWER dbname=postgres sslmode=disable")
-	resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
+	//resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
+	database.GLOBALDBMS().RegisterConnection("mydb","postgres","user=postgres password=1234!@#$qwerQWER dbname=postgres sslmode=disable")
+//"postgres","user=postgres password=1234!@#$qwerQWER dbname=postgres sslmode=disable"
 	if args := os.Args; len(args) == 3 {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", args[1])
 		listen.Listening().Listen(args[2], false)

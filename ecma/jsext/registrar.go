@@ -4,4 +4,5 @@ import(
 )
 func Register(vm*goja.Runtime){
 	Register_jsext_fsutils(vm)
+	Register_jsext_httputils(vm)
 }

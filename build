@@ -1,2 +1,3 @@
 #!/bin/bash
+echo go build ./kwe_ockert.go
 go build ./kwe_ockert.go
