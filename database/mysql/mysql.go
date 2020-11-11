@@ -14,7 +14,7 @@ func Open(datasource string) (*sql.DB, error) {
 }
 
 func init() {
-	database.GLOBALDBMS().RegisterDriver("mysql", func(datasource string) (db *sql.DB, err error) {
+	database.GLOBALDBMS().RegisterDriver("mysql", func(datasource string, a ...interface{}) (db *sql.DB, err error) {
 		db, err = Open(datasource)
 		return
 	})

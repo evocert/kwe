@@ -9,7 +9,7 @@ import (
 //DBMS - struct
 type DBMS struct {
 	cnctns  map[string]*Connection
-	drivers map[string]func(string) (*sql.DB, error)
+	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
 }
 
 //RegisterConnection - alias, driverName, dataSourceName
@@ -33,7 +33,7 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 }
 
 //RegisterDriver - register driver name for invokable db call
-func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string) (*sql.DB, error)) {
+func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...interface{}) (*sql.DB, error)) {
 	if driver != "" && invokedbcall != nil {
 		dbms.drivers[driver] = invokedbcall
 	}
@@ -46,7 +46,7 @@ func (dbms *DBMS) aliasExists(alias string) (exists bool, dbcn *Connection) {
 	return
 }
 
-func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string) (*sql.DB, error), hasdbinvoker bool) {
+func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...interface{}) (*sql.DB, error), hasdbinvoker bool) {
 	if driver != "" && len(dbms.drivers) > 0 {
 		dbinvoker, hasdbinvoker = dbms.drivers[driver]
 	}
@@ -96,7 +96,7 @@ func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) 
 
 //NewDBMS - instance
 func NewDBMS() (dbms *DBMS) {
-	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string) (*sql.DB, error){}}
+	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string, ...interface{}) (*sql.DB, error){}}
 
 	return
 }

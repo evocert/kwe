@@ -1,17 +1,26 @@
 <@
+for(var i=0;i<1000;i++) {
+    print("<h2>",(i+1),"</h2>");
 try{
     var r=dbms.Query("test","select @@VAL@@ as col",{"VAL":42});
+    print("<table>");
+    print("<tr>");
     r.Columns().forEach(function(val){
-        print(val,",");
+        print("<th>",val,"</th>");
     });
+    print("</tr>")
     println();
-    while(r.MoveNext()){
+    while(r.Next()){
+        print("<tr>");
         r.Data().forEach(function(val){
-            print(val,",");
+            print("<td>",val,"</td>");
         });        
+        print("</tr>");
     }
+    print("<table>");
     r.Close();
 }catch(e){
     
+}
 }
 @>

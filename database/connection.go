@@ -16,7 +16,7 @@ type Connection struct {
 	dbms                       *DBMS
 	driverName, dataSourceName string
 	db                         *sql.DB
-	dbinvoker                  func(string) (*sql.DB, error)
+	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
 }
 
 func runeReaderToString(rnr io.RuneReader) (s string) {

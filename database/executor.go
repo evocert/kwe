@@ -64,3 +64,11 @@ func (exctr *Executor) Close() (err error) {
 	}
 	return
 }
+
+//Err - return last Error
+func (exctr *Executor) Err() (err error) {
+	if exctr != nil {
+		err = exctr.lasterr
+	}
+	return
+}
