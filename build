@@ -1,0 +1,2 @@
+#!/bin/bash
+go build ./kwe_ockert.go

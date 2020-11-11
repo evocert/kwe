@@ -1,0 +1,7 @@
+#!/bin/bash
+HOST=0.0.0.0
+PORT=:80
+firewall-cmd --zone=public --permanent --add-port=$PORT/tcp
+firewall-cmd --reload
+#./kwe_ockert "$HOST" "$PORT"
+./kwe_ockert
