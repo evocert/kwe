@@ -436,6 +436,7 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
+		atvrntme.vm.Set("script", atvrntme)
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

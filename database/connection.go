@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
+	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
 )
 
@@ -235,6 +236,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
 	var argsn = 0
+	var script *active.Active = nil
 	for argsn < len(args) {
 		var d = args[argsn]
 		if _, dok := d.(*parameters.Parameters); dok {
@@ -243,7 +245,11 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 			argsn++
 		} else {
 			if d != nil {
-				if onsuccess == nil {
+				if scrpt, scrptok := d.(*active.Active); scrptok {
+					if script == nil && scrpt != nil {
+						script = scrpt
+					}
+				} else if onsuccess == nil {
 					onsuccess = d
 				} else if onerror == nil {
 					onerror = d
