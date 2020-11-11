@@ -236,7 +236,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
 	var argsn = 0
-	var script *active.Active = nil
+	var script active.Runtime = nil
 	for argsn < len(args) {
 		var d = args[argsn]
 		if _, dok := d.(*parameters.Parameters); dok {
@@ -245,7 +245,7 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 			argsn++
 		} else {
 			if d != nil {
-				if scrpt, scrptok := d.(*active.Active); scrptok {
+				if scrpt, scrptok := d.(active.Runtime); scrptok {
 					if script == nil && scrpt != nil {
 						script = scrpt
 					}

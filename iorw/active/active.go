@@ -9,8 +9,8 @@ import (
 	//"github.com/evocert/kwe/ecma/es6"
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
-	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/ecma/jsext"
+	"github.com/evocert/kwe/iorw"
 )
 
 //Active - struct
@@ -409,6 +409,10 @@ type atvruntime struct {
 	*parsing
 	atv *Active
 	vm  *goja.Runtime
+}
+
+func (atvrntme *atvruntime) InvokeFunction(interface{}, ...interface{}) {
+
 }
 
 func (atvrntme *atvruntime) run() (err error) {
