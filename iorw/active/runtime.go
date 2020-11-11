@@ -1,6 +1,6 @@
 package active
 
-//Runetime - interface
+//Runtime - interface
 type Runtime interface {
 	InvokeFunction(interface{}, ...interface{})
 }
