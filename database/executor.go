@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 
+	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
 )
 
@@ -20,9 +21,10 @@ type Executor struct {
 	OnSuccess    interface{}
 	OnError      interface{}
 	OnFinalize   interface{}
+	script       active.Runtime
 }
 
-func newExecutor(cn *Connection, db *sql.DB, query interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
+func newExecutor(cn *Connection, db *sql.DB, query interface{}, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
 	var argsn = 0
 	for argsn < len(args) {
 		var d = args[argsn]
@@ -47,7 +49,7 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, onsuccess, onerr
 			}
 		}
 	}
-	exctr = &Executor{db: db, cn: cn, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
+	exctr = &Executor{db: db, cn: cn, script: script, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
 	exctr.stmnt, exctr.qryArgs, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
@@ -58,11 +60,10 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 		exctr.rowsAffected = -1
 		if len(forrows) >= 1 && forrows[0] {
 			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
-				invokeSuccess(exctr.OnSuccess)
 				cltpes, _ = rws.ColumnTypes()
 				cls, _ = rws.Columns()
 			} else if exctr.lasterr != nil {
-				invokeError(exctr.lasterr, exctr.OnError)
+				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 			}
 		} else {
 			if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
@@ -72,11 +73,11 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 				if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
 					exctr.rowsAffected = -1
 				}
-				invokeSuccess(exctr.OnSuccess)
+				invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
 
 			} else {
 				exctr.lasterr = rslterr
-				invokeError(exctr.lasterr, exctr.OnSuccess)
+				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 			}
 		}
 	}
@@ -99,7 +100,10 @@ func (exctr *Executor) Close() (err error) {
 		if exctr.lasterr != nil {
 			exctr.lasterr = nil
 		}
-		invokeFinalize(exctr.OnFinalize)
+		invokeFinalize(exctr.script, exctr.OnFinalize)
+		if exctr.script != nil {
+			exctr.script = nil
+		}
 		if exctr.OnSuccess != nil {
 			exctr.OnSuccess = nil
 		}

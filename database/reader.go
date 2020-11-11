@@ -7,18 +7,22 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/evocert/kwe/iorw/active"
 )
 
 //Reader - struct
 type Reader struct {
 	*Executor
-	rws      *sql.Rows
-	cls      []string
-	cltpes   []*ColumnType
-	data     []interface{}
-	dispdata []interface{}
-	dataref  []interface{}
-	wg       *sync.WaitGroup
+	rws       *sql.Rows
+	cls       []string
+	cltpes    []*ColumnType
+	data      []interface{}
+	dispdata  []interface{}
+	dataref   []interface{}
+	wg        *sync.WaitGroup
+	OnColumns interface{}
+	OnRow     interface{}
 }
 
 //ColumnTypes return Column types in form of a slice, 'array', of []*ColumnType values
@@ -47,14 +51,6 @@ func (rdr *Reader) Data() []interface{} {
 	return rdr.dispdata[:]
 }
 
-//MoveNext - Move next
-func (rdr *Reader) MoveNext() (next bool) {
-	if rdr != nil {
-		next, _ = rdr.Next()
-	}
-	return
-}
-
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {
@@ -81,12 +77,16 @@ func (rdr *Reader) Next() (next bool, err error) {
 			}
 		}(wg)
 		wg.Wait()
+		if err == nil {
+			invokeRow(rdr.script, rdr.OnRow, rdr.Data())
+		}
 		//}(rset.dosomething)
 		//<-rset.dosomething
 	} else {
 		if rseterr := rdr.rws.Err(); rseterr != nil {
 			err = rseterr
 			//rdr.lasterr=err
+			invokeError(rdr.script, err, rdr.OnError)
 		}
 		rdr.Close()
 	}
@@ -111,6 +111,12 @@ func (rdr *Reader) Close() (err error) {
 	}
 	if rdr.wg != nil {
 		rdr.wg = nil
+	}
+	if rdr.OnColumns != nil {
+		rdr.OnColumns = nil
+	}
+	if rdr.OnRow != nil {
+		rdr.OnRow = nil
 	}
 	if rdr.Executor != nil {
 		if rdr.lasterr != nil {
@@ -261,10 +267,34 @@ func (rdr *Reader) execute() (err error) {
 				rdr.cls = cls[:]
 
 				rdr.cltpes = columnTypes(cltpes, cls)
+				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
+				invokeColumns(rdr.script, rdr.OnColumns, rdr.cls, rdr.cltpes)
 			}
+		} else if err != nil {
+			invokeError(rdr.script, err, rdr.OnError)
 		}
 	}
 	return
+}
+
+func invokeRow(script active.Runtime, onrow interface{}, data []interface{}) {
+	if onrow != nil {
+		if fncrow, fncrowsok := onrow.(func([]interface{})); fncrowsok {
+			fncrow(data)
+		} else if script != nil {
+			script.InvokeFunction(onrow, data)
+		}
+	}
+}
+
+func invokeColumns(script active.Runtime, oncolumns interface{}, cls []string, cltpes []*ColumnType) {
+	if oncolumns != nil {
+		if fnccolumns, fnccolumnssok := oncolumns.(func([]string, []*ColumnType)); fnccolumnssok {
+			fnccolumns(cls, cltpes)
+		} else if script != nil {
+			script.InvokeFunction(oncolumns, cls, cltpes)
+		}
+	}
 }
 
 func columnTypes(sqlcoltypes []*sql.ColumnType, cls []string) (coltypes []*ColumnType) {

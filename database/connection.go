@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/dop251/goja"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
 )
@@ -264,6 +263,7 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 			}
 		}
 	}
+
 	if cn.db == nil {
 		if cn.dbinvoker == nil {
 			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
@@ -274,12 +274,12 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 			cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
 		}
 		if err != nil && onerror != nil {
-			invokeError(err, onerror)
+			invokeError(script, err, onerror)
 		}
 	}
 	if cn.db != nil {
 		if query != nil {
-			exctr = newExecutor(cn, cn.db, query, onsuccess, onerror, onfinalize, args...)
+			exctr = newExecutor(cn, cn.db, query, script, onsuccess, onerror, onfinalize, args...)
 			if noreader {
 				exctr.execute()
 			} else {
@@ -291,40 +291,33 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 	return
 }
 
-func invokeError(err error, onerror interface{}) {
+func invokeError(script active.Runtime, err error, onerror interface{}) {
 	if onerror != nil {
 		if fncerror, fncerrorok := onerror.(func(error)); fncerrorok {
 			fncerror(err)
-		} else if atverror, atverrorok := onerror.(func(goja.FunctionCall) goja.Value); atverrorok {
-			var fnccall = goja.FunctionCall{}
-			if atvval, atvvalok := onerror.(*goja.Callable); atvvalok {
-				if atvval != nil {
-
-				}
-			}
-			atverror(fnccall)
+		} else if script != nil {
+			script.InvokeFunction(onerror, err)
 		}
 	}
 }
 
-func invokeSuccess(onsuccess interface{}) {
+func invokeSuccess(script active.Runtime, onsuccess interface{}, args ...interface{}) {
 	if onsuccess != nil {
 		if fncsuccess, fncsuccessok := onsuccess.(func()); fncsuccessok {
 			fncsuccess()
-		} else if atvsuccess, atvsuccessok := onsuccess.(func(goja.FunctionCall) goja.Value); atvsuccessok {
-			var fnccall = goja.FunctionCall{}
-			atvsuccess(fnccall)
+		} else if script != nil {
+			script.InvokeFunction(onsuccess, args...)
 		}
 	}
 }
 
-func invokeFinalize(onfinalize interface{}) {
+func invokeFinalize(script active.Runtime, onfinalize interface{}) {
 	if onfinalize != nil {
 		if fncfinalize, fncfinalizeok := onfinalize.(func()); fncfinalizeok {
 			fncfinalize()
-		} else if atvfinalize, atvfinalizeok := onfinalize.(func(goja.FunctionCall) goja.Value); atvfinalizeok {
+		} else if script != nil {
 
-			atvfinalize(goja.FunctionCall{})
+			script.InvokeFunction(onfinalize)
 		}
 	}
 }

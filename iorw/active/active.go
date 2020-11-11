@@ -9,7 +9,6 @@ import (
 	//"github.com/evocert/kwe/ecma/es6"
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
-	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -411,13 +410,31 @@ type atvruntime struct {
 	vm  *goja.Runtime
 }
 
-func (atvrntme *atvruntime) InvokeFunction(interface{}, ...interface{}) {
+func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) {
+	if functocall != nil {
+		if atvrntme.vm != nil {
+			var fnccallargs []goja.Value = nil
+			var argsn = 0
 
+			for argsn < len(args) {
+				if fnccallargs == nil {
+					fnccallargs = make([]goja.Value, len(args))
+				}
+				fnccallargs[argsn] = atvrntme.vm.ToValue(args[argsn])
+				argsn++
+			}
+			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
+				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
+				atvfunc(funccll)
+			}
+		}
+	}
 }
 
 func (atvrntme *atvruntime) run() (err error) {
 	if cde := atvrntme.code(); cde != "" {
 		atvrntme.vm.ClearInterrupt()
+		//jsext.Register(atvrntme.vm)
 		atvrntme.atv.InterruptVM = func(v interface{}) {
 			atvrntme.vm.Interrupt(v)
 		}
@@ -441,7 +458,7 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
-		jsext.Register(atvrntme.vm)
+		//jsext.Register(atvrntme.vm)
 		atvrntme.vm.Set("script", atvrntme)
 		func() {
 			defer func() {

@@ -1,30 +1,34 @@
 <@
-for(var i=0;i<1000;i++) {
+var test="bla";
+for(var i=0;i<1;i++) {
     print("<h2>",(i+1),"</h2>");
 try{
-    var r=dbms.Query("test","select @@VAL@@ as col",function(){
-        print("success");
+    var r=dbms.Query("test","select @@VAL@@ as col",script,function(r){
+        @><table><@
+        r.OnColumns=function(cls,clstpes) {
+            @><tr><@
+            cls.forEach(function(val){
+                @><th><@print(val);@></th><@
+            });
+            @></tr><@
+        };
+        r.OnRow=function(data) {
+            @><tr><@
+            data.forEach(function(val){
+                @><td><@print(val);@></td><@
+            });
+            @></tr><@
+        };
+        r.OnFinalize=function(){
+            @></table><@
+        };
     },function(err){
-
+        print(err.Error());
     },{"VAL":42});
-    print("<table>");
-    print("<tr>");
-    r.Columns().forEach(function(val){
-        print("<th>",val,"</th>");
-    });
-    print("</tr>")
-    println();
-    while(r.Next()){
-        print("<tr>");
-        r.Data().forEach(function(val){
-            print("<td>",val,"</td>");
-        });        
-        print("</tr>");
-    }
-    print("<table>");
+    while(r.Next());
     r.Close();
 }catch(e){
-    
+    println(e.message);
 }
 }
 @>
