@@ -410,6 +410,10 @@ type atvruntime struct {
 	vm  *goja.Runtime
 }
 
+func (atvrntme *atvruntime) InvokeFunction(interface{}, ...interface{}) {
+
+}
+
 func (atvrntme *atvruntime) run() (err error) {
 	if cde := atvrntme.code(); cde != "" {
 		atvrntme.vm.ClearInterrupt()
