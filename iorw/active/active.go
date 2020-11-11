@@ -10,6 +10,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/ecma/jsext"
 )
 
 //Active - struct
@@ -436,7 +437,11 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
+<<<<<<< HEAD
+		jsext.Register(atvrntme.vm)
+=======
 		atvrntme.vm.Set("script", atvrntme)
+>>>>>>> 253946355a3b277b621da760175d31b43f6c907f
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
