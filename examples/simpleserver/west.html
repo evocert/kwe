@@ -12,12 +12,13 @@ try{
             });
             @></tr><@
         };
-        r.OnRow=function(data) {
+        r.OnRow=function(rn,data) {
             @><tr><@
             data.forEach(function(val){
-                @><td><@print(val);@></td><@
+                @><td><@print(rn,":",val);@></td><@
             });
             @></tr><@
+            return true;
         };
         r.OnFinalize=function(){
             @></table><@

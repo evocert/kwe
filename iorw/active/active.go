@@ -411,7 +411,7 @@ type atvruntime struct {
 	vm  *goja.Runtime
 }
 
-func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) {
+func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if functocall != nil {
 		if atvrntme.vm != nil {
 			var fnccallargs []goja.Value = nil
@@ -426,10 +426,13 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 			}
 			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
 				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
-				atvfunc(funccll)
+				if rsltval := atvfunc(funccll); rsltval != nil {
+					result = rsltval.Export()
+				}
 			}
 		}
 	}
+	return result
 }
 
 func (atvrntme *atvruntime) run() (err error) {

@@ -15,6 +15,7 @@ import (
 type Reader struct {
 	*Executor
 	rws       *sql.Rows
+	rownr     int64
 	cls       []string
 	cltpes    []*ColumnType
 	data      []interface{}
@@ -78,10 +79,14 @@ func (rdr *Reader) Next() (next bool, err error) {
 		}(wg)
 		wg.Wait()
 		if err == nil {
-			invokeRow(rdr.script, rdr.OnRow, rdr.Data())
+			rdr.rownr++
+			next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr.Data())
 		}
 		//}(rset.dosomething)
 		//<-rset.dosomething
+		if !next {
+			rdr.Close()
+		}
 	} else {
 		if rseterr := rdr.rws.Err(); rseterr != nil {
 			err = rseterr
@@ -255,7 +260,7 @@ func (fld *Field) Type() (tpe *ColumnType) {
 }
 
 func newReader(exctr *Executor) (rdr *Reader) {
-	rdr = &Reader{Executor: exctr}
+	rdr = &Reader{Executor: exctr, rownr: 0}
 	return
 }
 
@@ -269,6 +274,7 @@ func (rdr *Reader) Repeat(a ...interface{}) (err error) {
 func (rdr *Reader) execute() (err error) {
 	if rws, cltpes, cls := rdr.Executor.execute(true); rws != nil {
 		if err = rdr.lasterr; err == nil {
+			rdr.rownr = 0
 			rdr.rws = rws
 			if len(cls) > 0 {
 				rdr.cls = cls[:]
@@ -284,14 +290,29 @@ func (rdr *Reader) execute() (err error) {
 	return
 }
 
-func invokeRow(script active.Runtime, onrow interface{}, data []interface{}) {
+func invokeRow(script active.Runtime, onrow interface{}, rwonr int64, data []interface{}) (nextrow bool) {
 	if onrow != nil {
 		if fncrow, fncrowsok := onrow.(func([]interface{})); fncrowsok {
 			fncrow(data)
+			nextrow = true
+		} else if fncrownext, fncrowsnextok := onrow.(func([]interface{}) bool); fncrowsnextok {
+			nextrow = !fncrownext(data)
 		} else if script != nil {
-			script.InvokeFunction(onrow, data)
+			invval := script.InvokeFunction(onrow, rwonr, data)
+			if isdone, isdoneok := invval.(bool); isdoneok {
+				if isdone {
+					nextrow = false
+				} else {
+					nextrow = true
+				}
+			} else {
+				nextrow = true
+			}
 		}
+	} else {
+		nextrow = true
 	}
+	return
 }
 
 func invokeColumns(script active.Runtime, oncolumns interface{}, cls []string, cltpes []*ColumnType) {
