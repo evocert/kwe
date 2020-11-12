@@ -52,10 +52,12 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 		} else {
 			exctr.qryArgs[argi] = prmval
 		}*/
-		if argvs, argvsok := prmval.(string); argvsok {
-			s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
-		} else {
-			s += fmt.Sprint(prmval)
+		if argi == -1 {
+			if argvs, argvsok := prmval.(string); argvsok {
+				s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
+			} else {
+				s += fmt.Sprint(prmval)
+			}
 		}
 	} else {
 		if argi == -1 {
