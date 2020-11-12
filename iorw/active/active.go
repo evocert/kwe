@@ -9,6 +9,7 @@ import (
 	//"github.com/evocert/kwe/ecma/es6"
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
+	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -434,7 +435,7 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 func (atvrntme *atvruntime) run() (err error) {
 	if cde := atvrntme.code(); cde != "" {
 		atvrntme.vm.ClearInterrupt()
-		//jsext.Register(atvrntme.vm)
+		jsext.Register(atvrntme.vm)
 		atvrntme.atv.InterruptVM = func(v interface{}) {
 			atvrntme.vm.Interrupt(v)
 		}

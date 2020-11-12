@@ -24,7 +24,45 @@ func runeReaderToString(rnr io.RuneReader) (s string) {
 	return
 }
 
-func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (stmnt string, qryArgs []interface{}, mappedVals map[string]interface{}) {
+func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
+	if exctr.cn.driverName == "sqlserver" {
+		if argi == -1 {
+			s = ("@p" + fmt.Sprintf("%d", len(exctr.qryArgs)))
+			prmnme := "p" + fmt.Sprintf("%d", len(exctr.qryArgs))
+			exctr.qryArgs = append(exctr.qryArgs, sql.Named(prmnme, prmval))
+			//exctr.qryArgs = append(exctr.qryArgs, prmval)
+		} else {
+			exctr.qryArgs[argi] = sql.Named("p"+fmt.Sprintf("%d", argi), prmval)
+			//exctr.qryArgs[argi] = prmval
+		}
+	} else if exctr.cn.driverName == "postgres" {
+		//qry += ("$S" + fmt.Sprintf("%d", len(txtArgs)))
+		/*argv := prmval
+		if argvs, argvsok := argv.(string); argvsok {
+			qry += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
+		} else {
+			qry += fmt.Sprint(argv)
+		}*/
+
+		if argi == -1 {
+			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs))
+			exctr.qryArgs = append(exctr.qryArgs, prmval)
+			s = (prmname)
+		} else {
+			exctr.qryArgs[argi] = prmval
+		}
+	} else {
+		if argi == -1 {
+			exctr.qryArgs = append(exctr.qryArgs, prmval)
+			s = "?"
+		} else {
+			exctr.qryArgs[argi] = prmval
+		}
+	}
+	return
+}
+
+func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (stmnt string, validNames []string, mappedVals map[string]interface{}) {
 	var rnrr io.RuneReader = nil
 	if qrys, qrysok := query.(string); qrysok && qrys != "" {
 		rnrr = bufio.NewReader(strings.NewReader(qrys))
@@ -57,29 +95,8 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 		}
 	}
 
-	qryArgs = []interface{}{}
-
-	var parseParam = func(prmval interface{}) (s string) {
-		if exctr.cn.driverName == "sqlserver" {
-			s = ("@p" + fmt.Sprintf("%d", len(qryArgs)))
-			qryArgs = append(qryArgs, sql.Named("p"+fmt.Sprintf("%d", len(qryArgs)), prmval))
-		} else if exctr.cn.driverName == "postgres" {
-			//qry += ("$S" + fmt.Sprintf("%d", len(txtArgs)))
-			/*argv := prmval
-			if argvs, argvsok := argv.(string); argvsok {
-				qry += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
-			} else {
-				qry += fmt.Sprint(argv)
-			}*/
-
-			prmname := "$" + fmt.Sprintf("%d", len(qryArgs))
-			qryArgs = append(qryArgs, prmval)
-			s = (prmname)
-		} else {
-			qryArgs = append(qryArgs, prmval)
-			s = "?"
-		}
-		return
+	if len(exctr.qryArgs) == 0 {
+		exctr.qryArgs = []interface{}{}
 	}
 
 	stmnt = ""
@@ -175,7 +192,11 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 							if prmslbli[1] == len(prmslbl[1]) {
 								if psblprmnmei > 0 {
 									if mpv, mpvok := mappedVals[string(psblprmnme[:psblprmnmei])]; mpvok {
-										apprs([]rune(parseParam(mpv)))
+										if validNames == nil {
+											validNames = []string{}
+										}
+										validNames = append(validNames, string(psblprmnme[:psblprmnmei]))
+										apprs([]rune(parseParam(exctr, mpv, -1)))
 									} else {
 										apprs(prmslbl[0])
 										apprs(psblprmnme[:psblprmnmei])
@@ -236,12 +257,22 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
 	var argsn = 0
 	var script active.Runtime = nil
+	var canRepeat = false
 	for argsn < len(args) {
 		var d = args[argsn]
 		if _, dok := d.(*parameters.Parameters); dok {
 			argsn++
 		} else if _, dok := d.(map[string]interface{}); dok {
 			argsn++
+		} else if _, dok := d.(bool); dok {
+			argsn++
+		} else if dbool, dok := d.(bool); dok {
+			canRepeat = dbool
+			if argsn == len(args) {
+				args = append(args[:argsn])
+			} else if argsn < len(args) {
+				args = append(args[:argsn], args[argsn+1:]...)
+			}
 		} else {
 			if d != nil {
 				if scrpt, scrptok := d.(active.Runtime); scrptok {
@@ -279,9 +310,9 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 	}
 	if cn.db != nil {
 		if query != nil {
-			exctr = newExecutor(cn, cn.db, query, script, onsuccess, onerror, onfinalize, args...)
+			exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 			if noreader {
-				exctr.execute()
+				exctr.execute(false)
 			} else {
 				reader = newReader(exctr)
 				reader.execute()

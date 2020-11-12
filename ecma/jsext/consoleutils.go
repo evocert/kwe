@@ -1,46 +1,49 @@
 package jsext
-import(
-	"github.com/dop251/goja"
+
+import (
 	"log"
+
+	"github.com/dop251/goja"
 )
-func Register_jsext_consoleutils(vm*goja.Runtime){
-	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
-	type Version struct{
+
+func Register_jsext_consoleutils(vm *goja.Runtime) {
+	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
+	type Version struct {
 		Major int `json:"major"`
-		Minor int`json:"minor"`
-		Bump int`json:"bump"`
+		Minor int `json:"minor"`
+		Bump  int `json:"bump"`
 	}
-	log.SetFlags(log.LstdFlags|log.Lmicroseconds)//global???
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds) //global???
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
-	vm.Set("console",struct{
-		Version Version`json:"version"`
-		Log func(string)`json:"log"`
-		Warn func(string)`json:"warn"`
-		Error func(string)`json:"error"`
-		Debug func(string)`json:"debug"`
-		Trace func(string)`json:"trace"`
+	vm.Set("console", struct {
+		Version Version      `json:"version"`
+		Log     func(string) `json:"log"`
+		Warn    func(string) `json:"warn"`
+		Error   func(string) `json:"error"`
+		Debug   func(string) `json:"debug"`
+		Trace   func(string) `json:"trace"`
 	}{
-		Version:Version{
-			Major:0,
-			Minor:0,
-			Bump:1,
+		Version: Version{
+			Major: 0,
+			Minor: 0,
+			Bump:  1,
 		},
 		//todo: colors
-		Log:func(msg string)(){
-			log.Println("LOG:   ",msg)
+		Log: func(msg string) {
+			log.Println("LOG:   ", msg)
 		},
-		Warn:func(msg string)(){
-			log.Println("WARN:  ",msg)
+		Warn: func(msg string) {
+			log.Println("WARN:  ", msg)
 		},
-		Error:func(msg string)(){
-			log.Println("ERROR: ",msg)
+		Error: func(msg string) {
+			log.Println("ERROR: ", msg)
 		},
-		Debug:func(msg string)(){
-			log.Println("DEBUG: ",msg)
+		Debug: func(msg string) {
+			log.Println("DEBUG: ", msg)
 		},
-		Trace:func(msg string)(){
-			log.Println("TRACE: ",msg)
+		Trace: func(msg string) {
+			log.Println("TRACE: ", msg)
 		},
 	})
 }

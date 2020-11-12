@@ -1,9 +1,9 @@
 <@
 var test="bla";
-for(var i=0;i<1;i++) {
+for(var i=0;i<1000;i++) {
     print("<h2>",(i+1),"</h2>");
 try{
-    var r=dbms.Query("test","select @@VAL@@ as col",script,function(r){
+    var r=dbms.QuerySettings({alias:"test",query:"select @@VAL@@ as col",script:script,success:function(r){
         @><table><@
         r.OnColumns=function(cls,clstpes) {
             @><tr><@
@@ -22,9 +22,9 @@ try{
         r.OnFinalize=function(){
             @></table><@
         };
-    },function(err){
-        print(err.Error());
-    },{"VAL":42});
+    },"error":function(err){
+        @><tr><th><@print(err.Error());@></th></tr><@
+    },args:[{"VAL":42}]});
     while(r.Next());
     r.Close();
 }catch(e){

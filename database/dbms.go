@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+
+	"github.com/evocert/kwe/iorw/active"
 )
 
 //DBMS - struct
@@ -53,6 +55,68 @@ func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...inte
 	return
 }
 
+//QuerySettings - map[string]interface{} settings wrapper for Query
+// settings :
+// alias -  cn alias
+// query -  statement
+// args - [] slice of arguments
+// success - func(r) event when ready
+// error - func(error) event when encountering an error
+// finalize - func() final wrapup event
+// repeatable - true keep underlying stmnt open and allows for repeating query
+// script - script handle
+func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
+	if a != nil {
+		if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
+			var alias = ""
+			var query interface{} = nil
+			var prms = []interface{}{}
+			var onsuccess interface{} = nil
+			var onerror interface{} = nil
+			var onfinalize interface{} = nil
+			var script active.Runtime = nil
+			var canRepeat = false
+			var stngok = false
+			var args []interface{} = nil
+			for stngk, stngv := range sttngs {
+				if stngk == "alias" {
+					alias, _ = stngv.(string)
+				} else if stngk == "query" {
+					query = stngv
+				} else if stngk == "repeatable" {
+					if canRepeat, stngok = stngv.(bool); stngok {
+						if canRepeat {
+							prms = append(prms, stngv)
+						}
+					}
+				} else if stngk == "success" {
+					onsuccess = stngv
+				} else if stngk == "error" {
+					onerror = stngv
+				} else if stngk == "finalize" {
+					onfinalize = stngv
+				} else if stngk == "script" {
+					if script, stngok = stngv.(active.Runtime); stngok {
+						prms = append(prms, script)
+					}
+				} else if stngk == "prms" || stngk == "args" {
+					if args, stngok = stngv.([]interface{}); stngok && len(args) > 0 {
+						prms = append(prms, args...)
+					}
+				}
+			}
+			if exists, dbcn := dbms.aliasExists(alias); exists {
+				var err error = nil
+				reader, _, err = dbcn.query(query, false, onsuccess, onerror, onfinalize, prms...)
+				if err != nil && reader == nil {
+
+				}
+			}
+		}
+	}
+	return
+}
+
 //Query - query database by alias - return Reader for underlying dataset
 func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
 	if exists, dbcn := dbms.aliasExists(alias); exists {
@@ -79,6 +143,65 @@ func (dbms *DBMS) InOut(in io.Reader, out io.Writer, outformat string) (err erro
 			data = map[string]interface{}{}
 		}
 
+	}
+	return
+}
+
+//ExecuteSettings - map[string]interface{} settings wrapper for Execute
+// settings :
+// alias -  cn alias
+// query -  statement
+// args - [] slice of arguments
+// success - func(r) event when ready
+// error - func(error) event when encountering an error
+// finalize - func() final wrapup event
+// repeatable - true keep underlying stmnt open and allows for repeating query
+// script - script handle
+func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
+	if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
+		var alias = ""
+		var query interface{} = nil
+		var prms = []interface{}{}
+		var onsuccess interface{} = nil
+		var onerror interface{} = nil
+		var onfinalize interface{} = nil
+		var script active.Runtime = nil
+		var canRepeat = false
+		var stngok = false
+		var args []interface{} = nil
+		for stngk, stngv := range sttngs {
+			if stngk == "alias" {
+				alias, _ = stngv.(string)
+			} else if stngk == "query" {
+				query = stngv
+			} else if stngk == "repeatable" {
+				if canRepeat, stngok = stngv.(bool); stngok {
+					if canRepeat {
+						prms = append(prms, stngv)
+					}
+				}
+			} else if stngk == "success" {
+				onsuccess = stngv
+			} else if stngk == "error" {
+				onerror = stngv
+			} else if stngk == "finalize" {
+				onfinalize = stngv
+			} else if stngk == "script" {
+				if script, stngok = stngv.(active.Runtime); stngok {
+					prms = append(prms, script)
+				}
+			} else if stngk == "prms" || stngk == "args" {
+				if args, stngok = stngv.([]interface{}); stngok && len(args) > 0 {
+					prms = append(prms, args...)
+				}
+			}
+		}
+		if exists, dbcn := dbms.aliasExists(alias); exists {
+			var err error = nil
+			if _, exctr, err = dbcn.query(query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
+
+			}
+		}
 	}
 	return
 }

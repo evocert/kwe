@@ -259,6 +259,13 @@ func newReader(exctr *Executor) (rdr *Reader) {
 	return
 }
 
+//Repeat - repeat last query by repopulating parameters but dont regenerate last statement
+func (rdr *Reader) Repeat(a ...interface{}) (err error) {
+	rdr.execute()
+	err = rdr.lasterr
+	return
+}
+
 func (rdr *Reader) execute() (err error) {
 	if rws, cltpes, cls := rdr.Executor.execute(true); rws != nil {
 		if err = rdr.lasterr; err == nil {
