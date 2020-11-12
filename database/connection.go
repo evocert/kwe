@@ -55,7 +55,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 		if argi == -1 {
 			if argvs, argvsok := prmval.(string); argvsok {
 				s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
-			} else if argvb, argvsok := prmval.(string); argvsok {
+			} else if argvb, argvsok := prmval.(bool); argvsok {
 				if argvb {
 					s += "true"
 				} else {
