@@ -36,11 +36,23 @@ type Request struct {
 	wbytesi        int
 	rqstw          io.Writer
 	httpr          *http.Request
+	prtclmethod    string
+	prtcl          string
 	zpw            *gzip.Writer
 	rqstr          io.Reader
 	Interrupted    bool
 	wgtxt          *sync.WaitGroup
 	objmap         map[string]interface{}
+}
+
+//ProtoMethod - http e.g request METHOD
+func (rqst *Request) ProtoMethod() string {
+	return rqst.prtclmethod
+}
+
+//Proto - protocol of request e.g HTTP/1.1
+func (rqst *Request) Proto() string {
+	return rqst.prtcl
 }
 
 //Interrupt - Request execution
@@ -244,6 +256,8 @@ func (rqst *Request) Close() (err error) {
 
 func (rqst *Request) execute(interrupt func()) {
 	if rqst.httpr != nil && rqst.httpw != nil {
+		rqst.prtcl = rqst.httpr.Proto
+		rqst.prtclmethod = rqst.httpr.Method
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
