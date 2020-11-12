@@ -3,6 +3,7 @@ package database
 import (
 	"bufio"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"runtime"
@@ -36,15 +37,15 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			//exctr.qryArgs[argi] = prmval
 		}
 	} else if exctr.cn.driverName == "postgres" {
-		if argi == -1 {
+		/*if argi == -1 {
 			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1)
 			exctr.qryArgs = append(exctr.qryArgs, prmval)
 			s = (prmname)
 		} else {
 			exctr.qryArgs[argi] = prmval
-		}
+		}*/
 
-		/*if argi == -1 {
+		if argi == -1 {
 			if argvs, argvsok := prmval.(string); argvsok {
 				s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
 			} else if argvb, argvsok := prmval.(bool); argvsok {
@@ -56,7 +57,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			} else {
 				s += fmt.Sprint(prmval)
 			}
-		}*/
+		}
 	} else {
 		if argi == -1 {
 			exctr.qryArgs = append(exctr.qryArgs, prmval)
