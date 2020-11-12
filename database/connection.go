@@ -45,9 +45,9 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 		}*/
 
 		if argi == -1 {
-			prmname := "S" + fmt.Sprintf("%d", len(exctr.qryArgs))
+			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1)
 			exctr.qryArgs = append(exctr.qryArgs, prmval)
-			s = "$" + (prmname)
+			s = (prmname)
 		} else {
 			exctr.qryArgs[argi] = prmval
 		}
