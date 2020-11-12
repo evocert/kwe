@@ -3,6 +3,7 @@ package database
 import (
 	"bufio"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"runtime"
@@ -44,12 +45,17 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			qry += fmt.Sprint(argv)
 		}*/
 
-		if argi == -1 {
+		/*if argi == -1 {
 			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1)
 			exctr.qryArgs = append(exctr.qryArgs, sql.Named(prmname, prmval))
 			s = (prmname)
 		} else {
 			exctr.qryArgs[argi] = prmval
+		}*/
+		if argvs, argvsok := prmval.(string); argvsok {
+			s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
+		} else {
+			s += fmt.Sprint(prmval)
 		}
 	} else {
 		if argi == -1 {
