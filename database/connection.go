@@ -36,21 +36,8 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			//exctr.qryArgs[argi] = prmval
 		}
 	} else if exctr.cn.driverName == "postgres" {
-
-		if argvs, argvsok := prmval.(string); argvsok {
-			prmval = argvs
-		} else if argvb, argvsok := prmval.(bool); argvsok {
-			if argvb {
-				prmval = true
-			} else {
-				prmval = false
-			}
-		} else {
-			prmval = fmt.Sprint(prmval)
-		}
-
 		if argi == -1 {
-			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1)
+			prmname := "$" + fmt.Sprintf("%d", len(exctr.qryArgs))
 			exctr.qryArgs = append(exctr.qryArgs, prmval)
 			s = (prmname)
 		} else {

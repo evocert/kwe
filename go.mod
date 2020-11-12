@@ -10,6 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/jackc/pgx/v4 v4.9.2
+	github.com/lib/pq v1.3.0
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
 	golang.org/x/text v0.3.4 // indirect
 )
