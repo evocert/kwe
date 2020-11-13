@@ -80,7 +80,7 @@ func (rdr *Reader) Next() (next bool, err error) {
 		wg.Wait()
 		if err == nil {
 			rdr.rownr++
-			next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr.Data())
+			next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
 		}
 		//}(rset.dosomething)
 		//<-rset.dosomething
@@ -281,7 +281,7 @@ func (rdr *Reader) execute() (err error) {
 
 				rdr.cltpes = columnTypes(cltpes, cls)
 				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
-				invokeColumns(rdr.script, rdr.OnColumns, rdr.cls, rdr.cltpes)
+				invokeColumns(rdr.script, rdr.OnColumns, rdr)
 			}
 		} else if err != nil {
 			invokeError(rdr.script, err, rdr.OnError)
@@ -290,15 +290,15 @@ func (rdr *Reader) execute() (err error) {
 	return
 }
 
-func invokeRow(script active.Runtime, onrow interface{}, rwonr int64, data []interface{}) (nextrow bool) {
+func invokeRow(script active.Runtime, onrow interface{}, rownr int64, rdr *Reader) (nextrow bool) {
 	if onrow != nil {
-		if fncrow, fncrowsok := onrow.(func([]interface{})); fncrowsok {
-			fncrow(data)
+		if fncrow, fncrowsok := onrow.(func(*Reader, int64)); fncrowsok {
+			fncrow(rdr, rownr)
 			nextrow = true
-		} else if fncrownext, fncrowsnextok := onrow.(func([]interface{}) bool); fncrowsnextok {
-			nextrow = !fncrownext(data)
+		} else if fncrownext, fncrowsnextok := onrow.(func(*Reader, int64) bool); fncrowsnextok {
+			nextrow = !fncrownext(rdr, rownr)
 		} else if script != nil {
-			invval := script.InvokeFunction(onrow, rwonr, data)
+			invval := script.InvokeFunction(onrow, rdr, rownr)
 			if isdone, isdoneok := invval.(bool); isdoneok {
 				if isdone {
 					nextrow = false
@@ -315,12 +315,12 @@ func invokeRow(script active.Runtime, onrow interface{}, rwonr int64, data []int
 	return
 }
 
-func invokeColumns(script active.Runtime, oncolumns interface{}, cls []string, cltpes []*ColumnType) {
+func invokeColumns(script active.Runtime, oncolumns interface{}, rdr *Reader) {
 	if oncolumns != nil {
-		if fnccolumns, fnccolumnssok := oncolumns.(func([]string, []*ColumnType)); fnccolumnssok {
-			fnccolumns(cls, cltpes)
+		if fnccolumns, fnccolumnssok := oncolumns.(func(*Reader)); fnccolumnssok {
+			fnccolumns(rdr)
 		} else if script != nil {
-			script.InvokeFunction(oncolumns, cls, cltpes)
+			script.InvokeFunction(oncolumns, rdr)
 		}
 	}
 }

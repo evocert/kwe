@@ -5,16 +5,16 @@ for(var i=0;i<1000;i++) {
 try{
     var r=dbms.QuerySettings({alias:"test",query:"select @@VAL@@ as col",script:script,success:function(r){
         @><table><@
-        r.OnColumns=function(cls,clstpes) {
+        r.OnColumns=function(rdr) {
             @><tr><@
-            cls.forEach(function(val){
+            rdr.Columns().forEach(function(val){
                 @><th><@print(val);@></th><@
             });
             @></tr><@
         };
-        r.OnRow=function(rn,data) {
+        r.OnRow=function(rdr,rn) {
             @><tr><@
-            data.forEach(function(val){
+                rdr.Data().forEach(function(val){
                 @><td><@print(rn,":",val);@></td><@
             });
             @></tr><@
