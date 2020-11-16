@@ -69,6 +69,7 @@ type ResourceHandler struct {
 	rs *Resource
 }
 
+//Read - refer to io.Reader
 func (rshndlr *ResourceHandler) Read(p []byte) (n int, err error) {
 	if rshndlr != nil {
 		if rshndlr.rs != nil {
@@ -77,6 +78,17 @@ func (rshndlr *ResourceHandler) Read(p []byte) (n int, err error) {
 	}
 	if n == 0 && err == nil {
 		err = io.EOF
+	}
+	return
+}
+
+//Close - refer to io.Closer
+func (rshndlr *ResourceHandler) Close() (err error) {
+	if rshndlr != nil {
+		if rshndlr.rs != nil {
+			rshndlr.rs = nil
+		}
+		rshndlr = nil
 	}
 	return
 }

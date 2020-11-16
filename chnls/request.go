@@ -12,37 +12,42 @@ import (
 	"time"
 
 	"github.com/evocert/kwe/database"
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
-	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/resources"
 )
 
 //Request -
 type Request struct {
-	atv            *active.Active
-	rsngpaths      []*resources.ResourcingPath
-	rsngpthsref    map[string]*resources.ResourcingPath
-	currshndlr     *resources.ResourceHandler
-	chnl           *Channel
-	settings       map[string]interface{}
-	args           []interface{}
-	startedWriting bool
-	mimetype       string
-	httpw          http.ResponseWriter
-	flshr          http.Flusher
-	prms           *parameters.Parameters
-	wbytes         []byte
-	wbytesi        int
-	rqstw          io.Writer
-	httpr          *http.Request
-	prtclmethod    string
-	prtcl          string
-	zpw            *gzip.Writer
-	rqstr          io.Reader
-	Interrupted    bool
-	wgtxt          *sync.WaitGroup
-	objmap         map[string]interface{}
+	atv              *active.Active
+	actns            []*Action
+	rsngpthsref      map[string]*resources.ResourcingPath
+	curactnhndlr     *ActionHandler
+	chnl             *Channel
+	settings         map[string]interface{}
+	args             []interface{}
+	startedWriting   bool
+	mimetype         string
+	httpw            http.ResponseWriter
+	flshr            http.Flusher
+	prms             *parameters.Parameters
+	wbytes           []byte
+	wbytesi          int
+	rqstw            io.Writer
+	httpr            *http.Request
+	cchdrqstcntnt    *iorw.Buffer
+	cchdrqstcntntrdr *iorw.BuffReader
+	prtclmethod      string
+	prtcl            string
+	zpw              *gzip.Writer
+	rqstr            io.Reader
+	Interrupted      bool
+	wgtxt            *sync.WaitGroup
+	objmap           map[string]interface{}
+	isFirstRequest   bool
+	//dbms
+	activecns map[string]*database.Connection
 }
 
 //ProtoMethod - http e.g request METHOD
@@ -75,9 +80,9 @@ func (rqst *Request) AddPath(path ...string) {
 						continue
 					} else {
 						if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
-							rqst.rsngpaths = append(rqst.rsngpaths, rsngpth)
+							rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
 						} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
-							rqst.rsngpaths = append(rqst.rsngpaths, rsngpth)
+							rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
 							rqst.rsngpthsref[pth] = rsngpth
 						}
 					}
@@ -121,8 +126,8 @@ func (rqst *Request) Parameters() *parameters.Parameters {
 }
 
 //RequestBodyS - wrap request.RequestBody() as string
-func (rqst *Request) RequestBodyS() (s string) {
-	if bf := rqst.RequestBody(); bf != nil {
+func (rqst *Request) RequestBodyS(cached ...bool) (s string) {
+	if bf := rqst.RequestBody(cached...); bf != nil {
 		var rns = make([]rune, 1024)
 		var rnsi = 0
 		for {
@@ -147,10 +152,37 @@ func (rqst *Request) RequestBodyS() (s string) {
 }
 
 //RequestBody - RequestBody as bufio.Reader
-func (rqst *Request) RequestBody() (bf *bufio.Reader) {
+func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 	if rqst.httpr != nil {
-		if bdy := rqst.httpr.Body; bdy != nil {
-			bf = bufio.NewReader(bdy)
+		if len(cached) == 1 && cached[0] {
+			if rqst.cchdrqstcntnt == nil {
+				if rqst.cchdrqstcntntrdr != nil {
+					rqst.cchdrqstcntntrdr.Close()
+					rqst.cchdrqstcntntrdr = nil
+				}
+				rqst.cchdrqstcntnt = iorw.NewBuffer()
+				pi, po := io.Pipe()
+				go func() {
+					defer po.Close()
+					if bdy := rqst.httpr.Body; bdy != nil {
+						io.Copy(io.MultiWriter(po, rqst.cchdrqstcntnt), bdy)
+					}
+				}()
+				bf = bufio.NewReader(pi)
+			} else {
+				if rqst.cchdrqstcntntrdr == nil {
+					rqst.cchdrqstcntntrdr = rqst.cchdrqstcntnt.Reader()
+				} else {
+					rqst.cchdrqstcntntrdr.Seek(0, io.SeekStart)
+				}
+			}
+			if rqst.cchdrqstcntntrdr != nil {
+				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
+			}
+		} else {
+			if bdy := rqst.httpr.Body; bdy != nil {
+				bf = bufio.NewReader(bdy)
+			}
 		}
 	}
 	return
@@ -194,13 +226,13 @@ func (rqst *Request) Close() (err error) {
 		if rqst.rqstr != nil {
 			rqst.rqstr = nil
 		}
-		if rqst.rsngpaths != nil {
-			for len(rqst.rsngpaths) > 0 {
-				rqst.rsngpaths[0].Close()
-				rqst.rsngpaths[0] = nil
-				rqst.rsngpaths = rqst.rsngpaths[1:]
+		if rqst.actns != nil {
+			for len(rqst.actns) > 0 {
+				rqst.actns[0].Close()
+				rqst.actns[0] = nil
+				rqst.actns = rqst.actns[1:]
 			}
-			rqst.rsngpaths = nil
+			rqst.actns = nil
 		}
 		if rqst.rsngpthsref != nil {
 			if len(rqst.rsngpthsref) > 0 {
@@ -226,6 +258,14 @@ func (rqst *Request) Close() (err error) {
 			rqst.prms.CleanupParameters()
 			rqst.prms = nil
 		}
+		if rqst.cchdrqstcntntrdr != nil {
+			rqst.cchdrqstcntntrdr.Close()
+			rqst.cchdrqstcntntrdr = nil
+		}
+		if rqst.cchdrqstcntnt != nil {
+			rqst.cchdrqstcntnt.Close()
+			rqst.cchdrqstcntnt = nil
+		}
 		if rqst.httpr != nil {
 			rqst.httpr = nil
 		}
@@ -248,8 +288,23 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.objmap = nil
 		}
+		if rqst.activecns != nil {
+			if l := len(rqst.activecns); l > 0 {
+				var ks = make([]string, l)
+				var ksi = 0
+				for k := range rqst.activecns {
+					ks[ksi] = k
+					ksi++
+				}
+				for _, k := range ks {
+					rqst.activecns[k] = nil
+					delete(rqst.activecns, k)
+				}
+				ks = nil
+			}
+			rqst.activecns = nil
+		}
 		rqst = nil
-
 	}
 	return
 }
@@ -313,20 +368,51 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 	return
 }
 
+func processDbmsPath(rqst *Request, rsngpth *resources.ResourcingPath, path string) (didprocess bool, err error) {
+	if strings.Index(path, "/dbms-") > -1 {
+		var alias = path[strings.Index(path, "/dbms-")+1:]
+		if strings.Index(alias, "/") > 0 {
+			sqlpath := path[strings.Index(path, "/dbms-")+len(alias)+1:]
+			alias = alias[len("dbms-"):strings.Index(alias, "/")]
+
+			dbcn, exists := rqst.activecns[alias]
+			if !exists {
+				if exists, dbcn = database.GLOBALDBMS().AliasExists(alias); exists {
+					rqst.activecns[alias] = dbcn
+				}
+			}
+
+			if exists {
+				if sqlpath != "" {
+					path = sqlpath
+					if !strings.HasPrefix(path, "/") {
+						path = path + "/"
+					}
+				} else {
+
+				}
+			} else if alias == "all" {
+
+			}
+		}
+	}
+	return
+}
+
 func (rqst *Request) processPaths() {
-	var isFirstRequest = true
-	var isTextRequest = false
-	var rsngpth *resources.ResourcingPath = nil
+	//var isFirstRequest = true
+	//var isTextRequest = false
+	var actn *Action = nil
 	var rqstTmpltLkp = func(tmpltpath string, a ...interface{}) (rdr io.Reader) {
-		if rsngpth != nil {
+		if actn != nil {
 			var tmpltpathroot = ""
 			var tmpltext = filepath.Ext(tmpltpath)
 			if tmpltext == "" {
-				tmpltext = filepath.Ext(rsngpth.LookupPath)
+				tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
 			}
 			tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
 			if !strings.HasPrefix(tmpltpath, "/") {
-				tmpltpathroot = rsngpth.LookupPath
+				tmpltpathroot = actn.rsngpth.LookupPath
 				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
 					if strings.LastIndex(tmpltpathroot, "/") > -1 {
 						tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
@@ -338,106 +424,115 @@ func (rqst *Request) processPaths() {
 					}
 				}
 				if tmpltpath = tmpltpathroot + tmpltpath + tmpltext; tmpltpath != "" {
-					rdr = rsngpth.ResourceHandler(tmpltpath)
+					rdr = actn.rsngpth.ResourceHandler(tmpltpath)
 					tmpltpath = ""
 				}
 			}
 		}
 		return
 	}
-	for len(rqst.rsngpaths) > 0 && !rqst.Interrupted {
-		rsngpth = rqst.rsngpaths[0]
-		rqst.rsngpaths = rqst.rsngpaths[1:]
-		var rspath = rsngpth.Path
-		isTextRequest = false
-		if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
-			if _, ok := rqst.rsngpthsref[rsngpth.Path]; ok {
-				rqst.rsngpthsref[rsngpth.Path] = nil
-				delete(rqst.rsngpthsref, rsngpth.Path)
-			}
-			if isFirstRequest {
-				isFirstRequest = false
-				if rqst.mimetype == "" {
-					rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+	for len(rqst.actns) > 0 && !rqst.Interrupted {
+		actn = rqst.actns[0]
+		rqst.actns = rqst.actns[1:]
+		executeAction(actn, rqstTmpltLkp)
+		/*
+			var rspath = actn.rsngpth.Path
+			isTextRequest = false
+			if rqst.curactnhndlr = actn.ActionHandler(); rqst.curactnhndlr == nil {
+				if rspth := actn.rsngpth.Path; rspth != "" {
+					if _, ok := rqst.rsngpthsref[rspth]; ok {
+						rqst.rsngpthsref[rspth] = nil
+						delete(rqst.rsngpthsref, rspth)
+					}
 				}
-				if rspath != "" {
-					if strings.LastIndex(rspath, ".") == -1 {
-						if !strings.HasSuffix(rspath, "/") {
-							rspath = rspath + "/"
-						}
-						rspath = rspath + "index.html"
-						rsngpth.Path = rspath
-						rsngpth.LookupPath = rsngpth.Path
+				if isFirstRequest {
+					isFirstRequest = false
+					if rqst.mimetype == "" {
 						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-						if rqst.currshndlr = rsngpth.ResourceHandler(); rqst.currshndlr == nil {
-							rqst.mimetype = "text/plain"
-							isTextRequest = false
-						} else {
-							rqst.rsngpthsref[rsngpth.Path] = rsngpth
-							if isTextRequest && rsngpth.Path != rsngpth.LookupPath {
-								isTextRequest = false
+					}
+					if rspath != "" {
+						if strings.LastIndex(rspath, ".") == -1 {
+							if !strings.HasSuffix(rspath, "/") {
+								rspath = rspath + "/"
 							}
-							if isTextRequest {
+							rspath = rspath + "index.html"
+							actn.rsngpth.Path = rspath
+							actn.rsngpth.LookupPath = actn.rsngpth.Path
+							rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+							if rqst.curactnhndlr = actn.ActionHandler(); rqst.curactnhndlr == nil {
+								rqst.mimetype = "text/plain"
 								isTextRequest = false
-								if rqst.atv == nil {
-									rqst.atv = active.NewActive()
-								}
-								if rqst.atv.ObjectMapRef == nil {
-									rqst.atv.ObjectMapRef = func() map[string]interface{} {
-										return rqst.objmap
-									}
-								}
-								if rqst.atv.LookupTemplate == nil {
-									rqst.atv.LookupTemplate = rqstTmpltLkp
-								}
-								rqst.copy(rqst.currshndlr, nil, true)
 							} else {
-								rqst.copy(rqst.currshndlr, nil, false)
+								rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+								if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+									isTextRequest = false
+								}
+								if isTextRequest {
+									isTextRequest = false
+									if rqst.atv == nil {
+										rqst.atv = active.NewActive()
+									}
+									if rqst.atv.ObjectMapRef == nil {
+										rqst.atv.ObjectMapRef = func() map[string]interface{} {
+											return rqst.objmap
+										}
+									}
+									if rqst.atv.LookupTemplate == nil {
+										rqst.atv.LookupTemplate = rqstTmpltLkp
+									}
+									rqst.copy(rqst.curactnhndlr, nil, true)
+								} else {
+									rqst.copy(rqst.curactnhndlr, nil, false)
+								}
+								rqst.curactnhndlr.Close()
+								rqst.curactnhndlr = nil
 							}
+						} else {
+							actn.Close()
 						}
 					} else {
-						rsngpth.Close()
+						actn.Close()
 					}
 				} else {
-					rsngpth.Close()
+					actn.Close()
 				}
-
-			} else {
-				rsngpth.Close()
-			}
-			rsngpth = nil
-			continue
-		} else if rqst.currshndlr != nil {
-			if isFirstRequest {
-				if rqst.mimetype == "" {
-					rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-				} else {
-					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-				}
-				isFirstRequest = false
-			}
-			rqst.rsngpthsref[rsngpth.Path] = rsngpth
-			if isTextRequest && rsngpth.Path != rsngpth.LookupPath {
-				isTextRequest = false
-			}
-			if isTextRequest {
-				isTextRequest = false
-				if rqst.atv == nil {
-					rqst.atv = active.NewActive()
-				}
-				if rqst.atv.ObjectMapRef == nil {
-					rqst.atv.ObjectMapRef = func() map[string]interface{} {
-						return rqst.objmap
+				actn = nil
+				continue
+			} else if rqst.curactnhndlr != nil {
+				if isFirstRequest {
+					if rqst.mimetype == "" {
+						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+					} else {
+						_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 					}
+					isFirstRequest = false
 				}
-				if rqst.atv.LookupTemplate == nil {
-					rqst.atv.LookupTemplate = rqstTmpltLkp
+				rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+				if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+					isTextRequest = false
 				}
-				rqst.copy(rqst.currshndlr, nil, true)
-			} else {
-				rqst.copy(rqst.currshndlr, nil, false)
-			}
-		}
+				if isTextRequest {
+					isTextRequest = false
+					if rqst.atv == nil {
+						rqst.atv = active.NewActive()
+					}
+					if rqst.atv.ObjectMapRef == nil {
+						rqst.atv.ObjectMapRef = func() map[string]interface{} {
+							return rqst.objmap
+						}
+					}
+					if rqst.atv.LookupTemplate == nil {
+						rqst.atv.LookupTemplate = rqstTmpltLkp
+					}
+					rqst.copy(rqst.curactnhndlr, nil, true)
+				} else {
+					rqst.copy(rqst.curactnhndlr, nil, false)
+				}
+				if rqst.curactnhndlr != nil {
+					rqst.curactnhndlr.Close()
+					rqst.curactnhndlr = nil
+				}
+			}*/
 	}
 	if rqst.wbytesi > 0 {
 		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
@@ -572,7 +667,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, currshndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, rsngpaths: []*resources.ResourcingPath{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}}
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, curactnhndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()

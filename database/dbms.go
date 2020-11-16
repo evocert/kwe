@@ -41,7 +41,8 @@ func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...int
 	}
 }
 
-func (dbms *DBMS) aliasExists(alias string) (exists bool, dbcn *Connection) {
+//AliasExists - alias exist <= exist[true], dbcn[*Connection]
+func (dbms *DBMS) AliasExists(alias string) (exists bool, dbcn *Connection) {
 	if alias != "" && len(dbms.cnctns) > 0 {
 		dbcn, exists = dbms.cnctns[alias]
 	}
@@ -105,7 +106,7 @@ func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
 					}
 				}
 			}
-			if exists, dbcn := dbms.aliasExists(alias); exists {
+			if exists, dbcn := dbms.AliasExists(alias); exists {
 				var err error = nil
 				reader, _, err = dbcn.query(query, false, onsuccess, onerror, onfinalize, prms...)
 				if err != nil && reader == nil {
@@ -119,7 +120,7 @@ func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
 
 //Query - query database by alias - return Reader for underlying dataset
 func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
-	if exists, dbcn := dbms.aliasExists(alias); exists {
+	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
 		reader, _, err = dbcn.query(query, false, nil, nil, nil, prms...)
 		if err != nil && reader == nil {
@@ -196,7 +197,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
 				}
 			}
 		}
-		if exists, dbcn := dbms.aliasExists(alias); exists {
+		if exists, dbcn := dbms.AliasExists(alias); exists {
 			var err error = nil
 			if _, exctr, err = dbcn.query(query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
 
@@ -208,7 +209,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
 
 //Execute - query database by alias - no result actions
 func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) (exctr *Executor) {
-	if exists, dbcn := dbms.aliasExists(alias); exists {
+	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
 		if _, exctr, err = dbcn.query(query, true, nil, nil, nil, prms...); err != nil {
 
