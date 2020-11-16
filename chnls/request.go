@@ -181,6 +181,7 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 			}
 		} else {
 			if rqst.cchdrqstcntnt != nil && rqst.cchdrqstcntntrdr != nil {
+				rqst.cchdrqstcntntrdr.Seek(0, io.SeekStart)
 				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
 			} else if bdy := rqst.httpr.Body; bdy != nil {
 				bf = bufio.NewReader(bdy)
