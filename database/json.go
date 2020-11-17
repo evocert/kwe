@@ -16,11 +16,12 @@ type JSONReader struct {
 	exctr *Executor
 	pr    *io.PipeReader
 	pw    *io.PipeWriter
+	err   error
 }
 
 //NewJSONReader - over rdr*Reader or exctr*Executor
-func NewJSONReader(rdr *Reader, exctr *Executor) (jsnr *JSONReader) {
-	jsnr = &JSONReader{rdr: rdr, exctr: exctr}
+func NewJSONReader(rdr *Reader, exctr *Executor, err error) (jsnr *JSONReader) {
+	jsnr = &JSONReader{rdr: rdr, exctr: exctr, err: err}
 	return
 }
 
@@ -34,8 +35,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 			defer func() {
 				jsnr.pw.Close()
 			}()
+			enc := json.NewEncoder(jsnr.pw)
 			if rdr != nil {
-				enc := json.NewEncoder(jsnr.pw)
 				wg.Done()
 				iorw.Fprint(jsnr.pw, "{\"columns\":[")
 				for cn, c := range rdr.cls {
@@ -83,7 +84,26 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 				iorw.Fprint(jsnr.pw, "]")
 				iorw.Fprint(jsnr.pw, "}")
 			} else if exctr != nil {
+				if jsnr.err == nil && exctr.lasterr == nil {
+					iorw.Fprint(jsnr.pw, "{")
+					iorw.Fprint(jsnr.pw, "}")
+				} else if jsnr.err != nil || exctr.lasterr != nil {
+					iorw.Fprint(jsnr.pw, "{\"error\":")
+					if jsnr.err != nil {
+						enc.Encode(jsnr.err.Error())
+					} else if exctr.lasterr != nil {
+						enc.Encode(exctr.lasterr.Error())
+					}
+					iorw.Fprint(jsnr.pw, "}")
+				}
 			} else {
+				iorw.Fprint(jsnr.pw, "{\"error\":")
+				if jsnr.err != nil {
+					enc.Encode(jsnr.err.Error())
+				} else {
+					enc.Encode("empty")
+				}
+				iorw.Fprint(jsnr.pw, "}")
 				wg.Done()
 			}
 		}(jsnr.rdr, jsnr.exctr)

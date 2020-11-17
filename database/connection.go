@@ -272,8 +272,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 }
 
 //GblExecute - public for query()*Executor
-func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr *Executor) {
-	var err error = nil
+func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr *Executor, err error) {
 	if _, exctr, err = cn.query(query, true, nil, nil, nil, prms...); err != nil {
 
 	}
@@ -281,8 +280,7 @@ func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr 
 }
 
 //GblQuery - public for query() *Reader
-func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *Reader) {
-	var err error = nil
+func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *Reader, err error) {
 	reader, _, err = cn.query(query, false, nil, nil, nil, prms...)
 	if err != nil && reader == nil {
 

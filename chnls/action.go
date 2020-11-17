@@ -66,11 +66,11 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 			if len(aliases) > 0 {
 				for kalias, dbcn := range aliases {
 					if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
-						if dbrdr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters()); dbrdr != nil {
+						if dbrdr, dbrdrerr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters()); dbrdr != nil {
 							if rspathext != "" {
 								if rspathext == ".json" {
 									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil)), nil, false)
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false)
 								} else if rspathext == ".js" {
 									var script = true
 									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
@@ -82,9 +82,9 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil), strings.NewReader(");")), nil, false)
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");")), nil, false)
 											}
 										}
 									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
@@ -93,14 +93,14 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil), strings.NewReader(";")), nil, false)
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";")), nil, false)
 											}
 										}
 									}
 								} else if rspathext == ".csv" {
-									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil)), nil, false)
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false)
 								}
 							} else {
 
@@ -108,14 +108,47 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 							dbrdr.Close()
 						}
 					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":execute") {
-						if exctr := dbcn.GblExecute(strings.Join(actn.rqst.Parameters().Parameter(kalias+":execute"), ""), actn.rqst.Parameters()); exctr != nil {
+						if exctr, exctrerr := dbcn.GblExecute(strings.Join(actn.rqst.Parameters().Parameter(kalias+":execute"), ""), actn.rqst.Parameters()); exctr != nil {
+							if rspathext == "" {
+								rspathext = ".json"
+							}
 							if rspathext != "" {
 								if rspathext == ".json" {
-
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(nil, exctr, exctrerr)), nil, false)
 								} else if rspathext == ".js" {
-
+									var script = true
+									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
+										script = false
+									}
+									if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
+										if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");")), nil, false)
+											}
+										}
+									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
+										if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";")), nil, false)
+											}
+										}
+									}
 								}
+							} else {
+
 							}
+							exctr.Close()
 						}
 					}
 				}

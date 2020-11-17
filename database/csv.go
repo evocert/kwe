@@ -3,6 +3,7 @@ package database
 //CSVReader -
 type CSVReader struct {
 	rdr        *Reader
+	err        error
 	Headers    bool
 	ColDelim   string
 	RowDelim   string
@@ -10,7 +11,7 @@ type CSVReader struct {
 }
 
 //NewCSVReader - over rdr*Reader
-func NewCSVReader(rdr *Reader) (csvr *CSVReader) {
+func NewCSVReader(rdr *Reader, err error) (csvr *CSVReader) {
 
 	return
 }
