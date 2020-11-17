@@ -2,8 +2,10 @@ package chnls
 
 import (
 	"io"
+	"path/filepath"
 	"strings"
 
+	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/resources"
@@ -23,55 +25,154 @@ func newAction(rqst *Request, rsngpth *resources.ResourcingPath) (actn *Action) 
 
 func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interface{}) (rdr io.Reader)) (err error) {
 	var rspath = actn.rsngpth.Path
+	var rspathext = filepath.Ext(rspath)
 	var isTextRequest = false
-	if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
-		if rspth := actn.rsngpth.Path; rspth != "" {
-			if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
-				actn.rqst.rsngpthsref[rspth] = nil
-				delete(actn.rqst.rsngpthsref, rspth)
+	//	var isdbmsRequest = true
+	var aliases map[string]*database.Connection = nil
+	if strings.HasPrefix(rspath, "/dbms/") || strings.HasPrefix(rspath, "/dbms-") {
+		var dbmspath = rspath
+		var alias = "all"
+		if strings.HasPrefix(dbmspath, "/dbms/") {
+			dbmspath = dbmspath[len("/dbms/")-1:]
+		} else if strings.HasPrefix(dbmspath, "/dbms-") {
+			dbmspath = dbmspath[len("/dbms-"):]
+			if strings.Index(dbmspath, "/") > 0 {
+				dbmspath = dbmspath[strings.Index(dbmspath, "/"):]
+				alias = dbmspath[:strings.Index(dbmspath, "/")]
 			}
 		}
-		if actn.rqst.isFirstRequest {
-			actn.rqst.isFirstRequest = false
-			if actn.rqst.mimetype == "" {
-				actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-			}
-			if rspath != "" {
-				if strings.LastIndex(rspath, ".") == -1 {
-					if !strings.HasSuffix(rspath, "/") {
-						rspath = rspath + "/"
-					}
-					rspath = rspath + "index.html"
-					actn.rsngpth.Path = rspath
-					actn.rsngpth.LookupPath = actn.rsngpth.Path
-					actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					if curactnhndlr = actn.ActionHandler(); curactnhndlr == nil {
-						actn.rqst.mimetype = "text/plain"
-						isTextRequest = false
-					} else {
-						actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-						if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-							isTextRequest = false
-						}
-						if isTextRequest {
-							isTextRequest = false
-							if actn.rqst.atv == nil {
-								actn.rqst.atv = active.NewActive()
+		if alias != "" {
+			if alias == "all" {
+				if actn.rqst.Parameters().ContainsParameter("dbms-alias") {
+					if aliassesfound := actn.rqst.Parameters().Parameter("dbms-alias"); len(aliassesfound) > 0 {
+						for _, kalias := range aliassesfound {
+							if exists, dbcn := database.GLOBALDBMS().AliasExists(kalias); exists {
+								if aliases == nil {
+									aliases = map[string]*database.Connection{}
+								}
+								aliases[kalias] = dbcn
 							}
-							if actn.rqst.atv.ObjectMapRef == nil {
-								actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-									return actn.rqst.objmap
+						}
+					}
+				}
+			} else {
+				if exists, dbcn := database.GLOBALDBMS().AliasExists(alias); exists {
+					if aliases == nil {
+						aliases = map[string]*database.Connection{}
+					}
+					aliases[alias] = dbcn
+				}
+			}
+			if len(aliases) > 0 {
+				for kalias, dbcn := range aliases {
+					if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
+						if dbrdr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters()); dbrdr != nil {
+							if rspathext != "" {
+								if rspathext == ".json" {
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil)), nil, false)
+								} else if rspathext == ".js" {
+									var script = true
+									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
+										script = false
+									}
+									if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
+										if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil), strings.NewReader(");")), nil, false)
+											}
+										}
+									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
+										if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil), strings.NewReader(";")), nil, false)
+											}
+										}
+									}
+								} else if rspathext == ".csv" {
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil)), nil, false)
+								}
+							} else {
+
+							}
+							dbrdr.Close()
+						}
+					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":execute") {
+						if exctr := dbcn.GblExecute(strings.Join(actn.rqst.Parameters().Parameter(kalias+":execute"), ""), actn.rqst.Parameters()); exctr != nil {
+							if rspathext != "" {
+								if rspathext == ".json" {
+
+								} else if rspathext == ".js" {
+
 								}
 							}
-							if actn.rqst.atv.LookupTemplate == nil {
-								actn.rqst.atv.LookupTemplate = rqstTmpltLkp
-							}
-							actn.rqst.copy(curactnhndlr, nil, true)
-						} else {
-							actn.rqst.copy(curactnhndlr, nil, false)
 						}
-						curactnhndlr.Close()
-						curactnhndlr = nil
+					}
+				}
+			}
+		}
+	} else {
+		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
+			if rspth := actn.rsngpth.Path; rspth != "" {
+				if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
+					actn.rqst.rsngpthsref[rspth] = nil
+					delete(actn.rqst.rsngpthsref, rspth)
+				}
+			}
+			if actn.rqst.isFirstRequest {
+				actn.rqst.isFirstRequest = false
+				if actn.rqst.mimetype == "" {
+					actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+				}
+				if rspath != "" {
+					if strings.LastIndex(rspath, ".") == -1 {
+						if !strings.HasSuffix(rspath, "/") {
+							rspath = rspath + "/"
+						}
+						rspath = rspath + "index.html"
+						actn.rsngpth.Path = rspath
+						actn.rsngpth.LookupPath = actn.rsngpth.Path
+						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+						if curactnhndlr = actn.ActionHandler(); curactnhndlr == nil {
+							actn.rqst.mimetype = "text/plain"
+							isTextRequest = false
+						} else {
+							actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+							if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+								isTextRequest = false
+							}
+							if isTextRequest {
+								isTextRequest = false
+								if actn.rqst.atv == nil {
+									actn.rqst.atv = active.NewActive()
+								}
+								if actn.rqst.atv.ObjectMapRef == nil {
+									actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
+										return actn.rqst.objmap
+									}
+								}
+								if actn.rqst.atv.LookupTemplate == nil {
+									actn.rqst.atv.LookupTemplate = rqstTmpltLkp
+								}
+								actn.rqst.copy(curactnhndlr, nil, true)
+							} else {
+								actn.rqst.copy(curactnhndlr, nil, false)
+							}
+							curactnhndlr.Close()
+							curactnhndlr = nil
+						}
+					} else {
+						actn.Close()
 					}
 				} else {
 					actn.Close()
@@ -79,46 +180,44 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 			} else {
 				actn.Close()
 			}
-		} else {
-			actn.Close()
-		}
-		actn = nil
-	} else if curactnhndlr != nil {
-		if actn.rqst.isFirstRequest {
-			if actn.rqst.mimetype == "" {
-				actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-			} else {
-				_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-			}
-			actn.rqst.isFirstRequest = false
-		}
-		actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-		if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-			isTextRequest = false
-		}
-		if isTextRequest {
-			isTextRequest = false
-			if actn.rqst.atv == nil {
-				actn.rqst.atv = active.NewActive()
-			}
-			if actn.rqst.atv.ObjectMapRef == nil {
-				actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-					return actn.rqst.objmap
+			actn = nil
+		} else if curactnhndlr != nil {
+			if actn.rqst.isFirstRequest {
+				if actn.rqst.mimetype == "" {
+					actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+				} else {
+					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
+				actn.rqst.isFirstRequest = false
 			}
-			if actn.rqst.atv.LookupTemplate == nil {
-				actn.rqst.atv.LookupTemplate = rqstTmpltLkp
+			actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+			if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+				isTextRequest = false
 			}
-			actn.rqst.copy(curactnhndlr, nil, true)
-		} else {
-			actn.rqst.copy(curactnhndlr, nil, false)
+			if isTextRequest {
+				isTextRequest = false
+				if actn.rqst.atv == nil {
+					actn.rqst.atv = active.NewActive()
+				}
+				if actn.rqst.atv.ObjectMapRef == nil {
+					actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
+						return actn.rqst.objmap
+					}
+				}
+				if actn.rqst.atv.LookupTemplate == nil {
+					actn.rqst.atv.LookupTemplate = rqstTmpltLkp
+				}
+				actn.rqst.copy(curactnhndlr, nil, true)
+			} else {
+				actn.rqst.copy(curactnhndlr, nil, false)
+			}
+			if curactnhndlr != nil {
+				curactnhndlr.Close()
+				curactnhndlr = nil
+			}
+			actn.Close()
+			actn = nil
 		}
-		if curactnhndlr != nil {
-			curactnhndlr.Close()
-			curactnhndlr = nil
-		}
-		actn.Close()
-		actn = nil
 	}
 	return
 }
