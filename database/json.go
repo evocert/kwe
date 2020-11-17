@@ -37,7 +37,7 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 			if rdr != nil {
 				enc := json.NewEncoder(jsnr.pw)
 				wg.Done()
-				iorw.Fprint(jsnr.pw, "{columns:[")
+				iorw.Fprint(jsnr.pw, "{\"columns\":[")
 				for cn, c := range rdr.cls {
 					iorw.Fprint(jsnr.pw, "{")
 					t := rdr.cltpes[cn]
@@ -58,7 +58,7 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 					}
 				}
 				iorw.Fprint(jsnr.pw, "]}")
-				iorw.Fprint(jsnr.pw, ",data:")
+				iorw.Fprint(jsnr.pw, ",\"data\":")
 				iorw.Fprint(jsnr.pw, "[")
 				if nxt, nxterr := rdr.Next(); nxt {
 					var nxtdata []interface{} = rdr.Data()
