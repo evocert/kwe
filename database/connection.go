@@ -198,15 +198,25 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 							prmslbli[1]++
 							if prmslbli[1] == len(prmslbl[1]) {
 								if psblprmnmei > 0 {
-									if mpv, mpvok := mappedVals[string(psblprmnme[:psblprmnmei])]; mpvok {
-										if validNames == nil {
-											validNames = []string{}
+									if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
+										fndprm := false
+										for mpvk, mpv := range mappedVals {
+											if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
+												if validNames == nil {
+													validNames = []string{}
+												}
+												validNames = append(validNames, mpvk)
+												apprs([]rune(parseParam(exctr, mpv, -1)))
+												break
+											}
 										}
-										validNames = append(validNames, string(psblprmnme[:psblprmnmei]))
-										apprs([]rune(parseParam(exctr, mpv, -1)))
+										if !fndprm {
+											apprs(prmslbl[0])
+											apprs(psblprmnme[:psblprmnmei])
+											apprs(prmslbl[1])
+										}
 									} else {
 										apprs(prmslbl[0])
-										apprs(psblprmnme[:psblprmnmei])
 										apprs(prmslbl[1])
 									}
 									psblprmnmei = 0
