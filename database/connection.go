@@ -348,9 +348,19 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 				if noreader {
 					exctr.execute(false)
+					if err = exctr.lasterr; err != nil {
+						invokeError(exctr.script, err, onerror)
+						exctr.Close()
+						exctr = nil
+					}
 				} else {
 					reader = newReader(exctr)
 					reader.execute()
+					if err = reader.lasterr; err != nil {
+						invokeError(reader.script, err, onerror)
+						reader.Close()
+						reader = nil
+					}
 				}
 			}
 		}
