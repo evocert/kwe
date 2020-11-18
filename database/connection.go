@@ -343,13 +343,15 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 		}
 	}
 	if cn.db != nil {
-		if query != nil {
-			exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
-			if noreader {
-				exctr.execute(false)
-			} else {
-				reader = newReader(exctr)
-				reader.execute()
+		if err = cn.db.Ping(); err == nil {
+			if query != nil {
+				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+				if noreader {
+					exctr.execute(false)
+				} else {
+					reader = newReader(exctr)
+					reader.execute()
+				}
 			}
 		}
 	}

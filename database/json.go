@@ -36,8 +36,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 				jsnr.pw.Close()
 			}()
 			enc := json.NewEncoder(jsnr.pw)
+			wg.Done()
 			if rdr != nil {
-				wg.Done()
 				iorw.Fprint(jsnr.pw, "{\"columns\":[")
 				for cn, c := range rdr.cls {
 					iorw.Fprint(jsnr.pw, "{")
@@ -104,7 +104,6 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 					enc.Encode("empty")
 				}
 				iorw.Fprint(jsnr.pw, "}")
-				wg.Done()
 			}
 		}(jsnr.rdr, jsnr.exctr)
 		wg.Wait()
