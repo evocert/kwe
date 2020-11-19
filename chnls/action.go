@@ -38,8 +38,8 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 		} else if strings.HasPrefix(dbmspath, "/dbms-") {
 			dbmspath = dbmspath[len("/dbms-"):]
 			if strings.Index(dbmspath, "/") > 0 {
-				dbmspath = dbmspath[strings.Index(dbmspath, "/"):]
 				alias = dbmspath[:strings.Index(dbmspath, "/")]
+				dbmspath = dbmspath[strings.Index(dbmspath, "/"):]
 			}
 		}
 		if alias != "" {
