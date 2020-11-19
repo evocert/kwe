@@ -1,6 +1,7 @@
 package chnls
 
 import (
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"strings"
@@ -100,7 +101,16 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 									}
 								}
 							} else if rspathext == ".csv" {
-								actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false)
+								var csvsttngs = map[string]interface{}{}
+
+								if actn.rqst.Parameters().ContainsParameter(kalias + ":csv") {
+									var csvsttngsval = strings.Join(actn.rqst.Parameters().Parameter(kalias+":csv"), "")
+									var decsttngs = json.NewDecoder(strings.NewReader(csvsttngsval))
+									if decerr := decsttngs.Decode(&csvsttngs); decerr == nil {
+
+									}
+								}
+								actn.rqst.copy(io.MultiReader(database.NewCSVReader(dbrdr, dbrdrerr, csvsttngs)), nil, false)
 							}
 						} else {
 
