@@ -167,6 +167,12 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 
 			}
 		}
+		if rspth := actn.rsngpth.Path; rspth != "" {
+			if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
+				actn.rqst.rsngpthsref[rspth] = nil
+				delete(actn.rqst.rsngpthsref, rspth)
+			}
+		}
 	} else {
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
 			if rspth := actn.rsngpth.Path; rspth != "" {
