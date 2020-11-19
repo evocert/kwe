@@ -164,7 +164,6 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 						}
 					}
 				}
-
 			}
 		}
 		if rspth := actn.rsngpth.Path; rspth != "" {
