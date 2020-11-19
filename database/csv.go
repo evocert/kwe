@@ -39,6 +39,20 @@ func NewCSVReader(rdr *Reader, err error, a ...interface{}) (csvr *CSVReader) {
 							csvr.ColDelim = cldelim
 						}
 					}
+				} else if strings.ToLower(ctngk) == "headers" {
+					if hdrs, hdrsok := ctngv.(bool); hdrsok {
+						csvr.Headers = hdrs
+					}
+				} else if strings.ToLower(ctngk) == "altheaders" {
+					if althdrs, althdrsok := ctngv.([]interface{}); althdrsok {
+						althrsds := make([]string, len(althdrs))
+						if len(althrsds) > 0 {
+							for n, v := range althdrs {
+								althrsds[n], _ = v.(string)
+							}
+							csvr.AltHeaders = althrsds
+						}
+					}
 				}
 			}
 		}
