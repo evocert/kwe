@@ -7,9 +7,12 @@ import (
 	"sync"
 
 	//"github.com/evocert/kwe/ecma/es6"
-	"github.com/dop251/goja"
-	"github.com/dop251/goja/parser"
+	//"github.com/dop251/goja"
+	"github.com/evocert/kwe/ecma/es51"
+	"github.com/evocert/kwe/ecma/es51/parser"
 	"github.com/evocert/kwe/ecma/jsext"
+
+	//"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -408,24 +411,24 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 type atvruntime struct {
 	*parsing
 	atv *Active
-	vm  *goja.Runtime
+	vm  *es51.Runtime
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if functocall != nil {
 		if atvrntme.vm != nil {
-			var fnccallargs []goja.Value = nil
+			var fnccallargs []es51.Value = nil
 			var argsn = 0
 
 			for argsn < len(args) {
 				if fnccallargs == nil {
-					fnccallargs = make([]goja.Value, len(args))
+					fnccallargs = make([]es51.Value, len(args))
 				}
 				fnccallargs[argsn] = atvrntme.vm.ToValue(args[argsn])
 				argsn++
 			}
-			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
-				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
+			if atvfunc, atvfuncok := functocall.(func(es51.FunctionCall) es51.Value); atvfuncok {
+				var funccll = es51.FunctionCall{This: es51.Undefined(), Arguments: fnccallargs}
 				if rsltval := atvfunc(funccll); rsltval != nil {
 					result = rsltval.Export()
 				}
@@ -472,7 +475,7 @@ func (atvrntme *atvruntime) run() (err error) {
 			}()
 			prsd, err := parser.ParseFile(nil, "", cde, 0) //es6.CompileAST("", cde, false)
 			if err == nil {
-				if p, perr := goja.CompileAST(prsd, false); perr == nil {
+				if p, perr := es51.CompileAST(prsd, false); perr == nil {
 					_, err = atvrntme.vm.RunProgram(p)
 					if err != nil {
 						fmt.Println(err.Error())
@@ -554,6 +557,6 @@ func (atvrntme *atvruntime) close() {
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: goja.New()}
+	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es51.New()}
 	return
 }

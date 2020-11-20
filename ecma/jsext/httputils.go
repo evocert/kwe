@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/dop251/goja"
+	"github.com/evocert/kwe/ecma/es51"
 )
 
-func Register_jsext_httputils(vm *goja.Runtime) {
+func Register_jsext_httputils(vm *es51.Runtime) {
 	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
 	type Version struct {
 		Major int `json:"major"`

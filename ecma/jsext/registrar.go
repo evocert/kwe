@@ -1,8 +1,10 @@
 package jsext
-import(
-	"github.com/dop251/goja"
+
+import (
+	"github.com/evocert/kwe/ecma/es51"
 )
-func Register(vm*goja.Runtime){
+
+func Register(vm *es51.Runtime) {
 	Register_jsext_fsutils(vm)
 	Register_jsext_httputils(vm)
 	Register_jsext_gfxutils(vm)
