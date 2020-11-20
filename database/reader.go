@@ -278,7 +278,6 @@ func (rdr *Reader) execute() (err error) {
 			rdr.rws = rws
 			if len(cls) > 0 {
 				rdr.cls = cls[:]
-
 				rdr.cltpes = columnTypes(cltpes, cls)
 				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
 				invokeColumns(rdr.script, rdr.OnColumns, rdr)

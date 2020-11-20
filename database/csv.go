@@ -88,7 +88,7 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 					var canPrintCols = false
 					var colcount = 0
 					var cls []string = nil
-					if csvr.Headers {
+					if csvr.Headers && len(csvr.AltHeaders) == 0 {
 						cls = rdr.cls[:]
 						canPrintCols = true
 					} else if len(csvr.AltHeaders) > 0 {
@@ -116,9 +116,17 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 								}
 							}
 						}
+						var firstRow = true
 						for {
 							if nxt && len(dta) == colcount {
-								iorw.Fprint(csvr.pw, csvr.RowDelim)
+								if firstRow {
+									firstRow = false
+									if canPrintCols {
+										iorw.Fprint(csvr.pw, csvr.RowDelim)
+									}
+								} else {
+									iorw.Fprint(csvr.pw, csvr.RowDelim)
+								}
 								for n, d := range dta {
 									if s, sok := d.(string); sok {
 										if fltval, nrerr := strconv.ParseFloat(s, 64); nrerr == nil {

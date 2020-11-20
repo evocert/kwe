@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
@@ -73,6 +74,25 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
 				cltpes, _ = rws.ColumnTypes()
 				cls, _ = rws.Columns()
+				if len(cls) > 0 {
+					clsdstnc := map[string]int{}
+					clsdstncorg := map[string]int{}
+					for cn, c := range cls {
+						if ci, ciok := clsdstnc[c]; ciok {
+							if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
+								cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+							}
+							clsdstnc[c]++
+							c = fmt.Sprintf("%s%d", c, ci+1)
+						} else {
+							if _, orgok := clsdstncorg[c]; !orgok {
+								clsdstncorg[c] = cn
+							}
+							clsdstnc[c] = 0
+						}
+						cls[cn] = c
+					}
+				}
 			} else if exctr.lasterr != nil {
 				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 			}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -437,7 +438,17 @@ func (rqst *Request) processPaths() {
 	for len(rqst.actns) > 0 && !rqst.Interrupted {
 		actn = rqst.actns[0]
 		rqst.actns = rqst.actns[1:]
-		executeAction(actn, rqstTmpltLkp)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Panic: %+v\n", r)
+					if !rqst.Interrupted {
+						rqst.Interrupt()
+					}
+				}
+			}()
+			executeAction(actn, rqstTmpltLkp)
+		}()
 		/*
 			var rspath = actn.rsngpth.Path
 			isTextRequest = false
