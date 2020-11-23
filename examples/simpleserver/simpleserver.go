@@ -26,7 +26,6 @@ func main() {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 		listen.Listening().Listen(":1002", false)
 	}
-	database.GLOBALDBMS()
 	<-cancelChan
 	os.Exit(0)
 }

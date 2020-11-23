@@ -2,7 +2,7 @@
 Package parser implements a parser for JavaScript.
 
     import (
-        "github.com/dop251/goja/parser"
+        "github.com/evocert/kwe/ecma/es51/parser"
     )
 
 Parse and return an AST

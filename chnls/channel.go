@@ -12,12 +12,13 @@ import (
 /*Channel -
  */
 type Channel struct {
-	rqsts map[*Request]*Request
+	rqsts  map[*Request]*Request
+	objmap map[string]interface{}
 }
 
 //NewChannel - instance
 func NewChannel() (chnl *Channel) {
-	chnl = &Channel{rqsts: map[*Request]*Request{}}
+	chnl = &Channel{rqsts: map[*Request]*Request{}, objmap: map[string]interface{}{}}
 	return
 }
 

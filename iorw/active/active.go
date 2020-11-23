@@ -465,7 +465,6 @@ func (atvrntme *atvruntime) run() (err error) {
 				atvrntme.parsing.println(a...)
 			}
 		})
-		//jsext.Register(atvrntme.vm)
 		atvrntme.vm.Set("script", atvrntme)
 		func() {
 			defer func() {

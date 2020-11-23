@@ -448,104 +448,6 @@ func (rqst *Request) processPaths() {
 			}()
 			executeAction(actn, rqstTmpltLkp)
 		}()
-		/*
-			var rspath = actn.rsngpth.Path
-			isTextRequest = false
-			if rqst.curactnhndlr = actn.ActionHandler(); rqst.curactnhndlr == nil {
-				if rspth := actn.rsngpth.Path; rspth != "" {
-					if _, ok := rqst.rsngpthsref[rspth]; ok {
-						rqst.rsngpthsref[rspth] = nil
-						delete(rqst.rsngpthsref, rspth)
-					}
-				}
-				if isFirstRequest {
-					isFirstRequest = false
-					if rqst.mimetype == "" {
-						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					}
-					if rspath != "" {
-						if strings.LastIndex(rspath, ".") == -1 {
-							if !strings.HasSuffix(rspath, "/") {
-								rspath = rspath + "/"
-							}
-							rspath = rspath + "index.html"
-							actn.rsngpth.Path = rspath
-							actn.rsngpth.LookupPath = actn.rsngpth.Path
-							rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-							if rqst.curactnhndlr = actn.ActionHandler(); rqst.curactnhndlr == nil {
-								rqst.mimetype = "text/plain"
-								isTextRequest = false
-							} else {
-								rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-								if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-									isTextRequest = false
-								}
-								if isTextRequest {
-									isTextRequest = false
-									if rqst.atv == nil {
-										rqst.atv = active.NewActive()
-									}
-									if rqst.atv.ObjectMapRef == nil {
-										rqst.atv.ObjectMapRef = func() map[string]interface{} {
-											return rqst.objmap
-										}
-									}
-									if rqst.atv.LookupTemplate == nil {
-										rqst.atv.LookupTemplate = rqstTmpltLkp
-									}
-									rqst.copy(rqst.curactnhndlr, nil, true)
-								} else {
-									rqst.copy(rqst.curactnhndlr, nil, false)
-								}
-								rqst.curactnhndlr.Close()
-								rqst.curactnhndlr = nil
-							}
-						} else {
-							actn.Close()
-						}
-					} else {
-						actn.Close()
-					}
-				} else {
-					actn.Close()
-				}
-				actn = nil
-				continue
-			} else if rqst.curactnhndlr != nil {
-				if isFirstRequest {
-					if rqst.mimetype == "" {
-						rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					} else {
-						_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					}
-					isFirstRequest = false
-				}
-				rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-				if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-					isTextRequest = false
-				}
-				if isTextRequest {
-					isTextRequest = false
-					if rqst.atv == nil {
-						rqst.atv = active.NewActive()
-					}
-					if rqst.atv.ObjectMapRef == nil {
-						rqst.atv.ObjectMapRef = func() map[string]interface{} {
-							return rqst.objmap
-						}
-					}
-					if rqst.atv.LookupTemplate == nil {
-						rqst.atv.LookupTemplate = rqstTmpltLkp
-					}
-					rqst.copy(rqst.curactnhndlr, nil, true)
-				} else {
-					rqst.copy(rqst.curactnhndlr, nil, false)
-				}
-				if rqst.curactnhndlr != nil {
-					rqst.curactnhndlr.Close()
-					rqst.curactnhndlr = nil
-				}
-			}*/
 	}
 	if rqst.wbytesi > 0 {
 		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
@@ -684,6 +586,9 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
+	for cobjk, cobj := range chnl.objmap {
+		rqst.objmap[cobjk] = cobj
+	}
 
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
