@@ -36,30 +36,6 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			exctr.qryArgs[argi] = sql.Named(prmnme, prmval)
 		}
 	} else if exctr.cn.driverName == "postgres" {
-
-		/*if argi == -1 {
-			if argvs, argvsok := prmval.(string); argvsok {
-				if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
-					if tstintval := int64(fltval); float64(tstintval) == fltval {
-						s += fmt.Sprintf("%d", tstintval)
-					} else {
-						s += fmt.Sprintf("%.0f", fltval)
-					}
-				} else if intval, nrerr := strconv.ParseInt(argvs, 10, 64); nrerr == nil {
-					s += fmt.Sprintf("%d", intval)
-				} else {
-					s += "CONVERT_FROM(DECODE('" + base64.URLEncoding.EncodeToString([]byte(argvs)) + "', 'BASE64'), 'UTF-8')"
-				}
-			} else if argvb, argvsok := prmval.(bool); argvsok {
-				if argvb {
-					s += "true"
-				} else {
-					s += "false"
-				}
-			} else {
-				s += fmt.Sprint(prmval)
-			}
-		}*/
 		if argi == -1 {
 			s = ("$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1))
 		}
