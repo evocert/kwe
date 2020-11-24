@@ -226,7 +226,7 @@ func (schdl *Schedule) Start() (err error) {
 			schdl.wg.Wait()
 			if schdl.running {
 				schdl.wg.Add(1)
-				go schdl.process()
+				go schdl.ticking()
 				schdl.wg.Wait()
 			}
 		}
@@ -234,13 +234,20 @@ func (schdl *Schedule) Start() (err error) {
 	return
 }
 
-func (schdl *Schedule) process() {
+func (schdl *Schedule) ticking() {
 	schdl.wg.Done()
 
 	for schdl.running {
 		time.Sleep(schdl.intrvl)
+		schdl.process()
 	}
 	schdl.wg.Done()
+}
+
+func (schdl *Schedule) process() {
+	if schdl != nil {
+		schdl.Execute()
+	}
 }
 
 //Stop - Schedule

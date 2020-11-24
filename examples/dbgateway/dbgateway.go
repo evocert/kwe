@@ -17,7 +17,7 @@ func main() {
 	}
 }
 
-func myconnect(datasource string) (db *sql.DB, err error) {
-	db, err = sql.Open("pqx", datasource)
+func myconnect(datasource string, a ...interface{}) (db *sql.DB, err error) {
+	db, err = sql.Open("pgx", datasource)
 	return
 }
