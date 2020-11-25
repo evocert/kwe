@@ -1,0 +1,6 @@
+<@
+    //var r=dbms.QuerySettings({alias:"test",query:"select @@VAL@@ as col",script:script});
+
+    var exc=dbms.ExecuteSettings({alias:"psg",query:"insert into test.tbltest (name,lname) select @@NAME@@,@@LNAME@@",script:script,"args":[{"LNAME":"ABRA","NAME":"CADABRA"}],"error":function(e){print(e);}});
+    exc.Repeat({"LNAME":"BLA","NAME":"BLU"});
+@>

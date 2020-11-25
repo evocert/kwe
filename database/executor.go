@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
@@ -116,7 +117,40 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 }
 
 //Repeat - repeat last query by repopulating parameters but dont regenerate last statement
-func (exctr *Executor) Repeat(a ...interface{}) (err error) {
+func (exctr *Executor) Repeat(args ...interface{}) (err error) {
+	if len(args) == 1 {
+		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs {
+			for _, skey := range pargs.StandardKeys() {
+				for _, argnme := range exctr.argNames {
+					if strings.ToLower(skey) == strings.ToLower(argnme) {
+						exctr.mappedArgs[argnme] = strings.Join(pargs.Parameter(skey), "")
+						break
+					}
+				}
+			}
+		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
+			for pmk, pmv := range pmargs {
+				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil {
+
+				} else {
+					for _, argnme := range exctr.argNames {
+						if strings.ToLower(pmk) == strings.ToLower(argnme) {
+							exctr.mappedArgs[argnme] = pmv
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for nnme, nme := range exctr.argNames {
+		if nagrv, nargok := exctr.mappedArgs[nme]; nargok {
+			parseParam(exctr, nagrv, nnme)
+		} else {
+			parseParam(exctr, nil, nnme)
+		}
+	}
 	exctr.execute()
 	err = exctr.lasterr
 	return

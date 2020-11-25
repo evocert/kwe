@@ -101,23 +101,19 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 		rnrr = bufio.NewReader(qryr)
 	}
 
-	//var validNames = []string{}
 	mappedVals = map[string]interface{}{}
 	var foundTxt = false
 	if len(args) == 1 {
 
 		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs {
-			//ignoreCase = true
 			for _, skey := range pargs.StandardKeys() {
-				//validNames = append(validNames, skey)
 				mappedVals[skey] = strings.Join(pargs.Parameter(skey), "")
 			}
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
 			for pmk, pmv := range pmargs {
-				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil {
+				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
 
 				} else {
-					//validNames = append(validNames, pmk)
 					mappedVals[pmk] = pmv
 				}
 			}
