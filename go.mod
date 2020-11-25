@@ -3,6 +3,7 @@ module github.com/evocert/kwe
 go 1.15
 
 require (
+	github.com/bcicen/jstream v1.0.1
 	github.com/denisenkom/go-mssqldb v0.9.0
 	github.com/dlclark/regexp2 v1.4.0
 	github.com/dop251/goja v0.0.0-20201022115936-e21ccf39bfce

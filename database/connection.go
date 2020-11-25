@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
 )
@@ -304,6 +305,82 @@ func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *
 
 	}
 	return
+}
+
+//InOut - OO{ in interface{} -> out io.Writer } loop till no input
+func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) {
+	if in != nil {
+		var hasoutput = false
+		if mp, mpok := in.(map[string]interface{}); mpok {
+			if mpl := len(mp); mpl > 0 {
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "{")
+				}
+				for mk, mv := range mp {
+					mpl--
+					if out != nil {
+						hasoutput = true
+						iorw.Fprint(out, "\""+mk+"\":")
+					}
+					if mvp, mvpok := mv.(map[string]interface{}); mvpok {
+						if cmd, cmdok := mvp["execute"]; cmdok {
+							delete(mvp, "execute")
+							exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, exctr, exctrerr)
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+						} else if cmd, cmdok := mvp["query"]; cmdok {
+							delete(mvp, "query")
+							rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(rdr, nil, rdrerr)
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+						} else {
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+						}
+					} else {
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+					}
+					if mpl > 0 {
+						if out != nil {
+							hasoutput = true
+							iorw.Fprint(out, ",")
+						}
+					}
+				}
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "}")
+				}
+			}
+		}
+		if !hasoutput {
+			if out != nil {
+				iorw.Fprint(out, "{}")
+			}
+		}
+	} else {
+		if out != nil {
+			iorw.Fprint(out, "{}")
+		}
+	}
 }
 
 func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {

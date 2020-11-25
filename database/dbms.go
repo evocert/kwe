@@ -2,9 +2,10 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
+	"fmt"
 	"io"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 )
 
@@ -131,19 +132,105 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 }
 
 //InOut - OO{ in io.Reader -> out io.Writer } loop till no input
-func (dbms *DBMS) InOut(in io.Reader, out io.Writer, outformat string) (err error) {
-	var decoder *json.Decoder = nil
+func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
 	if in != nil {
-		decoder = json.NewDecoder(in)
-		decoder.Token()
-	}
-
-	var data map[string]interface{} = nil
-	for decoder != nil {
-		if data == nil {
-			data = map[string]interface{}{}
+		var hasoutput = false
+		if mp, mpok := in.(map[string]interface{}); mpok {
+			if mpl := len(mp); mpl > 0 {
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "{")
+				}
+				for mk, mv := range mp {
+					mpl--
+					if out != nil {
+						hasoutput = true
+						iorw.Fprint(out, "\""+mk+"\":")
+					}
+					if mvp, mvpok := mv.(map[string]interface{}); mvpok {
+						if dalias, daliasok := mvp["alias"]; daliasok && dalias != nil {
+							if salias, saliasok := dalias.(string); saliasok && salias != "" {
+								if cnok, cn := dbms.AliasExists(salias); cnok {
+									if cmd, cmdok := mvp["execute"]; cmdok {
+										delete(mvp, "execute")
+										exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
+										if out != nil {
+											hasoutput = true
+											jsnrdr := NewJSONReader(nil, exctr, exctrerr)
+											io.Copy(out, jsnrdr)
+											jsnrdr = nil
+										}
+									} else if cmd, cmdok := mvp["query"]; cmdok {
+										delete(mvp, "query")
+										rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
+										if out != nil {
+											hasoutput = true
+											jsnrdr := NewJSONReader(rdr, nil, rdrerr)
+											io.Copy(out, jsnrdr)
+											jsnrdr = nil
+										}
+									} else {
+										if out != nil {
+											hasoutput = true
+											jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
+											io.Copy(out, jsnrdr)
+											jsnrdr = nil
+										}
+									}
+								} else {
+									if out != nil {
+										hasoutput = true
+										jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("alias does not exist"))
+										io.Copy(out, jsnrdr)
+										jsnrdr = nil
+									}
+								}
+							} else {
+								if out != nil {
+									hasoutput = true
+									jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid alias"))
+									io.Copy(out, jsnrdr)
+									jsnrdr = nil
+								}
+							}
+						} else {
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no alias"))
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+						}
+					} else {
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+					}
+					if mpl > 0 {
+						if out != nil {
+							hasoutput = true
+							iorw.Fprint(out, ",")
+						}
+					}
+				}
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "}")
+				}
+			}
 		}
-
+		if !hasoutput {
+			if out != nil {
+				iorw.Fprint(out, "{}")
+			}
+		}
+	} else {
+		if out != nil {
+			iorw.Fprint(out, "{}")
+		}
 	}
 	return
 }

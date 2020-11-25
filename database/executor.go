@@ -59,7 +59,10 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, 
 }
 
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.ColumnType, cls []string) {
-	if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr == nil && exctr.stmt != nil {
+	if exctr.stmt == nil {
+		exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
+	}
+	if exctr.lasterr == nil && exctr.stmt != nil {
 		exctr.lastInsertID = -1
 		exctr.rowsAffected = -1
 		if exctr.canRepeat && len(exctr.argNames) > 0 {
@@ -106,7 +109,6 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 					exctr.rowsAffected = -1
 				}
 				invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
-
 			} else {
 				exctr.lasterr = rslterr
 				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
@@ -143,16 +145,13 @@ func (exctr *Executor) Repeat(args ...interface{}) (err error) {
 			}
 		}
 	}
-
-	for nnme, nme := range exctr.argNames {
-		if nagrv, nargok := exctr.mappedArgs[nme]; nargok {
-			parseParam(exctr, nagrv, nnme)
-		} else {
-			parseParam(exctr, nil, nnme)
-		}
+	if !exctr.canRepeat {
+		exctr.canRepeat = true
 	}
 	exctr.execute()
-	err = exctr.lasterr
+	if err = exctr.lasterr; err != nil {
+		invokeError(exctr.script, err, exctr.OnError)
+	}
 	return
 }
 
