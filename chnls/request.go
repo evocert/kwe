@@ -326,6 +326,9 @@ func (rqst *Request) execute(interrupt func()) {
 			ctx, cancel := context.WithCancel(rqst.httpr.Context())
 			go func() {
 				defer func() {
+					if r := recover(); r != nil {
+
+					}
 					isCancelled = true
 					cancel()
 				}()

@@ -3,9 +3,9 @@ package database
 import (
 	"bufio"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -307,69 +307,101 @@ func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *
 	return
 }
 
-//InOut - OO{ in interface{} -> out io.Writer } loop till no input
-func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) {
-	if in != nil {
-		var hasoutput = false
-		if mp, mpok := in.(map[string]interface{}); mpok {
-			if mpl := len(mp); mpl > 0 {
+func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool) {
+	if mpin != nil {
+		if mpl := len(mpin); mpl > 0 {
+			if out != nil {
+				hasoutput = true
+				iorw.Fprint(out, "{")
+			}
+			for mk, mv := range mpin {
+				mpl--
 				if out != nil {
 					hasoutput = true
-					iorw.Fprint(out, "{")
+					iorw.Fprint(out, "\""+mk+"\":")
 				}
-				for mk, mv := range mp {
-					mpl--
-					if out != nil {
-						hasoutput = true
-						iorw.Fprint(out, "\""+mk+"\":")
-					}
-					if mvp, mvpok := mv.(map[string]interface{}); mvpok {
-						if cmd, cmdok := mvp["execute"]; cmdok {
-							delete(mvp, "execute")
-							exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
-							if out != nil {
-								hasoutput = true
-								jsnrdr := NewJSONReader(nil, exctr, exctrerr)
-								io.Copy(out, jsnrdr)
-								jsnrdr = nil
-							}
-						} else if cmd, cmdok := mvp["query"]; cmdok {
-							delete(mvp, "query")
-							rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
-							if out != nil {
-								hasoutput = true
-								jsnrdr := NewJSONReader(rdr, nil, rdrerr)
-								io.Copy(out, jsnrdr)
-								jsnrdr = nil
-							}
-						} else {
-							if out != nil {
-								hasoutput = true
-								jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
-								io.Copy(out, jsnrdr)
-								jsnrdr = nil
-							}
+				if mvp, mvpok := mv.(map[string]interface{}); mvpok {
+					if cmd, cmdok := mvp["execute"]; cmdok {
+						delete(mvp, "execute")
+						exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(nil, exctr, exctrerr)
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+					} else if cmd, cmdok := mvp["query"]; cmdok {
+						delete(mvp, "query")
+						rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(rdr, nil, rdrerr)
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+						if rdr != nil {
+							rdr.Close()
 						}
 					} else {
 						if out != nil {
 							hasoutput = true
-							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
 							io.Copy(out, jsnrdr)
 							jsnrdr = nil
 						}
 					}
-					if mpl > 0 {
-						if out != nil {
-							hasoutput = true
-							iorw.Fprint(out, ",")
-						}
+				} else {
+					if out != nil {
+						hasoutput = true
+						jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+						io.Copy(out, jsnrdr)
+						jsnrdr = nil
 					}
 				}
-				if out != nil {
-					hasoutput = true
-					iorw.Fprint(out, "}")
+				if mpl > 0 {
+					if out != nil {
+						hasoutput = true
+						iorw.Fprint(out, ",")
+					}
 				}
 			}
+			if out != nil {
+				hasoutput = true
+				iorw.Fprint(out, "}")
+			}
+		}
+	}
+	return
+}
+
+//InOut - OO{ in interface{} -> out io.Writer } loop till no input
+func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) {
+	if in != nil {
+		var hasoutput = false
+		if mr, mrok := in.(io.Reader); mrok && mr != nil {
+			var buff = iorw.NewBuffer()
+			func() {
+				defer buff.Close()
+				if buffl, bufferr := io.Copy(buff, mr); bufferr == nil {
+					if buffl > 0 {
+						func() {
+							var buffr = buff.Reader()
+							defer func() {
+								buffr.Close()
+							}()
+							d := json.NewDecoder(buffr)
+							rqstmp := map[string]interface{}{}
+							if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+								if len(rqstmp) > 0 {
+									hasoutput = cn.inMapOut(rqstmp, out, ioargs...)
+								}
+							} else {
+
+							}
+						}()
+					}
+				}
+			}()
 		}
 		if !hasoutput {
 			if out != nil {
@@ -431,14 +463,35 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 			}
 		}
 		if cn.db, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.db != nil {
-			cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
+			//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
 		}
 		if err != nil && onerror != nil {
 			invokeError(script, err, onerror)
 		}
 	}
 	if cn.db != nil {
-		if err = cn.db.Ping(); err == nil {
+		if err = cn.db.Ping(); err != nil {
+			cn.db.Close()
+			cn.db = nil
+			if cn.dbinvoker == nil {
+				if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
+					cn.dbinvoker = dbinvoker
+				}
+			}
+			if cn.db, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.db != nil {
+				cn.db.Close()
+				cn.db, err = cn.dbinvoker(cn.dataSourceName)
+			}
+			if err != nil && onerror != nil {
+				invokeError(script, err, onerror)
+			}
+			if err == nil {
+				if err = cn.db.Ping(); err != nil {
+					invokeError(script, err, onerror)
+				}
+			}
+		}
+		if err == nil {
 			if query != nil {
 				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 				if noreader {

@@ -123,6 +123,10 @@ func (rdr *Reader) Close() (err error) {
 	if rdr.OnRow != nil {
 		rdr.OnRow = nil
 	}
+	if rdr.rws != nil {
+		rdr.rws.Close()
+		rdr.rws = nil
+	}
 	if rdr.Executor != nil {
 		if rdr.lasterr != nil {
 			err = rdr.lasterr

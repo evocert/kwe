@@ -545,9 +545,9 @@ func (atvrntme *atvruntime) close() {
 			if vmgbl := atvrntme.vm.GlobalObject(); vmgbl != nil {
 				var ks = vmgbl.Keys()
 				if len(ks) > 0 {
-					/*for _, k := range ks {
+					for _, k := range ks {
 						atvrntme.vm.GlobalObject().Delete(k)
-					}*/
+					}
 				}
 			}
 			atvrntme.vm = nil

@@ -55,6 +55,18 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 							}
 						}
 					}
+				} else {
+					if rspathext == ".json" {
+						var jsnr io.Reader = nil
+						if actn.rqst.Parameters().ContainsParameter("dbms:json") {
+							jsnr = strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter("dbms:json"), ""))
+						} else {
+							jsnr = actn.rqst.RequestBody()
+						}
+						if jsnr != nil {
+							database.GLOBALDBMS().InOut(jsnr, actn.rqst, actn.rqst.Parameters())
+						}
+					}
 				}
 			} else {
 				if exists, dbcn := database.GLOBALDBMS().AliasExists(alias); exists {
@@ -66,7 +78,10 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 			}
 			if len(aliases) > 0 {
 				for kalias, dbcn := range aliases {
-					if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
+					if actn.rqst.Parameters().ContainsParameter(kalias + ":json") {
+						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
+						dbcn.InOut(strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter(kalias+":json"), "")), actn.rqst, actn.rqst.Parameters())
+					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
 						dbrdr, dbrdrerr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters())
 						if rspathext != "" {
 							if rspathext == ".json" {
@@ -161,6 +176,14 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 						}
 						if exctr != nil {
 							exctr.Close()
+						}
+					} else {
+						if rspathext == "" {
+							rspathext = ".json"
+						}
+						if rspathext == ".json" {
+							actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+							dbcn.InOut(actn.rqst.RequestBody(), actn.rqst, actn.rqst.Parameters())
 						}
 					}
 				}

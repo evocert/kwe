@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -131,67 +132,56 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 	return
 }
 
-//InOut - OO{ in io.Reader -> out io.Writer } loop till no input
-func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
-	if in != nil {
-		var hasoutput = false
-		if mp, mpok := in.(map[string]interface{}); mpok {
-			if mpl := len(mp); mpl > 0 {
-				if out != nil {
-					hasoutput = true
-					iorw.Fprint(out, "{")
-				}
-				for mk, mv := range mp {
-					mpl--
-					if out != nil {
-						hasoutput = true
-						iorw.Fprint(out, "\""+mk+"\":")
+func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
+	if mpl := len(mpin); mpl > 0 {
+		if out != nil {
+			hasoutput = true
+			iorw.Fprint(out, "{")
+		}
+		var dfltalias string = ""
+		var dfltcn, crntcn *Connection = nil, nil
+		for mk, mv := range mpin {
+			if mk == "alias" {
+				if dfltalias == "" {
+					if aliass, aliassok := mv.(string); aliassok {
+						dfltalias = aliass
+						if dfcnok, dfcn := dbms.AliasExists(aliass); dfcnok {
+							dfltcn = dfcn
+						}
 					}
-					if mvp, mvpok := mv.(map[string]interface{}); mvpok {
-						if dalias, daliasok := mvp["alias"]; daliasok && dalias != nil {
-							if salias, saliasok := dalias.(string); saliasok && salias != "" {
-								if cnok, cn := dbms.AliasExists(salias); cnok {
-									if cmd, cmdok := mvp["execute"]; cmdok {
-										delete(mvp, "execute")
-										exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
-										if out != nil {
-											hasoutput = true
-											jsnrdr := NewJSONReader(nil, exctr, exctrerr)
-											io.Copy(out, jsnrdr)
-											jsnrdr = nil
-										}
-									} else if cmd, cmdok := mvp["query"]; cmdok {
-										delete(mvp, "query")
-										rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
-										if out != nil {
-											hasoutput = true
-											jsnrdr := NewJSONReader(rdr, nil, rdrerr)
-											io.Copy(out, jsnrdr)
-											jsnrdr = nil
-										}
-									} else {
-										if out != nil {
-											hasoutput = true
-											jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
-											io.Copy(out, jsnrdr)
-											jsnrdr = nil
-										}
-									}
-								} else {
-									if out != nil {
-										hasoutput = true
-										jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("alias does not exist"))
-										io.Copy(out, jsnrdr)
-										jsnrdr = nil
-									}
-								}
-							} else {
-								if out != nil {
-									hasoutput = true
-									jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid alias"))
-									io.Copy(out, jsnrdr)
-									jsnrdr = nil
-								}
+				}
+			}
+			mpl--
+			if out != nil {
+				hasoutput = true
+				iorw.Fprint(out, "\""+mk+"\":")
+			}
+			if mvp, mvpok := mv.(map[string]interface{}); mvpok {
+				crntcn = nil
+				if dalias, daliasok := mvp["alias"]; daliasok && dalias != nil {
+					if salias, saliasok := dalias.(string); saliasok && salias != "" {
+						if cnok, cn := dbms.AliasExists(salias); cnok {
+							crntcn = cn
+						}
+					}
+					if crntcn == nil {
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("alias does not exist"))
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+					}
+				} else {
+					if crntcn == nil && dfltcn != nil {
+						crntcn = dfltcn
+					} else {
+						if dfltalias != "" {
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("default alias does not exist"))
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
 							}
 						} else {
 							if out != nil {
@@ -201,30 +191,98 @@ func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (e
 								jsnrdr = nil
 							}
 						}
+					}
+				}
+
+				if crntcn != nil {
+					if cmd, cmdok := mvp["execute"]; cmdok {
+						delete(mvp, "execute")
+						exctr, exctrerr := crntcn.GblExecute(cmd, mvp, ioargs)
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(nil, exctr, exctrerr)
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
+					} else if cmd, cmdok := mvp["query"]; cmdok {
+						delete(mvp, "query")
+						rdr, rdrerr := crntcn.GblQuery(cmd, mvp, ioargs)
+						if out != nil {
+							hasoutput = true
+							jsnrdr := NewJSONReader(rdr, nil, rdrerr)
+							io.Copy(out, jsnrdr)
+							jsnrdr = nil
+						}
 					} else {
 						if out != nil {
 							hasoutput = true
-							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
 							io.Copy(out, jsnrdr)
 							jsnrdr = nil
 						}
 					}
-					if mpl > 0 {
-						if out != nil {
-							hasoutput = true
-							iorw.Fprint(out, ",")
-						}
-					}
 				}
+			} else {
 				if out != nil {
 					hasoutput = true
-					iorw.Fprint(out, "}")
+					jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+					io.Copy(out, jsnrdr)
+					jsnrdr = nil
+				}
+			}
+			if mpl > 0 {
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, ",")
 				}
 			}
 		}
+		if out != nil {
+			hasoutput = true
+			iorw.Fprint(out, "}")
+		}
+	}
+	return
+}
+
+//InOut - OO{ in io.Reader -> out io.Writer } loop till no input
+func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
+	if in != nil {
+		var hasoutput = false
+		if mp, mpok := in.(map[string]interface{}); mpok {
+			hasoutput, err = dbms.inMapOut(mp, out, ioargs...)
+		} else if ri, riok := in.(io.Reader); riok && ri != nil {
+			var buff = iorw.NewBuffer()
+			func() {
+				defer buff.Close()
+				if buffl, bufferr := io.Copy(buff, ri); bufferr == nil {
+					if buffl > 0 {
+						func() {
+							var buffr = buff.Reader()
+							defer func() {
+								buffr.Close()
+							}()
+							d := json.NewDecoder(buffr)
+							rqstmp := map[string]interface{}{}
+							if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+								if len(rqstmp) > 0 {
+									hasoutput, err = dbms.inMapOut(rqstmp, out, ioargs...)
+								}
+							} else {
+
+							}
+						}()
+					}
+				}
+			}()
+		}
 		if !hasoutput {
 			if out != nil {
-				iorw.Fprint(out, "{}")
+				if err != nil {
+					iorw.Fprint(out, "{\"error\":\""+err.Error()+"\"}")
+				} else {
+					iorw.Fprint(out, "{}")
+				}
 			}
 		}
 	} else {
