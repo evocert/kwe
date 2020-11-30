@@ -262,7 +262,7 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 					jsnrdr = nil
 				}
 			}
-			if mpl > 0 {
+			if mpl > 1 {
 				if out != nil {
 					hasoutput = true
 					iorw.Fprint(out, ",")
