@@ -307,6 +307,11 @@ func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *
 	return
 }
 
+func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool) {
+
+	return
+}
+
 func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool) {
 	if mpin != nil {
 		if mpl := len(mpin); mpl > 0 {

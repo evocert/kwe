@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
@@ -132,6 +133,35 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 	return
 }
 
+func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
+	if ri != nil {
+		var buff = iorw.NewBuffer()
+		func() {
+			defer buff.Close()
+			if buffl, bufferr := io.Copy(buff, ri); bufferr == nil {
+				if buffl > 0 {
+					func() {
+						var buffr = buff.Reader()
+						defer func() {
+							buffr.Close()
+						}()
+						d := json.NewDecoder(buffr)
+						rqstmp := map[string]interface{}{}
+						if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+							if len(rqstmp) > 0 {
+								hasoutput, err = dbms.inMapOut(rqstmp, out, ioargs...)
+							}
+						} else {
+
+						}
+					}()
+				}
+			}
+		}()
+	}
+	return
+}
+
 func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if mpl := len(mpin); mpl > 0 {
 		if out != nil {
@@ -140,17 +170,18 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 		}
 		var dfltalias string = ""
 		var dfltcn, crntcn *Connection = nil, nil
-		for mk, mv := range mpin {
-			if mk == "alias" {
-				if dfltalias == "" {
-					if aliass, aliassok := mv.(string); aliassok {
-						dfltalias = aliass
-						if dfcnok, dfcn := dbms.AliasExists(aliass); dfcnok {
-							dfltcn = dfcn
-						}
+		if aliasv, aliasok := mpin["alias"]; aliasok {
+			if dfltalias == "" {
+				if aliass, aliassok := aliasv.(string); aliassok {
+					dfltalias = aliass
+					if dfcnok, dfcn := dbms.AliasExists(aliass); dfcnok {
+						dfltcn = dfcn
 					}
 				}
 			}
+			delete(mpin, "alias")
+		}
+		for mk, mv := range mpin {
 			mpl--
 			if out != nil {
 				hasoutput = true
@@ -252,29 +283,9 @@ func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (e
 		if mp, mpok := in.(map[string]interface{}); mpok {
 			hasoutput, err = dbms.inMapOut(mp, out, ioargs...)
 		} else if ri, riok := in.(io.Reader); riok && ri != nil {
-			var buff = iorw.NewBuffer()
-			func() {
-				defer buff.Close()
-				if buffl, bufferr := io.Copy(buff, ri); bufferr == nil {
-					if buffl > 0 {
-						func() {
-							var buffr = buff.Reader()
-							defer func() {
-								buffr.Close()
-							}()
-							d := json.NewDecoder(buffr)
-							rqstmp := map[string]interface{}{}
-							if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
-								if len(rqstmp) > 0 {
-									hasoutput, err = dbms.inMapOut(rqstmp, out, ioargs...)
-								}
-							} else {
-
-							}
-						}()
-					}
-				}
-			}()
+			hasoutput, err = dbms.inReaderOut(ri, out, ioargs...)
+		} else if si, siok := in.(string); siok && si != "" {
+			hasoutput, err = dbms.inReaderOut(strings.NewReader(si), out, ioargs...)
 		}
 		if !hasoutput {
 			if out != nil {
