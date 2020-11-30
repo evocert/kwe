@@ -388,7 +388,7 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 						jsnrdr = nil
 					}
 				}
-				if mpl > 0 {
+				if mpl > 1 {
 					if out != nil {
 						hasoutput = true
 						iorw.Fprint(out, ",")
