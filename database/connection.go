@@ -307,12 +307,37 @@ func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *
 	return
 }
 
-func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool) {
-
+func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
+	if rin != nil {
+		var buff = iorw.NewBuffer()
+		func() {
+			defer buff.Close()
+			buffl, bufferr := io.Copy(buff, rin)
+			if bufferr == nil || bufferr == io.EOF {
+				if buffl > 0 {
+					func() {
+						var buffr = buff.Reader()
+						defer func() {
+							buffr.Close()
+						}()
+						d := json.NewDecoder(buffr)
+						rqstmp := map[string]interface{}{}
+						if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+							if len(rqstmp) > 0 {
+								hasoutput, err = cn.inMapOut(rqstmp, out, ioargs...)
+							}
+						} else {
+							err = jsnerr
+						}
+					}()
+				}
+			}
+		}()
+	}
 	return
 }
 
-func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool) {
+func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if mpin != nil {
 		if mpl := len(mpin); mpl > 0 {
 			if out != nil {
@@ -383,34 +408,20 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) {
 	if in != nil {
 		var hasoutput = false
+		var ioerr error = nil
+		if mp, mpok := in.(map[string]interface{}); mpok {
+			hasoutput, ioerr = cn.inMapOut(mp, out, ioargs...)
+		}
 		if mr, mrok := in.(io.Reader); mrok && mr != nil {
-			var buff = iorw.NewBuffer()
-			func() {
-				defer buff.Close()
-				if buffl, bufferr := io.Copy(buff, mr); bufferr == nil {
-					if buffl > 0 {
-						func() {
-							var buffr = buff.Reader()
-							defer func() {
-								buffr.Close()
-							}()
-							d := json.NewDecoder(buffr)
-							rqstmp := map[string]interface{}{}
-							if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
-								if len(rqstmp) > 0 {
-									hasoutput = cn.inMapOut(rqstmp, out, ioargs...)
-								}
-							} else {
-
-							}
-						}()
-					}
-				}
-			}()
+			hasoutput, ioerr = cn.inReaderOut(mr, out, ioargs...)
 		}
 		if !hasoutput {
 			if out != nil {
-				iorw.Fprint(out, "{}")
+				if ioerr != nil {
+					iorw.Fprint(out, "{\"error\":\""+ioerr.Error()+"\"}")
+				} else {
+					iorw.Fprint(out, "{}")
+				}
 			}
 		}
 	} else {

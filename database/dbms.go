@@ -138,7 +138,8 @@ func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}
 		var buff = iorw.NewBuffer()
 		func() {
 			defer buff.Close()
-			if buffl, bufferr := io.Copy(buff, ri); bufferr == nil {
+			buffl, bufferr := io.Copy(buff, ri)
+			if bufferr == nil || bufferr == io.EOF {
 				if buffl > 0 {
 					func() {
 						var buffr = buff.Reader()
@@ -152,7 +153,7 @@ func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}
 								hasoutput, err = dbms.inMapOut(rqstmp, out, ioargs...)
 							}
 						} else {
-
+							err = jsnerr
 						}
 					}()
 				}
