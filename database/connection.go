@@ -309,8 +309,8 @@ func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *
 
 func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if rin != nil {
-		var buff = iorw.NewBuffer()
 		func() {
+			var buff = iorw.NewBuffer()
 			defer buff.Close()
 			buffl, bufferr := io.Copy(buff, rin)
 			if bufferr == nil || bufferr == io.EOF {
@@ -388,7 +388,7 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 						jsnrdr = nil
 					}
 				}
-				if mpl > 1 {
+				if mpl >= 1 {
 					if out != nil {
 						hasoutput = true
 						iorw.Fprint(out, ",")
@@ -411,9 +411,10 @@ func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}
 		var ioerr error = nil
 		if mp, mpok := in.(map[string]interface{}); mpok {
 			hasoutput, ioerr = cn.inMapOut(mp, out, ioargs...)
-		}
-		if mr, mrok := in.(io.Reader); mrok && mr != nil {
+		} else if mr, mrok := in.(io.Reader); mrok && mr != nil {
 			hasoutput, ioerr = cn.inReaderOut(mr, out, ioargs...)
+		} else if si, siok := in.(string); siok && si != "" {
+			hasoutput, ioerr = cn.inReaderOut(strings.NewReader(si), out, ioargs...)
 		}
 		if !hasoutput {
 			if out != nil {

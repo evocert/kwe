@@ -135,8 +135,8 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 
 func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if ri != nil {
-		var buff = iorw.NewBuffer()
 		func() {
+			var buff = iorw.NewBuffer()
 			defer buff.Close()
 			buffl, bufferr := io.Copy(buff, ri)
 			if bufferr == nil || bufferr == io.EOF {
@@ -262,7 +262,7 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 					jsnrdr = nil
 				}
 			}
-			if mpl > 1 {
+			if mpl >= 1 {
 				if out != nil {
 					hasoutput = true
 					iorw.Fprint(out, ",")
@@ -274,6 +274,15 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 			iorw.Fprint(out, "}")
 		}
 	}
+	return
+}
+
+//InOutS - OO{ in io.Reader -> out string } loop till no input
+func (dbms *DBMS) InOutS(in interface{}, ioargs ...interface{}) (out string, err error) {
+	var buff = iorw.NewBuffer()
+	defer buff.Close()
+	err = dbms.InOut(in, buff)
+	out = buff.String()
 	return
 }
 
