@@ -18,8 +18,11 @@ import (
 type Connection struct {
 	dbms                       *DBMS
 	driverName, dataSourceName string
+	dbi                        interface{}
 	db                         *sql.DB
-	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
+	endpnt                     *EndPoint
+	remote                     bool
+	dbinvoker                  func(string, ...interface{}) (interface{}, error)
 }
 
 func runeReaderToString(rnr io.RuneReader) (s string) {
@@ -479,8 +482,12 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 				cn.dbinvoker = dbinvoker
 			}
 		}
-		if cn.db, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.db != nil {
+		if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
 			//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
+			if cn.db, _ = cn.dbi.(*sql.DB); cn.db == nil {
+				cn.endpnt, _ = cn.dbi.(*EndPoint)
+			}
+
 		}
 		if err != nil && onerror != nil {
 			invokeError(script, err, onerror)
@@ -495,9 +502,13 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 					cn.dbinvoker = dbinvoker
 				}
 			}
-			if cn.db, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.db != nil {
-				cn.db.Close()
-				cn.db, err = cn.dbinvoker(cn.dataSourceName)
+			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+				if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
+					cn.db.Close()
+				}
+				if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+					cn.db, _ = cn.dbi.(*sql.DB)
+				}
 			}
 			if err != nil && onerror != nil {
 				invokeError(script, err, onerror)
@@ -510,7 +521,7 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 		}
 		if err == nil {
 			if query != nil {
-				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+				exctr = newExecutor(cn, cn.db, nil, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 				if noreader {
 					exctr.execute(false)
 					if err = exctr.lasterr; err != nil {
@@ -526,6 +537,26 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 						reader.Close()
 						reader = nil
 					}
+				}
+			}
+		}
+	} else if cn.endpnt != nil {
+		if query != nil {
+			exctr = newExecutor(cn, cn.db, cn.endpnt, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+			if noreader {
+				exctr.execute(false)
+				if err = exctr.lasterr; err != nil {
+					invokeError(exctr.script, err, onerror)
+					exctr.Close()
+					exctr = nil
+				}
+			} else {
+				reader = newReader(exctr)
+				reader.execute()
+				if err = reader.lasterr; err != nil {
+					invokeError(reader.script, err, onerror)
+					reader.Close()
+					reader = nil
 				}
 			}
 		}

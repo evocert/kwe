@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +13,7 @@ import (
 //DBMS - struct
 type DBMS struct {
 	cnctns  map[string]*Connection
-	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
+	drivers map[string]func(string, ...interface{}) (interface{}, error)
 }
 
 //RegisterConnection - alias, driverName, dataSourceName
@@ -38,7 +37,7 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 }
 
 //RegisterDriver - register driver name for invokable db call
-func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...interface{}) (*sql.DB, error)) {
+func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...interface{}) (interface{}, error)) {
 	if driver != "" && invokedbcall != nil {
 		dbms.drivers[driver] = invokedbcall
 	}
@@ -52,7 +51,7 @@ func (dbms *DBMS) AliasExists(alias string) (exists bool, dbcn *Connection) {
 	return
 }
 
-func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...interface{}) (*sql.DB, error), hasdbinvoker bool) {
+func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...interface{}) (interface{}, error), hasdbinvoker bool) {
 	if driver != "" && len(dbms.drivers) > 0 {
 		dbinvoker, hasdbinvoker = dbms.drivers[driver]
 	}
@@ -180,6 +179,7 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 					}
 				}
 			}
+			mpl--
 			delete(mpin, "alias")
 		}
 		for mk, mv := range mpin {
@@ -386,7 +386,7 @@ func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) 
 
 //NewDBMS - instance
 func NewDBMS() (dbms *DBMS) {
-	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string, ...interface{}) (*sql.DB, error){}}
+	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string, ...interface{}) (interface{}, error){}}
 
 	return
 }
@@ -402,4 +402,8 @@ func init() {
 	if glbdbms == nil {
 		glbdbms = NewDBMS()
 	}
+	glbdbms.RegisterDriver("remote", func(datasource string, a ...interface{}) (db interface{}, err error) {
+		db = newEndPoint(datasource, a...)
+		return
+	})
 }

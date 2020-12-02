@@ -11,7 +11,9 @@ import (
 
 //Executor - struct
 type Executor struct {
+	orgstmnt     string
 	stmnt        string
+	endpnt       *EndPoint
 	db           *sql.DB
 	cn           *Connection
 	stmt         *sql.Stmt
@@ -28,7 +30,7 @@ type Executor struct {
 	canRepeat    bool
 }
 
-func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
+func newExecutor(cn *Connection, db *sql.DB, endpnt *EndPoint, query interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
 	var argsn = 0
 	for argsn < len(args) {
 		var d = args[argsn]
