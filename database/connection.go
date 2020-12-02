@@ -107,12 +107,12 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 	mappedVals = map[string]interface{}{}
 	var foundTxt = false
-	if len(args) == 1 {
 
-		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs {
-			for _, skey := range pargs.StandardKeys() {
-				mappedVals[skey] = strings.Join(pargs.Parameter(skey), "")
-			}
+	var params *parameters.Parameters = nil
+
+	for len(args) > 0 {
+		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs && params == nil {
+			params = pargs
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
 			for pmk, pmv := range pmargs {
 				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
@@ -122,8 +122,13 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 				}
 			}
 		}
+		args = args[1:]
 	}
-
+	if params != nil {
+		for _, skey := range params.StandardKeys() {
+			mappedVals[skey] = strings.Join(params.Parameter(skey), "")
+		}
+	}
 	if len(exctr.qryArgs) == 0 {
 		exctr.qryArgs = []interface{}{}
 	}

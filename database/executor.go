@@ -76,6 +76,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.Co
 				}
 			}
 		}
+
 		if len(forrows) >= 1 && forrows[0] {
 			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
 				cltpes, _ = rws.ColumnTypes()
