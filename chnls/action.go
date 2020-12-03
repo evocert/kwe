@@ -57,6 +57,7 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 					}
 				} else {
 					if rspathext == ".json" {
+						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
 						var jsnr io.Reader = nil
 						if actn.rqst.Parameters().ContainsParameter("dbms:json") {
 							jsnr = strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter("dbms:json"), ""))

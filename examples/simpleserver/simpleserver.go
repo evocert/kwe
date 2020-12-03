@@ -16,7 +16,7 @@ import (
 func main() {
 	//database.GLOBALDBMS().RegisterConnection("mydb", "postgres", "user=postgres password=1234!@#$qwerQWER host=skullquake.dedicated.co.za port=5432 dbname=postgres sslmode=disable")
 	database.GLOBALDBMS().RegisterConnection("psg", "postgres", "user=postgres password=n@n61ng@ dbname=postgres sslmode=disable host=127.0.0.1 port=5433")
-	//database.GLOBALDBMS().RegisterConnection("psgrmt", "remote", "http://127.0.0.1:1003/dbms-psg/.json")
+	database.GLOBALDBMS().RegisterConnection("psgrmt", "remote", "http://127.0.0.1:1002/dbms-psg/.json")
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGTERM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
