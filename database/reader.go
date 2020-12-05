@@ -55,45 +55,99 @@ func (rdr *Reader) Data() []interface{} {
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {
-	if next = rdr.rws.Next(); next {
-		if rdr.wg == nil {
-			rdr.wg = &sync.WaitGroup{}
-		}
-		rdr.wg.Add(1)
-		if rdr.data == nil {
-			rdr.data = make([]interface{}, len(rdr.cls))
-			rdr.dataref = make([]interface{}, len(rdr.cls))
-			rdr.dispdata = make([]interface{}, len(rdr.cls))
-		}
-		wg := rdr.wg
-		go func(wg *sync.WaitGroup) {
-			defer wg.Done()
-			for n := range rdr.data {
-				rdr.dataref[n] = &rdr.data[n]
+	if rdr.endpnt != nil && rdr.jsndcdr != nil {
+		for {
+			if rdr.tknlvl == 3 {
+				if rdr.data == nil {
+					rdr.data = make([]interface{}, len(rdr.cls))
+					rdr.dispdata = make([]interface{}, len(rdr.cls))
+				}
+				if dcerr := rdr.jsndcdr.Decode(&rdr.data); dcerr == nil {
+					next = true
+				} else {
+					err = dcerr
+				}
+				break
 			}
-			if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
-				rdr.Close()
-				err = scerr
-				next = false
+			tkn, tknerr := rdr.jsndcdr.Token()
+			if tknerr != nil {
+				rdr.lasterr = tknerr
+				break
+			} else {
+				if dlm, dlmok := tkn.(json.Delim); dlmok {
+					if rdr.lastdlm = dlm.String(); rdr.lastdlm == "{" {
+						rdr.tknlvl++
+					} else if rdr.lastdlm == "}" {
+						rdr.tknlvl--
+					} else if rdr.lastdlm == "[" {
+						rdr.tknlvl++
+					} else if rdr.lastdlm == "]" {
+						rdr.tknlvl--
+					}
+				} else {
+					if s, sok := tkn.(string); sok {
+						if rdr.tknlvl == 1 && s != "" {
+
+						} else {
+							if rdr.tknlvl == 2 && s != "" {
+								if s == "data" {
+
+								}
+							} else {
+
+							}
+						}
+					}
+
+				}
 			}
-		}(wg)
-		wg.Wait()
-		if err == nil {
-			rdr.rownr++
-			next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
 		}
-		//}(rset.dosomething)
-		//<-rset.dosomething
-		if !next {
-			rdr.Close()
+		if next {
+
+		} else {
+
 		}
 	} else {
-		if rseterr := rdr.rws.Err(); rseterr != nil {
-			err = rseterr
-			//rdr.lasterr=err
-			invokeError(rdr.script, err, rdr.OnError)
+		if next = rdr.rws.Next(); next {
+			if rdr.wg == nil {
+				rdr.wg = &sync.WaitGroup{}
+			}
+			rdr.wg.Add(1)
+			if rdr.data == nil {
+				rdr.data = make([]interface{}, len(rdr.cls))
+				rdr.dataref = make([]interface{}, len(rdr.cls))
+				rdr.dispdata = make([]interface{}, len(rdr.cls))
+			}
+			wg := rdr.wg
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				for n := range rdr.data {
+					rdr.dataref[n] = &rdr.data[n]
+				}
+				if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
+					rdr.Close()
+					err = scerr
+					next = false
+				}
+			}(wg)
+			wg.Wait()
+			if err == nil {
+				rdr.rownr++
+				next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+			}
+			//}(rset.dosomething)
+			//<-rset.dosomething
+			if !next {
+				rdr.Close()
+			}
+		} else {
+			if rseterr := rdr.rws.Err(); rseterr != nil {
+				err = rseterr
+				//rdr.lasterr=err
+				invokeError(rdr.script, err, rdr.OnError)
+			}
+			rdr.Close()
 		}
-		rdr.Close()
 	}
 	return next, err
 }
@@ -282,12 +336,21 @@ func (rdr *Reader) execute() (err error) {
 			rdr.rws = rws
 			if len(cls) > 0 {
 				rdr.cls = cls[:]
-				rdr.cltpes = columnTypes(cltpes, cls)
+				rdr.cltpes = cltpes
 				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
 				invokeColumns(rdr.script, rdr.OnColumns, rdr)
 			}
 		} else if err != nil {
 			invokeError(rdr.script, err, rdr.OnError)
+		}
+	} else if rdr.endpnt != nil && rdr.jsndcdr != nil {
+		if err = rdr.lasterr; err == nil {
+			if len(cls) > 0 {
+				rdr.cls = cls[:]
+				rdr.cltpes = cltpes
+				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
+				invokeColumns(rdr.script, rdr.OnColumns, rdr)
+			}
 		}
 	}
 	return

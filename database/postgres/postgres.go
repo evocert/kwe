@@ -15,7 +15,7 @@ func Open(datasource string) (*sql.DB, error) {
 }
 
 func init() {
-	database.GLOBALDBMS().RegisterDriver("postgres", func(datasource string, a ...interface{}) (db interface{}, err error) {
+	database.GLOBALDBMS().RegisterDriver("postgres", func(datasource string, a ...interface{}) (db *sql.DB, err error) {
 		db, err = Open(datasource)
 		return
 	})

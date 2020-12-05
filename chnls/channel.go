@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/evocert/kwe/ws"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,7 +39,7 @@ func (chnl *Channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //ServeWS - server websocket Connection
 func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	func() {
-		if wsrw := NewWsReaderWriter(wscon); wsrw != nil {
+		if wsrw := ws.NewReaderWriter(wscon); wsrw != nil {
 			defer wsrw.Close()
 			//var rruns = make([]rune, 1024)
 			//var rrunsi = 0

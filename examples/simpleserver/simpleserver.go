@@ -1,19 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/database/mysql"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/resources"
+	"github.com/evocert/kwe/web"
 )
 
 func main() {
+
 	//database.GLOBALDBMS().RegisterConnection("mydb", "postgres", "user=postgres password=1234!@#$qwerQWER host=skullquake.dedicated.co.za port=5432 dbname=postgres sslmode=disable")
 	database.GLOBALDBMS().RegisterConnection("psg", "postgres", "user=postgres password=n@n61ng@ dbname=postgres sslmode=disable host=127.0.0.1 port=5433")
 	database.GLOBALDBMS().RegisterConnection("psgrmt", "remote", "http://127.0.0.1:1002/dbms-psg/.json")
@@ -29,6 +34,15 @@ func main() {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 		listen.Listening().Listen(":1002", false)
 	}
+	buff := iorw.NewBuffer()
+	cnlt := &web.Client{}
+	cnlt.Send("http://127.0.0.1:1002/dbms/.json",
+		map[string]string{"Content-Type": "application/json"},
+		nil,
+		strings.NewReader(`{"alias":"psg","5555":{"query":"select * from test.tbltest"},"1234":{"query":"select * from test.tbltest"}}`),
+		buff,
+	)
+	fmt.Println(buff)
 	<-cancelChan
 	os.Exit(0)
 }

@@ -2,8 +2,13 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
+	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
@@ -14,6 +19,9 @@ type Executor struct {
 	orgstmnt     string
 	stmnt        string
 	endpnt       *EndPoint
+	jsndcdr      *json.Decoder
+	lastdlm      string
+	tknlvl       int
 	db           *sql.DB
 	cn           *Connection
 	stmt         *sql.Stmt
@@ -55,66 +63,206 @@ func newExecutor(cn *Connection, db *sql.DB, endpnt *EndPoint, query interface{}
 			}
 		}
 	}
-	exctr = &Executor{db: db, cn: cn, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
+	exctr = &Executor{endpnt: endpnt, db: db, cn: cn, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
 	exctr.stmnt, exctr.argNames, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
 
-func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*sql.ColumnType, cls []string) {
-	if exctr.stmt == nil {
-		exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
+func getTypeByName(tpmn string) (t reflect.Type) {
+	fmt.Println(tpmn)
+	if tpmn == "bool" {
+		t = reflect.TypeOf(false)
+	} else if tpmn == "int" {
+		t = reflect.TypeOf(int(0))
+	} else if tpmn == "int8" {
+		t = reflect.TypeOf(int8(0))
+	} else if tpmn == "int16" {
+		t = reflect.TypeOf(int16(0))
+	} else if tpmn == "int32" {
+		t = reflect.TypeOf(int32(0))
+	} else if tpmn == "int64" {
+		t = reflect.TypeOf(int64(0))
+	} else if tpmn == "uint" {
+		t = reflect.TypeOf(uint(0))
+	} else if tpmn == "uint8" {
+		t = reflect.TypeOf(uint8(0))
+	} else if tpmn == "uint16" {
+		t = reflect.TypeOf(uint16(0))
+	} else if tpmn == "uint32" {
+		t = reflect.TypeOf(uint32(0))
+	} else if tpmn == "uint64" {
+		t = reflect.TypeOf(uint64(0))
+	} else if tpmn == "float32" {
+		t = reflect.TypeOf(float32(0))
+	} else if tpmn == "float64" {
+		t = reflect.TypeOf(float64(0))
+	} else if tpmn == "complex64" {
+		t = reflect.TypeOf(complex64(0))
+	} else if tpmn == "complex128" {
+		t = reflect.TypeOf(complex128(0))
+	} else if tpmn == "Time" {
+		t = reflect.TypeOf(time.Now())
+	} else {
+		t = reflect.TypeOf("")
 	}
-	if exctr.lasterr == nil && exctr.stmt != nil {
-		exctr.lastInsertID = -1
-		exctr.rowsAffected = -1
-		if exctr.canRepeat && len(exctr.argNames) > 0 {
-			for agrn, argnme := range exctr.argNames {
-				if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
-					parseParam(exctr, prmv, agrn)
+	return
+}
+
+func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
+	if exctr.endpnt == nil {
+		if exctr.stmt == nil {
+			exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
+		}
+		if exctr.lasterr == nil && exctr.stmt != nil {
+			exctr.lastInsertID = -1
+			exctr.rowsAffected = -1
+			if exctr.canRepeat && len(exctr.argNames) > 0 {
+				for agrn, argnme := range exctr.argNames {
+					if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
+						parseParam(exctr, prmv, agrn)
+					} else {
+						parseParam(exctr, nil, agrn)
+					}
+				}
+			}
+
+			if len(forrows) >= 1 && forrows[0] {
+				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
+					cltps, _ := rws.ColumnTypes()
+					cls, _ = rws.Columns()
+					if len(cls) > 0 {
+						clsdstnc := map[string]int{}
+						clsdstncorg := map[string]int{}
+						cltpes = columnTypes(cltps, cls)
+						for cn, c := range cls {
+							if ci, ciok := clsdstnc[c]; ciok {
+								if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
+									cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+								}
+								clsdstnc[c]++
+								c = fmt.Sprintf("%s%d", c, ci+1)
+							} else {
+								if _, orgok := clsdstncorg[c]; !orgok {
+									clsdstncorg[c] = cn
+								}
+								clsdstnc[c] = 0
+							}
+							cls[cn] = c
+						}
+					}
+				} else if exctr.lasterr != nil {
+					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
+				}
+			} else {
+				if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
+					if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
+						exctr.lastInsertID = -1
+					}
+					if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
+						exctr.rowsAffected = -1
+					}
+					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
 				} else {
-					parseParam(exctr, nil, agrn)
+					exctr.lasterr = rslterr
+					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			}
 		}
+	} else {
+		pi, po := io.Pipe()
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer func() {
+				po.Close()
+			}()
+			wg.Done()
+			exctr.endpnt.query(exctr, len(forrows) == 1 && forrows[0], po)
+		}()
+		wg.Wait()
+		exctr.jsndcdr = json.NewDecoder(pi)
+		exctr.tknlvl = 0
+		for {
+			tkn, tknerr := exctr.jsndcdr.Token()
+			if tknerr != nil {
+				exctr.lasterr = tknerr
+				break
+			} else {
+				if dlm, dlmok := tkn.(json.Delim); dlmok {
+					if exctr.lastdlm = dlm.String(); exctr.lastdlm == "{" {
+						exctr.tknlvl++
+					} else if exctr.lastdlm == "}" {
+						exctr.tknlvl--
+					}
+				} else {
+					s, _ := tkn.(string)
+					if exctr.tknlvl == 1 && s != "" {
 
-		if len(forrows) >= 1 && forrows[0] {
-			if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
-				cltpes, _ = rws.ColumnTypes()
-				cls, _ = rws.Columns()
-				if len(cls) > 0 {
-					clsdstnc := map[string]int{}
-					clsdstncorg := map[string]int{}
-					for cn, c := range cls {
-						if ci, ciok := clsdstnc[c]; ciok {
-							if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
-								cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+					} else {
+						if exctr.tknlvl == 2 && s != "" {
+							if s == "columns" {
+								clsarr := []interface{}{}
+								if tknerr = exctr.jsndcdr.Decode(&clsarr); tknerr != nil {
+									exctr.lasterr = tknerr
+									break
+								}
+								if l := len(clsarr); l > 0 {
+									cls = make([]string, l)
+									cltpes = make([]*ColumnType, l)
+									for cn, c := range clsarr {
+										cltp := &ColumnType{}
+										if c != nil {
+											cmp, _ := c.(map[string]interface{})
+											for ck, cv := range cmp {
+												if ck == "name" {
+													cls[cn], _ = cv.(string)
+													cltp.name = cls[cn]
+												} else if ck == "length" {
+													if flt, fltok := cv.(float64); fltok {
+														cltp.length = int64(flt)
+													}
+												} else if ck == "dbtype" {
+													cltp.databaseType, _ = cv.(string)
+												} else if ck == "numeric" {
+													cltp.hasPrecisionScale, _ = cv.(bool)
+												} else if ck == "scale" {
+													if flt, fltok := cv.(float64); fltok {
+														cltp.scale = int64(flt)
+													}
+												} else if ck == "precision" {
+													if flt, fltok := cv.(float64); fltok {
+														cltp.precision = int64(flt)
+													}
+												} else if ck == "type" {
+													if tpnm, _ := cv.(string); tpnm != "" {
+														cltp.scanType = getTypeByName(tpnm)
+													}
+												}
+											}
+										}
+										cltpes[cn] = cltp
+									}
+								}
+								break
+							} else if s == "error" {
+								if tkn, tknerr = exctr.jsndcdr.Token(); tknerr != nil {
+									exctr.lasterr = tknerr
+									break
+								}
+								if serr, serrok := tkn.(string); serrok {
+									exctr.lasterr = fmt.Errorf("%v", serr)
+								} else {
+									exctr.lasterr = fmt.Errorf("%v", "unknown error")
+								}
+								break
+							} else if s == "data" {
+								break
 							}
-							clsdstnc[c]++
-							c = fmt.Sprintf("%s%d", c, ci+1)
 						} else {
-							if _, orgok := clsdstncorg[c]; !orgok {
-								clsdstncorg[c] = cn
-							}
-							clsdstnc[c] = 0
+							break
 						}
-						cls[cn] = c
 					}
 				}
-			} else if exctr.lasterr != nil {
-				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
-			}
-		} else {
-			if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
-				if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
-					exctr.lastInsertID = -1
-				}
-				if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
-					exctr.rowsAffected = -1
-				}
-				invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
-			} else {
-				exctr.lasterr = rslterr
-				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 			}
 		}
 	}

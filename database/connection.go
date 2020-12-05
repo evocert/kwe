@@ -22,7 +22,7 @@ type Connection struct {
 	db                         *sql.DB
 	endpnt                     *EndPoint
 	remote                     bool
-	dbinvoker                  func(string, ...interface{}) (interface{}, error)
+	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
 }
 
 func runeReaderToString(rnr io.RuneReader) (s string) {
@@ -227,14 +227,16 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 								if psblprmnmei > 0 {
 									if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
 										fndprm := false
-										for mpvk, mpv := range mappedVals {
-											if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
-												if validNames == nil {
-													validNames = []string{}
+										if exctr.endpnt == nil {
+											for mpvk, mpv := range mappedVals {
+												if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
+													if validNames == nil {
+														validNames = []string{}
+													}
+													validNames = append(validNames, mpvk)
+													apprs([]rune(parseParam(exctr, mpv, -1)))
+													break
 												}
-												validNames = append(validNames, mpvk)
-												apprs([]rune(parseParam(exctr, mpv, -1)))
-												break
 											}
 										}
 										if !fndprm {
@@ -487,15 +489,17 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 				cn.dbinvoker = dbinvoker
 			}
 		}
-		if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-			//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
-			if cn.db, _ = cn.dbi.(*sql.DB); cn.db == nil {
-				cn.endpnt, _ = cn.dbi.(*EndPoint)
-			}
+		if cn.dbinvoker != nil {
+			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+				//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
+				if cn.db, _ = cn.dbi.(*sql.DB); cn.db == nil {
+					cn.endpnt, _ = cn.dbi.(*EndPoint)
+				}
 
-		}
-		if err != nil && onerror != nil {
-			invokeError(script, err, onerror)
+			}
+			if err != nil && onerror != nil {
+				invokeError(script, err, onerror)
+			}
 		}
 	}
 	if cn.db != nil {

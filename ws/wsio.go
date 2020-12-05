@@ -1,4 +1,4 @@
-package chnls
+package ws
 
 import (
 	"bufio"
@@ -8,8 +8,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-//WsReaderWriter - struct
-type WsReaderWriter struct {
+//ReaderWriter - struct
+type ReaderWriter struct {
 	ws       *websocket.Conn
 	r        io.Reader
 	rbuf     *bufio.Reader
@@ -21,14 +21,14 @@ type WsReaderWriter struct {
 	isBinary bool
 }
 
-//NewWsReaderWriter - instance
-func NewWsReaderWriter(ws *websocket.Conn) (wsrw *WsReaderWriter) {
-	wsrw = &WsReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+//NewReaderWriter - instance
+func NewReaderWriter(ws *websocket.Conn) (wsrw *ReaderWriter) {
+	wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
 	return
 }
 
 //ReadRune - refer to io.RuneReader
-func (wsrw *WsReaderWriter) ReadRune() (r rune, size int, err error) {
+func (wsrw *ReaderWriter) ReadRune() (r rune, size int, err error) {
 	if wsrw.rbuf == nil {
 		wsrw.rbuf = bufio.NewReader(wsrw)
 	}
@@ -37,7 +37,7 @@ func (wsrw *WsReaderWriter) ReadRune() (r rune, size int, err error) {
 }
 
 //WriteRune - refer to bufio.Writer - WriteRune
-func (wsrw *WsReaderWriter) WriteRune(r rune) (size int, err error) {
+func (wsrw *ReaderWriter) WriteRune(r rune) (size int, err error) {
 	if wsrw.wbuf == nil {
 		wsrw.wbuf = bufio.NewWriter(wsrw)
 	}
@@ -46,17 +46,17 @@ func (wsrw *WsReaderWriter) WriteRune(r rune) (size int, err error) {
 }
 
 //CanRead - can Read
-func (wsrw *WsReaderWriter) CanRead() bool {
+func (wsrw *ReaderWriter) CanRead() bool {
 	return wsrw.rerr == nil
 }
 
 //CanWrite - can Write
-func (wsrw *WsReaderWriter) CanWrite() bool {
+func (wsrw *ReaderWriter) CanWrite() bool {
 	return wsrw.werr == nil
 }
 
 //Read - refer io.Reader
-func (wsrw *WsReaderWriter) Read(p []byte) (n int, err error) {
+func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if wsrw.r == nil {
 			var messageType int
@@ -89,7 +89,7 @@ func (wsrw *WsReaderWriter) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (wsrw *WsReaderWriter) socketIOType() int {
+func (wsrw *ReaderWriter) socketIOType() int {
 	if wsrw.isText {
 		return websocket.TextMessage
 	} else if wsrw.isBinary {
@@ -99,7 +99,7 @@ func (wsrw *WsReaderWriter) socketIOType() int {
 }
 
 //Flush - flush invoke done onmessage
-func (wsrw *WsReaderWriter) Flush() (err error) {
+func (wsrw *ReaderWriter) Flush() (err error) {
 	if wsrw.wbuf != nil {
 		if err = wsrw.wbuf.Flush(); err != nil {
 			return
@@ -113,17 +113,17 @@ func (wsrw *WsReaderWriter) Flush() (err error) {
 }
 
 //Print - refer to fmt.Fprint
-func (wsrw *WsReaderWriter) Print(a ...interface{}) {
+func (wsrw *ReaderWriter) Print(a ...interface{}) {
 	iorw.Fprint(wsrw, a...)
 }
 
 //Println - refer to fmt.Fprintln
-func (wsrw *WsReaderWriter) Println(a ...interface{}) {
+func (wsrw *ReaderWriter) Println(a ...interface{}) {
 	iorw.Fprintln(wsrw, a...)
 }
 
 //Write - refer io.Writer
-func (wsrw *WsReaderWriter) Write(p []byte) (n int, err error) {
+func (wsrw *ReaderWriter) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if wsrw.w == nil {
 			wsrw.w, wsrw.werr = wsrw.ws.NextWriter(wsrw.socketIOType())
@@ -148,7 +148,7 @@ func (wsrw *WsReaderWriter) Write(p []byte) (n int, err error) {
 }
 
 //Close - refer io.Closer
-func (wsrw *WsReaderWriter) Close() (err error) {
+func (wsrw *ReaderWriter) Close() (err error) {
 	if wsrw != nil {
 		if wsrw.ws != nil {
 			err = wsrw.ws.Close()

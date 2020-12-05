@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,11 +14,11 @@ import (
 //DBMS - struct
 type DBMS struct {
 	cnctns  map[string]*Connection
-	drivers map[string]func(string, ...interface{}) (interface{}, error)
+	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
 }
 
 //RegisterConnection - alias, driverName, dataSourceName
-func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string) (registered bool) {
+func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if alias != "" && driver != "" && datasource != "" {
 		if _, drvinvok := dbms.drivers[driver]; drvinvok {
 			if cn, cnok := dbms.cnctns[alias]; cnok {
@@ -30,6 +31,19 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 				dbms.cnctns[alias] = cn
 				registered = true
 			}
+		} else if driver == "remote" && (strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") || strings.HasPrefix(datasource, "ws://") || strings.HasPrefix(datasource, "wss://")) {
+			if cn, cnok := dbms.cnctns[alias]; cnok {
+				if cn.driverName != driver {
+					cn.driverName = driver
+					cn.dataSourceName = datasource
+					registered = true
+					cn.endpnt = newEndPoint(cn.dataSourceName, a...)
+				}
+			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
+				cn.endpnt = newEndPoint(cn.dataSourceName, a...)
+				dbms.cnctns[alias] = cn
+				registered = true
+			}
 		}
 	}
 	return
@@ -37,7 +51,7 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 }
 
 //RegisterDriver - register driver name for invokable db call
-func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...interface{}) (interface{}, error)) {
+func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...interface{}) (*sql.DB, error)) {
 	if driver != "" && invokedbcall != nil {
 		dbms.drivers[driver] = invokedbcall
 	}
@@ -51,7 +65,7 @@ func (dbms *DBMS) AliasExists(alias string) (exists bool, dbcn *Connection) {
 	return
 }
 
-func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...interface{}) (interface{}, error), hasdbinvoker bool) {
+func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...interface{}) (*sql.DB, error), hasdbinvoker bool) {
 	if driver != "" && len(dbms.drivers) > 0 {
 		dbinvoker, hasdbinvoker = dbms.drivers[driver]
 	}
@@ -386,7 +400,7 @@ func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) 
 
 //NewDBMS - instance
 func NewDBMS() (dbms *DBMS) {
-	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string, ...interface{}) (interface{}, error){}}
+	dbms = &DBMS{cnctns: map[string]*Connection{}, drivers: map[string]func(string, ...interface{}) (*sql.DB, error){}}
 
 	return
 }
@@ -402,8 +416,4 @@ func init() {
 	if glbdbms == nil {
 		glbdbms = NewDBMS()
 	}
-	glbdbms.RegisterDriver("remote", func(datasource string, a ...interface{}) (db interface{}, err error) {
-		db = newEndPoint(datasource, a...)
-		return
-	})
 }
