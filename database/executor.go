@@ -338,6 +338,15 @@ func (exctr *Executor) Close() (err error) {
 		if exctr.argNames != nil {
 			exctr.argNames = nil
 		}
+		if exctr.jsndcdr != nil {
+			exctr.jsndcdr = nil
+		}
+		if exctr.mappedArgs != nil {
+			exctr.mappedArgs = nil
+		}
+		if exctr.qryArgs != nil {
+			exctr.qryArgs = nil
+		}
 		exctr = nil
 	}
 	return
