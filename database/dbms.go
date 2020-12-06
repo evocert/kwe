@@ -20,18 +20,7 @@ type DBMS struct {
 //RegisterConnection - alias, driverName, dataSourceName
 func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if alias != "" && driver != "" && datasource != "" {
-		if _, drvinvok := dbms.drivers[driver]; drvinvok {
-			if cn, cnok := dbms.cnctns[alias]; cnok {
-				if cn.driverName != driver {
-					cn.driverName = driver
-					cn.dataSourceName = datasource
-					registered = true
-				}
-			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
-				dbms.cnctns[alias] = cn
-				registered = true
-			}
-		} else if driver == "remote" && (strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") || strings.HasPrefix(datasource, "ws://") || strings.HasPrefix(datasource, "wss://")) {
+		if strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") || strings.HasPrefix(datasource, "ws://") || strings.HasPrefix(datasource, "wss://") {
 			if cn, cnok := dbms.cnctns[alias]; cnok {
 				if cn.driverName != driver {
 					cn.driverName = driver
@@ -41,6 +30,17 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 				}
 			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
 				cn.endpnt = newEndPoint(cn.dataSourceName, a...)
+				dbms.cnctns[alias] = cn
+				registered = true
+			}
+		} else if _, drvinvok := dbms.drivers[driver]; drvinvok {
+			if cn, cnok := dbms.cnctns[alias]; cnok {
+				if cn.driverName != driver {
+					cn.driverName = driver
+					cn.dataSourceName = datasource
+					registered = true
+				}
+			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
 				dbms.cnctns[alias] = cn
 				registered = true
 			}
