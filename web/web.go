@@ -9,6 +9,13 @@ import (
 
 //Client - struct
 type Client struct {
+	httpclient *http.Client
+}
+
+//NewClient - instance
+func NewClient() (clnt *Client) {
+	clnt = &Client{httpclient: &http.Client{}}
+	return
 }
 
 //Send - Client send
@@ -26,8 +33,8 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 					rqst.Header.Add(hdk, hdv)
 				}
 			}
-			var httpclient = &http.Client{}
-			var resp, resperr = httpclient.Do(rqst)
+
+			var resp, resperr = clnt.Do(rqst)
 			if resperr == nil {
 				if rspheaders != nil {
 					for rsph, rsphv := range resp.Header {
@@ -58,5 +65,6 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 
 //Do - refer tp http.Client Do interface
 func (clnt *Client) Do(rqst *http.Request) (rspnse *http.Response, err error) {
+	rspnse, err = clnt.httpclient.Do(rqst)
 	return
 }

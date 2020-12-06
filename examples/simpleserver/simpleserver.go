@@ -35,7 +35,7 @@ func main() {
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()
-	cnlt := &web.Client{}
+	cnlt := web.NewClient()
 	cnlt.Send("http://127.0.0.1:1002/dbms/.json",
 		map[string]string{"Content-Type": "application/json"},
 		nil,

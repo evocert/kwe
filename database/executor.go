@@ -265,6 +265,8 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 				}
 			}
 		}
+		pi.Close()
+		pi = nil
 	}
 	return
 }

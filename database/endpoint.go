@@ -17,7 +17,7 @@ type EndPoint struct {
 }
 
 func newEndPoint(datasource string, a ...interface{}) (endpnt *EndPoint) {
-	endpnt = &EndPoint{datasource: datasource, args: a}
+	endpnt = &EndPoint{datasource: datasource, args: a, clnt: web.NewClient()}
 	return
 }
 
@@ -25,33 +25,46 @@ func (endpnt *EndPoint) query(exctr *Executor, forrows bool, out io.Writer, iora
 	pi, pw := io.Pipe()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go func() {
+	func() {
 		defer func() {
-			pw.Close()
+			pi.Close()
+			pi = nil
+			wg = nil
 		}()
-		wg.Done()
-		encw := json.NewEncoder(pw)
-		rqstmpstngs := map[string]interface{}{}
-		if len(exctr.mappedArgs) > 0 {
-			for kmp, vmp := range exctr.mappedArgs {
-				rqstmpstngs[kmp] = vmp
+		go func() {
+			defer func() {
+				pw.Close()
+			}()
+			wg.Done()
+			encw := json.NewEncoder(pw)
+			rqstmpstngs := map[string]interface{}{}
+			if len(exctr.mappedArgs) > 0 {
+				for kmp, vmp := range exctr.mappedArgs {
+					rqstmpstngs[kmp] = vmp
+				}
 			}
-		}
-		if forrows {
-			rqstmpstngs["query"] = exctr.stmnt
-		} else {
-			rqstmpstngs["execute"] = exctr.stmnt
-		}
+			if forrows {
+				rqstmpstngs["query"] = exctr.stmnt
+			} else {
+				rqstmpstngs["execute"] = exctr.stmnt
+			}
 
-		rqstmp := map[string]interface{}{"1": rqstmpstngs}
-		encw.Encode(&rqstmp)
+			rqstmp := map[string]interface{}{"1": rqstmpstngs}
+			encw.Encode(&rqstmp)
+			encw = nil
+			rqstmp = nil
+		}()
+
+		if strings.HasPrefix(endpnt.datasource, "http://") || strings.HasPrefix(endpnt.datasource, "https://") {
+			func() {
+				var rspheaders = map[string]string{}
+				var rqstheaders = map[string]string{}
+				rqstheaders["Content-Type"] = "application/json"
+				endpnt.clnt.Send(endpnt.datasource, rqstheaders, rspheaders, pi, out)
+				rqstheaders = nil
+				rspheaders = nil
+			}()
+		}
 	}()
-
-	if strings.HasPrefix(endpnt.datasource, "http://") || strings.HasPrefix(endpnt.datasource, "https://") {
-		var rspheaders = map[string]string{}
-		var rqstheaders = map[string]string{}
-		rqstheaders["Content-Type"] = "application/json"
-		endpnt.clnt.Send(endpnt.datasource, rqstheaders, rspheaders, pi, out)
-	}
 	return
 }
