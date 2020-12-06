@@ -12,13 +12,13 @@ import (
 
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
+	"github.com/evocert/kwe/web"
 )
 
 //Executor - struct
 type Executor struct {
 	orgstmnt     string
 	stmnt        string
-	endpnt       *EndPoint
 	jsndcdr      *json.Decoder
 	lastdlm      string
 	tknlvl       int
@@ -38,7 +38,7 @@ type Executor struct {
 	canRepeat    bool
 }
 
-func newExecutor(cn *Connection, db *sql.DB, endpnt *EndPoint, query interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
+func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
 	var argsn = 0
 	for argsn < len(args) {
 		var d = args[argsn]
@@ -63,13 +63,12 @@ func newExecutor(cn *Connection, db *sql.DB, endpnt *EndPoint, query interface{}
 			}
 		}
 	}
-	exctr = &Executor{endpnt: endpnt, db: db, cn: cn, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
+	exctr = &Executor{db: db, cn: cn, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
 	exctr.stmnt, exctr.argNames, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
 
 func getTypeByName(tpmn string) (t reflect.Type) {
-	fmt.Println(tpmn)
 	if tpmn == "bool" {
 		t = reflect.TypeOf(false)
 	} else if tpmn == "int" {
@@ -108,8 +107,12 @@ func getTypeByName(tpmn string) (t reflect.Type) {
 	return
 }
 
+func (exctr *Executor) isRemote() bool {
+	return exctr.cn != nil && exctr.cn.isRemote()
+}
+
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
-	if exctr.endpnt == nil {
+	if !exctr.isRemote() {
 		if exctr.stmt == nil {
 			exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
 		}
@@ -177,7 +180,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 				po.Close()
 			}()
 			wg.Done()
-			exctr.endpnt.query(exctr, len(forrows) == 1 && forrows[0], po)
+			exctr.webquery(len(forrows) == 1 && forrows[0], po)
 		}()
 		wg.Wait()
 		exctr.jsndcdr = json.NewDecoder(pi)
@@ -265,9 +268,55 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 				}
 			}
 		}
-		pi.Close()
-		pi = nil
 	}
+	return
+}
+
+func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface{}) (err error) {
+	pi, pw := io.Pipe()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	func() {
+		defer func() {
+			pi.Close()
+			pi = nil
+			wg = nil
+		}()
+		go func() {
+			defer func() {
+				pw.Close()
+			}()
+			wg.Done()
+			encw := json.NewEncoder(pw)
+			rqstmpstngs := map[string]interface{}{}
+			if len(exctr.mappedArgs) > 0 {
+				for kmp, vmp := range exctr.mappedArgs {
+					rqstmpstngs[kmp] = vmp
+				}
+			}
+			if forrows {
+				rqstmpstngs["query"] = exctr.stmnt
+			} else {
+				rqstmpstngs["execute"] = exctr.stmnt
+			}
+
+			rqstmp := map[string]interface{}{"1": rqstmpstngs}
+			encw.Encode(&rqstmp)
+			encw = nil
+			rqstmp = nil
+		}()
+		datasource := exctr.cn.dataSourceName
+		if strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") {
+			func() {
+				var rspheaders = map[string]string{}
+				var rqstheaders = map[string]string{}
+				rqstheaders["Content-Type"] = "application/json"
+				web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out)
+				rqstheaders = nil
+				rspheaders = nil
+			}()
+		}
+	}()
 	return
 }
 
@@ -316,9 +365,6 @@ func (exctr *Executor) Close() (err error) {
 		}
 		if exctr.cn != nil {
 			exctr.cn = nil
-		}
-		if exctr.endpnt != nil {
-			exctr.endpnt = nil
 		}
 		if exctr.stmt != nil {
 			err = exctr.stmt.Close()

@@ -20,9 +20,12 @@ type Connection struct {
 	driverName, dataSourceName string
 	dbi                        interface{}
 	db                         *sql.DB
-	endpnt                     *EndPoint
-	remote                     bool
+	args                       []interface{}
 	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
+}
+
+func (cn *Connection) isRemote() bool {
+	return (strings.HasPrefix(cn.dataSourceName, "http://") || strings.HasPrefix(cn.dataSourceName, "https://") || strings.HasPrefix(cn.dataSourceName, "ws://") || strings.HasPrefix(cn.dataSourceName, "wss://"))
 }
 
 func runeReaderToString(rnr io.RuneReader) (s string) {
@@ -227,7 +230,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 								if psblprmnmei > 0 {
 									if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
 										fndprm := false
-										if exctr.endpnt == nil {
+										if !exctr.isRemote() {
 											for mpvk, mpv := range mappedVals {
 												if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
 													if validNames == nil {
@@ -492,10 +495,7 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 		if cn.dbinvoker != nil {
 			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
 				//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
-				if cn.db, _ = cn.dbi.(*sql.DB); cn.db == nil {
-					cn.endpnt, _ = cn.dbi.(*EndPoint)
-				}
-
+				cn.db, _ = cn.dbi.(*sql.DB)
 			}
 			if err != nil && onerror != nil {
 				invokeError(script, err, onerror)
@@ -530,7 +530,7 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 		}
 		if err == nil {
 			if query != nil {
-				exctr = newExecutor(cn, cn.db, nil, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 				if noreader {
 					exctr.execute(false)
 					if err = exctr.lasterr; err != nil {
@@ -549,9 +549,9 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 				}
 			}
 		}
-	} else if cn.endpnt != nil {
+	} else if cn.isRemote() {
 		if query != nil {
-			exctr = newExecutor(cn, cn.db, cn.endpnt, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+			exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 			if noreader {
 				exctr.execute(false)
 				if err = exctr.lasterr; err != nil {

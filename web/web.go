@@ -68,3 +68,9 @@ func (clnt *Client) Do(rqst *http.Request) (rspnse *http.Response, err error) {
 	rspnse, err = clnt.httpclient.Do(rqst)
 	return
 }
+
+var DefaultClient *Client
+
+func init() {
+	DefaultClient = NewClient()
+}

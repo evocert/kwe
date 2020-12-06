@@ -26,10 +26,8 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 					cn.driverName = driver
 					cn.dataSourceName = datasource
 					registered = true
-					cn.endpnt = newEndPoint(cn.dataSourceName, a...)
 				}
 			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
-				cn.endpnt = newEndPoint(cn.dataSourceName, a...)
 				dbms.cnctns[alias] = cn
 				registered = true
 			}

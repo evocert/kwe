@@ -55,7 +55,7 @@ func (rdr *Reader) Data() []interface{} {
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {
-	if rdr.endpnt != nil && rdr.jsndcdr != nil {
+	if rdr.isRemote() && rdr.jsndcdr != nil {
 		for {
 			if rdr.tknlvl == 3 {
 				if rdr.data == nil {
@@ -72,6 +72,7 @@ func (rdr *Reader) Next() (next bool, err error) {
 			tkn, tknerr := rdr.jsndcdr.Token()
 			if tknerr != nil {
 				rdr.lasterr = tknerr
+				next = false
 				break
 			} else {
 				if dlm, dlmok := tkn.(json.Delim); dlmok {
@@ -343,7 +344,7 @@ func (rdr *Reader) execute() (err error) {
 		} else if err != nil {
 			invokeError(rdr.script, err, rdr.OnError)
 		}
-	} else if rdr.endpnt != nil && rdr.jsndcdr != nil {
+	} else if rdr.isRemote() && rdr.jsndcdr != nil {
 		if err = rdr.lasterr; err == nil {
 			if len(cls) > 0 {
 				rdr.cls = cls[:]
