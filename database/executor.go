@@ -315,6 +315,9 @@ func (exctr *Executor) Close() (err error) {
 		if exctr.cn != nil {
 			exctr.cn = nil
 		}
+		if exctr.endpnt != nil {
+			exctr.endpnt = nil
+		}
 		if exctr.stmt != nil {
 			err = exctr.stmt.Close()
 			exctr.stmt = nil
@@ -343,11 +346,18 @@ func (exctr *Executor) Close() (err error) {
 		}
 		if exctr.mappedArgs != nil {
 			exctr.mappedArgs = nil
+			for mk := range exctr.mappedArgs {
+				exctr.mappedArgs[mk] = nil
+				delete(exctr.mappedArgs, mk)
+			}
 		}
 		if exctr.qryArgs != nil {
+			for len(exctr.qryArgs) > 0 {
+				exctr.qryArgs[0] = nil
+				exctr.qryArgs = exctr.qryArgs[1:]
+			}
 			exctr.qryArgs = nil
 		}
-		exctr = nil
 	}
 	return
 }
