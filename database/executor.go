@@ -188,7 +188,9 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 		for {
 			tkn, tknerr := exctr.jsndcdr.Token()
 			if tknerr != nil {
-				exctr.lasterr = tknerr
+				if tknerr != io.EOF {
+					exctr.lasterr = tknerr
+				}
 				break
 			} else {
 				if dlm, dlmok := tkn.(json.Delim); dlmok {

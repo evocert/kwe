@@ -226,9 +226,10 @@ func NewParameters() *Parameters {
 	return &Parameters{}
 }
 
-func LoadParametersFromRawUrl(params *Parameters, rawUrl string) {
-	if rawUrl != "" {
-		if urlvals, e := url.ParseQuery(rawUrl); e == nil {
+//LoadParametersFromRawURL - populate paramaters just from raw url
+func LoadParametersFromRawURL(params *Parameters, rawURL string) {
+	if rawURL != "" {
+		if urlvals, e := url.ParseQuery(rawURL); e == nil {
 			if urlvals != nil {
 				for pname, pvalue := range urlvals {
 					params.SetParameter(pname, false, pvalue...)
@@ -238,9 +239,10 @@ func LoadParametersFromRawUrl(params *Parameters, rawUrl string) {
 	}
 }
 
+//LoadParametersFromHTTPRequest - Load Parameters from http.Request
 func LoadParametersFromHTTPRequest(params *Parameters, r *http.Request) {
 	if r.URL != nil {
-		LoadParametersFromRawUrl(params, r.URL.RawQuery)
+		LoadParametersFromRawURL(params, r.URL.RawQuery)
 		r.URL.RawQuery = ""
 	}
 	if err := r.ParseMultipartForm(0); err == nil {

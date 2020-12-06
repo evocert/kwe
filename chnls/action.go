@@ -80,8 +80,9 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 			if len(aliases) > 0 {
 				for kalias, dbcn := range aliases {
 					if actn.rqst.Parameters().ContainsParameter(kalias + ":json") {
+						jsnval := strings.Join(actn.rqst.Parameters().Parameter(kalias+":json"), "")
 						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
-						dbcn.InOut(strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter(kalias+":json"), "")), actn.rqst, actn.rqst.Parameters())
+						dbcn.InOut(strings.NewReader(jsnval), actn.rqst, actn.rqst.Parameters())
 					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
 						dbrdr, dbrdrerr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters())
 						if rspathext != "" {
