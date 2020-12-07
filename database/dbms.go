@@ -93,7 +93,7 @@ func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *
 			var canRepeat = false
 			var stngok = false
 			var args []interface{} = nil
-			var argsmap []interface{} = nil
+			var argsmap map[string]interface{} = nil
 			for stngk, stngv := range sttngs {
 				if stngk == "alias" {
 					alias, _ = stngv.(string)
