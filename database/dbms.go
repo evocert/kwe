@@ -80,7 +80,7 @@ func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...inte
 // finalize - func() final wrapup event
 // repeatable - true keep underlying stmnt open and allows for repeating query
 // script - script handle
-func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
+func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *Reader) {
 	if a != nil {
 		if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
 			var alias = ""
@@ -93,6 +93,7 @@ func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
 			var canRepeat = false
 			var stngok = false
 			var args []interface{} = nil
+			var argsmap []interface{} = nil
 			for stngk, stngv := range sttngs {
 				if stngk == "alias" {
 					alias, _ = stngv.(string)
@@ -117,8 +118,13 @@ func (dbms *DBMS) QuerySettings(a interface{}) (reader *Reader) {
 				} else if stngk == "prms" || stngk == "args" {
 					if args, stngok = stngv.([]interface{}); stngok && len(args) > 0 {
 						prms = append(prms, args...)
+					} else if argsmap, stngok = stngv.([]interface{}); stngok && len(argsmap) > 0 {
+						prms = append(prms, argsmap)
 					}
 				}
+			}
+			if len(qryargs) > 0 {
+				prms = append(prms, qryargs...)
 			}
 			if exists, dbcn := dbms.AliasExists(alias); exists {
 				var err error = nil
@@ -336,7 +342,7 @@ func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (e
 // finalize - func() final wrapup event
 // repeatable - true keep underlying stmnt open and allows for repeating query
 // script - script handle
-func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
+func (dbms *DBMS) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr *Executor) {
 	if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
 		var alias = ""
 		var query interface{} = nil
@@ -348,6 +354,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
 		var canRepeat = false
 		var stngok = false
 		var args []interface{} = nil
+		var argsmap map[string]interface{} = nil
 		for stngk, stngv := range sttngs {
 			if stngk == "alias" {
 				alias, _ = stngv.(string)
@@ -372,8 +379,13 @@ func (dbms *DBMS) ExecuteSettings(a interface{}) (exctr *Executor) {
 			} else if stngk == "prms" || stngk == "args" {
 				if args, stngok = stngv.([]interface{}); stngok && len(args) > 0 {
 					prms = append(prms, args...)
+				} else if argsmap, stngok = stngv.(map[string]interface{}); stngok && len(argsmap) > 0 {
+					prms = append(prms, argsmap)
 				}
 			}
+		}
+		if len(excargs) > 0 {
+			prms = append(prms, excargs...)
 		}
 		if exists, dbcn := dbms.AliasExists(alias); exists {
 			var err error = nil
