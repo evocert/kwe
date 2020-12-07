@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/database/mysql"
@@ -18,6 +21,24 @@ import (
 )
 
 func main() {
+	go func() {
+		b := false
+		lck := &sync.Mutex{}
+		for {
+			time.Sleep(time.Second * 10)
+			func() {
+				lck.Lock()
+				defer lck.Unlock()
+				if !b {
+					b = true
+					go func() {
+						runtime.GC()
+						b = false
+					}()
+				}
+			}()
+		}
+	}()
 	//database.GLOBALDBMS().RegisterConnection("mydb", "postgres", "user=postgres password=1234!@#$qwerQWER host=skullquake.dedicated.co.za port=5432 dbname=postgres sslmode=disable")
 	database.GLOBALDBMS().RegisterConnection("psg", "postgres", "user=postgres password=n@n61ng@ dbname=postgres sslmode=disable host=127.0.0.1 port=5433")
 	database.GLOBALDBMS().RegisterConnection("psgrmt", "remote", "http://127.0.0.1:1002/dbms-psg/.json")
@@ -39,9 +60,14 @@ func main() {
 		map[string]string{"Content-Type": "application/json"},
 		nil,
 		strings.NewReader(`{"alias":"psg","5555":{"query":"select * from test.tbltest"},"1234":{"query":"select * from test.tbltest"}}`),
-		buff,
-	)
+		buff)
 	fmt.Println(buff)
+	go func() {
+		for {
+			time.Sleep(time.Second * 30)
+			runtime.GC()
+		}
+	}()
 	<-cancelChan
 	os.Exit(0)
 }

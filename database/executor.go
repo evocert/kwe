@@ -312,7 +312,12 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 				var rspheaders = map[string]string{}
 				var rqstheaders = map[string]string{}
 				rqstheaders["Content-Type"] = "application/json"
-				web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out, exctr.cn.args...)
+				if len(exctr.cn.args) > 0 {
+					exctr.cn.args = append(exctr.cn.args, pi, out)
+					web.DefaultClient.Send(datasource, rqstheaders, rspheaders, exctr.cn.args...)
+				} else {
+					web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out)
+				}
 				rqstheaders = nil
 				rspheaders = nil
 			}()

@@ -14,16 +14,18 @@ import (
 //Reader - struct
 type Reader struct {
 	*Executor
-	rws       *sql.Rows
-	rownr     int64
-	cls       []string
-	cltpes    []*ColumnType
-	data      []interface{}
-	dispdata  []interface{}
-	dataref   []interface{}
-	wg        *sync.WaitGroup
-	OnColumns interface{}
-	OnRow     interface{}
+	rws         *sql.Rows
+	rownr       int64
+	cls         []string
+	cltpes      []*ColumnType
+	data        []interface{}
+	datamap     map[string]interface{}
+	dispdata    []interface{}
+	dataref     []interface{}
+	wg          *sync.WaitGroup
+	OnColumns   interface{}
+	OnRow       interface{}
+	OnValidData interface{}
 }
 
 //ColumnTypes return Column types in form of a slice, 'array', of []*ColumnType values
@@ -35,6 +37,8 @@ func (rdr *Reader) ColumnTypes() []*ColumnType {
 func (rdr *Reader) Columns() []string {
 	return rdr.cls
 }
+
+var emptymap = map[string]interface{}{}
 
 //Data return Displayable data in the form of a slice, 'array', of interface{} values
 func (rdr *Reader) Data() []interface{} {
@@ -52,9 +56,25 @@ func (rdr *Reader) Data() []interface{} {
 	return rdr.dispdata[:]
 }
 
+//DataMap return Displayable data in the form of a map[string]interface{} column and values
+func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
+	if rdr != nil && len(rdr.data) > 0 && len(rdr.cls) == len(rdr.data) {
+		displdata := rdr.Data()
+		if rdr.datamap == nil {
+			rdr.datamap = map[string]interface{}{}
+		}
+		for cn, c := range rdr.cls {
+			rdr.datamap[c] = displdata[cn]
+		}
+		return rdr.datamap
+	}
+	return
+}
+
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {
+	validdata := true
 	if rdr.isRemote() && rdr.jsndcdr != nil {
 		for {
 			if rdr.tknlvl == 3 {
@@ -65,8 +85,10 @@ func (rdr *Reader) Next() (next bool, err error) {
 				if dcerr := rdr.jsndcdr.Decode(&rdr.data); dcerr == nil {
 					next = true
 					if err == nil {
-						rdr.rownr++
-						next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+						if validdata = invokeDataValid(rdr.script, rdr.OnValidData, rdr.rownr, rdr); validdata {
+							rdr.rownr++
+							next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+						}
 					}
 				} else {
 					next = false
@@ -136,8 +158,10 @@ func (rdr *Reader) Next() (next bool, err error) {
 			}(wg)
 			wg.Wait()
 			if err == nil {
-				rdr.rownr++
-				next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+				if validdata = invokeDataValid(rdr.script, rdr.OnValidData, rdr.rownr, rdr); validdata {
+					rdr.rownr++
+					next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+				}
 			}
 			//}(rset.dosomething)
 			//<-rset.dosomething
@@ -356,6 +380,24 @@ func (rdr *Reader) execute() (err error) {
 				invokeColumns(rdr.script, rdr.OnColumns, rdr)
 			}
 		}
+	}
+	return
+}
+
+func invokeDataValid(script active.Runtime, ondatavalid interface{}, rownr int64, rdr *Reader) (validdata bool) {
+	if ondatavalid != nil {
+		if fncdatavalid, fncdatavalidok := ondatavalid.(func(*Reader, int64) bool); fncdatavalidok {
+			validdata = fncdatavalid(rdr, rownr)
+		} else if script != nil {
+			invval := script.InvokeFunction(ondatavalid, rdr, rownr)
+			if isvalid, isdoneok := invval.(bool); isdoneok {
+				validdata = isvalid
+			} else {
+				validdata = true
+			}
+		}
+	} else {
+		validdata = true
 	}
 	return
 }

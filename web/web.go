@@ -19,10 +19,40 @@ func NewClient() (clnt *Client) {
 }
 
 //Send - Client send
-func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rspheaders map[string]string, r io.Reader, w io.Writer, a ...interface{}) (err error) {
+func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rspheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
 		var method = "GET"
+		var r io.Reader = nil
+		var w io.Writer = nil
+		var aok bool = false
+		var ai = 0
 
+		for ai < len(a) {
+			d := a[ai]
+			if r == nil {
+				if r, aok = d.(io.Reader); aok {
+					if ai < len(a)-1 {
+						a = append(a[:ai], a[ai+1:]...)
+						continue
+					} else {
+						a = append(a[:ai], a[ai+1:]...)
+						break
+					}
+				}
+			}
+			if w == nil {
+				if w, aok = d.(io.Writer); aok {
+					if ai < len(a)-1 {
+						a = append(a[:ai], a[ai+1:]...)
+						continue
+					} else {
+						a = append(a[:ai], a[ai+1:]...)
+						break
+					}
+				}
+			}
+			ai++
+		}
 		if r != nil {
 			method = "POST"
 		}
@@ -41,22 +71,28 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 						rspheaders[rsph] = strings.Join(rsphv, ";")
 					}
 				}
-				wg := &sync.WaitGroup{}
-				wg.Add(1)
-				pi, pw := io.Pipe()
-				go func() {
-					defer func() {
-						pw.Close()
-					}()
-					wg.Done()
+				if respbdy := resp.Body; respbdy != nil {
 					if w != nil {
-						if respbdy := resp.Body; respbdy != nil {
-							io.Copy(pw, respbdy)
-						}
+						wg := &sync.WaitGroup{}
+						wg.Add(1)
+						pi, pw := io.Pipe()
+						go func() {
+							defer func() {
+								pw.Close()
+							}()
+							wg.Done()
+							if w != nil {
+
+								io.Copy(pw, respbdy)
+
+							}
+						}()
+						wg.Wait()
+						io.Copy(w, pi)
+					} else if rspr != nil {
+						rspr = respbdy
 					}
-				}()
-				wg.Wait()
-				io.Copy(w, pi)
+				}
 			}
 		}
 	}
@@ -69,6 +105,7 @@ func (clnt *Client) Do(rqst *http.Request) (rspnse *http.Response, err error) {
 	return
 }
 
+//DefaultClient  - default global web Client
 var DefaultClient *Client
 
 func init() {
