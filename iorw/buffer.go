@@ -8,11 +8,12 @@ import (
 
 //Buffer -
 type Buffer struct {
-	buffer [][]byte
-	bytes  []byte
-	bytesi int
-	lck    *sync.RWMutex
-	bufrs  map[*BuffReader]*BuffReader
+	buffer  [][]byte
+	bytes   []byte
+	bytesi  int
+	lck     *sync.RWMutex
+	bufrs   map[*BuffReader]*BuffReader
+	OnClose func(*Buffer)
 }
 
 //NewBuffer -
@@ -159,6 +160,10 @@ func (buff *Buffer) Reader() (bufr *BuffReader) {
 func (buff *Buffer) Close() (err error) {
 	if buff != nil {
 		if buff.lck != nil {
+			if buff.OnClose != nil {
+				buff.OnClose(buff)
+				buff.OnClose = nil
+			}
 			buff.Clear()
 			buff.lck = nil
 		}

@@ -410,8 +410,9 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 
 type atvruntime struct {
 	*parsing
-	atv *Active
-	vm  *es51.Runtime
+	atv        *Active
+	vm         *es51.Runtime
+	intrnbuffs map[*iorw.Buffer]*iorw.Buffer
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -452,6 +453,12 @@ func (atvrntme *atvruntime) run() (err error) {
 				}
 			}
 		}
+		atvrntme.vm.Set("newbuffer", func() (buff *iorw.Buffer) {
+			buff = iorw.NewBuffer()
+			buff.OnClose = atvrntme.removeBuffer
+			atvrntme.intrnbuffs[buff] = buff
+			return
+		})
 		atvrntme.vm.Set("_passiveout", func(i int) {
 			atvrntme.passiveout(i)
 		})
@@ -498,6 +505,15 @@ func (atvrntme *atvruntime) run() (err error) {
 		fmt.Println(err.Error())
 	}
 	return
+}
+
+func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
+	if len(atvrntme.intrnbuffs) > 0 {
+		if bf, bfok := atvrntme.intrnbuffs[buff]; bfok && bf == buff {
+			atvrntme.intrnbuffs[buff] = nil
+			delete(atvrntme.intrnbuffs, buff)
+		}
+	}
 }
 
 func (atvrntme *atvruntime) code() (c string) {
@@ -552,10 +568,28 @@ func (atvrntme *atvruntime) close() {
 			}
 			atvrntme.vm = nil
 		}
+		if atvrntme.intrnbuffs != nil {
+			if il := len(atvrntme.intrnbuffs); il > 0 {
+				bfs := make([]*iorw.Buffer, il)
+				bfsi := 0
+				for bf := range atvrntme.intrnbuffs {
+					bfs[bfsi] = bf
+					bfsi++
+				}
+				for len(bfs) > 0 {
+					bf := bfs[0]
+					bf.Close()
+					bf = nil
+					bfs = bfs[1:]
+				}
+			}
+			atvrntme.intrnbuffs = nil
+		}
+		atvrntme = nil
 	}
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es51.New()}
+	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es51.New(), intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	return
 }

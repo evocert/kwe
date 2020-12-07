@@ -64,8 +64,13 @@ func (rdr *Reader) Next() (next bool, err error) {
 				}
 				if dcerr := rdr.jsndcdr.Decode(&rdr.data); dcerr == nil {
 					next = true
+					if err == nil {
+						rdr.rownr++
+						next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
+					}
 				} else {
-					err = dcerr
+					next = false
+					//err = dcerr
 				}
 				break
 			}
@@ -103,10 +108,8 @@ func (rdr *Reader) Next() (next bool, err error) {
 				}
 			}
 		}
-		if next {
-
-		} else {
-
+		if !next {
+			rdr.Close()
 		}
 	} else {
 		if next = rdr.rws.Next(); next {

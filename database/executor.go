@@ -112,66 +112,7 @@ func (exctr *Executor) isRemote() bool {
 }
 
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
-	if !exctr.isRemote() {
-		if exctr.stmt == nil {
-			exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
-		}
-		if exctr.lasterr == nil && exctr.stmt != nil {
-			exctr.lastInsertID = -1
-			exctr.rowsAffected = -1
-			if exctr.canRepeat && len(exctr.argNames) > 0 {
-				for agrn, argnme := range exctr.argNames {
-					if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
-						parseParam(exctr, prmv, agrn)
-					} else {
-						parseParam(exctr, nil, agrn)
-					}
-				}
-			}
-
-			if len(forrows) >= 1 && forrows[0] {
-				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
-					cltps, _ := rws.ColumnTypes()
-					cls, _ = rws.Columns()
-					if len(cls) > 0 {
-						clsdstnc := map[string]int{}
-						clsdstncorg := map[string]int{}
-						cltpes = columnTypes(cltps, cls)
-						for cn, c := range cls {
-							if ci, ciok := clsdstnc[c]; ciok {
-								if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
-									cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
-								}
-								clsdstnc[c]++
-								c = fmt.Sprintf("%s%d", c, ci+1)
-							} else {
-								if _, orgok := clsdstncorg[c]; !orgok {
-									clsdstncorg[c] = cn
-								}
-								clsdstnc[c] = 0
-							}
-							cls[cn] = c
-						}
-					}
-				} else if exctr.lasterr != nil {
-					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
-				}
-			} else {
-				if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
-					if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
-						exctr.lastInsertID = -1
-					}
-					if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
-						exctr.rowsAffected = -1
-					}
-					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
-				} else {
-					exctr.lasterr = rslterr
-					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
-				}
-			}
-		}
-	} else {
+	if exctr.isRemote() {
 		pi, po := io.Pipe()
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
@@ -270,6 +211,65 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 				}
 			}
 		}
+	} else {
+		if exctr.stmt == nil {
+			exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
+		}
+		if exctr.lasterr == nil && exctr.stmt != nil {
+			exctr.lastInsertID = -1
+			exctr.rowsAffected = -1
+			if exctr.canRepeat && len(exctr.argNames) > 0 {
+				for agrn, argnme := range exctr.argNames {
+					if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
+						parseParam(exctr, prmv, agrn)
+					} else {
+						parseParam(exctr, nil, agrn)
+					}
+				}
+			}
+
+			if len(forrows) >= 1 && forrows[0] {
+				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
+					cltps, _ := rws.ColumnTypes()
+					cls, _ = rws.Columns()
+					if len(cls) > 0 {
+						clsdstnc := map[string]int{}
+						clsdstncorg := map[string]int{}
+						cltpes = columnTypes(cltps, cls)
+						for cn, c := range cls {
+							if ci, ciok := clsdstnc[c]; ciok {
+								if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
+									cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+								}
+								clsdstnc[c]++
+								c = fmt.Sprintf("%s%d", c, ci+1)
+							} else {
+								if _, orgok := clsdstncorg[c]; !orgok {
+									clsdstncorg[c] = cn
+								}
+								clsdstnc[c] = 0
+							}
+							cls[cn] = c
+						}
+					}
+				} else if exctr.lasterr != nil {
+					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
+				}
+			} else {
+				if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
+					if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
+						exctr.lastInsertID = -1
+					}
+					if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
+						exctr.rowsAffected = -1
+					}
+					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
+				} else {
+					exctr.lasterr = rslterr
+					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
+				}
+			}
+		}
 	}
 	return
 }
@@ -282,7 +282,6 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 		defer func() {
 			pi.Close()
 			pi = nil
-			wg = nil
 		}()
 		go func() {
 			defer func() {
@@ -313,7 +312,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 				var rspheaders = map[string]string{}
 				var rqstheaders = map[string]string{}
 				rqstheaders["Content-Type"] = "application/json"
-				web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out)
+				web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out, exctr.cn.args...)
 				rqstheaders = nil
 				rspheaders = nil
 			}()
