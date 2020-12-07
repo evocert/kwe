@@ -118,7 +118,7 @@ func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *
 				} else if stngk == "prms" || stngk == "args" {
 					if args, stngok = stngv.([]interface{}); stngok && len(args) > 0 {
 						prms = append(prms, args...)
-					} else if argsmap, stngok = stngv.([]interface{}); stngok && len(argsmap) > 0 {
+					} else if argsmap, stngok = stngv.(map[string]interface{}); stngok && len(argsmap) > 0 {
 						prms = append(prms, argsmap)
 					}
 				}
