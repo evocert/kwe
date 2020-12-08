@@ -53,6 +53,7 @@ func main() {
 	} else {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
+		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()
