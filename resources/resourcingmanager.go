@@ -56,6 +56,7 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource) {
 			return
 		}
 		var rspthFound = ""
+
 		for rsgnpath := range rscngmngr.rsngendpnts {
 			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
 				if len(rsgnpath) > len(rspthFound) {

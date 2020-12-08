@@ -89,7 +89,7 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 						}()
 						wg.Wait()
 						io.Copy(w, pi)
-					} else if rspr != nil {
+					} else if rspr == nil {
 						rspr = respbdy
 					}
 				}

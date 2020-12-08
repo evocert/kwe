@@ -52,6 +52,7 @@ func main() {
 		listen.Listening().Listen(args[1], false)
 	} else {
 		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
+		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()

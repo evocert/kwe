@@ -38,8 +38,6 @@ func (rdr *Reader) Columns() []string {
 	return rdr.cls
 }
 
-var emptymap = map[string]interface{}{}
-
 //Data return Displayable data in the form of a slice, 'array', of interface{} values
 func (rdr *Reader) Data() []interface{} {
 	//go func(somethingDone chan bool) {
@@ -56,6 +54,8 @@ func (rdr *Reader) Data() []interface{} {
 	return rdr.dispdata[:]
 }
 
+var emptymap = map[string]interface{}{}
+
 //DataMap return Displayable data in the form of a map[string]interface{} column and values
 func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
 	if rdr != nil && len(rdr.data) > 0 && len(rdr.cls) == len(rdr.data) {
@@ -68,7 +68,7 @@ func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
 		}
 		return rdr.datamap
 	}
-	return
+	return emptymap
 }
 
 //Next return true if able to move focus of Reader to the next underlying record

@@ -2,21 +2,26 @@ package resources
 
 import (
 	"archive/zip"
+	"io"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/evocert/kwe/mimes"
+	"github.com/evocert/kwe/web"
 )
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
-	path        string
-	epnttype    string
-	islocal     bool
-	isRemote    bool
-	host        string
-	schema      string
-	querystring string
-	rsngmngr    *ResourcingManager
+	path          string
+	epnttype      string
+	islocal       bool
+	isRemote      bool
+	remoteHeaders map[string]string
+	host          string
+	schema        string
+	querystring   string
+	rsngmngr      *ResourcingManager
 }
 
 func (rscngepnt *ResourcingEndpoint) dispose() {
@@ -67,7 +72,22 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource) {
 					}
 				}
 			} else if rscngepnt.isRemote {
+				prms := map[string]interface{}{}
+				if rscngepnt.querystring != "" {
 
+				}
+				remoteHeaders := map[string]string{}
+				mimetype, _ := mimes.FindMimeType(path, "text/plain")
+				var rqstr io.Reader = nil
+				if mimetype == "application/json" {
+					if len(prms) > 0 {
+
+					}
+				}
+				remoteHeaders["Content-Type"] = mimetype
+				if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+rscngepnt.host+rscngepnt.path+path, remoteHeaders, nil, rqstr); rerr == nil {
+					rs = newRS(rscngepnt, path, r)
+				}
 			}
 		}
 	}
@@ -77,15 +97,9 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource) {
 func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
 	rsngepntpath = path
 	if rsngepntpath != "" {
+
 		rsngepntpath = strings.Replace(strings.TrimSpace(rsngepntpath), "\\", "/", -1)
-		if fi, fierr := os.Stat(rsngepntpath); fierr == nil {
-			if rsngepntpath != "/" && rune(rsngepntpath[len(rsngepntpath)-1]) != '/' {
-				rsngepntpath = rsngepntpath + "/"
-			}
-			if fi.IsDir() {
-				rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: true, isRemote: false, host: "", schema: "", querystring: "", path: rsngepntpath}
-			}
-		} else {
+		if strings.HasPrefix(rsngepntpath, "http://") || strings.HasPrefix(rsngepntpath, "https://") {
 			_, err := url.ParseRequestURI(rsngepntpath)
 			if err == nil {
 				u, err := url.Parse(rsngepntpath)
@@ -96,7 +110,17 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					} else {
 						querystring = u.RawQuery
 					}
+					path = u.Path
 					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: true, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+				}
+			}
+		} else {
+			if fi, fierr := os.Stat(rsngepntpath); fierr == nil {
+				if rsngepntpath != "/" && rune(rsngepntpath[len(rsngepntpath)-1]) != '/' {
+					rsngepntpath = rsngepntpath + "/"
+				}
+				if fi.IsDir() {
+					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: true, isRemote: false, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
