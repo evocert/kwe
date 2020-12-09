@@ -7,21 +7,24 @@ import (
 	"os"
 	"strings"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/web"
 )
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
-	path          string
-	epnttype      string
-	islocal       bool
-	isRemote      bool
-	remoteHeaders map[string]string
-	host          string
-	schema        string
-	querystring   string
-	rsngmngr      *ResourcingManager
+	path              string
+	epnttype          string
+	islocal           bool
+	isRemote          bool
+	isEmbedded        bool
+	remoteHeaders     map[string]string
+	host              string
+	schema            string
+	querystring       string
+	embeddedResources map[string]interface{}
+	rsngmngr          *ResourcingManager
 }
 
 func (rscngepnt *ResourcingEndpoint) dispose() {
@@ -37,7 +40,13 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource) {
 	if path != "" {
 		if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
-			if rscngepnt.islocal {
+			if embdrs, embdrsok := rscngepnt.embeddedResources[path]; embdrsok {
+				if buff, buffok := embdrs.(*iorw.Buffer); buffok {
+					rs = newRS(rscngepnt, path, buff.Reader())
+				} else if funcr, funcrok := embdrs.(func() io.Reader); funcrok {
+					rs = newRS(rscngepnt, path, funcr())
+				}
+			} else if rscngepnt.islocal {
 				var tmppath = ""
 				var tmppaths = strings.Split(path, "/")
 				for pn, ps := range tmppaths {
@@ -94,6 +103,60 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource) {
 	return
 }
 
+//MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
+func (rscngepnt *ResourcingEndpoint) MapResource(path string, resource interface{}) {
+	if path != "" && resource != nil {
+		var validResource = false
+		var strng = ""
+		var isReader = false
+		var r io.Reader = nil
+		var isBuffer = false
+		var buff *iorw.Buffer = nil
+
+		if strng, validResource = resource.(string); !validResource {
+			if _, validResource = resource.(func() io.Reader); !validResource {
+				if buff, validResource = resource.(*iorw.Buffer); !validResource {
+					if r, validResource = resource.(io.Reader); validResource {
+						validResource = (r != nil)
+					}
+					isReader = validResource
+				} else {
+					isBuffer = true
+				}
+			}
+		} else {
+			if strng != "" {
+				r = strings.NewReader(strng)
+				isReader = true
+			} else {
+				validResource = false
+			}
+		}
+		if validResource {
+			if isReader {
+				buff := iorw.NewBuffer()
+				io.Copy(buff, r)
+				resource = buff
+			}
+			if _, resourceok := rscngepnt.embeddedResources[path]; resourceok && rscngepnt.embeddedResources[path] != resource {
+				if rscngepnt.embeddedResources[path] != nil {
+					if isBuffer {
+						if buff, isBuffer = rscngepnt.embeddedResources[path].(*iorw.Buffer); isBuffer {
+							buff.Close()
+							buff = nil
+						}
+						rscngepnt.embeddedResources[path] = resource
+					}
+				} else {
+					rscngepnt.embeddedResources[path] = resource
+				}
+			} else {
+				rscngepnt.embeddedResources[path] = resource
+			}
+		}
+	}
+}
+
 func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
 	rsngepntpath = path
 	if rsngepntpath != "" {
@@ -111,7 +174,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: true, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
 				}
 			}
 		} else {
@@ -120,10 +183,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: true, isRemote: false, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
+	} else {
+		rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
 	}
 	return
 }

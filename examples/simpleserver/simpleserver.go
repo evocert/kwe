@@ -46,14 +46,15 @@ func main() {
 	// catch SIGTERM or SIGINTERRUPT
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
 	if args := os.Args; len(args) == 3 {
-		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", args[1])
+		resources.GLOBALRSNG().RegisterEndpoint("/", args[1])
 		listen.Listening().Listen(args[2], false)
 	} else if args := os.Args; len(args) == 2 {
 		listen.Listening().Listen(args[1], false)
 	} else {
-		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/", "./")
-		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
-		resources.GLOBALRSNGMANAGER().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
+		resources.GLOBALRSNG().RegisterEndpoint("/", "./")
+		resources.GLOBALRSNG().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
+		resources.GLOBALRSNG().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
+		resources.GLOBALRSNG().MapEndPointResource("/dojo/", "string.txt", "test this string")
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()

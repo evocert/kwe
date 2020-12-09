@@ -8,9 +8,20 @@ type ResourcingManager struct {
 	rsngendpntspaths map[string]*ResourcingEndpoint
 }
 
+//MapEndPointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
+func (rscngmngr *ResourcingManager) MapEndPointResource(epntpath string, path string, resource interface{}) {
+	if epntpath != "" && path != "" {
+		if _, epntpathok := rscngmngr.rsngendpnts[epntpath]; epntpathok {
+			if rscngepnt := rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[epntpath]]; rscngepnt != nil {
+				rscngepnt.MapResource(path, resource)
+			}
+		}
+	}
+}
+
 //RegisterEndpoint - register ResourcingEndPoint
 func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path string, prms ...interface{}) {
-	if epntpath != "" && path != "" {
+	if epntpath != "" {
 		if _, rsngepntok := rscngmngr.rsngendpnts[epntpath]; !rsngepntok {
 			if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, path, prms...); newrsngepnt != nil {
 				rsngepnt, rsngepntok := rscngmngr.rsngendpntspaths[newrsngepntpath]
@@ -79,8 +90,8 @@ func NewResourcingManager() (rscngmngr *ResourcingManager) {
 
 var glbrscngmngr *ResourcingManager
 
-//GLOBALRSNGMANAGER - GLOBAL ResourcingManager for app
-func GLOBALRSNGMANAGER() *ResourcingManager {
+//GLOBALRSNG - GLOBAL Resourcing for app
+func GLOBALRSNG() *ResourcingManager {
 	return glbrscngmngr
 }
 
