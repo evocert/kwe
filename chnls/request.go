@@ -374,37 +374,6 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 	return
 }
 
-func processDbmsPath(rqst *Request, rsngpth *resources.ResourcingPath, path string) (didprocess bool, err error) {
-	if strings.Index(path, "/dbms-") > -1 {
-		var alias = path[strings.Index(path, "/dbms-")+1:]
-		if strings.Index(alias, "/") > 0 {
-			sqlpath := path[strings.Index(path, "/dbms-")+len(alias)+1:]
-			alias = alias[len("dbms-"):strings.Index(alias, "/")]
-
-			dbcn, exists := rqst.activecns[alias]
-			if !exists {
-				if exists, dbcn = database.GLOBALDBMS().AliasExists(alias); exists {
-					rqst.activecns[alias] = dbcn
-				}
-			}
-
-			if exists {
-				if sqlpath != "" {
-					path = sqlpath
-					if !strings.HasPrefix(path, "/") {
-						path = path + "/"
-					}
-				} else {
-
-				}
-			} else if alias == "all" {
-
-			}
-		}
-	}
-	return
-}
-
 func (rqst *Request) processPaths() {
 	//var isFirstRequest = true
 	//var isTextRequest = false
@@ -589,6 +558,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
+	rqst.objmap["resourcing"] = resources.GLOBALRSNG()
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
 	}
