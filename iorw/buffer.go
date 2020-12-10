@@ -8,17 +8,17 @@ import (
 
 //Buffer -
 type Buffer struct {
-	buffer  [][]byte
-	bytes   []byte
-	bytesi  int
-	lck     *sync.RWMutex
-	bufrs   map[*BuffReader]*BuffReader
+	buffer [][]byte
+	bytes  []byte
+	bytesi int
+	lck    *sync.RWMutex
+	//bufrs   map[*BuffReader]*BuffReader
 	OnClose func(*Buffer)
 }
 
 //NewBuffer -
 func NewBuffer() (buff *Buffer) {
-	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192), bufrs: map[*BuffReader]*BuffReader{}}
+	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192) /*bufrs: map[*BuffReader]*BuffReader{}*/}
 	return
 }
 
@@ -152,7 +152,7 @@ func (buff *Buffer) Write(p []byte) (n int, err error) {
 //Reader -
 func (buff *Buffer) Reader() (bufr *BuffReader) {
 	bufr = &BuffReader{buffer: buff, roffset: -1}
-	buff.bufrs[bufr] = bufr
+	//buff.bufrs[bufr] = bufr
 	return
 }
 
@@ -180,7 +180,7 @@ func (buff *Buffer) Clear() (err error) {
 				buff.lck.Lock()
 				defer buff.lck.Unlock()
 
-				if buff.bufrs != nil {
+				/*if buff.bufrs != nil {
 					if len(buff.bufrs) > 0 {
 						var bufrs = make([]*BuffReader, len(buff.bufrs))
 						var bufrsi = 0
@@ -196,7 +196,7 @@ func (buff *Buffer) Clear() (err error) {
 						bufrs = nil
 					}
 					buff.bufrs = nil
-				}
+				}*/
 				if buff.buffer != nil {
 					for len(buff.buffer) > 0 {
 						buff.buffer[0] = nil
@@ -270,12 +270,12 @@ func (bufr *BuffReader) WriteTo(w io.Writer) (n int64, err error) {
 func (bufr *BuffReader) Close() (err error) {
 	if bufr != nil {
 		if bufr.buffer != nil {
-			func() {
+			/*func() {
 				if _, ok := bufr.buffer.bufrs[bufr]; ok {
 					bufr.buffer.bufrs[bufr] = nil
 					delete(bufr.buffer.bufrs, bufr)
 				}
-			}()
+			}()*/
 			bufr.buffer = nil
 		}
 		if bufr.rnr != nil {

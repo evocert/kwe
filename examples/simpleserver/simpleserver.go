@@ -53,8 +53,13 @@ func main() {
 	} else {
 		resources.GLOBALRSNG().RegisterEndpoint("/", "./")
 		resources.GLOBALRSNG().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
+		resources.GLOBALRSNG().RegisterEndpoint("/mem/", "")
 		resources.GLOBALRSNG().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
-		resources.GLOBALRSNG().MapEndPointResource("/dojo/", "string.txt", "test this string")
+		if f, ferr := os.Open("./trythis.html"); ferr == nil {
+			resources.GLOBALRSNG().MapEndPointResource("/mem/", "uiop/string.txt", f)
+			resources.GLOBALRSNG().MapEndPointResource("/dojo/", "uiop/string.html", f)
+		}
+
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()

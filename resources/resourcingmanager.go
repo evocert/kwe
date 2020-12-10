@@ -60,8 +60,8 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path strin
 }
 
 //FindRSString - find Resource
-func (rscngmngr *ResourcingManager) FindRSString(path string) (s string) {
-	if rs := rscngmngr.FindRS(path); rs != nil && rs.isText {
+func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err error) {
+	if rs, rserr := rscngmngr.FindRS(path); rs != nil && rs.isText {
 		func() {
 			defer rs.Close()
 			p := make([]rune, 1024)
@@ -77,6 +77,7 @@ func (rscngmngr *ResourcingManager) FindRSString(path string) (s string) {
 					}
 				}
 				if rerr != nil {
+					err = rerr
 					break
 				}
 			}
@@ -84,12 +85,14 @@ func (rscngmngr *ResourcingManager) FindRSString(path string) (s string) {
 				s += string(p[:pi])
 			}
 		}()
+	} else if rserr != nil {
+		err = rserr
 	}
 	return
 }
 
 //FindRS - find Resource
-func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource) {
+func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {
@@ -108,7 +111,7 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource) {
 			}
 		}
 		if len(rspthFound) > 0 {
-			rs = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].findRS(path[len(rspthFound):])
+			rs, err = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].findRS(path[len(rspthFound):])
 		}
 	}
 	return

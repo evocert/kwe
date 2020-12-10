@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/mimes"
@@ -14,6 +15,7 @@ import (
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
+	lck               *sync.Mutex
 	path              string
 	epnttype          string
 	islocal           bool
@@ -37,68 +39,76 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 	}
 }
 
-func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource) {
+func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err error) {
 	if path != "" {
-		if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
-			if embdrs, embdrsok := rscngepnt.embeddedResources[path]; embdrsok {
-				if buff, buffok := embdrs.(*iorw.Buffer); buffok {
-					rs = newRS(rscngepnt, path, buff.Reader())
-				} else if funcr, funcrok := embdrs.(func() io.Reader); funcrok {
-					rs = newRS(rscngepnt, path, funcr())
-				}
-			} else if rscngepnt.islocal {
-				var tmppath = ""
-				var tmppaths = strings.Split(path, "/")
-				for pn, ps := range tmppaths {
-					if pn < len(tmppaths)-1 {
-						if fi, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
-							var testpath = strings.Join(tmppaths[pn+1:len(tmppaths)], "/")
-							if testpath != "" {
-								if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
-									for _, f := range r.File {
-										if f.Name == testpath {
-											if rc, rcerr := f.Open(); rcerr == nil {
-												rs = newRS(rscngepnt, path, rc)
-											} else {
-
+		func() {
+			rscngepnt.lck.Lock()
+			defer rscngepnt.lck.Unlock()
+			if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
+				if embdrs, embdrsok := rscngepnt.embeddedResources[path]; embdrsok {
+					if buff, buffok := embdrs.(*iorw.Buffer); buffok {
+						rs = newRS(rscngepnt, path, buff.Reader())
+					} else if funcr, funcrok := embdrs.(func() io.Reader); funcrok {
+						rs = newRS(rscngepnt, path, funcr())
+					}
+				} else if rscngepnt.islocal {
+					var tmppath = ""
+					var tmppaths = strings.Split(path, "/")
+					for pn, ps := range tmppaths {
+						if pn < len(tmppaths)-1 {
+							if fi, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
+								var testpath = strings.Join(tmppaths[pn+1:len(tmppaths)], "/")
+								if testpath != "" {
+									if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
+										for _, f := range r.File {
+											if f.Name == testpath {
+												if rc, rcerr := f.Open(); rcerr == nil {
+													rs = newRS(rscngepnt, path, rc)
+												} else {
+													err = rcerr
+												}
+												return
 											}
-											return
 										}
 									}
 								}
+								break
+							} else {
+								tmppath = tmppath + ps + "/"
 							}
-							break
 						} else {
-							tmppath = tmppath + ps + "/"
+							break
 						}
-					} else {
-						break
 					}
-				}
-				if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
-					if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
-						rs = newRS(rscngepnt, path, f)
+					if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
+						if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
+							rs = newRS(rscngepnt, path, f)
+						} else if ferr != nil {
+							err = ferr
+						}
 					}
-				}
-			} else if rscngepnt.isRemote {
-				prms := map[string]interface{}{}
-				if rscngepnt.querystring != "" {
-
-				}
-				remoteHeaders := map[string]string{}
-				mimetype, _ := mimes.FindMimeType(path, "text/plain")
-				var rqstr io.Reader = nil
-				if mimetype == "application/json" {
-					if len(prms) > 0 {
+				} else if rscngepnt.isRemote {
+					prms := map[string]interface{}{}
+					if rscngepnt.querystring != "" {
 
 					}
-				}
-				remoteHeaders["Content-Type"] = mimetype
-				if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+rscngepnt.host+rscngepnt.path+path, remoteHeaders, nil, rqstr); rerr == nil {
-					rs = newRS(rscngepnt, path, r)
+					remoteHeaders := map[string]string{}
+					mimetype, _ := mimes.FindMimeType(path, "text/plain")
+					var rqstr io.Reader = nil
+					if mimetype == "application/json" {
+						if len(prms) > 0 {
+
+						}
+					}
+					remoteHeaders["Content-Type"] = mimetype
+					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+rscngepnt.host+rscngepnt.path+path, remoteHeaders, nil, rqstr); rerr == nil {
+						rs = newRS(rscngepnt, path, r)
+					} else if rerr != nil {
+						err = rerr
+					}
 				}
 			}
-		}
+		}()
 	}
 	return
 }
@@ -160,7 +170,6 @@ func (rscngepnt *ResourcingEndpoint) MapResource(path string, resource interface
 func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
 	rsngepntpath = path
 	if rsngepntpath != "" {
-
 		rsngepntpath = strings.Replace(strings.TrimSpace(rsngepntpath), "\\", "/", -1)
 		if strings.HasPrefix(rsngepntpath, "http://") || strings.HasPrefix(rsngepntpath, "https://") {
 			_, err := url.ParseRequestURI(rsngepntpath)
@@ -174,7 +183,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
 				}
 			}
 		} else {
@@ -183,12 +192,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, islocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
+		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
 	}
 	return
 }

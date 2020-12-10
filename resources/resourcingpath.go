@@ -39,10 +39,10 @@ func (rsngpth *ResourcingPath) Close() (err error) {
 func (rsngpth *ResourcingPath) ResourceHandler(altpath ...string) (rshndlr *ResourceHandler) {
 	if rsngpth != nil && rsngpth.rsngmngr != nil {
 		if len(altpath) > 0 && altpath[0] != "" {
-			if rs := rsngpth.rsngmngr.FindRS(altpath[0]); rs != nil {
+			if rs, rserr := rsngpth.rsngmngr.FindRS(altpath[0]); rs != nil && rserr == nil {
 				rshndlr = newResourceHandler(rs)
 			}
-		} else if rs := rsngpth.rsngmngr.FindRS(rsngpth.LookupPath); rs != nil {
+		} else if rs, rserr := rsngpth.rsngmngr.FindRS(rsngpth.LookupPath); rs != nil && rserr == nil {
 			rshndlr = newResourceHandler(rs)
 		}
 	}
