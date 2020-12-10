@@ -25,12 +25,13 @@ func Register_jsext_fsutils(vm *es51.Runtime) {
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
 	vm.Set("fsutils", struct {
-		Version     Version                  `json:"version"`
-		File2String func(string) string      `json:"file2string"`
-		String2File func(string, string)     `json:"string2file"`
-		List        func(string) []EntryInfo `json:"list"`
-		Glob        func(string) []EntryInfo `json:"glob"`
-		Walk        func(string) []EntryInfo `json:"walk"`
+		Version         Version                  `json:"version"`
+		File2String     func(string) string      `json:"file2string"`
+		Resource2String func(string) string      `json:"resource2string"`
+		String2File     func(string, string)     `json:"string2file"`
+		List            func(string) []EntryInfo `json:"list"`
+		Glob            func(string) []EntryInfo `json:"glob"`
+		Walk            func(string) []EntryInfo `json:"walk"`
 		//todo: globbed walk
 	}{
 		Version: Version{
@@ -39,6 +40,14 @@ func Register_jsext_fsutils(vm *es51.Runtime) {
 			Bump:  3,
 		},
 		File2String: func(path string) string {
+			content, err := ioutil.ReadFile(path)
+			if err != nil {
+				panic(vm.ToValue("Failed to open file"))
+			}
+			text := string(content)
+			return text
+		},
+		Resource2String: func(path string) string {
 			content, err := ioutil.ReadFile(path)
 			if err != nil {
 				panic(vm.ToValue("Failed to open file"))

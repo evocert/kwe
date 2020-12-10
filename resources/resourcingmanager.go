@@ -1,6 +1,9 @@
 package resources
 
-import "strings"
+import (
+	"bufio"
+	"strings"
+)
 
 //ResourcingManager - struct
 type ResourcingManager struct {
@@ -54,6 +57,35 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path strin
 			}
 		}
 	}
+}
+
+//FindRSString - find Resource
+func (rscngmngr *ResourcingManager) FindRSString(path string) (s string) {
+	if rs := rscngmngr.FindRS(path); rs != nil && rs.isText {
+		func() {
+			defer rs.Close()
+			p := make([]rune, 1024)
+			pi := 0
+			buf := bufio.NewReader(rs)
+			for {
+				r, size, rerr := buf.ReadRune()
+				if size > 0 {
+					p[pi] = r
+					pi++
+					if pi == len(p) {
+						s += string(p[:])
+					}
+				}
+				if rerr != nil {
+					break
+				}
+			}
+			if pi > 0 {
+				s += string(p[:pi])
+			}
+		}()
+	}
+	return
 }
 
 //FindRS - find Resource
