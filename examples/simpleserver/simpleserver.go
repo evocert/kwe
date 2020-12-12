@@ -59,7 +59,6 @@ func main() {
 			resources.GLOBALRSNG().MapEndPointResource("/mem/", "uiop/string.txt", f)
 			resources.GLOBALRSNG().MapEndPointResource("/dojo/", "uiop/string.html", f)
 		}
-
 		listen.Listening().Listen(":1002", false)
 	}
 	buff := iorw.NewBuffer()

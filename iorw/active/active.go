@@ -479,31 +479,41 @@ func (atvrntme *atvruntime) run() (err error) {
 					err = fmt.Errorf("%v", r)
 				}
 			}()
-			prsd, err := parser.ParseFile(nil, "", cde, 0) //es6.CompileAST("", cde, false)
+			prsd, prsderr := parser.ParseFile(nil, "", cde, 0)
+			if prsderr != nil {
+				err = prsderr
+			} //es6.CompileAST("", cde, false)
 			if err == nil {
 				if p, perr := es51.CompileAST(prsd, false); perr == nil {
 					_, err = atvrntme.vm.RunProgram(p)
 					if err != nil {
 						fmt.Println(err.Error())
 					}
+
+					if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
+						if ks := gbl.Keys(); len(ks) > 0 {
+							for _, k := range ks {
+								gbl.Delete(k)
+							}
+							ks = nil
+						}
+						gbl = nil
+					}
 				} else {
 					err = perr
 				}
 			}
-			if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
-				if ks := gbl.Keys(); len(ks) > 0 {
-					for _, k := range ks {
-						gbl.Delete(k)
-					}
-					ks = nil
-				}
-				gbl = nil
-			}
 		}()
+		if err != nil {
+			fmt.Println(err.Error())
+			fmt.Println(cde)
+		}
+	} else {
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+
 	return
 }
 

@@ -32,8 +32,21 @@ type ResourcingEndpoint struct {
 func (rscngepnt *ResourcingEndpoint) dispose() {
 	if rscngepnt != nil {
 		if rscngepnt.rsngmngr != nil {
-			delete(rscngepnt.rsngmngr.rsngendpntspaths, rscngepnt.path)
+			rsendpath := rscngepnt.path
+			delete(rscngepnt.rsngmngr.rsngendpntspaths, rsendpath)
+			for rspth, rsndpth := range rscngepnt.rsngmngr.rsngendpnts {
+				if rsndpth == rsendpath {
+					delete(rscngepnt.rsngmngr.rsngendpnts, rspth)
+				}
+			}
 			rscngepnt.rsngmngr = nil
+		}
+		rscngepnt = nil
+		if rscngepnt.embeddedResources != nil {
+			for embk := range rscngepnt.embeddedResources {
+				rscngepnt.RemoveResource(embk)
+			}
+			rscngepnt.embeddedResources = nil
 		}
 		rscngepnt = nil
 	}
@@ -109,6 +122,31 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 				}
 			}
 		}()
+	}
+	return
+}
+
+//RemoveResource - remove inline resource - true if found and removed and false if not exists
+func (rscngepnt *ResourcingEndpoint) RemoveResource(path string) (rmvd bool) {
+	if path != "" {
+		if rs, rsok := rscngepnt.embeddedResources[path]; rsok {
+			rmvd = rsok
+			delete(rscngepnt.embeddedResources, path)
+			if rs != nil {
+				if bf, bfok := rs.(*iorw.Buffer); bfok && bf != nil {
+					bf.Close()
+					bf = nil
+				}
+			}
+		}
+	}
+	return
+}
+
+//Resource - return mapped resource interface{} by path
+func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
+	if path != "" {
+		rs, _ = rscngepnt.embeddedResources[path]
 	}
 	return
 }

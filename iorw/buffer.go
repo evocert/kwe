@@ -8,17 +8,17 @@ import (
 
 //Buffer -
 type Buffer struct {
-	buffer [][]byte
-	bytes  []byte
-	bytesi int
-	lck    *sync.RWMutex
-	//bufrs   map[*BuffReader]*BuffReader
+	buffer  [][]byte
+	bytes   []byte
+	bytesi  int
+	lck     *sync.RWMutex
+	bufrs   map[*BuffReader]*BuffReader
 	OnClose func(*Buffer)
 }
 
 //NewBuffer -
 func NewBuffer() (buff *Buffer) {
-	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192) /*bufrs: map[*BuffReader]*BuffReader{}*/}
+	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192), bufrs: map[*BuffReader]*BuffReader{}}
 	return
 }
 
@@ -35,6 +35,69 @@ func (buff *Buffer) Print(a ...interface{}) {
 //Println - same as fmt.Println just on buffer
 func (buff *Buffer) Println(a ...interface{}) {
 	Fprintln(buff, a...)
+}
+
+type offsetLength []int64
+
+func (ofs offsetLength) Len() int {
+	return len(ofs)
+}
+func (ofs offsetLength) Swap(i, j int) {
+	ofs[i], ofs[j] = ofs[j], ofs[i]
+}
+func (ofs offsetLength) Less(i, j int) bool {
+	return ofs[i] < ofs[j]
+}
+
+//SubString - return buffer as string value based on offset ...int64
+func (buff *Buffer) SubString(offset ...int64) (s string) {
+	if buff != nil {
+		if len(offset) > 0 && len(offset)%2 == 0 {
+			if sl := buff.Size(); sl > 0 {
+				var bufr *BuffReader = nil
+				rns := make([]rune, 1024)
+				rnsi := 0
+				busy := true
+				for len(offset) > 0 && busy {
+					if offset[0] <= sl && offset[1] < sl {
+						if bufr == nil {
+							bufr = buff.Reader()
+						}
+						bufr.Seek(offset[0], 0)
+						for {
+							r, rs, rerr := bufr.ReadRune()
+							if rs > 0 {
+								rns[rnsi] = r
+								rnsi++
+								if rnsi == len(rns) {
+									rnsi = 0
+									s += string(rns[:])
+								}
+							}
+							if rerr != nil {
+								busy = false
+								break
+							}
+							offset[0]++
+							if offset[0] >= offset[1] {
+								break
+							}
+						}
+						if busy {
+							offset = offset[2:]
+						}
+					} else {
+						break
+					}
+				}
+				if bufr != nil {
+					bufr.Close()
+					bufr = nil
+				}
+			}
+		}
+	}
+	return
 }
 
 //String - return buffer as string value
@@ -180,7 +243,7 @@ func (buff *Buffer) Clear() (err error) {
 				buff.lck.Lock()
 				defer buff.lck.Unlock()
 
-				/*if buff.bufrs != nil {
+				if buff.bufrs != nil {
 					if len(buff.bufrs) > 0 {
 						var bufrs = make([]*BuffReader, len(buff.bufrs))
 						var bufrsi = 0
@@ -196,7 +259,7 @@ func (buff *Buffer) Clear() (err error) {
 						bufrs = nil
 					}
 					buff.bufrs = nil
-				}*/
+				}
 				if buff.buffer != nil {
 					for len(buff.buffer) > 0 {
 						buff.buffer[0] = nil
@@ -270,12 +333,12 @@ func (bufr *BuffReader) WriteTo(w io.Writer) (n int64, err error) {
 func (bufr *BuffReader) Close() (err error) {
 	if bufr != nil {
 		if bufr.buffer != nil {
-			/*func() {
+			func() {
 				if _, ok := bufr.buffer.bufrs[bufr]; ok {
 					bufr.buffer.bufrs[bufr] = nil
 					delete(bufr.buffer.bufrs, bufr)
 				}
-			}()*/
+			}()
 			bufr.buffer = nil
 		}
 		if bufr.rnr != nil {
@@ -283,6 +346,165 @@ func (bufr *BuffReader) Close() (err error) {
 		}
 		if bufr.rbytes != nil {
 			bufr.rbytes = nil
+		}
+	}
+	return
+}
+
+//RuneAt - rune at offset int64
+func (bufr *BuffReader) RuneAt(offset int64) (rn rune) {
+	rn = -1
+	if s := bufr.SubString(offset, offset); s != "" {
+		rn = rune(s[0])
+	}
+	return
+}
+
+//LastIndex - Last index of s string - n int64
+func (bufr *BuffReader) LastIndex(s string) int64 {
+	if bufr == nil || s == "" {
+		return -1
+	}
+	return bufr.LastByteIndex([]byte(s)...)
+}
+
+//LastByteIndex - Last index of bs byte... - n int64
+func (bufr *BuffReader) LastByteIndex(bs ...byte) (index int64) {
+	index = -1
+	if bufr != nil && bufr.buffer != nil && len(bs) > 0 {
+		for i, j := 0, len(bs)-1; i < j; i, j = i+1, j-1 {
+			bs[i], bs[j] = bs[j], bs[i]
+		}
+		prvb := byte(0)
+		bsi := 0
+		toffset := int64(0)
+		if bufr.buffer.bytesi > 0 {
+			bti := bufr.buffer.bytesi - 1
+			for bti > -1 {
+				toffset++
+				bt := bufr.buffer.bytes[bti]
+				bti--
+				if bsi > 0 && bs[bsi-1] == prvb && bs[bsi] != bt {
+					bsi = 0
+					prvb = byte(0)
+				}
+				if bs[bsi] == bt {
+					bsi++
+					if bsi == len(bs) {
+						toffset += int64(len(bs))
+						index = bufr.buffer.Size() - toffset
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					if bsi > 0 {
+						bsi = 0
+					}
+				}
+			}
+		}
+		if index == -1 && len(bufr.buffer.buffer) > 0 {
+			bfi := len(bufr.buffer.buffer) - 1
+			for bfi > -1 {
+				toffset++
+				bf := bufr.buffer.buffer[bfi]
+				bti := len(bf) - 1
+				for bti > -1 {
+					bt := bufr.buffer.bytes[bti]
+					bti--
+					if bsi > 0 && bs[bsi-1] == prvb && bs[bsi] != bt {
+						bsi = 0
+						prvb = byte(0)
+					}
+					if bs[bsi] == bt {
+						bsi++
+						if bsi == len(bs) {
+							toffset += int64(len(bs))
+							index = bufr.buffer.Size() - toffset
+							break
+						} else {
+							prvb = bt
+						}
+					} else {
+						if bsi > 0 {
+							bsi = 0
+						}
+					}
+				}
+				if index > -1 {
+					break
+				}
+				bfi--
+			}
+		}
+	}
+	return
+}
+
+//Index - Index of s string - n int64
+func (bufr *BuffReader) Index(s string) int64 {
+	if bufr == nil || s == "" {
+		return -1
+	}
+	return bufr.ByteIndex([]byte(s)...)
+}
+
+//ByteIndex - Index of bs ...byte - n int64
+func (bufr *BuffReader) ByteIndex(bs ...byte) (index int64) {
+	index = -1
+	if bufr != nil && bufr.buffer != nil && len(bs) > 0 {
+		prvb := byte(0)
+		bsi := 0
+		toffset := int64(-1)
+		if len(bufr.buffer.buffer) > 0 {
+			for _, bf := range bufr.buffer.buffer {
+				for _, bt := range bf {
+					toffset++
+					if bsi > 0 && bs[bsi-1] == prvb && bs[bsi] != bt {
+						bsi = 0
+						prvb = byte(0)
+					}
+					if bs[bsi] == bt {
+						bsi++
+						if bsi == len(bs) {
+							index = toffset - int64(len(bs))
+							break
+						} else {
+							prvb = bt
+						}
+					} else {
+						if bsi > 0 {
+							bsi = 0
+						}
+					}
+				}
+				if index > -1 {
+					break
+				}
+			}
+		}
+		if index == -1 && bufr.buffer.bytesi > 0 {
+			for _, bt := range bufr.buffer.bytes[:bufr.buffer.bytesi] {
+				toffset++
+				if bsi > 0 && bs[bsi-1] == prvb && bs[bsi] != bt {
+					bsi = 0
+					prvb = byte(0)
+				}
+				if bs[bsi] == bt {
+					bsi++
+					if bsi == len(bs) {
+						index = toffset - int64(len(bs))
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					if bsi > 0 {
+						bsi = 0
+					}
+				}
+			}
 		}
 	}
 	return
@@ -332,6 +554,53 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 		}
 		if n == 0 && err == nil {
 			err = io.EOF
+		}
+	}
+	return
+}
+
+//SubString - return buffer as string value based on offset ...int64
+func (bufr *BuffReader) SubString(offset ...int64) (s string) {
+	if bufr != nil && bufr.buffer != nil {
+		if len(offset) > 0 && len(offset)%2 == 0 {
+			if sl := bufr.buffer.Size(); sl > 0 {
+				rns := make([]rune, 1024)
+				rnsi := 0
+				busy := true
+				for len(offset) > 0 && busy {
+					if offset[0] <= sl && offset[1] < sl {
+						bufr.Seek(offset[0], 0)
+						for {
+							r, rs, rerr := bufr.ReadRune()
+							if rs > 0 {
+								rns[rnsi] = r
+								rnsi++
+								if rnsi == len(rns) {
+									rnsi = 0
+									s += string(rns[:])
+								}
+							}
+							if rerr != nil {
+								busy = false
+								break
+							}
+							offset[0]++
+							if offset[0] >= offset[1] {
+								busy = false
+								break
+							}
+						}
+						if busy {
+							offset = offset[2:]
+						}
+					} else {
+						break
+					}
+				}
+				if rnsi > 0 {
+					s += string(rns[:rnsi])
+				}
+			}
 		}
 	}
 	return

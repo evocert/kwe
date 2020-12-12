@@ -11,6 +11,58 @@ type ResourcingManager struct {
 	rsngendpntspaths map[string]*ResourcingEndpoint
 }
 
+//RemoveEndPointResource - Remove Endpoint Resource via path
+func (rscngmngr *ResourcingManager) RemoveEndPointResource(path string) (rmvd bool) {
+	if path != "" {
+		path = strings.Replace(path, "\\", "/", -1)
+		if rune(path[0]) != '/' {
+			path = "/" + path
+		}
+		if path == "/" {
+			return
+		}
+		var rspthFound = ""
+
+		for rsgnpath := range rscngmngr.rsngendpnts {
+			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
+				if len(rsgnpath) > len(rspthFound) {
+					rspthFound = rsgnpath
+				}
+			}
+		}
+		if len(rspthFound) > 0 {
+			rmvd = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].RemoveResource(path[len(rspthFound):])
+		}
+	}
+	return
+}
+
+//EndPointResource - Endpoint embedded resource via path
+func (rscngmngr *ResourcingManager) EndPointResource(path string) (eptntrs interface{}) {
+	if path != "" {
+		path = strings.Replace(path, "\\", "/", -1)
+		if rune(path[0]) != '/' {
+			path = "/" + path
+		}
+		if path == "/" {
+			return
+		}
+		var rspthFound = ""
+
+		for rsgnpath := range rscngmngr.rsngendpnts {
+			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
+				if len(rsgnpath) > len(rspthFound) {
+					rspthFound = rsgnpath
+				}
+			}
+		}
+		if len(rspthFound) > 0 {
+			eptntrs = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].Resource(path[len(rspthFound):])
+		}
+	}
+	return
+}
+
 //MapEndPointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
 func (rscngmngr *ResourcingManager) MapEndPointResource(epntpath string, path string, resource interface{}) {
 	if epntpath != "" && path != "" {
@@ -20,6 +72,39 @@ func (rscngmngr *ResourcingManager) MapEndPointResource(epntpath string, path st
 			}
 		}
 	}
+}
+
+//UnregisterPath - register path string
+func (rscngmngr *ResourcingManager) UnregisterPath(path string) (rmvd bool) {
+	if path != "" {
+		if pndpth, pthok := rscngmngr.rsngendpnts[path]; pthok {
+			delete(rscngmngr.rsngendpnts, path)
+			fndEndPtsh := false
+			for _, ptepth := range rscngmngr.rsngendpnts {
+				if ptepth == pndpth {
+					fndEndPtsh = true
+					break
+				}
+			}
+			if !fndEndPtsh {
+				if rspnt := rscngmngr.rsngendpntspaths[pndpth]; rspnt != nil {
+					rspnt.dispose()
+					rspnt = nil
+				}
+			}
+		}
+	}
+	return
+}
+
+//UnregisterEndPointPath - register ResourcingEndPoint
+func (rscngmngr *ResourcingManager) UnregisterEndPointPath(epntpath string) (rmvd bool) {
+	if epntpath != "" {
+		if rsndpt := rscngmngr.rsngendpntspaths[epntpath]; rsndpt != nil {
+			rsndpt.dispose()
+		}
+	}
+	return
 }
 
 //RegisterEndpoint - register ResourcingEndPoint
