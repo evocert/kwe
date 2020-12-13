@@ -38,7 +38,7 @@ func (rscngmngr *ResourcingManager) RemoveEndPointResource(path string) (rmvd bo
 }
 
 //EndPointResource - Endpoint embedded resource via path
-func (rscngmngr *ResourcingManager) EndPointResource(path string) (eptntrs interface{}) {
+func (rscngmngr *ResourcingManager) EndPointResource(path string) (epntrs interface{}) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {
@@ -57,7 +57,7 @@ func (rscngmngr *ResourcingManager) EndPointResource(path string) (eptntrs inter
 			}
 		}
 		if len(rspthFound) > 0 {
-			eptntrs = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].Resource(path[len(rspthFound):])
+			epntrs = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].Resource(path[len(rspthFound):])
 		}
 	}
 	return
