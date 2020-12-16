@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/ws"
 	"github.com/gorilla/websocket"
 )
@@ -14,6 +15,15 @@ import (
 type Channel struct {
 	rqsts  map[*Request]*Request
 	objmap map[string]interface{}
+	lstnr  *listen.Listener
+}
+
+//Listener - *listen.Listener listener for Channel
+func (chnl *Channel) Listener() *listen.Listener {
+	if chnl.lstnr == nil {
+		chnl.lstnr = listen.NewListener(chnl)
+	}
+	return chnl.lstnr
 }
 
 //NewChannel - instance
@@ -86,7 +96,12 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	if rqst, interrupt := newRequest(chnl, r, w, a); rqst != nil {
+	if len(a) > 0 {
+		a = append([]interface{}{r, w}, a...)
+	} else {
+		a = []interface{}{r, w}
+	}
+	if rqst, interrupt := newRequest(chnl, a...); rqst != nil {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -103,4 +118,23 @@ func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 //Stdio - os.Stdout, os.Stdin
 func (chnl *Channel) Stdio(out *os.File, in *os.File, err *os.File, a ...interface{}) {
 	chnl.ServeRW(in, out, a...)
+}
+
+//DefaultServeHTTP - helper to perform dummy ServeHttp request on channel
+func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, body io.Reader) {
+	if rhttp, rhttperr := http.NewRequest(method, url, body); rhttperr == nil {
+		if rhttp != nil {
+			var whttp = NewResponse(w, rhttp)
+			chnl.ServeHTTP(whttp, rhttp)
+		}
+	}
+}
+
+var gblchnl *Channel
+
+func GLOBALCHNL() *Channel {
+	if gblchnl == nil {
+		gblchnl = NewChannel()
+	}
+	return gblchnl
 }

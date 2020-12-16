@@ -2,17 +2,12 @@ package main
 
 import (
 	"os"
-	"os/signal"
-	runtime "runtime"
-	"runtime/debug"
-	"syscall"
 
-	"github.com/evocert/kwe/listen"
-	"github.com/evocert/kwe/resources"
+	"github.com/evocert/kwe/service"
 )
 
 func main() {
-	debug.SetGCPercent(25)
+	/*debug.SetGCPercent(25)
 	runtime.GOMAXPROCS(runtime.NumCPU() * 10)
 	cancelChan := make(chan os.Signal, 2)
 	// catch SIGTERM or SIGINTERRUPT
@@ -26,5 +21,6 @@ func main() {
 		listen.Listening().Listen(":1002", false)
 	}
 	<-cancelChan
-	os.Exit(0)
+	os.Exit(0)*/
+	service.RunService(os.Args...)
 }

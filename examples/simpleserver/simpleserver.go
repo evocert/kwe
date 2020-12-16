@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/evocert/kwe/chnls"
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/database/mysql"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
 	"github.com/evocert/kwe/iorw"
-	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/web"
 )
@@ -47,9 +47,9 @@ func main() {
 	signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
 	if args := os.Args; len(args) == 3 {
 		resources.GLOBALRSNG().RegisterEndpoint("/", args[1])
-		listen.Listening().Listen(args[2], false)
+		chnls.GLOBALCHNL().Listener().Listen(args[2])
 	} else if args := os.Args; len(args) == 2 {
-		listen.Listening().Listen(args[1], false)
+		chnls.GLOBALCHNL().Listener().Listen(args[1])
 	} else {
 		resources.GLOBALRSNG().RegisterEndpoint("/", "./")
 		resources.GLOBALRSNG().RegisterEndpoint("/cdn/", "https://code.jquery.com/")
@@ -59,7 +59,7 @@ func main() {
 			resources.GLOBALRSNG().MapEndPointResource("/mem/", "uiop/string.txt", f)
 			resources.GLOBALRSNG().MapEndPointResource("/dojo/", "uiop/string.html", f)
 		}
-		listen.Listening().Listen(":1002", false)
+		chnls.GLOBALCHNL().Listener().Listen(":1002")
 	}
 	buff := iorw.NewBuffer()
 	cnlt := web.NewClient()

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -503,8 +504,9 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 
 	for ai < len(a) {
 		if da, daok := a[ai].([]interface{}); daok {
-			if len(da) > 0 {
-				a = append(da, a[1:])
+			if al := len(da); al > 0 {
+				a = append(da, a[1:]...)
+				ai = 0
 			} else {
 				a = a[1:]
 			}
@@ -571,4 +573,41 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 		rqst.Interrupt()
 	}
 	return
+}
+
+//Response - struct
+type Response struct {
+	r          *http.Request
+	w          io.Writer
+	statusCode int
+	header     http.Header
+}
+
+func NewResponse(w io.Writer, r *http.Request) (resp *Response) {
+	resp = &Response{w: w, header: http.Header{}, r: r}
+	return resp
+}
+
+func (resp *Response) Header() http.Header {
+	return resp.header
+}
+
+func (resp *Response) Write(p []byte) (n int, err error) {
+	if resp.w != nil {
+		n, err = resp.w.Write(p)
+	}
+	return 0, nil
+}
+
+func (resp *Response) WriteHeader(statusCode int) {
+	resp.statusCode = statusCode
+
+	if resp.w != nil {
+		var statusLine = resp.r.Proto + " " + fmt.Sprintf("%d", statusCode) + " " + http.StatusText(statusCode)
+		fmt.Fprintln(resp.w, statusLine)
+		if resp.header != nil {
+			resp.header.Write(resp.w)
+		}
+		fmt.Fprintln(resp.w)
+	}
 }
