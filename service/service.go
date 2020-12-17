@@ -59,7 +59,7 @@ func (lnksrvs *LnkService) startLnkService(args ...string) {
 	if lnksrvs.IsConsole() {
 		out = os.Stdout
 	}
-	chnls.GLOBALCHNL().DefaultServeHTTP(out, "GET", "/"+lnksrvs.ServiceName()+".conf.js", nil)
+	chnls.GLOBALCHNL().DefaultServeRW(out, "/"+lnksrvs.ServiceName()+".conf.js", nil)
 	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 

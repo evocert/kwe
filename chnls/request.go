@@ -577,21 +577,25 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 
 //Response - struct
 type Response struct {
-	r          *http.Request
-	w          io.Writer
-	statusCode int
-	header     http.Header
+	r              *http.Request
+	w              io.Writer
+	statusCode     int
+	header         http.Header
+	canWriteHeader bool
 }
 
+//NewResponse - Instance of Response http.ResponseWriter helper
 func NewResponse(w io.Writer, r *http.Request) (resp *Response) {
-	resp = &Response{w: w, header: http.Header{}, r: r}
+	resp = &Response{w: w, header: http.Header{}, r: r, canWriteHeader: true}
 	return resp
 }
 
+//Header refer to http.Header
 func (resp *Response) Header() http.Header {
 	return resp.header
 }
 
+//Writer refer to io.Writer
 func (resp *Response) Write(p []byte) (n int, err error) {
 	if resp.w != nil {
 		n, err = resp.w.Write(p)
@@ -599,15 +603,27 @@ func (resp *Response) Write(p []byte) (n int, err error) {
 	return 0, nil
 }
 
+//WriteHeader - refer to http.ResponseWriter -> WriteHeader
 func (resp *Response) WriteHeader(statusCode int) {
 	resp.statusCode = statusCode
 
 	if resp.w != nil {
-		var statusLine = resp.r.Proto + " " + fmt.Sprintf("%d", statusCode) + " " + http.StatusText(statusCode)
-		fmt.Fprintln(resp.w, statusLine)
-		if resp.header != nil {
-			resp.header.Write(resp.w)
+		if resp.canWriteHeader {
+			var statusLine = resp.r.Proto + " " + fmt.Sprintf("%d", statusCode) + " " + http.StatusText(statusCode)
+			fmt.Fprintln(resp.w, statusLine)
+			if resp.header != nil {
+				resp.header.Write(resp.w)
+			}
+			fmt.Fprintln(resp.w)
 		}
-		fmt.Fprintln(resp.w)
+	}
+}
+
+//Flush refer to http.Flusher
+func (resp *Response) Flush() {
+	if resp.w != nil {
+		if flshr, flshrok := resp.w.(http.Flusher); flshrok {
+			flshr.Flush()
+		}
 	}
 }

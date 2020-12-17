@@ -130,8 +130,24 @@ func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, bo
 	}
 }
 
+//DefaultServeRW - helper to perform dummy ServeRW request on channel
+func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader) {
+	var method = "GET"
+	if r != nil {
+		method = "POST"
+	}
+	if rhttp, rhttperr := http.NewRequest(method, url, r); rhttperr == nil {
+		if rhttp != nil {
+			var whttp = NewResponse(w, rhttp)
+			whttp.canWriteHeader = false
+			chnl.ServeHTTP(whttp, rhttp)
+		}
+	}
+}
+
 var gblchnl *Channel
 
+//GLOBALCHNL - Global app *Channel
 func GLOBALCHNL() *Channel {
 	if gblchnl == nil {
 		gblchnl = NewChannel()
