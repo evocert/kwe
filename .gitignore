@@ -4,5 +4,7 @@ __debug_bin
 www/
 kwe_ockert
 kwe_ockert.go
+__debug_bin
+__debug_bin.conf.js
 run
 build
