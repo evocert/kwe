@@ -189,6 +189,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 
 	if svr.isService {
 		if s, serr := service.New(svr, svr.svcConfig); serr == nil {
+			logger, serr = s.Logger(nil)
 			if svccmd == "" {
 				err = s.Run()
 			} else {
@@ -204,7 +205,9 @@ func (svr *Service) Execute(args ...string) (err error) {
 	}
 
 	if err != nil {
-		logger.Error(err)
+		if logger != nil {
+			logger.Error(err)
+		}
 	}
 
 	return err
@@ -228,7 +231,7 @@ func Executable() (string, error) {
 	return cx, ce
 }
 
-// Returns same path as Executable, returns just the folder
+// ExecutableFolder returns same path as Executable, returns just the folder
 // path. Excludes the executable name and any trailing slash.
 func ExecutableFolder() (string, error) {
 	p, err := Executable()

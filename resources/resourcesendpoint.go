@@ -151,6 +151,19 @@ func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
 	return
 }
 
+//Resources list of embedded resource paths
+func (rscngepnt *ResourcingEndpoint) Resources() (rsrs []string) {
+	if lrsrs := len(rscngepnt.embeddedResources); lrsrs > 0 {
+		rsrs = make([]string, lrsrs)
+		rsrsi := 0
+		for rsrsk := range rscngepnt.embeddedResources {
+			rsrs[rsrsi] = rsrsk
+			rsrsi++
+		}
+	}
+	return
+}
+
 //MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
 func (rscngepnt *ResourcingEndpoint) MapResource(path string, resource interface{}) {
 	if path != "" && resource != nil {

@@ -37,13 +37,18 @@ func (chnl *Channel) nextRequest() (rqst *Request, interrupt func()) {
 	return
 }
 
+func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
+	if conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024); err == nil {
+		chnl.ServeWS(conn, a...)
+	} else {
+		a = append([]interface{}{r}, a...)
+		chnl.ServeRW(r.Body, w, a...)
+	}
+}
+
 //ServeHTTP - refer http.Handler
 func (chnl *Channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024); err == nil {
-		chnl.ServeWS(conn, r)
-	} else {
-		chnl.ServeRW(r.Body, w, r)
-	}
+	chnl.internalServeHTTP(w, r)
 }
 
 //ServeWS - server websocket Connection
@@ -121,17 +126,17 @@ func (chnl *Channel) Stdio(out *os.File, in *os.File, err *os.File, a ...interfa
 }
 
 //DefaultServeHTTP - helper to perform dummy ServeHttp request on channel
-func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, body io.Reader) {
+func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, body io.Reader, a ...interface{}) {
 	if rhttp, rhttperr := http.NewRequest(method, url, body); rhttperr == nil {
 		if rhttp != nil {
 			var whttp = NewResponse(w, rhttp)
-			chnl.ServeHTTP(whttp, rhttp)
+			chnl.internalServeHTTP(whttp, rhttp, a...)
 		}
 	}
 }
 
 //DefaultServeRW - helper to perform dummy ServeRW request on channel
-func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader) {
+func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...interface{}) {
 	var method = "GET"
 	if r != nil {
 		method = "POST"
@@ -140,7 +145,7 @@ func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader) {
 		if rhttp != nil {
 			var whttp = NewResponse(w, rhttp)
 			whttp.canWriteHeader = false
-			chnl.ServeHTTP(whttp, rhttp)
+			chnl.internalServeHTTP(whttp, rhttp, a...)
 		}
 	}
 }

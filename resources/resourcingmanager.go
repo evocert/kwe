@@ -63,12 +63,67 @@ func (rscngmngr *ResourcingManager) EndPointResource(path string) (epntrs interf
 	return
 }
 
+//MapEndPointResources map multiple endpoint embedable resources
+func (rscngmngr *ResourcingManager) MapEndPointResources(a ...interface{}) {
+	var epntpath string = ""
+	var path string = ""
+	var resource interface{} = nil
+	var epntok = false
+	for {
+		if al := len(a); al >= 3 {
+			if epntpath, epntok = a[0].(string); epntok && epntpath != "" {
+				if path, epntok = a[1].(string); epntok {
+					resource = a[2]
+					a = a[3:]
+					if _, epntpathok := rscngmngr.rsngendpnts[epntpath]; epntpathok {
+						if rscngepnt := rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[epntpath]]; rscngepnt != nil {
+							rscngepnt.MapResource(path, resource)
+						}
+					}
+				} else {
+					break
+				}
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+}
+
 //MapEndPointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
 func (rscngmngr *ResourcingManager) MapEndPointResource(epntpath string, path string, resource interface{}) {
 	if epntpath != "" && path != "" {
 		if _, epntpathok := rscngmngr.rsngendpnts[epntpath]; epntpathok {
 			if rscngepnt := rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[epntpath]]; rscngepnt != nil {
 				rscngepnt.MapResource(path, resource)
+			}
+		}
+	}
+}
+
+//UnregisterPaths unregister multiple paths
+func (rscngmngr *ResourcingManager) UnregisterPaths(path ...string) {
+	if len(path) > 0 {
+		for _, pth := range path {
+			if pth != "" {
+				if pndpth, pthok := rscngmngr.rsngendpnts[pth]; pthok {
+					delete(rscngmngr.rsngendpnts, pth)
+					fndEndPtsh := false
+					for _, ptepth := range rscngmngr.rsngendpnts {
+						if ptepth == pndpth {
+							fndEndPtsh = true
+							break
+						}
+					}
+					if !fndEndPtsh {
+						if rspnt := rscngmngr.rsngendpntspaths[pndpth]; rspnt != nil {
+							rspnt.dispose()
+							rspnt = nil
+						}
+					}
+				}
 			}
 		}
 	}
@@ -97,7 +152,20 @@ func (rscngmngr *ResourcingManager) UnregisterPath(path string) (rmvd bool) {
 	return
 }
 
-//UnregisterEndPointPath - register ResourcingEndPoint
+//UnregisterEndPointPaths unregister multiple ResourcingEndPoints
+func (rscngmngr *ResourcingManager) UnregisterEndPointPaths(epntpath ...string) {
+	if len(epntpath) > 0 {
+		for _, epth := range epntpath {
+			if epth != "" {
+				if rsndpt := rscngmngr.rsngendpntspaths[epth]; rsndpt != nil {
+					rsndpt.dispose()
+				}
+			}
+		}
+	}
+}
+
+//UnregisterEndPointPath unregister ResourcingEndPoint
 func (rscngmngr *ResourcingManager) UnregisterEndPointPath(epntpath string) (rmvd bool) {
 	if epntpath != "" {
 		if rsndpt := rscngmngr.rsngendpntspaths[epntpath]; rsndpt != nil {
@@ -105,6 +173,42 @@ func (rscngmngr *ResourcingManager) UnregisterEndPointPath(epntpath string) (rmv
 		}
 	}
 	return
+}
+
+//RegisterEndpoints register multiple Endpoints
+func (rscngmngr *ResourcingManager) RegisterEndpoints(args ...interface{}) {
+	var a []interface{} = nil
+	var epntpath string = ""
+	var path string = ""
+	var argok = false
+	for {
+		if argsl := len(args); argsl >= 2 {
+			if epntpath, argok = args[0].(string); argok {
+				if path, argok = args[1].(string); argok {
+					if argsl >= 3 {
+						if a, argok = args[2].([]interface{}); argok {
+							rscngmngr.RegisterEndpoint(epntpath, path, a...)
+							args = args[3:]
+						} else if argsl > 3 {
+							rscngmngr.RegisterEndpoint(epntpath, path)
+							args = args[2:]
+						} else {
+							break
+						}
+					} else {
+						rscngmngr.RegisterEndpoint(epntpath, path)
+						args = args[2:]
+					}
+				} else {
+					break
+				}
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
 }
 
 //RegisterEndpoint - register ResourcingEndPoint

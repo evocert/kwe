@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	//runtime "runtime"
-	runtimedbg "runtime/debug"
 
 	//"github.com/efjoubert/lnksys/network"
 	//"github.com/efjoubert/lnksys/network"
@@ -56,10 +55,16 @@ func (lnksrvs *LnkService) startLnkService(args ...string) {
 	//network.MapRoots("/", defaultroot, "resources/", "./resources", "apps/", "./apps")
 	resources.GLOBALRSNG().RegisterEndpoint("/", defaultroot)
 	var out io.Writer = nil
-	if lnksrvs.IsConsole() {
+	var in io.Reader = nil
+	var conflabel = "conf"
+	if lnksrvs.IsConsole() || lnksrvs.IsBroker() {
 		out = os.Stdout
+		if lnksrvs.IsBroker() {
+			in = os.Stdin
+			conflabel = "broker"
+		}
 	}
-	chnls.GLOBALCHNL().DefaultServeRW(out, "/"+lnksrvs.ServiceName()+".conf.js", nil)
+	chnls.GLOBALCHNL().DefaultServeRW(out, "/"+lnksrvs.ServiceName()+"."+conflabel+".js", in)
 	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 
@@ -87,7 +92,7 @@ func (lnksrvs *LnkService) stopLnkService(args ...string) {
 
 //RunService - startup Service pasing args...string
 func RunService(args ...string) {
-	runtimedbg.SetGCPercent(33)
+	//runtimedbg.SetGCPercent(33)
 	//runtime.GOMAXPROCS(runtime.NumCPU() * 10)
 	if len(args) == 0 {
 		args = os.Args
@@ -103,6 +108,5 @@ func RunService(args ...string) {
 
 //RunBroker - RunBroker command as request in global channel
 func RunBroker(exename string, exealias string, args ...string) {
-	chnls.GLOBALCHNL().DefaultServeHTTP(os.Stdout, "GET", "/", os.Stdin)
-	//network.BrokerServeHttp(os.Stdout, os.Stdin, exename, exealias, args...)
+	chnls.GLOBALCHNL().DefaultServeRW(os.Stdout, "/", os.Stdin)
 }
