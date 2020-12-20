@@ -21,34 +21,129 @@ import (
 
 //Request -
 type Request struct {
-	atv              *active.Active
-	actns            []*Action
-	rsngpthsref      map[string]*resources.ResourcingPath
-	curactnhndlr     *ActionHandler
-	chnl             *Channel
-	settings         map[string]interface{}
-	args             []interface{}
-	startedWriting   bool
-	mimetype         string
-	httpw            http.ResponseWriter
-	flshr            http.Flusher
-	prms             *parameters.Parameters
-	wbytes           []byte
-	wbytesi          int
-	rqstw            io.Writer
-	httpr            *http.Request
-	cchdrqstcntnt    *iorw.Buffer
-	cchdrqstcntntrdr *iorw.BuffReader
-	prtclmethod      string
-	prtcl            string
-	zpw              *gzip.Writer
-	rqstr            io.Reader
-	Interrupted      bool
-	wgtxt            *sync.WaitGroup
-	objmap           map[string]interface{}
-	isFirstRequest   bool
+	atv               *active.Active
+	actns             []*Action
+	rsngpthsref       map[string]*resources.ResourcingPath
+	embeddedResources map[string]interface{}
+	curactnhndlr      *ActionHandler
+	chnl              *Channel
+	settings          map[string]interface{}
+	args              []interface{}
+	startedWriting    bool
+	mimetype          string
+	httpw             http.ResponseWriter
+	flshr             http.Flusher
+	prms              *parameters.Parameters
+	wbytes            []byte
+	wbytesi           int
+	rqstw             io.Writer
+	httpr             *http.Request
+	cchdrqstcntnt     *iorw.Buffer
+	cchdrqstcntntrdr  *iorw.BuffReader
+	prtclmethod       string
+	prtcl             string
+	zpw               *gzip.Writer
+	rqstr             io.Reader
+	Interrupted       bool
+	wgtxt             *sync.WaitGroup
+	objmap            map[string]interface{}
+	intrnbuffs        map[*iorw.Buffer]*iorw.Buffer
+	isFirstRequest    bool
 	//dbms
 	activecns map[string]*database.Connection
+}
+
+//Resource - return mapped resource interface{} by path
+func (rqst *Request) Resource(path string) (rs interface{}) {
+	if path != "" {
+		rs, _ = rqst.embeddedResources[path]
+	}
+	return
+}
+
+//RemoveResource - remove inline resource - true if found and removed and false if not exists
+func (rqst *Request) RemoveResource(path string) (rmvd bool) {
+	if path != "" {
+		if rs, rsok := rqst.embeddedResources[path]; rsok {
+			rmvd = rsok
+			rqst.embeddedResources[path] = nil
+			delete(rqst.embeddedResources, path)
+			if rs != nil {
+				if bf, bfok := rs.(*iorw.Buffer); bfok && bf != nil {
+					bf.Close()
+					bf = nil
+				}
+			}
+		}
+	}
+	return
+}
+
+//Resources list of embedded resource paths
+func (rqst *Request) Resources() (rsrs []string) {
+	if lrsrs := len(rqst.embeddedResources); lrsrs > 0 {
+		rsrs = make([]string, lrsrs)
+		rsrsi := 0
+		for rsrsk := range rqst.embeddedResources {
+			rsrs[rsrsi] = rsrsk
+			rsrsi++
+		}
+	}
+	return
+}
+
+//MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
+func (rqst *Request) MapResource(path string, resource interface{}) {
+	if path != "" && resource != nil {
+		var validResource = false
+		var strng = ""
+		var isReader = false
+		var r io.Reader = nil
+		var isBuffer = false
+		var buff *iorw.Buffer = nil
+
+		if strng, validResource = resource.(string); !validResource {
+			if _, validResource = resource.(func() io.Reader); !validResource {
+				if buff, validResource = resource.(*iorw.Buffer); !validResource {
+					if r, validResource = resource.(io.Reader); validResource {
+						validResource = (r != nil)
+					}
+					isReader = validResource
+				} else {
+					isBuffer = true
+				}
+			}
+		} else {
+			if strng != "" {
+				r = strings.NewReader(strng)
+				isReader = true
+			} else {
+				validResource = false
+			}
+		}
+		if validResource {
+			if isReader {
+				buff := iorw.NewBuffer()
+				io.Copy(buff, r)
+				resource = buff
+			}
+			if _, resourceok := rqst.embeddedResources[path]; resourceok && rqst.embeddedResources[path] != resource {
+				if rqst.embeddedResources[path] != nil {
+					if isBuffer {
+						if buff, isBuffer = rqst.embeddedResources[path].(*iorw.Buffer); isBuffer {
+							buff.Close()
+							buff = nil
+						}
+						rqst.embeddedResources[path] = resource
+					}
+				} else {
+					rqst.embeddedResources[path] = resource
+				}
+			} else {
+				rqst.embeddedResources[path] = resource
+			}
+		}
+	}
 }
 
 //ProtoMethod - http e.g request METHOD
@@ -308,6 +403,32 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.activecns = nil
 		}
+		if rqst.intrnbuffs != nil {
+			if il := len(rqst.intrnbuffs); il > 0 {
+				bfs := make([]*iorw.Buffer, il)
+				bfsi := 0
+				for bf := range rqst.intrnbuffs {
+					bfs[bfsi] = bf
+					bfsi++
+				}
+				for len(bfs) > 0 {
+					bf := bfs[0]
+					bf.Close()
+					bf = nil
+					bfs = bfs[1:]
+				}
+			}
+			rqst.intrnbuffs = nil
+		}
+		if rqst.embeddedResources != nil {
+			if emdbrsrs := rqst.Resources(); len(emdbrsrs) > 0 {
+				for _, embdk := range emdbrsrs {
+					rqst.RemoveResource(embdk)
+				}
+				emdbrsrs = nil
+			}
+			rqst.embeddedResources = nil
+		}
 		rqst = nil
 	}
 	return
@@ -556,11 +677,17 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, curactnhndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, curactnhndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
 	rqst.objmap["resourcing"] = resources.GLOBALRSNG()
+	rqst.objmap["newrqstbuffer"] = func() (buff *iorw.Buffer) {
+		buff = iorw.NewBuffer()
+		buff.OnClose = rqst.removeBuffer
+		rqst.intrnbuffs[buff] = buff
+		return
+	}
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
 	}
@@ -573,6 +700,15 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 		rqst.Interrupt()
 	}
 	return
+}
+
+func (rqst *Request) removeBuffer(buff *iorw.Buffer) {
+	if len(rqst.intrnbuffs) > 0 {
+		if bf, bfok := rqst.intrnbuffs[buff]; bfok && bf == buff {
+			rqst.intrnbuffs[buff] = nil
+			delete(rqst.intrnbuffs, buff)
+		}
+	}
 }
 
 //Response - struct

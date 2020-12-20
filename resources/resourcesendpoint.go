@@ -131,6 +131,7 @@ func (rscngepnt *ResourcingEndpoint) RemoveResource(path string) (rmvd bool) {
 	if path != "" {
 		if rs, rsok := rscngepnt.embeddedResources[path]; rsok {
 			rmvd = rsok
+			rscngepnt.embeddedResources[path] = nil
 			delete(rscngepnt.embeddedResources, path)
 			if rs != nil {
 				if bf, bfok := rs.(*iorw.Buffer); bfok && bf != nil {
