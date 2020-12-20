@@ -27,6 +27,8 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 			if rqstrs := actn.rqst.Resource(path); rqstrs != nil {
 				if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
 					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: bf.Reader()}
+				} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: fncr()}
 				}
 			}
 		}
