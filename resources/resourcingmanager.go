@@ -2,6 +2,7 @@ package resources
 
 import (
 	"bufio"
+	"io"
 	"strings"
 )
 
@@ -129,6 +130,40 @@ func (rscngmngr *ResourcingManager) UnregisterPaths(path ...string) {
 	}
 }
 
+var emptypaths []string = make([]string, 0)
+
+//RegisteredRootPaths return registered rootpaths
+func (rscngmngr *ResourcingManager) RegisteredRootPaths() (paths []string) {
+	if rscngmngr != nil {
+		if ln := len(rscngmngr.rsngendpntspaths); ln > 0 {
+			paths = make([]string, ln)
+			pi := 0
+			for pth := range rscngmngr.rsngendpntspaths {
+				paths[pi] = pth
+				pi++
+			}
+			return paths
+		}
+	}
+	return emptypaths
+}
+
+//RegisteredPaths return registered paths
+func (rscngmngr *ResourcingManager) RegisteredPaths() (paths []string) {
+	if rscngmngr != nil {
+		if ln := len(rscngmngr.rsngendpnts); ln > 0 {
+			paths = make([]string, ln)
+			pi := 0
+			for pth := range rscngmngr.rsngendpnts {
+				paths[pi] = pth
+				pi++
+			}
+			return paths
+		}
+	}
+	return emptypaths
+}
+
 //UnregisterPath - register path string
 func (rscngmngr *ResourcingManager) UnregisterPath(path string) (rmvd bool) {
 	if path != "" {
@@ -250,7 +285,7 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path strin
 
 //FindRSString - find Resource
 func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err error) {
-	if rs, rserr := rscngmngr.FindRS(path); rs != nil && rs.isText {
+	if rs, rserr := rscngmngr.FindRS(path); rs != nil /*&& rs.isText*/ {
 		func() {
 			defer rs.Close()
 			p := make([]rune, 1024)
@@ -262,11 +297,16 @@ func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err err
 					p[pi] = r
 					pi++
 					if pi == len(p) {
+						pi = 0
 						s += string(p[:])
 					}
 				}
 				if rerr != nil {
-					err = rerr
+					if rerr == io.EOF {
+						rerr = nil
+					} else {
+						err = rerr
+					}
 					break
 				}
 			}
