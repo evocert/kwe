@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -161,6 +162,74 @@ func (rscngepnt *ResourcingEndpoint) Resources() (rsrs []string) {
 			rsrs[rsrsi] = rsrsk
 			rsrsi++
 		}
+	}
+	return
+}
+
+//Dirs return list of directories of a local endpoint
+func (rscngepnt *ResourcingEndpoint) Dirs(lkppath ...string) (dirs []string, err error) {
+	dirs = []string{}
+	if len(lkppath) == 0 {
+		err = filepath.Walk(rscngepnt.path, func(path string, info os.FileInfo, err error) error {
+			path = strings.Replace(path, "\\", "/", -1)
+			if info.IsDir() {
+				if path != rscngepnt.path {
+					dirs = append(dirs, path[len(rscngepnt.path):])
+				}
+			} else if strings.HasSuffix(path, ".zip") {
+				dirs = append(dirs, path[len(rscngepnt.path):len(path)-len(".zip")])
+			}
+			return nil
+		})
+	} else {
+		for _, lkp := range lkppath {
+			err = filepath.Walk(rscngepnt.path+lkp, func(path string, info os.FileInfo, err error) error {
+				path = strings.Replace(path, "\\", "/", -1)
+				if info.IsDir() {
+					if path != rscngepnt.path {
+						dirs = append(dirs, path[len(rscngepnt.path+lkp):])
+					}
+				} else if strings.HasSuffix(path, ".zip") {
+					dirs = append(dirs, path[len(rscngepnt.path+lkp):len(path)-len(".zip")])
+				}
+				return nil
+			})
+		}
+	}
+	if err != nil {
+
+	}
+	return
+}
+
+//Files return list of files of a local endpoint
+func (rscngepnt *ResourcingEndpoint) Files(lkppath ...string) (files []string, err error) {
+	files = []string{}
+	if len(lkppath) == 0 {
+		err = filepath.Walk(rscngepnt.path, func(path string, info os.FileInfo, err error) error {
+			path = strings.Replace(path, "\\", "/", -1)
+			if !info.IsDir() {
+				if !strings.HasSuffix(path, ".zip") && path != rscngepnt.path {
+					files = append(files, path[len(rscngepnt.path):])
+				}
+			}
+			return nil
+		})
+	} else {
+		for _, lkp := range lkppath {
+			err = filepath.Walk(rscngepnt.path+lkp, func(path string, info os.FileInfo, err error) error {
+				path = strings.Replace(path, "\\", "/", -1)
+				if !info.IsDir() {
+					if path != rscngepnt.path {
+						files = append(files, path[len(rscngepnt.path+lkp):])
+					}
+				}
+				return nil
+			})
+		}
+	}
+	if err != nil {
+
 	}
 	return
 }
