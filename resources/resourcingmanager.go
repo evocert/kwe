@@ -8,12 +8,12 @@ import (
 
 //ResourcingManager - struct
 type ResourcingManager struct {
-	rsngendpnts      map[string]string
-	rsngendpntspaths map[string]*ResourcingEndpoint
+	rsngpaths     map[string]string
+	rsngrootpaths map[string]*ResourcingEndpoint
 }
 
-//RemoveEndPointResource - Remove Endpoint Resource via path
-func (rscngmngr *ResourcingManager) RemoveEndPointResource(path string) (rmvd bool) {
+//RemoveEndpointResource - Remove Endpoint Resource via path
+func (rscngmngr *ResourcingManager) RemovePathResource(path string) (rmvd bool) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {
@@ -24,7 +24,7 @@ func (rscngmngr *ResourcingManager) RemoveEndPointResource(path string) (rmvd bo
 		}
 		var rspthFound = ""
 
-		for rsgnpath := range rscngmngr.rsngendpnts {
+		for rsgnpath := range rscngmngr.rsngpaths {
 			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
 				if len(rsgnpath) > len(rspthFound) {
 					rspthFound = rsgnpath
@@ -32,14 +32,32 @@ func (rscngmngr *ResourcingManager) RemoveEndPointResource(path string) (rmvd bo
 			}
 		}
 		if len(rspthFound) > 0 {
-			rmvd = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].RemoveResource(path[len(rspthFound):])
+			rmvd = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].RemoveResource(path[len(rspthFound):])
 		}
 	}
 	return
 }
 
-//EndPointResource - Endpoint embedded resource via path
-func (rscngmngr *ResourcingManager) EndPointResource(path string) (epntrs interface{}) {
+//EndpointViaRootPath return ResourcingEndpoint via root path
+func (rscngmngr *ResourcingManager) EndpointViaRootPath(rootpath string) (rsngendpt *ResourcingEndpoint) {
+	if rootpath != "" {
+		rsngendpt = rscngmngr.rsngrootpaths[rootpath]
+	}
+	return
+}
+
+//EndpointViaPath return ResourcingEndpoint via path
+func (rscngmngr *ResourcingManager) EndpointViaPath(path string) (rsngendpt *ResourcingEndpoint) {
+	if path != "" {
+		if endpntpth, endpntpthok := rscngmngr.rsngpaths[path]; endpntpthok {
+			rsngendpt = rscngmngr.rsngrootpaths[endpntpth]
+		}
+	}
+	return
+}
+
+//EndpointResource - Endpoint embedded resource via path
+func (rscngmngr *ResourcingManager) EndpointResource(path string) (epntrs interface{}) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {
@@ -50,7 +68,7 @@ func (rscngmngr *ResourcingManager) EndPointResource(path string) (epntrs interf
 		}
 		var rspthFound = ""
 
-		for rsgnpath := range rscngmngr.rsngendpnts {
+		for rsgnpath := range rscngmngr.rsngpaths {
 			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
 				if len(rsgnpath) > len(rspthFound) {
 					rspthFound = rsgnpath
@@ -58,7 +76,7 @@ func (rscngmngr *ResourcingManager) EndPointResource(path string) (epntrs interf
 			}
 		}
 		if len(rspthFound) > 0 {
-			epntrs = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].Resource(path[len(rspthFound):])
+			epntrs = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].Resource(path[len(rspthFound):])
 		}
 	}
 	return
@@ -76,8 +94,8 @@ func (rscngmngr *ResourcingManager) MapEndPointResources(a ...interface{}) {
 				if path, epntok = a[1].(string); epntok {
 					resource = a[2]
 					a = a[3:]
-					if _, epntpathok := rscngmngr.rsngendpnts[epntpath]; epntpathok {
-						if rscngepnt := rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[epntpath]]; rscngepnt != nil {
+					if _, epntpathok := rscngmngr.rsngpaths[epntpath]; epntpathok {
+						if rscngepnt := rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[epntpath]]; rscngepnt != nil {
 							rscngepnt.MapResource(path, resource)
 						}
 					}
@@ -93,11 +111,11 @@ func (rscngmngr *ResourcingManager) MapEndPointResources(a ...interface{}) {
 	}
 }
 
-//MapEndPointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
-func (rscngmngr *ResourcingManager) MapEndPointResource(epntpath string, path string, resource interface{}) {
+//MapEndpointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
+func (rscngmngr *ResourcingManager) MapEndpointResource(epntpath string, path string, resource interface{}) {
 	if epntpath != "" && path != "" {
-		if _, epntpathok := rscngmngr.rsngendpnts[epntpath]; epntpathok {
-			if rscngepnt := rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[epntpath]]; rscngepnt != nil {
+		if _, epntpathok := rscngmngr.rsngpaths[epntpath]; epntpathok {
+			if rscngepnt := rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[epntpath]]; rscngepnt != nil {
 				rscngepnt.MapResource(path, resource)
 			}
 		}
@@ -109,17 +127,17 @@ func (rscngmngr *ResourcingManager) UnregisterPaths(path ...string) {
 	if len(path) > 0 {
 		for _, pth := range path {
 			if pth != "" {
-				if pndpth, pthok := rscngmngr.rsngendpnts[pth]; pthok {
-					delete(rscngmngr.rsngendpnts, pth)
+				if pndpth, pthok := rscngmngr.rsngpaths[pth]; pthok {
+					delete(rscngmngr.rsngpaths, pth)
 					fndEndPtsh := false
-					for _, ptepth := range rscngmngr.rsngendpnts {
+					for _, ptepth := range rscngmngr.rsngpaths {
 						if ptepth == pndpth {
 							fndEndPtsh = true
 							break
 						}
 					}
 					if !fndEndPtsh {
-						if rspnt := rscngmngr.rsngendpntspaths[pndpth]; rspnt != nil {
+						if rspnt := rscngmngr.rsngrootpaths[pndpth]; rspnt != nil {
 							rspnt.dispose()
 							rspnt = nil
 						}
@@ -135,10 +153,10 @@ var emptypaths []string = make([]string, 0)
 //RegisteredRootPaths return registered rootpaths
 func (rscngmngr *ResourcingManager) RegisteredRootPaths() (paths []string) {
 	if rscngmngr != nil {
-		if ln := len(rscngmngr.rsngendpntspaths); ln > 0 {
+		if ln := len(rscngmngr.rsngrootpaths); ln > 0 {
 			paths = make([]string, ln)
 			pi := 0
-			for pth := range rscngmngr.rsngendpntspaths {
+			for pth := range rscngmngr.rsngrootpaths {
 				paths[pi] = pth
 				pi++
 			}
@@ -151,10 +169,10 @@ func (rscngmngr *ResourcingManager) RegisteredRootPaths() (paths []string) {
 //RegisteredPaths return registered paths
 func (rscngmngr *ResourcingManager) RegisteredPaths() (paths []string) {
 	if rscngmngr != nil {
-		if ln := len(rscngmngr.rsngendpnts); ln > 0 {
+		if ln := len(rscngmngr.rsngpaths); ln > 0 {
 			paths = make([]string, ln)
 			pi := 0
-			for pth := range rscngmngr.rsngendpnts {
+			for pth := range rscngmngr.rsngpaths {
 				paths[pi] = pth
 				pi++
 			}
@@ -167,17 +185,17 @@ func (rscngmngr *ResourcingManager) RegisteredPaths() (paths []string) {
 //UnregisterPath - register path string
 func (rscngmngr *ResourcingManager) UnregisterPath(path string) (rmvd bool) {
 	if path != "" {
-		if pndpth, pthok := rscngmngr.rsngendpnts[path]; pthok {
-			delete(rscngmngr.rsngendpnts, path)
+		if pndpth, pthok := rscngmngr.rsngpaths[path]; pthok {
+			delete(rscngmngr.rsngpaths, path)
 			fndEndPtsh := false
-			for _, ptepth := range rscngmngr.rsngendpnts {
+			for _, ptepth := range rscngmngr.rsngpaths {
 				if ptepth == pndpth {
 					fndEndPtsh = true
 					break
 				}
 			}
 			if !fndEndPtsh {
-				if rspnt := rscngmngr.rsngendpntspaths[pndpth]; rspnt != nil {
+				if rspnt := rscngmngr.rsngrootpaths[pndpth]; rspnt != nil {
 					rspnt.dispose()
 					rspnt = nil
 				}
@@ -187,12 +205,12 @@ func (rscngmngr *ResourcingManager) UnregisterPath(path string) (rmvd bool) {
 	return
 }
 
-//UnregisterEndPointPaths unregister multiple ResourcingEndPoints
-func (rscngmngr *ResourcingManager) UnregisterEndPointPaths(epntpath ...string) {
+//UnregisterRootPaths unregister multiple RootPaths and their ResourcingEndPoints
+func (rscngmngr *ResourcingManager) UnregisterRootPaths(epntpath ...string) {
 	if len(epntpath) > 0 {
 		for _, epth := range epntpath {
 			if epth != "" {
-				if rsndpt := rscngmngr.rsngendpntspaths[epth]; rsndpt != nil {
+				if rsndpt := rscngmngr.rsngrootpaths[epth]; rsndpt != nil {
 					rsndpt.dispose()
 				}
 			}
@@ -200,10 +218,10 @@ func (rscngmngr *ResourcingManager) UnregisterEndPointPaths(epntpath ...string) 
 	}
 }
 
-//UnregisterEndPointPath unregister ResourcingEndPoint
-func (rscngmngr *ResourcingManager) UnregisterEndPointPath(epntpath string) (rmvd bool) {
+//UnregisterRootPath unregister RootPath and dispose the ResourcingEndPoint
+func (rscngmngr *ResourcingManager) UnregisterRootPath(epntpath string) (rmvd bool) {
 	if epntpath != "" {
-		if rsndpt := rscngmngr.rsngendpntspaths[epntpath]; rsndpt != nil {
+		if rsndpt := rscngmngr.rsngrootpaths[epntpath]; rsndpt != nil {
 			rsndpt.dispose()
 		}
 	}
@@ -247,35 +265,35 @@ func (rscngmngr *ResourcingManager) RegisterEndpoints(args ...interface{}) {
 }
 
 //RegisterEndpoint - register ResourcingEndPoint
-func (rscngmngr *ResourcingManager) RegisterEndpoint(epntpath string, path string, prms ...interface{}) {
-	if epntpath != "" {
-		if _, rsngepntok := rscngmngr.rsngendpnts[epntpath]; !rsngepntok {
-			if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, path, prms...); newrsngepnt != nil {
-				rsngepnt, rsngepntok := rscngmngr.rsngendpntspaths[newrsngepntpath]
+func (rscngmngr *ResourcingManager) RegisterEndpoint(path string, rootpath string, prms ...interface{}) {
+	if path != "" {
+		if _, rsngepntok := rscngmngr.rsngpaths[path]; !rsngepntok {
+			if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, rootpath, prms...); newrsngepnt != nil {
+				rsngepnt, rsngepntok := rscngmngr.rsngrootpaths[newrsngepntpath]
 				if rsngepntok {
 					if rsngepnt != newrsngepnt {
 						rsngepnt.dispose()
-						rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
-						rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+						rscngmngr.rsngrootpaths[newrsngepntpath] = newrsngepnt
+						rscngmngr.rsngpaths[path] = newrsngepntpath
 					}
 				} else {
-					rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
-					rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+					rscngmngr.rsngrootpaths[newrsngepntpath] = newrsngepnt
+					rscngmngr.rsngpaths[path] = newrsngepntpath
 				}
 			}
 		} else {
-			if rscngmngr.rsngendpnts[epntpath] != path {
-				if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, path, prms...); newrsngepnt != nil {
-					rsngepnt, rsngepntok := rscngmngr.rsngendpntspaths[newrsngepntpath]
+			if rscngmngr.rsngpaths[path] != rootpath {
+				if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, rootpath, prms...); newrsngepnt != nil {
+					rsngepnt, rsngepntok := rscngmngr.rsngrootpaths[newrsngepntpath]
 					if rsngepntok {
 						if rsngepnt != newrsngepnt {
 							rsngepnt.dispose()
-							rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
-							rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+							rscngmngr.rsngrootpaths[newrsngepntpath] = newrsngepnt
+							rscngmngr.rsngpaths[path] = newrsngepntpath
 						}
 					} else {
-						rscngmngr.rsngendpntspaths[newrsngepntpath] = newrsngepnt
-						rscngmngr.rsngendpnts[epntpath] = newrsngepntpath
+						rscngmngr.rsngrootpaths[newrsngepntpath] = newrsngepnt
+						rscngmngr.rsngpaths[path] = newrsngepntpath
 					}
 				}
 			}
@@ -332,7 +350,7 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error
 		}
 		var rspthFound = ""
 
-		for rsgnpath := range rscngmngr.rsngendpnts {
+		for rsgnpath := range rscngmngr.rsngpaths {
 			if len(rsgnpath) > len(rspthFound) && strings.HasPrefix(path, rsgnpath) {
 				if len(rsgnpath) > len(rspthFound) {
 					rspthFound = rsgnpath
@@ -340,7 +358,7 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error
 			}
 		}
 		if len(rspthFound) > 0 {
-			rs, err = rscngmngr.rsngendpntspaths[rscngmngr.rsngendpnts[rspthFound]].findRS(path[len(rspthFound):])
+			rs, err = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].findRS(path[len(rspthFound):])
 		}
 	}
 	return
@@ -348,7 +366,7 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error
 
 //NewResourcingManager - instance
 func NewResourcingManager() (rscngmngr *ResourcingManager) {
-	rscngmngr = &ResourcingManager{rsngendpntspaths: map[string]*ResourcingEndpoint{}, rsngendpnts: map[string]string{}}
+	rscngmngr = &ResourcingManager{rsngrootpaths: map[string]*ResourcingEndpoint{}, rsngpaths: map[string]string{}}
 	return
 }
 

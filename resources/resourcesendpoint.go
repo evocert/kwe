@@ -33,10 +33,10 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 	if rscngepnt != nil {
 		if rscngepnt.rsngmngr != nil {
 			rsendpath := rscngepnt.path
-			delete(rscngepnt.rsngmngr.rsngendpntspaths, rsendpath)
-			for rspth, rsndpth := range rscngepnt.rsngmngr.rsngendpnts {
+			delete(rscngepnt.rsngmngr.rsngrootpaths, rsendpath)
+			for rspth, rsndpth := range rscngepnt.rsngmngr.rsngpaths {
 				if rsndpth == rsendpath {
-					delete(rscngepnt.rsngmngr.rsngendpnts, rspth)
+					delete(rscngepnt.rsngmngr.rsngpaths, rspth)
 				}
 			}
 			rscngepnt.rsngmngr = nil
