@@ -82,8 +82,8 @@ func (rscngmngr *ResourcingManager) EndpointResource(path string) (epntrs interf
 	return
 }
 
-//MapEndPointResources map multiple endpoint embedable resources
-func (rscngmngr *ResourcingManager) MapEndPointResources(a ...interface{}) {
+//MapEndpointResources map multiple endpoint embedable resources
+func (rscngmngr *ResourcingManager) MapEndpointResources(a ...interface{}) {
 	var epntpath string = ""
 	var path string = ""
 	var resource interface{} = nil
