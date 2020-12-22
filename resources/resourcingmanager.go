@@ -12,7 +12,7 @@ type ResourcingManager struct {
 	rsngrootpaths map[string]*ResourcingEndpoint
 }
 
-//RemoveEndpointResource - Remove Endpoint Resource via path
+//RemovePathResource - Remove Endpoint Resource via path
 func (rscngmngr *ResourcingManager) RemovePathResource(path string) (rmvd bool) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
