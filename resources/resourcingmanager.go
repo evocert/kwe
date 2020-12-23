@@ -166,6 +166,22 @@ func (rscngmngr *ResourcingManager) RegisteredRootPaths() (paths []string) {
 	return emptypaths
 }
 
+//IsRegisteredPath return true indicating if a path is registered
+func (rscngmngr *ResourcingManager) IsRegisteredPath(path string) (exists bool) {
+	if path != "" {
+		_, exists = rscngmngr.rsngpaths[path]
+	}
+	return
+}
+
+//IsRegisteredRootPath return true indicating if a rootpath is registered
+func (rscngmngr *ResourcingManager) IsRegisteredRootPath(rootpath string) (exists bool) {
+	if rootpath != "" {
+		_, exists = rscngmngr.rsngrootpaths[rootpath]
+	}
+	return
+}
+
 //RegisteredPaths return registered paths
 func (rscngmngr *ResourcingManager) RegisteredPaths() (paths []string) {
 	if rscngmngr != nil {

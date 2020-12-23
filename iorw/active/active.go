@@ -462,6 +462,10 @@ func (atvrntme *atvruntime) run() (err error) {
 		atvrntme.vm.Set("_passiveout", func(i int) {
 			atvrntme.passiveout(i)
 		})
+
+		atvrntme.vm.Set("parseEval", func(a ...interface{}) (val interface{}, err error) {
+			return atvrntme.parseEval(a...)
+		})
 		atvrntme.vm.Set("print", func(a ...interface{}) {
 			if atvrntme.parsing != nil {
 				atvrntme.parsing.print(a...)
@@ -513,7 +517,62 @@ func (atvrntme *atvruntime) run() (err error) {
 			fmt.Println(err.Error())
 		}
 	}
+	return
+}
 
+func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err error) {
+	var prsng = atvrntme.parsing
+	pr, pw := io.Pipe()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func(args ...interface{}) {
+		defer func() {
+			pw.Close()
+		}()
+		iorw.Fprint(pw, args...)
+	}(a...)
+	rnr := bufio.NewReader(pr)
+	wg.Wait()
+	var crunes = make([]rune, 4096)
+	var crunesi = 0
+	for err == nil {
+		r, rsize, rerr := rnr.ReadRune()
+		if rsize > 0 {
+			crunes[crunesi] = r
+			crunesi++
+			if crunesi == len(crunes) {
+				cl := crunesi
+				crunesi = 0
+				for _, cr := range crunes[:cl] {
+					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+				}
+			}
+		}
+		if rerr != nil {
+			err = rerr
+		}
+	}
+	if err == io.EOF || err == nil {
+		if crunesi > 0 {
+			cl := crunesi
+			crunesi = 0
+			for _, cr := range crunes[:cl] {
+				parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+			}
+		}
+		prsng.flushPsv()
+		prsng.flushCde()
+		//if canexec {
+		if prsng.foundCode() {
+			atvrntme.run()
+		} else {
+			if rdr := prsng.Reader(); rdr != nil {
+				io.Copy(prsng.wout, rdr)
+				rdr.Close()
+				rdr = nil
+			}
+		}
+	}
 	return
 }
 
