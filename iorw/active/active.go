@@ -440,7 +440,12 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 }
 
 func (atvrntme *atvruntime) run() (err error) {
-	if cde := atvrntme.code(); cde != "" {
+	err = atvrntme.corerun(atvrntme.code())
+	return
+}
+
+func (atvrntme *atvruntime) corerun(code string) (err error) {
+	if code != "" {
 		atvrntme.vm.ClearInterrupt()
 		jsext.Register(atvrntme.vm)
 		atvrntme.atv.InterruptVM = func(v interface{}) {
@@ -483,7 +488,7 @@ func (atvrntme *atvruntime) run() (err error) {
 					err = fmt.Errorf("%v", r)
 				}
 			}()
-			prsd, prsderr := parser.ParseFile(nil, "", cde, 0)
+			prsd, prsderr := parser.ParseFile(nil, "", code, 0)
 			if prsderr != nil {
 				err = prsderr
 			} //es6.CompileAST("", cde, false)
@@ -510,7 +515,7 @@ func (atvrntme *atvruntime) run() (err error) {
 		}()
 		if err != nil {
 			fmt.Println(err.Error())
-			fmt.Println(cde)
+			fmt.Println(code)
 		}
 	} else {
 		if err != nil {
@@ -585,11 +590,14 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 	}
 }
 
-func (atvrntme *atvruntime) code() (c string) {
+func (atvrntme *atvruntime) code(coords ...int64) (c string) {
 	if atvrntme != nil && atvrntme.parsing != nil {
 		if cdel := len(atvrntme.parsing.cdemap); cdel > 0 {
 			var cdei = 0
 			var rdr = atvrntme.parsing.Reader()
+			if len(coords) == 0 {
+				coords = []int64{atvrntme.parsing.cdemap[cdei][0], atvrntme.parsing.cdemap[cdel-1][1]}
+			}
 			for cdei < cdel {
 				cdecoors := atvrntme.parsing.cdemap[cdei]
 				cdei++
