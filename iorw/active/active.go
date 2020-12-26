@@ -587,7 +587,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 
 var (
 	defaultOpts = map[string]interface{}{
-		"presets":       []string{"latest"},
+		"presets":       []string{"es2015"},
 		"ast":           true,
 		"sourceMaps":    false,
 		"babelrc":       false,
@@ -599,7 +599,7 @@ var (
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, err error) {
 	vm := es51.New()
-	_, err = vm.RunProgram(babeljsprgm)
+	_, err = vm.RunString(babeljs.BabelJSString())
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
 	} else {
