@@ -599,7 +599,7 @@ var (
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, err error) {
 	vm := es51.New()
-	_, err = vm.RunString(babeljs.BabelJSString())
+	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
 	} else {
