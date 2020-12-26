@@ -663,7 +663,6 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						bufr.rbytesi = int(n % (bufs - bufbfs))
 						bufr.rbytes = bufr.buffer.bytes[:bufr.buffer.bytesi]
 					}
-					bufr.roffset = n
 					adjusted = true
 				}
 

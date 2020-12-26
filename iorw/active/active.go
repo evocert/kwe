@@ -6,15 +6,12 @@ import (
 	"io"
 	"sync"
 
-	//"github.com/evocert/kwe/ecma/es6"
-	//"github.com/dop251/goja"
 	"github.com/evocert/kwe/babeljs"
 	"github.com/evocert/kwe/ecma/es51"
 	"github.com/evocert/kwe/ecma/es51/parser"
 	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/requirejs"
 
-	//"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw"
 )
 
@@ -45,14 +42,10 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 		}
 	} else if atv.FPrint != nil && w != nil {
 		if len(a) > 0 {
-			//atv.lckprnt.Lock()
-			//defer atv.lckprnt.Unlock()
 			atv.FPrint(w, a...)
 		}
 	} else if w != nil {
 		if len(a) > 0 {
-			//atv.lckprnt.Lock()
-			//defer atv.lckprnt.Unlock()
 			iorw.Fprint(w, a...)
 		}
 	}
@@ -66,11 +59,9 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 			atv.Println(a...)
 		}
 	} else if atv.FPrintLn != nil && w != nil {
-		//if len(a) > 0 {
 		atv.lckprnt.Lock()
 		defer atv.lckprnt.Unlock()
 		atv.FPrint(w, a...)
-		//}
 	} else if w != nil {
 		if len(a) > 0 {
 			atv.lckprnt.Lock()
@@ -571,12 +562,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 						if len(glblobjstoremove) > 0 {
 							if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
 								for _, k := range glblobjstoremove {
-									//if ks := gbl.Keys(); len(ks) > 0 {
-									//for _, k := range ks {
 									gbl.Delete(k)
-									//}
-									//	ks = nil
-									//}
 								}
 								gbl = nil
 							}
@@ -817,7 +803,7 @@ var babeljsprgm *es51.Program = nil
 
 func init() {
 	var errpgrm error = nil
-	if requirejsprgm, errpgrm = es51.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
+	if requirejsprgm, errpgrm = es51.Compile("", requirejs.RequireMinJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
 	if babeljsprgm, errpgrm = es51.Compile("", babeljs.BabelJSString(), false); errpgrm != nil {

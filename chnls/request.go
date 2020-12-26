@@ -60,8 +60,12 @@ type Request struct {
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
 		rs, _ = rqst.embeddedResources[path]
-		if rs == nil && strings.HasSuffix(path, "require.js") {
-			rqst.MapResource(path, requirejs.RequireJS())
+		if rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
+			if strings.HasSuffix(path, "require.js") {
+				rqst.MapResource(path, requirejs.RequireJS())
+			} else {
+				rqst.MapResource(path, requirejs.RequireMinJS())
+			}
 			rs, _ = rqst.embeddedResources[path]
 		}
 	}
