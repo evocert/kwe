@@ -649,7 +649,7 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						bflen = len(bufr.buffer.buffer[0])
 						bufbfs = (int64(bufl) * int64(bflen))
 					}
-					if n < (int64(bufl) * int64(bflen)) {
+					if bufl > 0 && n < (int64(bufl)*int64(bflen)) {
 						if n < int64(bflen) {
 							rnbufi = 0
 						} else {
@@ -659,8 +659,21 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						bufr.rbytes = bufr.buffer.buffer[rnbufi]
 						bufr.rbufferi = rnbufi
 					} else if n < bufs {
-						bufr.rbufferi = rnbufi
-						bufr.rbytesi = int(n % (bufs - bufbfs))
+						if bflen > 0 {
+							if n < int64(bflen) {
+								rnbufi = 0
+							} else {
+								rnbufi = int(n / int64(bflen))
+							}
+							if n == (int64(bufl) * int64(bflen)) {
+								bufr.rbytesi = 0
+							} else {
+								bufr.rbytesi = int(n % (bufs - bufbfs))
+							}
+						} else {
+							bufr.rbufferi = rnbufi
+							bufr.rbytesi = int(n % (bufs - bufbfs))
+						}
 						bufr.rbytes = bufr.buffer.bytes[:bufr.buffer.bytesi]
 					}
 					adjusted = true
