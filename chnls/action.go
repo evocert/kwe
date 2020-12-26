@@ -17,11 +17,23 @@ type Action struct {
 	rqst    *Request
 	rsngpth *resources.ResourcingPath
 	sttngs  map[string]interface{}
+	prvactn *Action
 }
 
 func newAction(rqst *Request, rsngpth *resources.ResourcingPath) (actn *Action) {
-	actn = &Action{rqst: rqst, rsngpth: rsngpth}
+	actn = &Action{rqst: rqst, rsngpth: rsngpth, prvactn: rqst.lstexctngactng}
+	rqst.exctngactns[actn] = actn.prvactn
+	rqst.lstexctngactng = actn
 	return
+}
+
+func (actn *Action) Path() string {
+	if actn != nil {
+		if actn.rsngpth != nil {
+			return actn.rsngpth.Path
+		}
+	}
+	return ""
 }
 
 func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error)) (err error) {
@@ -308,7 +320,11 @@ func (actn *Action) ActionHandler() (actnhndl *ActionHandler) {
 func (actn *Action) Close() (err error) {
 	if actn != nil {
 		if actn.rqst != nil {
+			actn.rqst.detachAction(actn)
 			actn.rqst = nil
+		}
+		if actn.prvactn != nil {
+			actn.prvactn = nil
 		}
 		if actn.rsngpth != nil {
 			actn.rsngpth.Close()

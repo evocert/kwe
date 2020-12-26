@@ -26,32 +26,34 @@ import (
 type Request struct {
 	atv               *active.Active
 	actns             []*Action
+	exctngactns       map[*Action]*Action
+	lstexctngactng    *Action
 	rsngpthsref       map[string]*resources.ResourcingPath
 	embeddedResources map[string]interface{}
-	curactnhndlr      *ActionHandler
-	chnl              *Channel
-	settings          map[string]interface{}
-	args              []interface{}
-	startedWriting    bool
-	mimetype          string
-	httpw             http.ResponseWriter
-	flshr             http.Flusher
-	prms              *parameters.Parameters
-	wbytes            []byte
-	wbytesi           int
-	rqstw             io.Writer
-	httpr             *http.Request
-	cchdrqstcntnt     *iorw.Buffer
-	cchdrqstcntntrdr  *iorw.BuffReader
-	prtclmethod       string
-	prtcl             string
-	zpw               *gzip.Writer
-	rqstr             io.Reader
-	Interrupted       bool
-	wgtxt             *sync.WaitGroup
-	objmap            map[string]interface{}
-	intrnbuffs        map[*iorw.Buffer]*iorw.Buffer
-	isFirstRequest    bool
+	//curactnhndlr      *ActionHandler
+	chnl             *Channel
+	settings         map[string]interface{}
+	args             []interface{}
+	startedWriting   bool
+	mimetype         string
+	httpw            http.ResponseWriter
+	flshr            http.Flusher
+	prms             *parameters.Parameters
+	wbytes           []byte
+	wbytesi          int
+	rqstw            io.Writer
+	httpr            *http.Request
+	cchdrqstcntnt    *iorw.Buffer
+	cchdrqstcntntrdr *iorw.BuffReader
+	prtclmethod      string
+	prtcl            string
+	zpw              *gzip.Writer
+	rqstr            io.Reader
+	Interrupted      bool
+	wgtxt            *sync.WaitGroup
+	objmap           map[string]interface{}
+	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
+	isFirstRequest   bool
 	//dbms
 	activecns map[string]*database.Connection
 }
@@ -440,6 +442,12 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.embeddedResources = nil
 		}
+		if rqst.exctngactns != nil {
+			for rqst.lstexctngactng != nil {
+				rqst.lstexctngactng.Close()
+			}
+			rqst.exctngactns = nil
+		}
 		rqst = nil
 	}
 	return
@@ -694,7 +702,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, curactnhndlr: nil, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, exctngactns: map[*Action]*Action{}, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
@@ -704,6 +712,9 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 		buff.OnClose = rqst.removeBuffer
 		rqst.intrnbuffs[buff] = buff
 		return
+	}
+	rqst.objmap["action"] = func() *Action {
+		return rqst.lstexctngactng
 	}
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
@@ -717,6 +728,17 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 		rqst.Interrupt()
 	}
 	return
+}
+
+func (rqst *Request) detachAction(actn *Action) {
+	if actn.prvactn != nil {
+		rqst.lstexctngactng = actn.prvactn
+		actn.prvactn = nil
+	} else {
+		rqst.lstexctngactng = nil
+	}
+	rqst.exctngactns[actn] = nil
+	delete(rqst.exctngactns, actn)
 }
 
 func (rqst *Request) removeBuffer(buff *iorw.Buffer) {
