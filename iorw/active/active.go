@@ -24,7 +24,7 @@ type Active struct {
 	Println        func(a ...interface{})
 	FPrint         func(w io.Writer, a ...interface{})
 	FPrintLn       func(w io.Writer, a ...interface{})
-	LookupTemplate func(string, ...interface{}) io.Reader
+	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
 	InterruptVM    func(v interface{})
@@ -468,9 +468,9 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 			if atvrntme.parsing != nil {
 				atvrntme.parsing.println(a...)
 			}
-		}, "scriptinclude": func(url string, a ...interface{}) (src interface{}) {
+		}, "scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.parsing != nil && atvrntme.parsing.atv != nil {
-				if lkpr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil {
+				if lkpr, lkprerr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
 					bufr := bufio.NewReader(lkpr)
 					rnrs := make([]rune, 1024)
 					inclsrc := ""
@@ -494,6 +494,8 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 						rnrsi = 0
 					}
 					src = inclsrc
+				} else if lkprerr != nil {
+					srcerr = lkprerr
 				}
 			}
 			if src == nil {

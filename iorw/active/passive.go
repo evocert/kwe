@@ -381,7 +381,7 @@ func parseValidity(psvctrl *passivectrl) (err error) {
 	if elmname != "" {
 		if elmtype == ElemStart || elmtype == ElemSingle {
 			if psvctrl.prsng.atv.LookupTemplate != nil {
-				if rawr := psvctrl.prsng.atv.LookupTemplate(elmpath); rawr != nil {
+				if rawr, rawrerr := psvctrl.prsng.atv.LookupTemplate(elmpath); rawr != nil && rawrerr == nil {
 					psvctrl.rawr = rawr
 					psvctrl.prsng.flushPsv()
 					if elmtype == ElemSingle {
@@ -393,6 +393,8 @@ func parseValidity(psvctrl *passivectrl) (err error) {
 							newpsvctrl(psvctrl.prsng, psvctrl)
 						}
 					}
+				} else if rawrerr != nil {
+					err = rawrerr
 				}
 			}
 			//}

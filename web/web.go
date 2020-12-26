@@ -93,6 +93,8 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 						rspr = respbdy
 					}
 				}
+			} else {
+				err = resperr
 			}
 		}
 	}

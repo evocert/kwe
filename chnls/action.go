@@ -24,7 +24,7 @@ func newAction(rqst *Request, rsngpth *resources.ResourcingPath) (actn *Action) 
 	return
 }
 
-func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interface{}) (rdr io.Reader)) (err error) {
+func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error)) (err error) {
 	var rspath = actn.rsngpth.Path
 	var rspathext = filepath.Ext(rspath)
 	var isTextRequest = false

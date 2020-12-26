@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/web"
+
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
@@ -500,14 +502,17 @@ func (rqst *Request) processPaths() {
 	//var isFirstRequest = true
 	//var isTextRequest = false
 	var actn *Action = nil
-	var rqstTmpltLkp = func(tmpltpath string, a ...interface{}) (rdr io.Reader) {
-		if actn != nil {
+	var rqstTmpltLkp = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+		tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
+		if strings.HasPrefix(tmpltpath, "http://") || strings.HasPrefix(tmpltpath, "https://") {
+			rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil, nil)
+		} else if actn != nil {
 			var tmpltpathroot = ""
 			var tmpltext = filepath.Ext(tmpltpath)
 			if tmpltext == "" {
 				tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
 			}
-			tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
+
 			if strings.HasPrefix(tmpltpath, "/") {
 				tmpltpath = tmpltpath[1:]
 			}

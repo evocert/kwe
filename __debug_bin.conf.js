@@ -8,5 +8,5 @@ println(resourcing.EndpointViaPath("/").Files())
 println(resourcing.RegisteredRootPaths())
 parseEval("println(\"from parseval\");")
 channel.Listener().Listen(":1040");
-require(["/page/home"]);
+require(["https://cdn.jsdelivr.net/npm/@babel/standalone@7.12.12/babel.min.js"]);
  @> 
