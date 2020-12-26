@@ -508,6 +508,9 @@ func (rqst *Request) processPaths() {
 				tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
 			}
 			tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
+			if strings.HasPrefix(tmpltpath, "/") {
+				tmpltpath = tmpltpath[1:]
+			}
 			if !strings.HasPrefix(tmpltpath, "/") {
 				tmpltpathroot = actn.rsngpth.LookupPath
 				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {

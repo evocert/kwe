@@ -8,9 +8,11 @@ import (
 
 	//"github.com/evocert/kwe/ecma/es6"
 	//"github.com/dop251/goja"
+	"github.com/evocert/kwe/babeljs"
 	"github.com/evocert/kwe/ecma/es51"
 	"github.com/evocert/kwe/ecma/es51/parser"
 	"github.com/evocert/kwe/ecma/jsext"
+	"github.com/evocert/kwe/requirejs"
 
 	//"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw"
@@ -439,77 +441,147 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 	return result
 }
 
-func (atvrntme *atvruntime) run() (err error) {
-	err = atvrntme.corerun(atvrntme.code())
+func (atvrntme *atvruntime) run() (val interface{}, err error) {
+	var objmapref map[string]interface{} = nil
+	if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
+		objmapref = atvrntme.atv.ObjectMapRef()
+	}
+	val, err = atvrntme.corerun(atvrntme.code(), objmapref, map[string]interface{}{
+		"newbuffer": func() (buff *iorw.Buffer) {
+			buff = iorw.NewBuffer()
+			buff.OnClose = atvrntme.removeBuffer
+			atvrntme.intrnbuffs[buff] = buff
+			return
+		},
+		"_passiveout": func(i int) {
+			atvrntme.passiveout(i)
+		},
+		"parseEval": func(a ...interface{}) (val interface{}, err error) {
+			return atvrntme.parseEval(a...)
+		},
+		"print": func(a ...interface{}) {
+			if atvrntme.parsing != nil {
+				atvrntme.parsing.print(a...)
+			}
+		},
+		"println": func(a ...interface{}) {
+			if atvrntme.parsing != nil {
+				atvrntme.parsing.println(a...)
+			}
+		}, "scriptinclude": func(url string, a ...interface{}) (src interface{}) {
+			if atvrntme.parsing != nil && atvrntme.parsing.atv != nil {
+				if lkpr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil {
+					bufr := bufio.NewReader(lkpr)
+					rnrs := make([]rune, 1024)
+					inclsrc := ""
+					rnrsi := 0
+					for {
+						rn, rns, rnerr := bufr.ReadRune()
+						if rns > 0 {
+							rnrs[rnrsi] = rn
+							rnrsi++
+							if rnrsi == len(rnrs) {
+								inclsrc += string(rnrs[:])
+								rnrsi = 0
+							}
+						}
+						if rnerr != nil {
+							break
+						}
+					}
+					if rnrsi > 0 {
+						inclsrc += string(rnrs[:rnrsi])
+						rnrsi = 0
+					}
+					src = inclsrc
+				}
+			}
+			if src == nil {
+				src = ""
+			}
+			return
+		},
+		"script": atvrntme}, "require.js")
 	return
 }
 
-func (atvrntme *atvruntime) corerun(code string) (err error) {
+func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{}, internmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
 		atvrntme.vm.ClearInterrupt()
 		jsext.Register(atvrntme.vm)
 		atvrntme.atv.InterruptVM = func(v interface{}) {
 			atvrntme.vm.Interrupt(v)
 		}
-		if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
-			if objmapref := atvrntme.atv.ObjectMapRef(); objmapref != nil && len(objmapref) > 0 {
-				for k, ref := range objmapref {
-					atvrntme.vm.Set(k, ref)
-				}
+		var glblobjstoremove []string = nil
+		if objmapref != nil && len(objmapref) > 0 {
+			if glblobjstoremove == nil {
+				glblobjstoremove = []string{}
+			}
+			for k, ref := range objmapref {
+				glblobjstoremove = append(glblobjstoremove, k)
+				atvrntme.vm.Set(k, ref)
 			}
 		}
-		atvrntme.vm.Set("newbuffer", func() (buff *iorw.Buffer) {
-			buff = iorw.NewBuffer()
-			buff.OnClose = atvrntme.removeBuffer
-			atvrntme.intrnbuffs[buff] = buff
-			return
-		})
-		atvrntme.vm.Set("_passiveout", func(i int) {
-			atvrntme.passiveout(i)
-		})
-
-		atvrntme.vm.Set("parseEval", func(a ...interface{}) (val interface{}, err error) {
-			return atvrntme.parseEval(a...)
-		})
-		atvrntme.vm.Set("print", func(a ...interface{}) {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.print(a...)
+		if internmapref != nil && len(internmapref) > 0 {
+			if glblobjstoremove == nil {
+				glblobjstoremove = []string{}
 			}
-		})
-		atvrntme.vm.Set("println", func(a ...interface{}) {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.println(a...)
+			for k, ref := range internmapref {
+				glblobjstoremove = append(glblobjstoremove, k)
+				atvrntme.vm.Set(k, ref)
 			}
-		})
-		atvrntme.vm.Set("script", atvrntme)
+		}
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
 					err = fmt.Errorf("%v", r)
 				}
 			}()
-			prsd, prsderr := parser.ParseFile(nil, "", code, 0)
-			if prsderr != nil {
-				err = prsderr
-			} //es6.CompileAST("", cde, false)
-			if err == nil {
-				if p, perr := es51.CompileAST(prsd, false); perr == nil {
-					_, err = atvrntme.vm.RunProgram(p)
-					if err != nil {
-						fmt.Println(err.Error())
-					}
+			if code, err = transformCode(code, nil); err == nil {
+				prsd, prsderr := parser.ParseFile(nil, "", code, 0)
+				if prsderr != nil {
+					err = prsderr
+				}
 
-					if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
-						if ks := gbl.Keys(); len(ks) > 0 {
-							for _, k := range ks {
-								gbl.Delete(k)
+				if err == nil {
+					if len(includelibs) > 0 {
+						for _, incllib := range includelibs {
+							if incllib == "require.js" || incllib == "require.min.js" {
+								if requirejsprgm != nil {
+									if _, err = atvrntme.vm.RunProgram(requirejsprgm); err != nil {
+										break
+									}
+								}
+							} else if incllib == "babel.js" || incllib == "babel.min.js" {
+								if babeljsprgm != nil {
+									if _, err = atvrntme.vm.RunProgram(babeljsprgm); err != nil {
+										break
+									}
+								}
 							}
-							ks = nil
 						}
-						gbl = nil
 					}
-				} else {
-					err = perr
+					if p, perr := es51.CompileAST(prsd, false); perr == nil {
+						_, err = atvrntme.vm.RunProgram(p)
+						if err != nil {
+							fmt.Println(err.Error())
+						}
+						if len(glblobjstoremove) > 0 {
+							if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
+								for _, k := range glblobjstoremove {
+									//if ks := gbl.Keys(); len(ks) > 0 {
+									//for _, k := range ks {
+									gbl.Delete(k)
+									//}
+									//	ks = nil
+									//}
+								}
+								gbl = nil
+							}
+						}
+					} else {
+						err = perr
+					}
 				}
 			}
 		}()
@@ -525,8 +597,35 @@ func (atvrntme *atvruntime) corerun(code string) (err error) {
 	return
 }
 
+func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, err error) {
+	vm := es51.New()
+	_, err = vm.RunProgram(babeljsprgm)
+	if err != nil {
+		err = fmt.Errorf("unable to load babel.js: %s", err)
+	} else {
+		var transform es51.Callable
+		babel := vm.Get("Babel")
+		if err := vm.ExportTo(babel.ToObject(vm).Get("transform"), &transform); err != nil {
+			err = fmt.Errorf("unable to export transform fn: %s", err)
+		} else {
+			if opts == nil {
+				opts = map[string]interface{}{}
+			}
+			if v, verr := transform(babel, vm.ToValue(code), vm.ToValue(opts)); verr != nil {
+				err = fmt.Errorf("unable to export transform fn: %s", verr)
+				fmt.Println(err.Error())
+			} else {
+				trsnfrmdcde = v.ToObject(vm).Get("code").String()
+			}
+		}
+	}
+	return
+}
+
 func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err error) {
 	var prsng = atvrntme.parsing
+	var cdecoords []int64 = nil
+	orgcdemapl := len(prsng.cdemap)
 	pr, pw := io.Pipe()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -534,7 +633,12 @@ func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err er
 		defer func() {
 			pw.Close()
 		}()
-		iorw.Fprint(pw, args...)
+		wg.Done()
+		if len(args) > 0 {
+			iorw.Fprint(pw, "<@")
+			iorw.Fprint(pw, args...)
+			iorw.Fprint(pw, "@>")
+		}
 	}(a...)
 	rnr := bufio.NewReader(pr)
 	wg.Wait()
@@ -569,7 +673,10 @@ func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err er
 		prsng.flushCde()
 		//if canexec {
 		if prsng.foundCode() {
-			atvrntme.run()
+			if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
+				cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
+			}
+			val, err = atvrntme.corerun(atvrntme.code(cdecoords...), nil, nil)
 		} else {
 			if rdr := prsng.Reader(); rdr != nil {
 				io.Copy(prsng.wout, rdr)
@@ -601,6 +708,24 @@ func (atvrntme *atvruntime) code(coords ...int64) (c string) {
 			for cdei < cdel {
 				cdecoors := atvrntme.parsing.cdemap[cdei]
 				cdei++
+				if cdecoors[0] <= coords[1] {
+					if cdecoors[0] == coords[1] {
+						break
+					}
+					if cdecoors[1] <= coords[1] {
+						if cdecoors[0] < coords[0] {
+							cdecoors[0] = coords[0]
+						}
+					} else if cdecoors[1] > coords[1] {
+						if cdecoors[0] >= coords[0] {
+							cdecoors[0] = coords[0]
+							cdecoors[1] = coords[0]
+						} else {
+							break
+						}
+					}
+				}
+
 				if cdecoors[1] > cdecoors[0] {
 					rdr.Seek(cdecoors[0], 0)
 					var p = make([]byte, cdecoors[1]-cdecoors[0])
@@ -669,4 +794,19 @@ func (atvrntme *atvruntime) close() {
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
 	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es51.New(), intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	return
+}
+
+var requirejsprgm *es51.Program = nil
+var babeljsprgm *es51.Program = nil
+
+//var GlobelModules map[string]*
+
+func init() {
+	var errpgrm error = nil
+	if requirejsprgm, errpgrm = es51.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
+		fmt.Println(errpgrm.Error())
+	}
+	if babeljsprgm, errpgrm = es51.Compile("", babeljs.BabelJSString(), false); errpgrm != nil {
+		fmt.Println(errpgrm.Error())
+	}
 }
