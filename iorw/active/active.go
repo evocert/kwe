@@ -599,6 +599,18 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	return
 }
 
+var (
+	defaultOpts = map[string]interface{}{
+		"presets":       []string{"latest"},
+		"ast":           true,
+		"sourceMaps":    false,
+		"babelrc":       false,
+		"compact":       false,
+		"retainLines":   true,
+		"highlightCode": false,
+	}
+)
+
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, err error) {
 	vm := es51.New()
 	_, err = vm.RunProgram(babeljsprgm)
@@ -611,7 +623,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 			err = fmt.Errorf("unable to export transform fn: %s", err)
 		} else {
 			if opts == nil {
-				opts = map[string]interface{}{}
+				opts = defaultOpts
 			}
 			if v, verr := transform(babel, vm.ToValue(code), vm.ToValue(opts)); verr != nil {
 				err = fmt.Errorf("unable to export transform fn: %s", verr)

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/web"
 
 	"github.com/evocert/kwe/database"
@@ -59,6 +60,10 @@ type Request struct {
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
 		rs, _ = rqst.embeddedResources[path]
+		if rs == nil && strings.HasSuffix(path, "require.js") {
+			rqst.MapResource(path, requirejs.RequireJS())
+			rs, _ = rqst.embeddedResources[path]
+		}
 	}
 	return
 }
