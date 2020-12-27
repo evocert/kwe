@@ -604,7 +604,7 @@ var (
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := es51.New()
-	if isrequired := strings.IndexAny(code, "import ") > -1; isrequired {
+	if isrequired = strings.IndexAny(code, "import ") > -1; isrequired {
 
 		_, err = vm.RunProgram(babeljsprgm)
 
@@ -625,7 +625,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 				} else {
 					trsnfrmdcde = v.ToObject(vm).Get("code").String()
 					if isrequired {
-						trsnfrmdcde = strings.Replace(trsnfrmdcde, " require(\"", " vmrequire(\"", -1)
+						trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "vmrequire(\"", -1)
 					}
 				}
 			}
