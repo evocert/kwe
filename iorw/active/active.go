@@ -592,7 +592,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 
 var (
 	defaultOpts = map[string]interface{}{
-		"presets":       []string{"es2015"},
+		"presets":       []interface{}{"es2015"},
 		"ast":           true,
 		"sourceMaps":    false,
 		"babelrc":       false,
@@ -604,7 +604,7 @@ var (
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := es51.New()
-	//if isrequired = strings.IndexAny(code, "import ") > -1; isrequired {
+	isrequired = strings.IndexAny(code, "import ") > -1
 
 	_, err = vm.RunProgram(babeljsprgm)
 
@@ -624,7 +624,6 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 				fmt.Println(err.Error())
 			} else {
 				trsnfrmdcde = v.ToObject(vm).Get("code").String()
-				isrequired = true
 				if isrequired {
 					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "vmrequire(\"", -1)
 				}
@@ -821,7 +820,7 @@ func init() {
 	if requirejsprgm, errpgrm = es51.Compile("", requirejs.RequireMinJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
-	if babeljsprgm, errpgrm = es51.Compile("", babeljs.BabelJSString(), false); errpgrm != nil {
+	if babeljsprgm, errpgrm = es51.Compile("", babeljs.BabelJSString(), true); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
 }
