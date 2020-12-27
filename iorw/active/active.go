@@ -624,6 +624,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 				fmt.Println(err.Error())
 			} else {
 				trsnfrmdcde = v.ToObject(vm).Get("code").String()
+				isrequired = true
 				if isrequired {
 					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "vmrequire(\"", -1)
 				}
