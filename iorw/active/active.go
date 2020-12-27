@@ -605,9 +605,7 @@ var (
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := es51.New()
 	isrequired = strings.IndexAny(code, "import ") > -1
-
 	_, err = vm.RunProgram(babeljsprgm)
-
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
 	} else {
@@ -630,9 +628,6 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 			}
 		}
 	}
-	//} else {
-	//	trsnfrmdcde = code
-	//}
 	return
 }
 
