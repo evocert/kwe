@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/evocert/kwe/babeljs"
@@ -530,7 +531,11 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 					err = fmt.Errorf("%v", r)
 				}
 			}()
-			if code, err = transformCode(code, nil); err == nil {
+			isrequired := false
+			if code, isrequired, err = transformCode(code, nil); err == nil {
+				if isrequired {
+					code = `function vmrequire(args) { return require([args]);}` + code
+				}
 				prsd, prsderr := parser.ParseFile(nil, "", code, 0)
 				if prsderr != nil {
 					err = prsderr
@@ -597,9 +602,10 @@ var (
 	}
 )
 
-func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, err error) {
+func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := es51.New()
 	_, err = vm.RunProgram(babeljsprgm)
+	isrequired = strings.IndexAny(code, "import ") > -1
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
 	} else {
@@ -616,6 +622,9 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 				fmt.Println(err.Error())
 			} else {
 				trsnfrmdcde = v.ToObject(vm).Get("code").String()
+				if isrequired {
+					trsnfrmdcde = strings.Replace(trsnfrmdcde, " require(\"", " vmrequire(\"", -1)
+				}
 			}
 		}
 	}
