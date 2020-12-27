@@ -1,4 +1,6 @@
-<@import { Babel } from "bla";
+<@
+Promise.resolve(undefined).then(bound);
+import { Babel } from "bla";
 resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.MapEndpointResource("/","test-this.html","<h1>test this</h1>");
 //println(resourcing.FindRSString("/test-this.html"))

@@ -604,29 +604,34 @@ var (
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := es51.New()
-	_, err = vm.RunProgram(babeljsprgm)
-	isrequired = strings.IndexAny(code, "import ") > -1
-	if err != nil {
-		err = fmt.Errorf("unable to load babel.js: %s", err)
-	} else {
-		var transform es51.Callable
-		babel := vm.Get("Babel")
-		if err := vm.ExportTo(babel.ToObject(vm).Get("transform"), &transform); err != nil {
-			err = fmt.Errorf("unable to export transform fn: %s", err)
+	if isrequired := strings.IndexAny(code, "import ") > -1; isrequired {
+
+		_, err = vm.RunProgram(babeljsprgm)
+
+		if err != nil {
+			err = fmt.Errorf("unable to load babel.js: %s", err)
 		} else {
-			if opts == nil {
-				opts = defaultOpts
-			}
-			if v, verr := transform(babel, vm.ToValue(code), vm.ToValue(opts)); verr != nil {
-				err = fmt.Errorf("unable to export transform fn: %s", verr)
-				fmt.Println(err.Error())
+			var transform es51.Callable
+			babel := vm.Get("Babel")
+			if err := vm.ExportTo(babel.ToObject(vm).Get("transform"), &transform); err != nil {
+				err = fmt.Errorf("unable to export transform fn: %s", err)
 			} else {
-				trsnfrmdcde = v.ToObject(vm).Get("code").String()
-				if isrequired {
-					trsnfrmdcde = strings.Replace(trsnfrmdcde, " require(\"", " vmrequire(\"", -1)
+				if opts == nil {
+					opts = defaultOpts
+				}
+				if v, verr := transform(babel, vm.ToValue(code), vm.ToValue(opts)); verr != nil {
+					err = fmt.Errorf("unable to export transform fn: %s", verr)
+					fmt.Println(err.Error())
+				} else {
+					trsnfrmdcde = v.ToObject(vm).Get("code").String()
+					if isrequired {
+						trsnfrmdcde = strings.Replace(trsnfrmdcde, " require(\"", " vmrequire(\"", -1)
+					}
 				}
 			}
 		}
+	} else {
+		trsnfrmdcde = code
 	}
 	return
 }
