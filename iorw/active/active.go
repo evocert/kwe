@@ -7,10 +7,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/kwe/babeljs"
-	"github.com/evocert/kwe/ecma/es51"
-	"github.com/evocert/kwe/ecma/es51/parser"
 	"github.com/evocert/kwe/ecma/jsext"
+
+	"github.com/dop251/goja/parser"
+
+	"github.com/dop251/goja"
+	"github.com/evocert/kwe/babeljs"
+
+	//"github.com/evocert/kwe/ecma/es51"
+	//"github.com/evocert/kwe/ecma/es51/parser"
+
 	"github.com/evocert/kwe/requirejs"
 
 	"github.com/evocert/kwe/iorw"
@@ -47,7 +53,12 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 		}
 	} else if w != nil {
 		if len(a) > 0 {
-			iorw.Fprint(w, a...)
+			if prntr, prntrok := w.(iorw.Printer); prntrok {
+				prntr.Print(a...)
+			} else {
+
+				iorw.Fprint(w, a...)
+			}
 		}
 	}
 }
@@ -64,12 +75,16 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 		defer atv.lckprnt.Unlock()
 		atv.FPrint(w, a...)
 	} else if w != nil {
-		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
-			fmt.Fprint(w, a...)
+		if prntr, prntrok := w.(iorw.Printer); prntrok {
+			prntr.Println(a...)
+		} else {
+			if len(a) > 0 {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				fmt.Fprint(w, a...)
+			}
+			fmt.Fprintln(w)
 		}
-		fmt.Fprintln(w)
 	}
 }
 
@@ -221,7 +236,7 @@ func (prsng *parsing) writePsv(p []rune) (err error) {
 			if prsng.psvoffsetstart == -1 {
 				prsng.psvoffsetstart = prsng.Size()
 			}
-			err = prsng.WriteRunes(p[:pl])
+			err = prsng.WriteRunes(p[:pl]...)
 		} else {
 			_, err = prsng.wout.Write([]byte(string(p[:pl])))
 		}
@@ -234,7 +249,7 @@ func (prsng *parsing) writeCde(p []rune) (err error) {
 		if prsng.cdeoffsetstart == -1 {
 			prsng.cdeoffsetstart = prsng.Size()
 		}
-		err = prsng.WriteRunes(p[:pl])
+		err = prsng.WriteRunes(p[:pl]...)
 	}
 	return
 }
@@ -250,7 +265,7 @@ func (prsng *parsing) flushPsv() (err error) {
 	if pi := prsng.psvri; pi > 0 {
 		prsng.psvri = 0
 		if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
-			err = prsng.psvctrl.cachedbuf().WriteRunes(prsng.psvr[:pi])
+			err = prsng.psvctrl.cachedbuf().WriteRunes(prsng.psvr[:pi]...)
 		} else {
 			err = prsng.writePsv(prsng.psvr[:pi])
 		}
@@ -405,25 +420,25 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 type atvruntime struct {
 	*parsing
 	atv        *Active
-	vm         *es51.Runtime
+	vm         *goja.Runtime
 	intrnbuffs map[*iorw.Buffer]*iorw.Buffer
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if functocall != nil {
 		if atvrntme.vm != nil {
-			var fnccallargs []es51.Value = nil
+			var fnccallargs []goja.Value = nil
 			var argsn = 0
 
 			for argsn < len(args) {
 				if fnccallargs == nil {
-					fnccallargs = make([]es51.Value, len(args))
+					fnccallargs = make([]goja.Value, len(args))
 				}
 				fnccallargs[argsn] = atvrntme.vm.ToValue(args[argsn])
 				argsn++
 			}
-			if atvfunc, atvfuncok := functocall.(func(es51.FunctionCall) es51.Value); atvfuncok {
-				var funccll = es51.FunctionCall{This: es51.Undefined(), Arguments: fnccallargs}
+			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
+				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
 				if rsltval := atvfunc(funccll); rsltval != nil {
 					result = rsltval.Export()
 				}
@@ -559,7 +574,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 							}
 						}
 					}
-					if p, perr := es51.CompileAST(prsd, false); perr == nil {
+					if p, perr := goja.CompileAST(prsd, false); perr == nil {
 						_, err = atvrntme.vm.RunProgram(p)
 						if err != nil {
 							fmt.Println(err.Error())
@@ -593,7 +608,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 var (
 	defaultOpts = map[string]interface{}{
 		"presets":       []interface{}{"es2015"},
-		"ast":           true,
+		"ast":           false,
 		"sourceMaps":    false,
 		"babelrc":       false,
 		"compact":       false,
@@ -603,13 +618,13 @@ var (
 )
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	vm := es51.New()
+	vm := goja.New()
 	isrequired = strings.IndexAny(code, "import ") > -1
 	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
 	} else {
-		var transform es51.Callable
+		var transform goja.Callable
 		babel := vm.Get("Babel")
 		if err := vm.ExportTo(babel.ToObject(vm).Get("transform"), &transform); err != nil {
 			err = fmt.Errorf("unable to export transform fn: %s", err)
@@ -801,21 +816,21 @@ func (atvrntme *atvruntime) close() {
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: es51.New(), intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: goja.New(), intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	return
 }
 
-var requirejsprgm *es51.Program = nil
-var babeljsprgm *es51.Program = nil
+var requirejsprgm *goja.Program = nil
+var babeljsprgm *goja.Program = nil
 
 //var GlobelModules map[string]*
 
 func init() {
 	var errpgrm error = nil
-	if requirejsprgm, errpgrm = es51.Compile("", requirejs.RequireMinJSString(), false); errpgrm != nil {
+	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireMinJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
-	if babeljsprgm, errpgrm = es51.Compile("", babeljs.BabelJSString(), true); errpgrm != nil {
+	if babeljsprgm, errpgrm = goja.Compile("", babeljs.BabelJSString(), true); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
 }

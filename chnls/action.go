@@ -22,11 +22,11 @@ type Action struct {
 
 func newAction(rqst *Request, rsngpth *resources.ResourcingPath) (actn *Action) {
 	actn = &Action{rqst: rqst, rsngpth: rsngpth, prvactn: rqst.lstexctngactng}
-	rqst.exctngactns[actn] = actn.prvactn
 	rqst.lstexctngactng = actn
 	return
 }
 
+//Path of resource action is currently processing
 func (actn *Action) Path() string {
 	if actn != nil {
 		if actn.rsngpth != nil {
@@ -36,11 +36,10 @@ func (actn *Action) Path() string {
 	return ""
 }
 
-func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error)) (err error) {
+func executeAction(actn *Action) (err error) {
 	var rspath = actn.rsngpth.Path
 	var rspathext = filepath.Ext(rspath)
 	var isTextRequest = false
-	//	var isdbmsRequest = true
 	var aliases map[string]*database.Connection = nil
 	if strings.HasPrefix(rspath, "/dbms/") || strings.HasPrefix(rspath, "/dbms-") {
 		var dbmspath = rspath
@@ -210,6 +209,9 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 			}
 		}
 	} else {
+		rqstTmpltLkp := func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+			return actn.rqst.templateLookup(actn, tmpltpath, a...)
+		}
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
 			if rspth := actn.rsngpth.Path; rspth != "" {
 				if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
@@ -244,11 +246,11 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 								if actn.rqst.atv == nil {
 									actn.rqst.atv = active.NewActive()
 								}
-								if actn.rqst.atv.ObjectMapRef == nil {
-									actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-										return actn.rqst.objmap
-									}
+								//if actn.rqst.atv.ObjectMapRef == nil {
+								actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
+									return actn.rqst.objmap
 								}
+								//}
 								if actn.rqst.atv.LookupTemplate == nil {
 									actn.rqst.atv.LookupTemplate = rqstTmpltLkp
 								}
@@ -277,6 +279,8 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
 				actn.rqst.isFirstRequest = false
+			} else {
+				_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 			}
 			actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
 			if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
@@ -287,11 +291,11 @@ func executeAction(actn *Action, rqstTmpltLkp func(tmpltpath string, a ...interf
 				if actn.rqst.atv == nil {
 					actn.rqst.atv = active.NewActive()
 				}
-				if actn.rqst.atv.ObjectMapRef == nil {
-					actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-						return actn.rqst.objmap
-					}
+				//if actn.rqst.atv.ObjectMapRef == nil {
+				actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
+					return actn.rqst.objmap
 				}
+				//}
 				if actn.rqst.atv.LookupTemplate == nil {
 					actn.rqst.atv.LookupTemplate = rqstTmpltLkp
 				}

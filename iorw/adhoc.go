@@ -5,6 +5,11 @@ import (
 	"io"
 )
 
+type Printer interface {
+	Print(a ...interface{})
+	Println(a ...interface{})
+}
+
 //Fprint - refer to fmt.Fprint
 func Fprint(w io.Writer, a ...interface{}) {
 	if len(a) > 0 && w != nil {

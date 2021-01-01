@@ -76,6 +76,9 @@ func (lnksrvs *LnkService) runLnkService(args ...string) {
 			cancelChan <- syscall.SIGTERM
 			cancelChan <- syscall.SIGINT
 		})
+		go func() {
+			chnls.GLOBALCHNL().Stdio(os.Stdout, os.Stdin, os.Stderr)
+		}()
 		<-cancelChan
 	} else if lnksrvs.IsBroker() {
 		if lnksrvs.brkrfnc != nil {

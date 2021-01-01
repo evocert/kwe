@@ -26,7 +26,6 @@ import (
 type Request struct {
 	atv               *active.Active
 	actns             []*Action
-	exctngactns       map[*Action]*Action
 	lstexctngactng    *Action
 	rsngpthsref       map[string]*resources.ResourcingPath
 	embeddedResources map[string]interface{}
@@ -142,13 +141,11 @@ func (rqst *Request) MapResource(path string, resource interface{}) {
 			}
 			if _, resourceok := rqst.embeddedResources[path]; resourceok && rqst.embeddedResources[path] != resource {
 				if rqst.embeddedResources[path] != nil {
-					if isBuffer {
-						if buff, isBuffer = rqst.embeddedResources[path].(*iorw.Buffer); isBuffer {
-							buff.Close()
-							buff = nil
-						}
-						rqst.embeddedResources[path] = resource
+					if buff, isBuffer = rqst.embeddedResources[path].(*iorw.Buffer); isBuffer {
+						buff.Close()
+						buff = nil
 					}
+					rqst.embeddedResources[path] = resource
 				} else {
 					rqst.embeddedResources[path] = resource
 				}
@@ -442,11 +439,11 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.embeddedResources = nil
 		}
-		if rqst.exctngactns != nil {
+		if rqst.lstexctngactng != nil {
 			for rqst.lstexctngactng != nil {
 				rqst.lstexctngactng.Close()
 			}
-			rqst.exctngactns = nil
+			rqst.lstexctngactng = nil
 		}
 		rqst = nil
 	}
@@ -458,13 +455,18 @@ func (rqst *Request) execute(interrupt func()) {
 		rqst.prtcl = rqst.httpr.Proto
 		rqst.prtclmethod = rqst.httpr.Method
 		func() {
+			isCancelled := false
+			ctx, cancel := context.WithCancel(rqst.httpr.Context())
 			defer func() {
 				if r := recover(); r != nil {
 
 				}
+				if !isCancelled {
+					isCancelled = true
+					cancel()
+				}
 			}()
-			isCancelled := false
-			ctx, cancel := context.WithCancel(rqst.httpr.Context())
+
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -486,6 +488,36 @@ func (rqst *Request) execute(interrupt func()) {
 				}
 			}
 		}()
+	} else if rqst.rqstw != nil && rqst.rqstr != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+
+				}
+			}()
+			isCancelled := false
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+
+					}
+					isCancelled = true
+					cancel()
+				}()
+				rqst.executeRW(interrupt)
+			}()
+			select {
+			case <-ctx.Done():
+				if ctxerr := ctx.Err(); ctxerr != nil {
+					if !isCancelled {
+						if interrupt != nil {
+							interrupt()
+						}
+					}
+				}
+			}
+		}()
 	}
 }
 
@@ -493,11 +525,21 @@ func (rqst *Request) internWrite(p []byte) (n int, err error) {
 	if rqst.httpw != nil {
 		if rqst.zpw != nil {
 			n, err = rqst.zpw.Write(p)
-		} else {
+		} else if rqst.httpw != nil {
 			n, err = rqst.httpw.Write(p)
 			if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
 			}
+		} else if rqst.rqstw != nil {
+			n, err = rqst.rqstw.Write(p)
+			if rqst.flshr != nil && n > 0 && err == nil {
+				rqst.flshr.Flush()
+			}
+		}
+	} else if rqst.rqstw != nil {
+		n, err = rqst.rqstw.Write(p)
+		if rqst.flshr != nil && n > 0 && err == nil {
+			rqst.flshr.Flush()
 		}
 	}
 	return
@@ -515,57 +557,56 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (rqst *Request) processPaths() {
-	//var isFirstRequest = true
-	//var isTextRequest = false
-	var actn *Action = nil
-	var rqstTmpltLkp = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
-		tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
-		if strings.HasPrefix(tmpltpath, "http://") || strings.HasPrefix(tmpltpath, "https://") {
-			rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil, nil)
-		} else if actn != nil {
-			var tmpltpathroot = ""
-			var tmpltext = filepath.Ext(tmpltpath)
-			if tmpltext == "" {
-				tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
-			}
+func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+	tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
+	if strings.HasPrefix(tmpltpath, "http://") || strings.HasPrefix(tmpltpath, "https://") {
+		rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil, nil)
+	} else if actn != nil {
+		var tmpltpathroot = ""
+		var tmpltext = filepath.Ext(tmpltpath)
+		if tmpltext == "" {
+			tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
+		}
 
-			if strings.HasPrefix(tmpltpath, "/") {
-				tmpltpath = tmpltpath[1:]
-			}
-			if !strings.HasPrefix(tmpltpath, "/") {
-				tmpltpathroot = actn.rsngpth.LookupPath
-				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
-					if strings.LastIndex(tmpltpathroot, "/") > -1 {
-						tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
-						if tmpltpathroot != "/" && !strings.HasPrefix(tmpltpathroot, "/") {
-							tmpltpathroot = "/" + tmpltpathroot
-						}
-					} else {
-						tmpltpathroot = "/"
+		if strings.HasPrefix(tmpltpath, "/") {
+			tmpltpath = tmpltpath[1:]
+		}
+		if !strings.HasPrefix(tmpltpath, "/") {
+			tmpltpathroot = actn.rsngpth.LookupPath
+			if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
+				if strings.LastIndex(tmpltpathroot, "/") > -1 {
+					tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
+					if tmpltpathroot != "/" && !strings.HasPrefix(tmpltpathroot, "/") {
+						tmpltpathroot = "/" + tmpltpathroot
 					}
+				} else {
+					tmpltpathroot = "/"
 				}
-				if tmpltpath = tmpltpathroot + tmpltpath + tmpltext; tmpltpath != "" {
-					rdr = actn.rsngpth.ResourceHandler(tmpltpath)
-					tmpltpath = ""
-				}
+			}
+			if tmpltpath = tmpltpathroot + tmpltpath + tmpltext; tmpltpath != "" {
+				rdr = actn.rsngpth.ResourceHandler(tmpltpath)
+				tmpltpath = ""
 			}
 		}
-		return
 	}
+	return
+}
+
+func (rqst *Request) processPaths(wrapup bool) {
+	var actn *Action = nil
 	for len(rqst.actns) > 0 && !rqst.Interrupted {
 		actn = rqst.actns[0]
 		rqst.actns = rqst.actns[1:]
 		func() {
 			defer func() {
-				if r := recover(); r != nil {
+				/*if r := recover(); r != nil {
 					if !rqst.Interrupted {
 						rqst.Interrupt()
 					}
 					actn.Close()
-				}
+				}*/
 			}()
-			executeAction(actn, rqstTmpltLkp)
+			executeAction(actn)
 		}()
 	}
 	if rqst.wbytesi > 0 {
@@ -574,7 +615,19 @@ func (rqst *Request) processPaths() {
 	if !rqst.startedWriting {
 		rqst.startWriting()
 	}
-	rqst.wrapup()
+	if wrapup {
+		rqst.wrapup()
+	}
+}
+
+//Print helper Print(...interface) over *Request
+func (rqst *Request) Print(a ...interface{}) {
+	iorw.Fprint(rqst, a...)
+}
+
+//Println helper Println(...interface) over *Request
+func (rqst *Request) Println(a ...interface{}) {
+	iorw.Fprintln(rqst, a...)
 }
 
 func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool) {
@@ -611,20 +664,20 @@ func (rqst *Request) wrapup() (err error) {
 }
 
 func (rqst *Request) startWriting() {
-	if httpw := rqst.httpw; rqst.httpr != nil && httpw != nil {
+	if rqst.httpr != nil && rqst.httpw != nil {
 		if rqst.startedWriting {
 			return
 		}
 		rqst.startedWriting = true
 
-		httpw.Header().Set("Content-Type", rqst.mimetype)
-		httpw.Header().Del("Content-Length")
-		httpw.Header().Set("Cache-Control", "no-cache")
-		httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
-		httpw.Header().Set("Connection", "close")
+		rqst.httpw.Header().Set("Content-Type", rqst.mimetype)
+		rqst.httpw.Header().Del("Content-Length")
+		rqst.httpw.Header().Set("Cache-Control", "no-cache")
+		rqst.httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
+		rqst.httpw.Header().Set("Connection", "close")
 		//httpw.Header().Set("Transfer-Encoding", "chunked")
 		//rqst.zpw = gzip.NewWriter(httpw)
-		httpw.WriteHeader(200)
+		rqst.httpw.WriteHeader(200)
 
 	}
 }
@@ -634,19 +687,43 @@ func (rqst *Request) executeHTTP(interrupt func()) {
 		rqst.prms = parameters.NewParameters()
 		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
 		rqst.AddPath(rqst.httpr.URL.Path)
-		rqst.processPaths()
+		rqst.processPaths(true)
 	}
 }
 
-func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func()) {
+func (rqst *Request) executeRW(interrupt func()) {
+	if rqst != nil {
+		rqst.prms = parameters.NewParameters()
+		if rqststdio := newrequeststdio(rqst); rqststdio != nil {
+			func() {
+				defer rqststdio.dispose()
+				rqststdio.executeStdIO()
+			}()
+			rqst.wrapup()
+		}
+	}
+}
+
+func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (rqst *Request, interrupt func()) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	var httpw http.ResponseWriter = nil
 	var httpflshr http.Flusher = nil
 	var httpr *http.Request = nil
 
-	var rdr io.Reader = nil
-	var wtr io.Writer = nil
+	if wtr != nil {
+		if dhttpw, dhttpwok := wtr.(http.ResponseWriter); dhttpwok {
+			if httpw == nil {
+				httpw = dhttpw
+				if wtr == nil {
+					wtr = httpw
+				}
+				if flshr, flshrok := httpw.(http.Flusher); flshrok {
+					httpflshr = flshr
+				}
+			}
+		}
+	}
 
 	for ai < len(a) {
 		if da, daok := a[ai].([]interface{}); daok {
@@ -702,7 +779,7 @@ func newRequest(chnl *Channel, a ...interface{}) (rqst *Request, interrupt func(
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, exctngactns: map[*Action]*Action{}, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, httpw: httpw, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
 	rqst.objmap["request"] = rqst
 	rqst.objmap["channel"] = chnl
 	rqst.objmap["dbms"] = database.GLOBALDBMS()
@@ -737,8 +814,6 @@ func (rqst *Request) detachAction(actn *Action) {
 	} else {
 		rqst.lstexctngactng = nil
 	}
-	rqst.exctngactns[actn] = nil
-	delete(rqst.exctngactns, actn)
 }
 
 func (rqst *Request) removeBuffer(buff *iorw.Buffer) {

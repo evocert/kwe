@@ -172,7 +172,7 @@ func (buff *Buffer) WriteRune(r rune) (err error) {
 }
 
 //WriteRunes - Write runes
-func (buff *Buffer) WriteRunes(p []rune) (err error) {
+func (buff *Buffer) WriteRunes(p ...rune) (err error) {
 	if pl := len(p); pl > 0 {
 		_, err = buff.Write([]byte(string(p[:pl])))
 	}

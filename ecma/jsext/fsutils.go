@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/evocert/kwe/ecma/es51"
+	"github.com/dop251/goja"
 )
 
-func Register_jsext_fsutils(vm *es51.Runtime) {
+func Register_jsext_fsutils(vm *goja.Runtime) {
 	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
 	type Version struct {
 		Major int `json:"major"`

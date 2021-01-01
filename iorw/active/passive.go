@@ -184,7 +184,7 @@ func (psvctrl *passivectrl) _outputrn(rn rune) (err error) {
 	if psvctrl.prsng.psvri == len(psvctrl.prsng.psvr) {
 		psvctrl.prsng.psvri = 0
 		if psvctrl.lastElmType == ElemStart {
-			err = psvctrl.cachedbuf().WriteRunes(psvctrl.prsng.psvr)
+			err = psvctrl.cachedbuf().WriteRunes(psvctrl.prsng.psvr...)
 		} else {
 			err = psvctrl.prsng.writePsv(psvctrl.prsng.psvr)
 		}
@@ -249,7 +249,7 @@ func parsepsvctrl(psvctrl *passivectrl, phrslbli []int, pr rune) (err error) {
 		} else {
 			if phrsi := phrslbli[1]; phrsi > 0 {
 				phrslbli[1] = 0
-				err = psvctrl.phrasebuf().WriteRunes(phrslbl[1][:phrsi])
+				err = psvctrl.phrasebuf().WriteRunes(phrslbl[1][:phrsi]...)
 			}
 			psvctrl.phrsprvr = pr
 			err = psvctrl.phrasebuf().WriteRune(pr)

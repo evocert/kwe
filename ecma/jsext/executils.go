@@ -3,10 +3,10 @@ package jsext
 import (
 	"os/exec"
 
-	"github.com/evocert/kwe/ecma/es51"
+	"github.com/dop251/goja"
 )
 
-func Register_jsext_executils(vm *es51.Runtime) {
+func Register_jsext_executils(vm *goja.Runtime) {
 	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
 	type Version struct {
 		Major int `json:"major"`

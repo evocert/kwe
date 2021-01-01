@@ -1,7 +1,7 @@
 <@
 import "bla";
 resourcing.RegisterEndpoint("/","D:/projects/system");
-resourcing.MapEndpointResource("/","test-this.html","<h1>test this</h1>");
+resourcing.MapEndpointResource("/","test-this.html","<\u0040println(\"test\");\u0040>");
 //println(resourcing.FindRSString("/test-this.html"))
 println(resourcing.RegisteredPaths())
 println(resourcing.EndpointViaPath("/").Dirs())
