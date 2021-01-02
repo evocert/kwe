@@ -670,8 +670,9 @@ func (rqst *Request) startWriting() {
 			return
 		}
 		rqst.startedWriting = true
-
-		rqst.httpw.Header().Set("Content-Type", rqst.mimetype)
+		if rqst.httpw.Header().Get("Content-Type") == "" {
+			rqst.httpw.Header().Set("Content-Type", rqst.mimetype)
+		}
 		rqst.httpw.Header().Del("Content-Length")
 		rqst.httpw.Header().Set("Cache-Control", "no-cache")
 		rqst.httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
