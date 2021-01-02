@@ -24,6 +24,7 @@ import (
 
 //Active - struct
 type Active struct {
+	Namespace      string
 	Print          func(a ...interface{})
 	Println        func(a ...interface{})
 	FPrint         func(w io.Writer, a ...interface{})
@@ -35,9 +36,19 @@ type Active struct {
 }
 
 //NewActive - instance
-func NewActive() (atv *Active) {
-	atv = &Active{lckprnt: &sync.Mutex{}}
+func NewActive(namespace ...string) (atv *Active) {
+	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: ""}
+	if len(namespace) == 1 && namespace[0] != "" {
+		atv.Namespace = namespace[0] + "."
+	}
 	return
+}
+
+func (atv *Active) namespace() string {
+	if atv.Namespace != "" {
+		return atv.Namespace
+	}
+	return ""
 }
 
 func (atv *Active) print(w io.Writer, a ...interface{}) {
@@ -454,7 +465,7 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 		objmapref = atvrntme.atv.ObjectMapRef()
 	}
 	val, err = atvrntme.corerun(atvrntme.code(), objmapref, map[string]interface{}{
-		"newbuffer": func() (buff *iorw.Buffer) {
+		atvrntme.atv.namespace() + "newbuffer": func() (buff *iorw.Buffer) {
 			buff = iorw.NewBuffer()
 			buff.OnClose = atvrntme.removeBuffer
 			atvrntme.intrnbuffs[buff] = buff
@@ -463,19 +474,22 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 		"_passiveout": func(i int) {
 			atvrntme.passiveout(i)
 		},
-		"parseEval": func(a ...interface{}) (val interface{}, err error) {
+		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(a...)
 		},
-		"print": func(a ...interface{}) {
+		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
+			return atvrntme.parseEval(a...)
+		},
+		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
 			if atvrntme.parsing != nil {
 				atvrntme.parsing.print(a...)
 			}
 		},
-		"println": func(a ...interface{}) {
+		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
 			if atvrntme.parsing != nil {
 				atvrntme.parsing.println(a...)
 			}
-		}, "scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
+		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.parsing != nil && atvrntme.parsing.atv != nil {
 				if lkpr, lkprerr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
 					bufr := bufio.NewReader(lkpr)
@@ -547,9 +561,9 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 				}
 			}()
 			isrequired := false
-			if code, isrequired, err = transformCode(code, nil); err == nil {
+			if code, isrequired, err = transformCode(code, atvrntme.atv.namespace(), nil); err == nil {
 				if isrequired {
-					code = `function vmrequire(args) { return require([args]);}` + code
+					code = `function ` + `_vmrequire(args) { return require([args]);}` + code
 				}
 				prsd, prsderr := parser.ParseFile(nil, "", code, 0)
 				if prsderr != nil {
@@ -617,7 +631,7 @@ var (
 	}
 )
 
-func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
+func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	vm := goja.New()
 	isrequired = strings.IndexAny(code, "import ") > -1
 	_, err = vm.RunProgram(babeljsprgm)
@@ -638,7 +652,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 			} else {
 				trsnfrmdcde = v.ToObject(vm).Get("code").String()
 				if isrequired {
-					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "vmrequire(\"", -1)
+					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 				}
 			}
 		}

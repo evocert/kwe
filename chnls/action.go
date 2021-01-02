@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/evocert/kwe/database"
-	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/resources"
 )
@@ -209,9 +208,6 @@ func executeAction(actn *Action) (err error) {
 			}
 		}
 	} else {
-		rqstTmpltLkp := func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
-			return actn.rqst.templateLookup(actn, tmpltpath, a...)
-		}
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
 			if rspth := actn.rsngpth.Path; rspth != "" {
 				if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
@@ -243,17 +239,6 @@ func executeAction(actn *Action) (err error) {
 							}
 							if isTextRequest {
 								isTextRequest = false
-								if actn.rqst.atv == nil {
-									actn.rqst.atv = active.NewActive()
-								}
-								//if actn.rqst.atv.ObjectMapRef == nil {
-								actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-									return actn.rqst.objmap
-								}
-								//}
-								if actn.rqst.atv.LookupTemplate == nil {
-									actn.rqst.atv.LookupTemplate = rqstTmpltLkp
-								}
 								actn.rqst.copy(curactnhndlr, nil, true)
 							} else {
 								actn.rqst.copy(curactnhndlr, nil, false)
@@ -288,17 +273,6 @@ func executeAction(actn *Action) (err error) {
 			}
 			if isTextRequest {
 				isTextRequest = false
-				if actn.rqst.atv == nil {
-					actn.rqst.atv = active.NewActive()
-				}
-				//if actn.rqst.atv.ObjectMapRef == nil {
-				actn.rqst.atv.ObjectMapRef = func() map[string]interface{} {
-					return actn.rqst.objmap
-				}
-				//}
-				if actn.rqst.atv.LookupTemplate == nil {
-					actn.rqst.atv.LookupTemplate = rqstTmpltLkp
-				}
 				actn.rqst.copy(curactnhndlr, nil, true)
 			} else {
 				actn.rqst.copy(curactnhndlr, nil, false)

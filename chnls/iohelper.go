@@ -47,16 +47,21 @@ func (rqststdio *requeststdio) executeStdIO() {
 				if text := rdr.Text(); text != "" {
 					if strings.HasPrefix(text, "!!js:") {
 						text = text[len("!!js:"):]
-						if text != "" {
+						if rqststdio.inbuf.Size() > 0 {
 							bfr := rqststdio.inbuf.Reader()
-							if filepath.Ext(text) == "" {
-								text = text + ".js"
+							if text != "" {
+								if filepath.Ext(text) == "" {
+									text = text + ".js"
+								}
+								rqststdio.rqst.MapResource(text, bfr)
+								rqststdio.rqst.AddPath(text)
+								rqststdio.rqst.processPaths(false)
+							} else {
+								rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
+								bfr.Close()
 							}
-							rqststdio.rqst.MapResource(text, bfr)
-							rqststdio.rqst.AddPath(text)
-							rqststdio.rqst.processPaths(false)
+							rqststdio.inbuf.Clear()
 						}
-						rqststdio.inbuf.Clear()
 					} else {
 						for _, r := range rdr.Text() {
 							rns[rnsi] = r

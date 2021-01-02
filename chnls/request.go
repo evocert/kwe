@@ -633,6 +633,7 @@ func (rqst *Request) Println(a ...interface{}) {
 func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool) {
 	if rqst != nil {
 		if istext {
+			rqst.invokeAtv()
 			if altw == nil {
 				rqst.atv.Eval(rqst, r)
 			} else {
@@ -779,18 +780,26 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, atv: active.NewActive(), Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
-	rqst.objmap["request"] = rqst
-	rqst.objmap["channel"] = chnl
-	rqst.objmap["dbms"] = database.GLOBALDBMS()
-	rqst.objmap["resourcing"] = resources.GLOBALRSNG()
-	rqst.objmap["newrqstbuffer"] = func() (buff *iorw.Buffer) {
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
+	rqst.invokeAtv()
+	nmspce := ""
+	if rqst.atv != nil {
+		nmspce = rqst.atv.Namespace
+		if nmspce != "" {
+			nmspce = nmspce + "."
+		}
+	}
+	rqst.objmap[nmspce+"request"] = rqst
+	rqst.objmap[nmspce+"channel"] = chnl
+	rqst.objmap[nmspce+"dbms"] = database.GLOBALDBMS()
+	rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
+	rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
 		buff = iorw.NewBuffer()
 		buff.OnClose = rqst.removeBuffer
 		rqst.intrnbuffs[buff] = buff
 		return
 	}
-	rqst.objmap["action"] = func() *Action {
+	rqst.objmap[nmspce+"action"] = func() *Action {
 		return rqst.lstexctngactng
 	}
 	for cobjk, cobj := range chnl.objmap {
@@ -813,6 +822,23 @@ func (rqst *Request) detachAction(actn *Action) {
 		actn.prvactn = nil
 	} else {
 		rqst.lstexctngactng = nil
+	}
+}
+
+func (rqst *Request) invokeAtv() {
+	if rqst.atv == nil {
+		rqst.atv = active.NewActive()
+	}
+
+	if rqst.atv.ObjectMapRef == nil {
+		rqst.atv.ObjectMapRef = func() map[string]interface{} {
+			return rqst.objmap
+		}
+	}
+	if rqst.atv.LookupTemplate == nil {
+		rqst.atv.LookupTemplate = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+			return rqst.templateLookup(rqst.lstexctngactng, tmpltpath, a...)
+		}
 	}
 }
 
