@@ -142,6 +142,7 @@ type parsing struct {
 	prntprsng      *parsing
 	foundcde       bool
 	hascde         bool
+	cdetxt         rune
 	cdeoffsetstart int64
 	cdeoffsetend   int64
 	cdemap         map[int][]int64
@@ -375,7 +376,7 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 	if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
 		err = prsng.psvctrl.processrn(pr)
 	} else {
-		if prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
+		if prsng.cdetxt == rune(0) && prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
 			if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
 				if psvl := prslbli[0]; psvl > 0 {
 					prslbli[0] = 0
@@ -397,11 +398,11 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 					prslblprv[0] = 0
 					err = parsepsvrunes(prsng, prslbl[0][0:psvl])
 				}
-				prslblprv[0] = pr
 				err = parsepsvrune(prsng, pr)
+				prslblprv[0] = pr
 			}
 		} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
-			if prslbl[1][prslbli[1]] == pr {
+			if prsng.cdetxt == rune(0) && prslbl[1][prslbli[1]] == pr {
 				prslbli[1]++
 				if prslbli[1] == len(prslbl[1]) {
 					prslbli[0] = 0
@@ -415,8 +416,8 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 					prslbli[1] = 0
 					err = parseatvrunes(prsng, prslbl[1][:prsl])
 				}
-				prslblprv[1] = pr
 				err = parseatvrune(prsng, pr)
+				prslblprv[1] = pr
 			}
 		}
 	}
@@ -424,7 +425,7 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 }
 
 func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192)}
+	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192)}
 	return
 }
 
@@ -475,6 +476,10 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 			atvrntme.passiveout(i)
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
+			if len(a) > 0 {
+				a = append([]interface{}{"<@"}, a...)
+				a = append(a, "@>")
+			}
 			return atvrntme.parseEval(a...)
 		},
 		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
@@ -673,9 +678,9 @@ func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err er
 		}()
 		wg.Done()
 		if len(args) > 0 {
-			iorw.Fprint(pw, "<@")
+			//iorw.Fprint(pw, "<@")
 			iorw.Fprint(pw, args...)
-			iorw.Fprint(pw, "@>")
+			//iorw.Fprint(pw, "@>")
 		}
 	}(a...)
 	rnr := bufio.NewReader(pr)
