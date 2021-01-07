@@ -803,6 +803,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	rqst.objmap[nmspce+"action"] = func() *Action {
 		return rqst.lstexctngactng
 	}
+	rqst.objmap[nmspce+"remoting"] = web.DefaultClient
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
 	}

@@ -56,45 +56,22 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	func() {
 		if wsrw := ws.NewReaderWriter(wscon); wsrw != nil {
 			defer wsrw.Close()
-			//var rruns = make([]rune, 1024)
-			//var rrunsi = 0
 
-			//var tmpbuf = iorw.NewBuffer()
-			//for {
-			//	if wsrw.CanWrite() {
-			//		io.Copy(tmpbuf, wsrw)
-			/*for {
-				rn, size, rnerr := wsrw.ReadRune()
-				if size > 0 {
-					rruns[rrunsi] = rn
-					rrunsi++
-					if rrunsi == len(rruns) {
-						//fmt.Print(string(rruns[:rrunsi]))
-						rrunsi = 0
-					}
-				}
-				if rnerr != nil {
+			/*var tmpbuf = iorw.NewBuffer()
+			for {
+				if _, rerr := io.Copy(tmpbuf, wsrw); rerr != nil && rerr != io.EOF {
 					break
 				}
+				if tmpbuf.Size() > 0 {
+					fmt.Println(tmpbuf)
+				}
+				io.Copy(wsrw, strings.NewReader(tmpbuf.String()))
+				wsrw.Print(tmpbuf)
+				tmpbuf.Clear()
 			}
-			if rrunsi > 0 {
-				//fmt.Print(string(rruns[:rrunsi]))
-				rrunsi = 0
-			}*/
-
-			//	}
-			//	if wsrw.CanRead() {
-			//		wsrw.Print(tmpbuf.String())
-			//		tmpbuf.Clear()
-			//		wsrw.Flush()
-			//	} else {
-			//		break
-			//	}
-			//}
-			//tmpbuf.Close()
-			//tmpbuf = nil
+			tmpbuf.Close()
+			tmpbuf = nil*/
 			chnl.ServeRW(wsrw, wsrw, a...)
-
 		}
 	}()
 }

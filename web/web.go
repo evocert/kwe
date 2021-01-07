@@ -1,10 +1,15 @@
 package web
 
 import (
+	"bufio"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/evocert/kwe/ws"
+
+	"github.com/gorilla/websocket"
 )
 
 //Client - struct
@@ -15,6 +20,66 @@ type Client struct {
 //NewClient - instance
 func NewClient() (clnt *Client) {
 	clnt = &Client{httpclient: &http.Client{}}
+	return
+}
+
+//ReaderWriter interface
+type ReaderWriter interface {
+	io.ReadWriteCloser
+	Flush() error
+}
+
+//SendReceive return ReaderWriter that implement io.Reader,io.Writer
+func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWriter, err error) {
+	if strings.HasPrefix(rqstpath, "ws:") || strings.HasPrefix(rqstpath, "wss://") {
+		if c, _, cerr := websocket.DefaultDialer.Dial(rqstpath, nil); cerr == nil {
+			rw = ws.NewReaderWriter(c)
+		} else {
+			err = cerr
+		}
+	}
+	return
+}
+
+//SendRespondString - Client Send but return response as string
+func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string, rspheaders map[string]string, a ...interface{}) (rspstr string, err error) {
+	var rspr io.Reader = nil
+	rspstr = ""
+	if rspr, err = clnt.Send(rqstpath, rqstheaders, rspheaders, a...); err == nil {
+		if rspr != nil {
+			var rdr io.RuneReader = nil
+			var rdrok = false
+			if rdr, rdrok = rspr.(io.RuneReader); !rdrok {
+				rdr = bufio.NewReader(rspr)
+			}
+			if rdr != nil {
+				var rnrs = make([]rune, 1024)
+				var rnrsi = 0
+				for {
+					rn, size, rnerr := rdr.ReadRune()
+					if size > 0 {
+						rnrs[rnrsi] = rn
+						rnrsi++
+						if rnrsi == len(rnrs) {
+							rspstr += string(rnrs[:rnrsi])
+							rnrsi = 0
+						}
+						if rnerr != nil {
+							if rnerr != io.EOF {
+								err = rnerr
+							}
+							break
+						}
+					}
+				}
+				if rnrsi > 0 {
+					rspstr += string(rnrs[:rnrsi])
+					rnrsi = 0
+				}
+				rdr = nil
+			}
+		}
+	}
 	return
 }
 

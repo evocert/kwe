@@ -18,6 +18,7 @@ import (
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/web"
+	"github.com/evocert/kwe/ws"
 )
 
 func main() {
@@ -56,13 +57,27 @@ func main() {
 		resources.GLOBALRSNG().RegisterEndpoint("/mem/", "")
 		resources.GLOBALRSNG().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
 		if f, ferr := os.Open("./trythis.html"); ferr == nil {
-			resources.GLOBALRSNG().MapEndPointResource("/mem/", "uiop/string.txt", f)
-			resources.GLOBALRSNG().MapEndPointResource("/dojo/", "uiop/string.html", f)
+			resources.GLOBALRSNG().MapEndpointResource("/mem/", "uiop/string.txt", f)
+			resources.GLOBALRSNG().MapEndpointResource("/dojo/", "uiop/string.html", f)
 		}
 		chnls.GLOBALCHNL().Listener().Listen(":1002")
 	}
 	buff := iorw.NewBuffer()
 	cnlt := web.NewClient()
+	if rw, rwerr := cnlt.SendReceive("ws://127.0.0.1:1002"); rwerr == nil {
+		if rw != nil {
+			if wsrw, wsrwok := rw.(*ws.ReaderWriter); wsrwok {
+				wsrw.Println("<@println(\"testing this\");@>")
+				wsrw.Println("!!js:")
+				buff.Print(wsrw)
+				wsrw.Close()
+				fmt.Println(buff)
+				buff.Clear()
+			}
+		}
+	} else {
+		fmt.Println(rwerr.Error())
+	}
 	cnlt.Send("http://127.0.0.1:1002/dbms/.json",
 		map[string]string{"Content-Type": "application/json"},
 		nil,

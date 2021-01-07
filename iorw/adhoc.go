@@ -11,6 +11,15 @@ type Printer interface {
 	Println(a ...interface{})
 }
 
+//Reader - interface
+type Reader interface {
+	Read([]byte) (int, error)
+	ReadRune() (rune, int, error)
+	Readln() (string, error)
+	Readlines() ([]string, error)
+	ReadAll() (string, error)
+}
+
 //Fprint - refer to fmt.Fprint
 func Fprint(w io.Writer, a ...interface{}) {
 	if len(a) > 0 && w != nil {

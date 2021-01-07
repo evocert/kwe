@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/ws"
 )
 
 type requeststdio struct {
@@ -22,7 +21,8 @@ type requeststdio struct {
 
 func (rqststdio *requeststdio) captureRunes(p ...rune) (err error) {
 	if len(p) > 0 {
-		err = rqststdio.inbuf.WriteRunes(p...)
+		//err = rqststdio.inbuf.WriteRunes(p...)
+		fmt.Print(string(p))
 	}
 	return
 }
@@ -32,19 +32,30 @@ func (rqststdio *requeststdio) executeStdIO() {
 	go func() {
 		rns := make([]rune, 1024)
 		rnsi := 0
-		var rnserr error = nil
+		//var rnserr error = nil
+		var rdr io.RuneReader = nil
+		//var canPrint = false
 		if stdio, stdiook := rqststdio.rqst.rqstr.(*os.File); stdiook {
-			rdr := bufio.NewScanner(stdio)
+			rdr = bufio.NewReader(stdio)
+			//canPrint = true
+			fmt.Print("")
+		} else if wsdio, wsiook := rqststdio.rqst.rqstr.(*ws.ReaderWriter); wsiook {
+			rdr = wsdio
+		}
+
+		/*if scnr != nil {
 			firstScan := true
 			for {
 				if firstScan {
 					firstScan = false
-					fmt.Print("")
-					rdr.Scan()
+					if canPrint {
+						fmt.Print("")
+					}
+					scnr.Scan()
 				} else {
-					rdr.Scan()
+					scnr.Scan()
 				}
-				if text := rdr.Text(); text != "" {
+				if text := scnr.Text(); text != "" {
 					if strings.HasPrefix(text, "!!js:") {
 						text = text[len("!!js:"):]
 						if rqststdio.inbuf.Size() > 0 {
@@ -63,7 +74,7 @@ func (rqststdio *requeststdio) executeStdIO() {
 							rqststdio.inbuf.Clear()
 						}
 					} else {
-						for _, r := range rdr.Text() {
+						for _, r := range scnr.Text() {
 							rns[rnsi] = r
 							rnsi++
 							if rnsi == len(rns) {
@@ -83,28 +94,31 @@ func (rqststdio *requeststdio) executeStdIO() {
 							}
 						}
 					}
+				} else {
+					time.Sleep(10)
 				}
 			}
-		} else {
-			rdr := bufio.NewReader(rqststdio.rqst.rqstr)
-			for {
-				r, s, rerr := rdr.ReadRune()
-				if s > 0 {
-					rns[rnsi] = r
-					rnsi++
-					if rnsi == len(rns) {
+		} else {*/
+		if rdr == nil {
+			rdr = bufio.NewReader(rqststdio.rqst.rqstr)
+		}
+		for {
+			r, s, rerr := rdr.ReadRune()
+			if s > 0 {
+				rns[rnsi] = r
+				rnsi++
+				if rnsi == len(rns) {
+					rqststdio.captureRunes(rns[:rnsi]...)
+					rnsi = 0
+				}
+			}
+			if rerr != nil {
+				if rerr == io.EOF {
+					if rnsi > 0 {
 						rqststdio.captureRunes(rns[:rnsi]...)
 						rnsi = 0
 					}
-				}
-				if rerr != nil {
-					if rerr == io.EOF {
-						if rnsi > 0 {
-							rqststdio.captureRunes(rns[:rnsi]...)
-							rnsi = 0
-						}
-						time.Sleep(10)
-					}
+					time.Sleep(10)
 				} else {
 					break
 				}
