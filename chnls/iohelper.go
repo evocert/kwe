@@ -36,9 +36,27 @@ func (rqststdio *requeststdio) executeStdIO() {
 		var rdr io.RuneReader = nil
 		//var canPrint = false
 		if stdio, stdiook := rqststdio.rqst.rqstr.(*os.File); stdiook {
-			rdr = bufio.NewReader(stdio)
-			//canPrint = true
-			fmt.Print("")
+			pr, pw := io.Pipe()
+			wg := &sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer pw.Close()
+				wg.Done()
+				scnr := bufio.NewScanner(stdio)
+				fmt.Print("")
+				txt := ""
+				for {
+					if scnr.Scan() {
+						if txt = scnr.Text(); txt != "" {
+							txt += "\r\n"
+							pw.Write([]byte(txt))
+						}
+					}
+				}
+			}()
+			wg.Wait()
+			rdr = bufio.NewReader(pr)
+
 		} else if wsdio, wsiook := rqststdio.rqst.rqstr.(*ws.ReaderWriter); wsiook {
 			rdr = wsdio
 		}
@@ -105,11 +123,23 @@ func (rqststdio *requeststdio) executeStdIO() {
 		for {
 			r, s, rerr := rdr.ReadRune()
 			if s > 0 {
-				rns[rnsi] = r
-				rnsi++
-				if rnsi == len(rns) {
-					rqststdio.captureRunes(rns[:rnsi]...)
-					rnsi = 0
+				if r == rune(10) && rerr == nil {
+					if rnsi > 0 {
+						if rnsi >= 1 {
+							if rns[rnsi-1] == rune(13) {
+								rnsi--
+							}
+						}
+						rqststdio.captureRunes(rns[:rnsi]...)
+						rnsi = 0
+					}
+				} else {
+					rns[rnsi] = r
+					rnsi++
+					if rnsi == len(rns) {
+						rqststdio.captureRunes(rns[:rnsi]...)
+						rnsi = 0
+					}
 				}
 			}
 			if rerr != nil {

@@ -1,6 +1,7 @@
 package iorw
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 )
@@ -41,4 +42,9 @@ func Fprintln(w io.Writer, a ...interface{}) {
 		Fprint(w, a...)
 	}
 	Fprint(w, "\r\n")
+}
+
+type WrapReader struct {
+	scnr *bufio.Scanner
+	rdr  io.Reader
 }

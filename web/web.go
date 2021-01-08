@@ -64,12 +64,12 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 							rspstr += string(rnrs[:rnrsi])
 							rnrsi = 0
 						}
-						if rnerr != nil {
-							if rnerr != io.EOF {
-								err = rnerr
-							}
-							break
+					}
+					if rnerr != nil {
+						if rnerr != io.EOF {
+							err = rnerr
 						}
+						break
 					}
 				}
 				if rnrsi > 0 {
