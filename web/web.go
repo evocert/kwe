@@ -153,9 +153,7 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 							}()
 							wg.Done()
 							if w != nil {
-
 								io.Copy(pw, respbdy)
-
 							}
 						}()
 						wg.Wait()
