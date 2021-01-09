@@ -309,17 +309,29 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 		datasource := exctr.cn.dataSourceName
 		if strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") {
 			func() {
-				var rspheaders = map[string]string{}
+				/*var rspheaders = map[string]string{}*/
 				var rqstheaders = map[string]string{}
 				rqstheaders["Content-Type"] = "application/json"
 				if len(exctr.cn.args) > 0 {
-					exctr.cn.args = append(exctr.cn.args, pi, out)
-					web.DefaultClient.Send(datasource, rqstheaders, rspheaders, exctr.cn.args...)
+					exctr.cn.args = append(exctr.cn.args, pi)
+					if rspr, rsprerr := web.DefaultClient.Send(datasource, rqstheaders /* rspheaders,*/, exctr.cn.args...); rsprerr == nil {
+						if rspr != nil {
+							io.Copy(out, rspr)
+						}
+					} else {
+						err = rsprerr
+					}
 				} else {
-					web.DefaultClient.Send(datasource, rqstheaders, rspheaders, pi, out)
+					if rspr, rsprerr := web.DefaultClient.Send(datasource, rqstheaders /* rspheaders,*/, pi); rsprerr == nil {
+						if rspr != nil {
+							io.Copy(out, rspr)
+						}
+					} else if rsprerr != nil {
+						err = rsprerr
+					}
 				}
 				rqstheaders = nil
-				rspheaders = nil
+				//rspheaders = nil
 			}()
 		}
 	}()

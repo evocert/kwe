@@ -42,10 +42,10 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 }
 
 //SendRespondString - Client Send but return response as string
-func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string, rspheaders map[string]string, a ...interface{}) (rspstr string, err error) {
+func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string /* rspheaders map[string]string,*/, a ...interface{}) (rspstr string, err error) {
 	var rspr io.Reader = nil
 	rspstr = ""
-	if rspr, err = clnt.Send(rqstpath, rqstheaders, rspheaders, a...); err == nil {
+	if rspr, err = clnt.Send(rqstpath, rqstheaders /* rspheaders,*/, a...); err == nil {
 		if rspr != nil {
 			var rdr io.RuneReader = nil
 			var rdrok = false
@@ -84,7 +84,7 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 }
 
 //Send - Client send
-func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rspheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
+func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rspheaders map[string]string,*/, a ...interface{}) (rspr io.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
 		var method = "GET"
 		var r io.Reader = nil
@@ -95,7 +95,18 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 		for ai < len(a) {
 			d := a[ai]
 			if r == nil {
-				if r, aok = d.(io.Reader); aok {
+				if rs, rsok := d.(string); rsok {
+					if rs != "" {
+						r = strings.NewReader(rs)
+					}
+					if ai < len(a)-1 {
+						a = append(a[:ai], a[ai+1:]...)
+						continue
+					} else {
+						a = append(a[:ai], a[ai+1:]...)
+						break
+					}
+				} else if r, aok = d.(io.Reader); aok {
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue
@@ -131,11 +142,6 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, rsphead
 
 			var resp, resperr = clnt.Do(rqst)
 			if resperr == nil {
-				if rspheaders != nil {
-					for rsph, rsphv := range resp.Header {
-						rspheaders[rsph] = strings.Join(rsphv, ";")
-					}
-				}
 				if respbdy := resp.Body; respbdy != nil {
 					if w != nil {
 						wg := &sync.WaitGroup{}
