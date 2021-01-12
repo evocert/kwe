@@ -277,6 +277,32 @@ func (params *Parameters) FileReader(pname string, index ...int) (rdrs []io.Read
 	return
 }
 
+//FileName return file parameter name - array of string
+func (params *Parameters) FileName(pname string, index ...int) (nmes []string) {
+	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
+		nmes = make([]string, len(flsv))
+		for nfls, fls := range flsv {
+			if fhead, fheadok := fls.(multipart.FileHeader); fheadok {
+				nmes[nfls] = fhead.Filename
+			}
+		}
+	}
+	return
+}
+
+//FileSize return file parameter size - array of int64)
+func (params *Parameters) FileSize(pname string, index ...int) (sizes []int64) {
+	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
+		sizes = make([]int64, len(flsv))
+		for nfls, fls := range flsv {
+			if fhead, fheadok := fls.(multipart.FileHeader); fheadok {
+				sizes[nfls] = fhead.Size
+			}
+		}
+	}
+	return
+}
+
 //FileParameter return file paramater - array of file
 func (params *Parameters) FileParameter(pname string, index ...int) []interface{} {
 	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname != "" {
