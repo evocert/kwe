@@ -8,7 +8,10 @@
     <script src='main.js'></script>
 </head>
 <body>
-    <@print(request.Parameters().StandardKeys());@>
-    <:test/><@for(var i=0;i<10000;i++){@><h1><:test><:west/></:test><@print("hello");@></h1><@}@>
+    <form method="POST" action="/t.html" enctype="multipart/form-data">
+        <input type="file" name="test1"/>
+        <input type="file" name="test1"/>
+        <button>PRESS</button>
+    </form>
 </body>
 </html>

@@ -238,28 +238,28 @@ func (params *Parameters) StringParameter(pname string, sep string, index ...int
 			}
 			return
 		}
-		if sep == "" {
-			s, _ = rnrtos(bufio.NewReader(io.MultiReader(pval...)))
-			return
-		}
 		var bfr *bufio.Reader = nil
 		for rn, r := range pval {
-			if bfr == nil {
-				bfr = bufio.NewReader(r)
-			} else {
-				bfr.Reset(r)
-			}
-			if bs, bserr := rnrtos(bfr); bserr == nil {
-				s += bs
-				if rn < len(pval)-1 {
-					s += sep
+			if r != nil {
+				if bfr == nil {
+					bfr = bufio.NewReader(r)
+				} else {
+					bfr.Reset(r)
 				}
-			} else if bserr != nil {
-				break
+				if bfr != nil {
+					if bs, bserr := rnrtos(bfr); bserr == nil {
+						s += bs
+						if rn < len(pval)-1 {
+							s += sep
+						}
+					} else if bserr != nil {
+						break
+					}
+				}
 			}
 		}
 	}
-	return ""
+	return
 }
 
 //FileReader return file parameter - array of io.Reader
@@ -267,7 +267,7 @@ func (params *Parameters) FileReader(pname string, index ...int) (rdrs []io.Read
 	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
 		rdrs = make([]io.Reader, len(flsv))
 		for nfls, fls := range flsv {
-			if fhead, fheadok := fls.(multipart.FileHeader); fheadok {
+			if fhead, fheadok := fls.(*multipart.FileHeader); fheadok {
 				rdrs[nfls], _ = fhead.Open()
 			} else if fr, frok := fls.(io.Reader); frok {
 				rdrs[nfls] = fr
@@ -282,7 +282,7 @@ func (params *Parameters) FileName(pname string, index ...int) (nmes []string) {
 	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
 		nmes = make([]string, len(flsv))
 		for nfls, fls := range flsv {
-			if fhead, fheadok := fls.(multipart.FileHeader); fheadok {
+			if fhead, fheadok := fls.(*multipart.FileHeader); fheadok {
 				nmes[nfls] = fhead.Filename
 			}
 		}
@@ -383,7 +383,7 @@ func LoadParametersFromHTTPRequest(params *Parameters, r *http.Request) {
 			for pname, pfile := range r.MultipartForm.File {
 				if len(pfile) > 0 {
 					pfilei := []interface{}{}
-					for pf := range pfile {
+					for _, pf := range pfile {
 						pfilei = append(pfilei, pf)
 					}
 					params.SetFileParameter(pname, false, pfilei...)
