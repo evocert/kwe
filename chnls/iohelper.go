@@ -19,10 +19,13 @@ type requeststdio struct {
 	outbuf *iorw.Buffer
 }
 
-func (rqststdio *requeststdio) captureRunes(p ...rune) (err error) {
+func (rqststdio *requeststdio) captureRunes(eof bool, p ...rune) (err error) {
 	if len(p) > 0 {
-		//err = rqststdio.inbuf.WriteRunes(p...)
-		fmt.Print(string(p))
+		rqststdio.inbuf.Print(string(p))
+		if eof {
+			fmt.Print(rqststdio.inbuf.String())
+			rqststdio.inbuf.Clear()
+		}
 	}
 	return
 }
@@ -130,14 +133,14 @@ func (rqststdio *requeststdio) executeStdIO() {
 								rnsi--
 							}
 						}
-						rqststdio.captureRunes(rns[:rnsi]...)
+						rqststdio.captureRunes(true, rns[:rnsi]...)
 						rnsi = 0
 					}
 				} else {
 					rns[rnsi] = r
 					rnsi++
 					if rnsi == len(rns) {
-						rqststdio.captureRunes(rns[:rnsi]...)
+						rqststdio.captureRunes(false, rns[:rnsi]...)
 						rnsi = 0
 					}
 				}
@@ -145,7 +148,7 @@ func (rqststdio *requeststdio) executeStdIO() {
 			if rerr != nil {
 				if rerr == io.EOF {
 					if rnsi > 0 {
-						rqststdio.captureRunes(rns[:rnsi]...)
+						rqststdio.captureRunes(false, rns[:rnsi]...)
 						rnsi = 0
 					}
 					time.Sleep(10)

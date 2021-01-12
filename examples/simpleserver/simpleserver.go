@@ -68,9 +68,11 @@ func main() {
 	if rw, rwerr := cnlt.SendReceive("ws://127.0.0.1:1002"); rwerr == nil {
 		if rw != nil {
 			if wsrw, wsrwok := rw.(*ws.ReaderWriter); wsrwok {
-				wsrw.Println("<@println(\"testing this\");@>")
-				wsrw.Println("!!js:")
+				wsrw.Println("#!js")
+				wsrw.Println("<@println('hello there');@>")
+				wsrw.Println("#!js-commit")
 				buff.Print(wsrw)
+				wsrw.Println("#!close")
 				wsrw.Close()
 				fmt.Println(buff)
 				buff.Clear()

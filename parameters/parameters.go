@@ -1,6 +1,7 @@
 package parameters
 
 import (
+	"bufio"
 	"io"
 	"mime/multipart"
 	http "net/http"
@@ -34,12 +35,12 @@ func (params *Parameters) StandardKeys() (keys []string) {
 
 //FileKeys - list of file parameters names (keys)
 func (params *Parameters) FileKeys() (keys []string) {
-	if len(params.standard) > 0 {
+	if len(params.filesdata) > 0 {
 		if keys == nil {
-			keys = make([]string, len(params.standard))
+			keys = make([]string, len(params.filesdata))
 		}
 		ki := 0
-		for k := range params.standard {
+		for k := range params.filesdata {
 			keys[ki] = k
 			ki++
 		}
@@ -125,15 +126,16 @@ func (params *Parameters) SetFileParameter(pname string, clear bool, pfile ...in
 		}
 		if len(pfile) > 0 {
 			for _, pf := range pfile {
-				if fheader, fheaderok := pf.(multipart.FileHeader); fheaderok {
+				/*if fheader, fheaderok := pf.(multipart.FileHeader); fheaderok {
+					fheader.
 					if fv, fverr := fheader.Open(); fverr == nil {
 						if rval, rvalok := fv.(io.Reader); rvalok {
 							val = append(val, rval)
 						}
 					}
-				} else {
-					val = append(val, pf)
-				}
+				} else {*/
+				val = append(val, pf)
+				//}
 			}
 		}
 		params.filesdata[pname] = val
@@ -172,11 +174,29 @@ func (params *Parameters) ContainsFileParameter(pname string) bool {
 }
 
 //Parameter - return a specific parameter values
-func (params *Parameters) Parameter(pname string) []string {
+func (params *Parameters) Parameter(pname string, index ...int) []string {
 	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname != "" {
 		if params.standard != nil {
-			if _, ok := params.standard[pname]; ok {
-				return params.standard[pname]
+			if stdv, ok := params.standard[pname]; ok {
+				if stdl := len(stdv); stdl > 0 {
+					if il := len(index); il > 0 {
+						idx := []int{}
+						for _, id := range index {
+							if id >= 0 && id < stdl {
+								idx = append(idx, id)
+							}
+						}
+						if len(idx) > 0 {
+							stdvls := make([]string, len(idx))
+							for in, id := range idx {
+								stdvls[in] = stdv[id]
+							}
+							return stdvls
+						}
+					} else {
+						return stdv
+					}
+				}
 			}
 		}
 	}
@@ -184,19 +204,103 @@ func (params *Parameters) Parameter(pname string) []string {
 }
 
 //StringParameter return parameter as string concatenated with sep
-func (params *Parameters) StringParameter(pname string, sep string) string {
-	if pval := params.Parameter(pname); len(pval) > 0 {
+func (params *Parameters) StringParameter(pname string, sep string, index ...int) (s string) {
+	if pval := params.Parameter(pname, index...); len(pval) > 0 {
 		return strings.Join(pval, sep)
+	}
+	if pval := params.FileReader(pname, index...); len(pval) > 0 {
+
+		var rnrtos = func(br *bufio.Reader) (bs string, err error) {
+			rns := make([]rune, 1024)
+			rnsi := 0
+			if br != nil {
+				for {
+					rn, size, rnerr := br.ReadRune()
+					if size > 0 {
+						rns[rnsi] = rn
+						rnsi++
+						if rnsi == len(rns) {
+							bs += string(rns[:rnsi])
+							rnsi = 0
+						}
+					}
+					if rnerr != nil {
+						if rnerr != io.EOF {
+							err = rnerr
+						}
+						break
+					}
+				}
+			}
+			if rnsi > 0 {
+				bs += string(rns[:rnsi])
+				rnsi = 0
+			}
+			return
+		}
+		if sep == "" {
+			s, _ = rnrtos(bufio.NewReader(io.MultiReader(pval...)))
+			return
+		}
+		var bfr *bufio.Reader = nil
+		for rn, r := range pval {
+			if bfr == nil {
+				bfr = bufio.NewReader(r)
+			} else {
+				bfr.Reset(r)
+			}
+			if bs, bserr := rnrtos(bfr); bserr == nil {
+				s += bs
+				if rn < len(pval)-1 {
+					s += sep
+				}
+			} else if bserr != nil {
+				break
+			}
+		}
 	}
 	return ""
 }
 
+//FileReader return file parameter - array of io.Reader
+func (params *Parameters) FileReader(pname string, index ...int) (rdrs []io.Reader) {
+	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
+		rdrs = make([]io.Reader, len(flsv))
+		for nfls, fls := range flsv {
+			if fhead, fheadok := fls.(multipart.FileHeader); fheadok {
+				rdrs[nfls], _ = fhead.Open()
+			} else if fr, frok := fls.(io.Reader); frok {
+				rdrs[nfls] = fr
+			}
+		}
+	}
+	return
+}
+
 //FileParameter return file paramater - array of file
-func (params *Parameters) FileParameter(pname string) []interface{} {
+func (params *Parameters) FileParameter(pname string, index ...int) []interface{} {
 	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname != "" {
 		if params.filesdata != nil {
-			if _, ok := params.filesdata[pname]; ok {
-				return params.filesdata[pname]
+			if flsv, ok := params.filesdata[pname]; ok {
+				if flsl := len(flsv); flsl > 0 {
+					if il := len(index); il > 0 {
+						idx := []int{}
+						for _, id := range index {
+							if id >= 0 && id < flsl {
+								idx = append(idx, id)
+							}
+						}
+						if len(idx) > 0 {
+							flsvls := make([]interface{}, len(idx))
+							for in, id := range idx {
+								flsvls[in] = flsv[id]
+							}
+							return flsvls
+						}
+					} else {
+						return flsv
+					}
+				}
 			}
 		}
 	}
