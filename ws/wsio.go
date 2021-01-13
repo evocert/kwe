@@ -3,6 +3,7 @@ package ws
 import (
 	"bufio"
 	"io"
+	"strings"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/gorilla/websocket"
@@ -134,6 +135,9 @@ func (wsrw *ReaderWriter) Readln() (s string, err error) {
 	if s == "" && rnsi > 0 {
 		s += string(rns[:rnsi])
 		rnsi = 0
+	}
+	if s != "" {
+		s = strings.TrimSpace(s)
 	}
 	return
 }

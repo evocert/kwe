@@ -505,7 +505,9 @@ func (rqst *Request) execute(interrupt func()) {
 					isCancelled = true
 					cancel()
 				}()
-				rqst.executeRW(interrupt)
+				if rwerr := rqst.executeRW(interrupt); rwerr != nil {
+					fmt.Println(rwerr)
+				}
 			}()
 			select {
 			case <-ctx.Done():
@@ -693,17 +695,18 @@ func (rqst *Request) executeHTTP(interrupt func()) {
 	}
 }
 
-func (rqst *Request) executeRW(interrupt func()) {
+func (rqst *Request) executeRW(interrupt func()) (err error) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
 		if rqststdio := newrequeststdio(rqst); rqststdio != nil {
 			func() {
 				defer rqststdio.dispose()
-				rqststdio.executeStdIO()
+				err = rqststdio.executeStdIO()
 			}()
 			rqst.wrapup()
 		}
 	}
+	return
 }
 
 func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (rqst *Request, interrupt func()) {

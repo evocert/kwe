@@ -5,39 +5,157 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/ws"
 )
 
 type requeststdio struct {
-	wg     *sync.WaitGroup
-	rqst   *Request
-	inbuf  *iorw.Buffer
-	outbuf *iorw.Buffer
+	wg            *sync.WaitGroup
+	rqst          *Request
+	isDone        bool
+	prvinr        rune
+	hashbang      bool
+	lsthshlnk     string
+	lsthshlnkargs []string
+	tmpbuf        *iorw.Buffer
+	inbuf         *iorw.Buffer
+	outbuf        *iorw.Buffer
 }
 
 func (rqststdio *requeststdio) captureRunes(eof bool, p ...rune) (err error) {
 	if len(p) > 0 {
-		rqststdio.inbuf.Print(string(p))
-		if eof {
-			fmt.Print(rqststdio.inbuf.String())
-			rqststdio.inbuf.Clear()
+		for _, r := range p {
+			if err = rqststdio.captureRune(r); err != nil {
+				break
+			}
 		}
+		//rqststdio.inbuf.Print(string(p))
+		//if eof {
+		//	fmt.Print(rqststdio.inbuf.String())
+		//	rqststdio.inbuf.Clear()
+		//}
 	}
 	return
 }
 
-func (rqststdio *requeststdio) executeStdIO() {
+func (rqststdio *requeststdio) captureRune(r rune) (err error) {
+	if r == rune(10) {
+		if rqststdio.hashbang {
+			if s := rqststdio.tmpbuf.String(); s != "" {
+				rqststdio.tmpbuf.Clear()
+				sargs := strings.Split(s, " ")
+				sargsi := 0
+				for sargsi < len(sargs) {
+					if strings.TrimSpace(sargs[sargsi]) == "" {
+						sargs = append(sargs[:sargsi], sargs[sargsi+1:]...)
+					} else {
+						sargs[sargsi] = strings.TrimSpace(sargs[sargsi])
+						sargsi++
+					}
+				}
+				if sargs[0] == "#!commit" || sargs[0] == "#!close" {
+					if rqststdio.inbuf.Size() > 0 {
+						rqststdio.tmpbuf.Clear()
+					}
+					if rqststdio.lsthshlnk == "#!js" {
+						if rqststdio.inbuf.Size() > 0 {
+							if bfr := rqststdio.inbuf.Reader(); bfr != nil {
+								rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
+								bfr.Close()
+							}
+							rqststdio.inbuf.Clear()
+						}
+					} else if rqststdio.lsthshlnk == "#!dbms" {
+						if rqststdio.inbuf.Size() > 0 {
+							if bfr := rqststdio.inbuf.Reader(); bfr != nil {
+								if dbmserr := database.GLOBALDBMS().InOut(bfr, rqststdio.rqst); dbmserr != nil {
+									rqststdio.isDone = true
+									err = dbmserr
+								}
+							}
+							rqststdio.inbuf.Clear()
+						}
+					}
+					if !rqststdio.isDone {
+						rqststdio.isDone = sargs[0] == "#!close"
+					}
+				} else {
+					if rqststdio.lsthshlnk = sargs[0]; strings.HasPrefix(rqststdio.lsthshlnk, "#!js:") {
+						if path := rqststdio.lsthshlnk[len("#!js:"):]; path != "" {
+							rqststdio.lsthshlnk = ""
+							rqststdio.rqst.AddPath(path)
+							rqststdio.rqst.processPaths(false)
+						} else {
+							rqststdio.lsthshlnk = ""
+						}
+					}
+				}
+			}
+			rqststdio.hashbang = false
+			rqststdio.prvinr = rune(0)
+			return
+		}
+		if rqststdio.prvinr == rune(13) {
+			rqststdio.inbuf.Print(string(rqststdio.prvinr), string(r))
+			rqststdio.prvinr = 0
+			return
+		}
+		rqststdio.inbuf.Print(string(r))
+	} else {
+		if r == '\r' {
+			if rqststdio.prvinr == '\r' {
+				if rqststdio.tmpbuf.Size() > 0 {
+					rqststdio.inbuf.Print(rqststdio.tmpbuf)
+					rqststdio.tmpbuf.Clear()
+				}
+				rqststdio.inbuf.Print(string(rqststdio.prvinr), string(r))
+			}
+		} else {
+			if rqststdio.prvinr == '\r' {
+				if rqststdio.tmpbuf.Size() > 0 {
+					rqststdio.inbuf.Print(rqststdio.tmpbuf)
+					rqststdio.tmpbuf.Clear()
+				}
+				rqststdio.inbuf.Print(string(rqststdio.prvinr), string(r))
+			} else if r == '#' {
+				if rqststdio.prvinr != rune(0) && rqststdio.prvinr != '\n' {
+					rqststdio.inbuf.Print(string(r))
+				}
+			} else {
+				if !rqststdio.hashbang {
+					if r == '!' {
+						if rqststdio.prvinr == '#' {
+							if rqststdio.tmpbuf.Size() == 0 {
+								rqststdio.hashbang = true
+							}
+							rqststdio.tmpbuf.Print(string(rqststdio.prvinr), string(r))
+						} else {
+							rqststdio.inbuf.Print(string(r))
+						}
+					} else {
+						rqststdio.inbuf.Print(string(r))
+					}
+				} else {
+					rqststdio.tmpbuf.Print(string(r))
+				}
+			}
+		}
+	}
+	rqststdio.prvinr = r
+	return
+}
+
+func (rqststdio *requeststdio) executeStdIO() (err error) {
 	rqststdio.wg.Add(1)
 	go func() {
-		rns := make([]rune, 1024)
-		rnsi := 0
-		//var rnserr error = nil
+		defer rqststdio.wg.Done()
+		var rnserr error = nil
 		var rdr io.RuneReader = nil
-		//var canPrint = false
 		if stdio, stdiook := rqststdio.rqst.rqstr.(*os.File); stdiook {
 			pr, pw := io.Pipe()
 			wg := &sync.WaitGroup{}
@@ -63,102 +181,33 @@ func (rqststdio *requeststdio) executeStdIO() {
 		} else if wsdio, wsiook := rqststdio.rqst.rqstr.(*ws.ReaderWriter); wsiook {
 			rdr = wsdio
 		}
-
-		/*if scnr != nil {
-			firstScan := true
-			for {
-				if firstScan {
-					firstScan = false
-					if canPrint {
-						fmt.Print("")
-					}
-					scnr.Scan()
-				} else {
-					scnr.Scan()
-				}
-				if text := scnr.Text(); text != "" {
-					if strings.HasPrefix(text, "!!js:") {
-						text = text[len("!!js:"):]
-						if rqststdio.inbuf.Size() > 0 {
-							bfr := rqststdio.inbuf.Reader()
-							if text != "" {
-								if filepath.Ext(text) == "" {
-									text = text + ".js"
-								}
-								rqststdio.rqst.MapResource(text, bfr)
-								rqststdio.rqst.AddPath(text)
-								rqststdio.rqst.processPaths(false)
-							} else {
-								rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
-								bfr.Close()
-							}
-							rqststdio.inbuf.Clear()
-						}
-					} else {
-						for _, r := range scnr.Text() {
-							rns[rnsi] = r
-							rnsi++
-							if rnsi == len(rns) {
-								rnserr = rqststdio.captureRunes(rns[:rnsi]...)
-								rnsi = 0
-								if rnserr != nil {
-									break
-								}
-							}
-						}
-
-						if rnsi > 0 {
-							rnserr = rqststdio.captureRunes(rns[:rnsi]...)
-							rnsi = 0
-							if rnserr != nil {
-								break
-							}
-						}
-					}
-				} else {
-					time.Sleep(10)
-				}
-			}
-		} else {*/
 		if rdr == nil {
 			rdr = bufio.NewReader(rqststdio.rqst.rqstr)
 		}
 		for {
 			r, s, rerr := rdr.ReadRune()
-			if s > 0 {
-				if r == rune(10) && rerr == nil {
-					if rnsi > 0 {
-						if rnsi >= 1 {
-							if rns[rnsi-1] == rune(13) {
-								rnsi--
-							}
-						}
-						rqststdio.captureRunes(true, rns[:rnsi]...)
-						rnsi = 0
-					}
-				} else {
-					rns[rnsi] = r
-					rnsi++
-					if rnsi == len(rns) {
-						rqststdio.captureRunes(false, rns[:rnsi]...)
-						rnsi = 0
+			if s > 0 && (rerr == nil || rerr == io.EOF) {
+				if rnserr = rqststdio.captureRune(r); rnserr != nil {
+					if rerr == nil || rerr == io.EOF {
+						rerr = rnserr
 					}
 				}
 			}
-			if rerr != nil {
+			if rqststdio.isDone || rerr != nil {
 				if rerr == io.EOF {
-					if rnsi > 0 {
-						rqststdio.captureRunes(false, rns[:rnsi]...)
-						rnsi = 0
+					if rqststdio.isDone {
+						break
 					}
 					time.Sleep(10)
 				} else {
+					err = rerr
 					break
 				}
 			}
 		}
 	}()
 	rqststdio.wg.Wait()
+	return
 }
 
 func (rqststdio *requeststdio) Print(a ...interface{}) {
@@ -170,12 +219,16 @@ func (rqststdio *requeststdio) Println(a ...interface{}) {
 }
 
 func newrequeststdio(rqst *Request) (rqststdio *requeststdio) {
-	rqststdio = &requeststdio{rqst: rqst, wg: &sync.WaitGroup{}, inbuf: iorw.NewBuffer(), outbuf: iorw.NewBuffer()}
+	rqststdio = &requeststdio{rqst: rqst, wg: &sync.WaitGroup{}, isDone: false, hashbang: false, prvinr: rune(0), tmpbuf: iorw.NewBuffer(), inbuf: iorw.NewBuffer(), outbuf: iorw.NewBuffer()}
 	return
 }
 
 func (rqststdio *requeststdio) dispose() {
 	if rqststdio != nil {
+		if rqststdio.tmpbuf != nil {
+			rqststdio.tmpbuf.Close()
+			rqststdio.tmpbuf = nil
+		}
 		if rqststdio.inbuf != nil {
 			rqststdio.inbuf.Close()
 			rqststdio.inbuf = nil
