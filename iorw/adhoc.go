@@ -48,3 +48,39 @@ type WrapReader struct {
 	scnr *bufio.Scanner
 	rdr  io.Reader
 }
+
+//ReaderToString read reader and return content as string
+func ReaderToString(r io.Reader) (s string, err error) {
+	if r != nil {
+		var rnrd io.RuneReader = nil
+		if rnr, rnrok := r.(io.RuneReader); rnrok {
+			rnrd = rnr
+		} else {
+			rnrd = bufio.NewReader(r)
+		}
+		rns := make([]rune, 1024)
+		rnsi := 0
+		for {
+			rn, size, rnerr := rnrd.ReadRune()
+			if size > 0 {
+				rns[rnsi] = rn
+				rnsi++
+				if rnsi == len(rns) {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+				if rnerr != nil {
+					if rnerr != io.EOF {
+						err = rnerr
+					}
+					break
+				}
+			}
+		}
+		if rnsi > 0 && err == nil {
+			s += string(rns[:rnsi])
+			rnsi = 0
+		}
+	}
+	return
+}

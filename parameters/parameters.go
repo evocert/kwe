@@ -209,7 +209,6 @@ func (params *Parameters) StringParameter(pname string, sep string, index ...int
 		return strings.Join(pval, sep)
 	}
 	if pval := params.FileReader(pname, index...); len(pval) > 0 {
-
 		var rnrtos = func(br *bufio.Reader) (bs string, err error) {
 			rns := make([]rune, 1024)
 			rnsi := 0
@@ -249,13 +248,13 @@ func (params *Parameters) StringParameter(pname string, sep string, index ...int
 				if bfr != nil {
 					if bs, bserr := rnrtos(bfr); bserr == nil {
 						s += bs
-						if rn < len(pval)-1 {
-							s += sep
-						}
 					} else if bserr != nil {
 						break
 					}
 				}
+			}
+			if rn < len(pval)-1 {
+				s += sep
 			}
 		}
 	}

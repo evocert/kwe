@@ -1,11 +1,12 @@
 package web
 
 import (
-	"bufio"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/evocert/kwe/iorw"
 
 	"github.com/evocert/kwe/ws"
 
@@ -47,37 +48,7 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 	rspstr = ""
 	if rspr, err = clnt.Send(rqstpath, rqstheaders /* rspheaders,*/, a...); err == nil {
 		if rspr != nil {
-			var rdr io.RuneReader = nil
-			var rdrok = false
-			if rdr, rdrok = rspr.(io.RuneReader); !rdrok {
-				rdr = bufio.NewReader(rspr)
-			}
-			if rdr != nil {
-				var rnrs = make([]rune, 1024)
-				var rnrsi = 0
-				for {
-					rn, size, rnerr := rdr.ReadRune()
-					if size > 0 {
-						rnrs[rnrsi] = rn
-						rnrsi++
-						if rnrsi == len(rnrs) {
-							rspstr += string(rnrs[:rnrsi])
-							rnrsi = 0
-						}
-					}
-					if rnerr != nil {
-						if rnerr != io.EOF {
-							err = rnerr
-						}
-						break
-					}
-				}
-				if rnrsi > 0 {
-					rspstr += string(rnrs[:rnrsi])
-					rnrsi = 0
-				}
-				rdr = nil
-			}
+			rspstr, err = iorw.ReaderToString(rspr)
 		}
 	}
 	return
