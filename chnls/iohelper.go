@@ -73,7 +73,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 					} else if rqststdio.lsthshlnk == "#!dbms" {
 						if rqststdio.inbuf.Size() > 0 {
 							if bfr := rqststdio.inbuf.Reader(); bfr != nil {
-								if dbmserr := database.GLOBALDBMS().InOut(bfr, rqststdio.rqst); dbmserr != nil {
+								if dbmserr := database.GLOBALDBMS().InOut(bfr, rqststdio.rqst, rqststdio.rqst.Parameters()); dbmserr != nil {
 									rqststdio.isDone = true
 									err = dbmserr
 								}
