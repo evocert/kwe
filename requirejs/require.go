@@ -2005,7 +2005,8 @@ var requirejs, require, define;
                 fsutilcode=_scriptinclude(url);
                 if (fsutilcode!=='undefined' && fsutilcode!=='') {
                     if (typeof _parseEval==="function") {
-                        _parseEval(fsutilcode);
+                        //_parseEval(fsutilcode);
+                        eval(fsutilcode);
                         canLoadMod=true;
                     }
                 }
