@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/evocert/kwe/ecma/jsext"
@@ -615,7 +614,7 @@ var (
 )
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	vm := goja.New()
+	/*vm := goja.New()
 	isrequired = strings.IndexAny(code, "import ") > -1
 	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
@@ -639,7 +638,8 @@ func transformCode(code string, namespace string, opts map[string]interface{}) (
 				}
 			}
 		}
-	}
+	}*/
+	trsnfrmdcde = code
 	return
 }
 
