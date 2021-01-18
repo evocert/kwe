@@ -30,6 +30,10 @@ func Fprint(w io.Writer, a ...interface{}) {
 				w.Write([]byte(s))
 			} else if ir, irok := d.(io.Reader); irok {
 				io.Copy(w, ir)
+			} else if aa, aaok := d.([]interface{}); aaok {
+				if len(aa) > 0 {
+					Fprint(w, aa...)
+				}
 			} else {
 				fmt.Fprint(w, d)
 			}

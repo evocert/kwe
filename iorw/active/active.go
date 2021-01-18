@@ -476,14 +476,10 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 			atvrntme.passiveout(i)
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
-			if len(a) > 0 {
-				a = append([]interface{}{"<@"}, a...)
-				a = append(a, "@>")
-			}
-			return atvrntme.parseEval(a...)
+			return atvrntme.parseEval(true, a...)
 		},
 		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
-			return atvrntme.parseEval(a...)
+			return atvrntme.parseEval(false, a...)
 		},
 		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
 			if atvrntme.parsing != nil {
@@ -616,7 +612,7 @@ var (
 )
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	vm := goja.New()
+	/*vm := goja.New()
 	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
@@ -640,11 +636,16 @@ func transformCode(code string, namespace string, opts map[string]interface{}) (
 				}
 			}
 		}
+	}*/
+	trsnfrmdcde = code
+	isrequired = strings.IndexAny(code, "require(\"") > -1
+	if isrequired {
+		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 	}
 	return
 }
 
-func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err error) {
+func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val interface{}, err error) {
 	var prsng = atvrntme.parsing
 	var cdecoords []int64 = nil
 	orgcdemapl := len(prsng.cdemap)
@@ -657,9 +658,11 @@ func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err er
 		}()
 		wg.Done()
 		if len(args) > 0 {
-			//iorw.Fprint(pw, "<@")
-			iorw.Fprint(pw, args...)
-			//iorw.Fprint(pw, "@>")
+			if forceCode {
+				iorw.Fprint(pw, "<@", args, "@>")
+			} else {
+				iorw.Fprint(pw, args...)
+			}
 		}
 	}(a...)
 	rnr := bufio.NewReader(pr)
@@ -698,7 +701,9 @@ func (atvrntme *atvruntime) parseEval(a ...interface{}) (val interface{}, err er
 			if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
 				cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
 			}
-			val, err = atvrntme.corerun(atvrntme.code(cdecoords...), nil, nil)
+			cde := atvrntme.code(cdecoords...)
+			fmt.Print(cde)
+			val, err = atvrntme.corerun(cde, nil, nil)
 		} else {
 			if rdr := prsng.Reader(); rdr != nil {
 				io.Copy(prsng.wout, rdr)

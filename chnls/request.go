@@ -562,7 +562,7 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
 	tmpltpath = strings.Replace(tmpltpath, "\\", "/", -1)
 	if strings.HasPrefix(tmpltpath, "http://") || strings.HasPrefix(tmpltpath, "https://") {
-		rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil, nil)
+		rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil)
 	} else if actn != nil {
 		var tmpltpathroot = ""
 		var tmpltext = filepath.Ext(tmpltpath)
@@ -806,7 +806,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	rqst.objmap[nmspce+"action"] = func() *Action {
 		return rqst.lstexctngactng
 	}
-	rqst.objmap[nmspce+"remoting"] = web.DefaultClient
+	rqst.objmap[nmspce+"webing"] = web.DefaultClient
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
 	}
