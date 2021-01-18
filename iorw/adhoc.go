@@ -112,11 +112,10 @@ func ReaderToString(r io.Reader) (s string, err error) {
 			if rnerr != nil {
 				if rnerr != io.EOF {
 					err = rnerr
-				} else {
-					if rnsi > 0 && err == nil {
-						s += string(rns[:rnsi])
-						rnsi = 0
-					}
+				}
+				if rnsi > 0 && err == nil {
+					s += string(rns[:rnsi])
+					rnsi = 0
 				}
 				break
 			}
