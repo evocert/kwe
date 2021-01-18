@@ -616,9 +616,7 @@ var (
 )
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	isrequired = strings.IndexAny(code, "require(\"") > -1
-	/*vm := goja.New()
-	isrequired = strings.IndexAny(code, "import ") > -1
+	vm := goja.New()
 	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
@@ -636,14 +634,12 @@ func transformCode(code string, namespace string, opts map[string]interface{}) (
 				fmt.Println(err.Error())
 			} else {
 				trsnfrmdcde = v.ToObject(vm).Get("code").String()
+				isrequired = strings.IndexAny(code, "require(\"") > -1
 				if isrequired {
 					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 				}
 			}
 		}
-	}*/
-	if isrequired {
-		trsnfrmdcde = strings.Replace(code, "require(\"", "_vmrequire(\"", -1)
 	}
 	return
 }
