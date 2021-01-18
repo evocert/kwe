@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 )
 
 //Printer - interface
@@ -47,6 +48,44 @@ func Fprintln(w io.Writer, a ...interface{}) {
 type WrapReader struct {
 	scnr *bufio.Scanner
 	rdr  io.Reader
+}
+
+//ReadLine from r io.Reader as s string
+func ReadLine(r io.Reader) (s string, err error) {
+	if r != nil {
+		var rnrd io.RuneReader = nil
+		if rnr, rnrok := r.(io.RuneReader); rnrok {
+			rnrd = rnr
+		} else {
+			rnrd = bufio.NewReader(r)
+		}
+		rns := make([]rune, 1024)
+		rnsi := 0
+		for {
+			rn, size, rnerr := rnrd.ReadRune()
+			if size > 0 {
+				if rn == '\n' {
+					break
+				}
+				rns[rnsi] = rn
+				rnsi++
+				if rnsi == len(rns) {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+			}
+			if rnerr != nil {
+				err = rnerr
+				if rnsi > 0 && err == nil {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+				break
+			}
+		}
+	}
+	s = strings.TrimSpace(s)
+	return
 }
 
 //ReaderToString read reader and return content as string

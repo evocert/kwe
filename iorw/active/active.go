@@ -497,29 +497,7 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.parsing != nil && atvrntme.parsing.atv != nil {
 				if lkpr, lkprerr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
-					bufr := bufio.NewReader(lkpr)
-					rnrs := make([]rune, 1024)
-					inclsrc := ""
-					rnrsi := 0
-					for {
-						rn, rns, rnerr := bufr.ReadRune()
-						if rns > 0 {
-							rnrs[rnrsi] = rn
-							rnrsi++
-							if rnrsi == len(rnrs) {
-								inclsrc += string(rnrs[:])
-								rnrsi = 0
-							}
-						}
-						if rnerr != nil {
-							break
-						}
-					}
-					if rnrsi > 0 {
-						inclsrc += string(rnrs[:rnrsi])
-						rnrsi = 0
-					}
-					src = inclsrc
+					src, _ = iorw.ReaderToString(lkpr)
 				} else if lkprerr != nil {
 					srcerr = lkprerr
 				}

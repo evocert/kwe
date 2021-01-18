@@ -585,7 +585,7 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 					tmpltpathroot = "/"
 				}
 			}
-			if tmpltpath = tmpltpathroot + tmpltpath + tmpltext; tmpltpath != "" {
+			if tmpltpath = tmpltpathroot + tmpltpath; /*+ tmpltext*/ tmpltpath != "" {
 				rdr = actn.rsngpth.ResourceHandler(tmpltpath)
 				tmpltpath = ""
 			}

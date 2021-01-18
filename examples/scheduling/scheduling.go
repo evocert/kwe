@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if test1 := scheduling.GLOBALSCHEDULES().RegisterSchedule("test1", map[string]interface{}{"Seconds": 20}); test1 != nil {
-		for _, sn := range strings.Split("1,2,3,4,5,6,7,8,9,10", ",") {
+		for _, sn := range strings.Split("1", ",") {
 			if sn != "" {
 				test1.AddAction([]interface{}{sn}, func(a ...interface{}) {
 					fmt.Println("test action ", a)

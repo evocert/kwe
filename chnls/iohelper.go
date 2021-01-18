@@ -11,6 +11,7 @@ import (
 
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/ws"
 )
 
@@ -25,6 +26,8 @@ type requeststdio struct {
 	tmpbuf        *iorw.Buffer
 	inbuf         *iorw.Buffer
 	outbuf        *iorw.Buffer
+	//
+	cmd *osprc.Command
 }
 
 func (rqststdio *requeststdio) captureRunes(eof bool, p ...rune) (err error) {
@@ -79,6 +82,17 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 								}
 							}
 							rqststdio.inbuf.Clear()
+						} else {
+							if cmd, cmderr := osprc.NewCommand(rqststdio.lsthshlnk[len("#!"):], rqststdio.lsthshlnkargs...); cmderr == nil {
+								if rqststdio.cmd != nil {
+									rqststdio.cmd.Close()
+									rqststdio.cmd = nil
+								}
+								rqststdio.cmd = cmd
+							} else {
+								err = cmderr
+								rqststdio.isDone = true
+							}
 						}
 					}
 					if !rqststdio.isDone {
@@ -219,7 +233,7 @@ func (rqststdio *requeststdio) Println(a ...interface{}) {
 }
 
 func newrequeststdio(rqst *Request) (rqststdio *requeststdio) {
-	rqststdio = &requeststdio{rqst: rqst, wg: &sync.WaitGroup{}, isDone: false, hashbang: false, prvinr: rune(0), tmpbuf: iorw.NewBuffer(), inbuf: iorw.NewBuffer(), outbuf: iorw.NewBuffer()}
+	rqststdio = &requeststdio{cmd: nil, rqst: rqst, wg: &sync.WaitGroup{}, isDone: false, hashbang: false, prvinr: rune(0), tmpbuf: iorw.NewBuffer(), inbuf: iorw.NewBuffer(), outbuf: iorw.NewBuffer()}
 	return
 }
 

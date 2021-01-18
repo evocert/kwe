@@ -1,5 +1,4 @@
 <@
-import "bla";
 resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.MapEndpointResource("/","test-this.html","<\u0040println(\"test\");\u0040>");
 //println(resourcing.FindRSString("/test-this.html"))
