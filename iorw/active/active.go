@@ -702,7 +702,6 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 				cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
 			}
 			cde := atvrntme.code(cdecoords...)
-			fmt.Print(cde)
 			val, err = atvrntme.corerun(cde, nil, nil)
 		} else {
 			if rdr := prsng.Reader(); rdr != nil {
