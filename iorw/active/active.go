@@ -597,6 +597,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	} else {
 		if err != nil {
 			fmt.Println(err.Error())
+			fmt.Println(code)
 		}
 	}
 	return
