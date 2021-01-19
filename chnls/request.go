@@ -65,7 +65,7 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			if strings.HasSuffix(path, "require.js") {
 				rqst.MapResource(path, requirejs.RequireJS())
 			} else {
-				rqst.MapResource(path, requirejs.RequireMinJS())
+				rqst.MapResource(path, requirejs.RequireJS())
 			}
 			rs, _ = rqst.embeddedResources[path]
 		}

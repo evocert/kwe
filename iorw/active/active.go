@@ -736,48 +736,59 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 	wg.Wait()
 	var crunes = make([]rune, 4096)
 	var crunesi = 0
-	for err == nil {
-		r, rsize, rerr := rnr.ReadRune()
-		if rsize > 0 {
-			crunes[crunesi] = r
-			crunesi++
-			if crunesi == len(crunes) {
+	var cdetestbuf = iorw.NewBuffer()
+	func() {
+		defer func() {
+			if cdetestbuf.Size() > 0 {
+				fmt.Println(cdetestbuf.String())
+			}
+		}()
+		for err == nil {
+			r, rsize, rerr := rnr.ReadRune()
+			if rsize > 0 {
+				crunes[crunesi] = r
+				crunesi++
+				if crunesi == len(crunes) {
+					cl := crunesi
+					crunesi = 0
+					cdetestbuf.Print(string(crunes[:cl]))
+					for _, cr := range crunes[:cl] {
+						parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+					}
+				}
+			}
+			if rerr != nil {
+				err = rerr
+			}
+		}
+		if err == io.EOF || err == nil {
+			if crunesi > 0 {
 				cl := crunesi
 				crunesi = 0
+				cdetestbuf.Print(string(crunes[:cl]))
 				for _, cr := range crunes[:cl] {
 					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
 				}
 			}
-		}
-		if rerr != nil {
-			err = rerr
-		}
-	}
-	if err == io.EOF || err == nil {
-		if crunesi > 0 {
-			cl := crunesi
-			crunesi = 0
-			for _, cr := range crunes[:cl] {
-				parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
-			}
-		}
 
-		prsng.flushPsv()
-		prsng.flushCde()
-		if prsng.foundCode() {
-			if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
-				cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
+			prsng.flushPsv()
+			prsng.flushCde()
+			if prsng.foundCode() {
+				if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
+					cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
+				}
+				cde := atvrntme.code(cdecoords...)
+				val, err = atvrntme.corerun(cde, nil, nil)
+			} else {
+				if rdr := prsng.Reader(); rdr != nil {
+					io.Copy(prsng.wout, rdr)
+					rdr.Close()
+					rdr = nil
+				}
 			}
-			cde := atvrntme.code(cdecoords...)
-			val, err = atvrntme.corerun(cde, nil, nil)
-		} else {
-			if rdr := prsng.Reader(); rdr != nil {
-				io.Copy(prsng.wout, rdr)
-				rdr.Close()
-				rdr = nil
-			}
+			cdetestbuf.Clear()
 		}
-	}
+	}()
 	return
 }
 
