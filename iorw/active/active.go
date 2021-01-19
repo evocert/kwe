@@ -743,9 +743,13 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 				fmt.Println(cdetestbuf.String())
 			}
 		}()
+		canprcss := false
 		for err == nil {
 			r, rsize, rerr := rnr.ReadRune()
 			if rsize > 0 {
+				if !canprcss {
+					canprcss = true
+				}
 				crunes[crunesi] = r
 				crunesi++
 				if crunesi == len(crunes) {
@@ -762,31 +766,36 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 			}
 		}
 		if err == io.EOF || err == nil {
-			if crunesi > 0 {
-				cl := crunesi
-				crunesi = 0
-				cdetestbuf.Print(string(crunes[:cl]))
-				for _, cr := range crunes[:cl] {
-					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
-				}
+			if err == io.EOF {
+				err = nil
 			}
+			if canprcss {
+				if crunesi > 0 {
+					cl := crunesi
+					crunesi = 0
+					cdetestbuf.Print(string(crunes[:cl]))
+					for _, cr := range crunes[:cl] {
+						parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+					}
+				}
 
-			prsng.flushPsv()
-			prsng.flushCde()
-			if prsng.foundCode() {
-				if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
-					cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
+				prsng.flushPsv()
+				prsng.flushCde()
+				if prsng.foundCode() {
+					if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
+						cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
+					}
+					cde := atvrntme.code(cdecoords...)
+					val, err = atvrntme.corerun(cde, nil, nil)
+				} else {
+					if rdr := prsng.Reader(); rdr != nil {
+						io.Copy(prsng.wout, rdr)
+						rdr.Close()
+						rdr = nil
+					}
 				}
-				cde := atvrntme.code(cdecoords...)
-				val, err = atvrntme.corerun(cde, nil, nil)
-			} else {
-				if rdr := prsng.Reader(); rdr != nil {
-					io.Copy(prsng.wout, rdr)
-					rdr.Close()
-					rdr = nil
-				}
+				cdetestbuf.Clear()
 			}
-			cdetestbuf.Clear()
 		}
 	}()
 	return
