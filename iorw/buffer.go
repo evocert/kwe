@@ -214,7 +214,7 @@ func (buff *Buffer) Write(p []byte) (n int, err error) {
 
 //Reader -
 func (buff *Buffer) Reader() (bufr *BuffReader) {
-	bufr = &BuffReader{buffer: buff, roffset: -1}
+	bufr = &BuffReader{buffer: buff, roffset: -1, MaxRead: -1}
 	//buff.bufrs[bufr] = bufr
 	return
 }
@@ -242,7 +242,6 @@ func (buff *Buffer) Clear() (err error) {
 			func() {
 				buff.lck.Lock()
 				defer buff.lck.Unlock()
-
 				if buff.bufrs != nil {
 					if len(buff.bufrs) > 0 {
 						var bufrs = make([]*BuffReader, len(buff.bufrs))
@@ -280,6 +279,7 @@ func (buff *Buffer) Clear() (err error) {
 type BuffReader struct {
 	buffer   *Buffer
 	rnr      *bufio.Reader
+	MaxRead  int64
 	roffset  int64
 	rbufferi int
 	rbytes   []byte
@@ -520,41 +520,69 @@ func (bufr *BuffReader) ByteIndex(bs ...byte) (index int64) {
 //Read - refer io.Reader
 func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
+		rl := 0
 		if bufr != nil {
-			for n < pl {
+			for n < pl && (bufr.MaxRead > 0 || bufr.MaxRead == -1) {
+
 				if len(bufr.rbytes) == 0 || (len(bufr.rbytes) > 0 && len(bufr.rbytes) == bufr.rbytesi) {
 					if bufr.roffset == -1 {
-						offn, offnerr := bufr.Seek(0, io.SeekStart)
-						if offnerr == nil && offn >= 0 {
+						if /*offn*/ _, offnerr := bufr.Seek(0, io.SeekStart); offnerr != nil {
+							break
+						}
+						/*if offnerr == nil && offn >= 0 {
 							bufr.roffset = offn
 						} else {
 							err = offnerr
 							break
-						}
+						}*/
 					} else {
 						if bufr.roffset == bufr.buffer.Size() {
 							break
 						}
-						offn, offnerr := bufr.Seek(bufr.roffset, io.SeekStart)
-						if offnerr == nil && offn >= 0 {
+						if /*offn*/ _, offnerr := bufr.Seek(bufr.roffset, io.SeekStart); offnerr != nil {
+							break
+						}
+						/*if offnerr == nil && offn >= 0 {
 							bufr.roffset = offn
 						} else {
 							err = offnerr
 							break
-						}
+						}*/
 					}
 				}
-				for (pl > n) && (len(bufr.rbytes) > bufr.rbytesi) {
-					if cl := (len(bufr.rbytes) - bufr.rbytesi); (pl - n) >= cl {
+
+				for (bufr.MaxRead > 0 || bufr.MaxRead == -1) && (pl > n) && (len(bufr.rbytes) > bufr.rbytesi) {
+					if bufr.MaxRead > 0 {
+						if ln := int64(len(bufr.rbytes) - bufr.rbytesi); ln > bufr.MaxRead {
+							rl = int(bufr.MaxRead)
+						} else {
+							rl = bufr.rbytesi + int(ln)
+						}
+					} else {
+						rl = len(bufr.rbytes)
+					}
+					if cl := (rl - bufr.rbytesi); (pl - n) >= cl {
 						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
 						n += cl
 						bufr.roffset += int64(cl)
 						bufr.rbytesi += cl
-					} else if cl := (pl - n); cl < (len(bufr.rbytes) - bufr.rbytesi) {
+						if bufr.MaxRead > 0 {
+							bufr.MaxRead -= int64(cl)
+							if bufr.MaxRead < 0 {
+								bufr.MaxRead = 0
+							}
+						}
+					} else if cl := (pl - n); cl < (rl - bufr.rbytesi) {
 						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
 						n += cl
 						bufr.roffset += int64(cl)
 						bufr.rbytesi += cl
+						if bufr.MaxRead > 0 {
+							bufr.MaxRead -= int64(cl)
+							if bufr.MaxRead < 0 {
+								bufr.MaxRead = 0
+							}
+						}
 					}
 				}
 			}
@@ -677,6 +705,7 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						bufr.rbytes = bufr.buffer.bytes[:bufr.buffer.bytesi]
 					}
 					adjusted = true
+					bufr.roffset = n
 				}
 
 				if whence == io.SeekStart {

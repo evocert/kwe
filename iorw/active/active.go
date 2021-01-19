@@ -612,7 +612,7 @@ var (
 )
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	/*vm := goja.New()
+	vm := goja.New()
 	_, err = vm.RunProgram(babeljsprgm)
 	if err != nil {
 		err = fmt.Errorf("unable to load babel.js: %s", err)
@@ -636,17 +636,23 @@ func transformCode(code string, namespace string, opts map[string]interface{}) (
 				}
 			}
 		}
-	}*/
-	trsnfrmdcde = code
+	}
+	/*trsnfrmdcde = code
 	isrequired = strings.IndexAny(code, "require(\"") > -1
 	if isrequired {
 		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
-	}
+	}*/
 	return
 }
 
 func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val interface{}, err error) {
 	var prsng = atvrntme.parsing
+	if forceCode {
+		prsng.prslbli[0] = len(prslbl[0])
+		prsng.prslbli[1] = 0
+		prsng.prslblprv[0] = 0
+		prsng.prslblprv[1] = 0
+	}
 	var cdecoords []int64 = nil
 	orgcdemapl := len(prsng.cdemap)
 	pr, pw := io.Pipe()
@@ -658,11 +664,7 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 		}()
 		wg.Done()
 		if len(args) > 0 {
-			if forceCode {
-				iorw.Fprint(pw, "<@", args, "@>")
-			} else {
-				iorw.Fprint(pw, args...)
-			}
+			iorw.Fprint(pw, args...)
 		}
 	}(a...)
 	rnr := bufio.NewReader(pr)
@@ -694,9 +696,9 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 				parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
 			}
 		}
+
 		prsng.flushPsv()
 		prsng.flushCde()
-		//if canexec {
 		if prsng.foundCode() {
 			if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
 				cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
@@ -753,12 +755,17 @@ func (atvrntme *atvruntime) code(coords ...int64) (c string) {
 				}
 
 				if cdecoors[1] > cdecoors[0] {
+					rdr.MaxRead = -1
 					rdr.Seek(cdecoors[0], 0)
-					var p = make([]byte, cdecoors[1]-cdecoors[0])
-					rdr.Read(p)
-					c += string(p)
+					rdr.MaxRead = cdecoors[1] - cdecoors[0]
+					if rs, rserr := iorw.ReaderToString(rdr); rs != "" {
+						c += rs
+					} else if rserr != nil {
+						break
+					}
 				}
 			}
+			rdr.Close()
 		}
 	}
 	return c
