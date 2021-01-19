@@ -739,8 +739,12 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 	var cdetestbuf = iorw.NewBuffer()
 	func() {
 		defer func() {
-			if cdetestbuf.Size() > 0 {
-				fmt.Println(cdetestbuf.String())
+			if cdetestbuf != nil {
+				if cdetestbuf.Size() > 0 {
+					fmt.Println(cdetestbuf.String())
+				}
+				cdetestbuf.Close()
+				cdetestbuf = nil
 			}
 		}()
 		canprcss := false
@@ -794,7 +798,8 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 						rdr = nil
 					}
 				}
-				cdetestbuf.Clear()
+				cdetestbuf.Close()
+				cdetestbuf = nil
 			}
 		}
 	}()
