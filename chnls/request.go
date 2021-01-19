@@ -572,17 +572,21 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 
 		if strings.HasPrefix(tmpltpath, "/") {
 			tmpltpath = tmpltpath[1:]
+			tmpltpathroot = "/"
 		}
 		if !strings.HasPrefix(tmpltpath, "/") {
-			tmpltpathroot = actn.rsngpth.LookupPath
-			if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
-				if strings.LastIndex(tmpltpathroot, "/") > -1 {
-					tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
-					if tmpltpathroot != "/" && !strings.HasPrefix(tmpltpathroot, "/") {
-						tmpltpathroot = "/" + tmpltpathroot
+			if tmpltpathroot == "" {
+				tmpltpathroot = actn.rsngpth.LookupPath
+
+				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
+					if strings.LastIndex(tmpltpathroot, "/") > -1 {
+						tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
+						if tmpltpathroot != "/" && !strings.HasPrefix(tmpltpathroot, "/") {
+							tmpltpathroot = "/" + tmpltpathroot
+						}
+					} else {
+						tmpltpathroot = "/"
 					}
-				} else {
-					tmpltpathroot = "/"
 				}
 			}
 			if tmpltpath = tmpltpathroot + tmpltpath; /*+ tmpltext*/ tmpltpath != "" {

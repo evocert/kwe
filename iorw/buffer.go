@@ -526,7 +526,8 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 
 				if len(bufr.rbytes) == 0 || (len(bufr.rbytes) > 0 && len(bufr.rbytes) == bufr.rbytesi) {
 					if bufr.roffset == -1 {
-						if /*offn*/ _, offnerr := bufr.Seek(0, io.SeekStart); offnerr != nil {
+						if offn, offnerr := bufr.Seek(0, io.SeekStart); offnerr != nil || offn == -1 {
+							err = offnerr
 							break
 						}
 						/*if offnerr == nil && offn >= 0 {
@@ -539,7 +540,8 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 						if bufr.roffset == bufr.buffer.Size() {
 							break
 						}
-						if /*offn*/ _, offnerr := bufr.Seek(bufr.roffset, io.SeekStart); offnerr != nil {
+						if offn, offnerr := bufr.Seek(bufr.roffset, io.SeekStart); offnerr != nil || offn == -1 {
+							err = offnerr
 							break
 						}
 						/*if offnerr == nil && offn >= 0 {
