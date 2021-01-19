@@ -52,49 +52,59 @@ func (atv *Active) namespace() string {
 }
 
 func (atv *Active) print(w io.Writer, a ...interface{}) {
-	if atv.Print != nil {
-		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
-			atv.Print(a...)
-		}
-	} else if atv.FPrint != nil && w != nil {
-		if len(a) > 0 {
-			atv.FPrint(w, a...)
-		}
-	} else if w != nil {
-		if len(a) > 0 {
-			if prntr, prntrok := w.(iorw.Printer); prntrok {
-				prntr.Print(a...)
-			} else {
+	if prntr, prntrok := w.(iorw.Printer); prntrok {
+		prntr.Print(a...)
+	} else {
+		if atv.Print != nil {
+			if len(a) > 0 {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				atv.Print(a...)
+			}
+		} else {
+			if atv.FPrint != nil && w != nil {
+				if len(a) > 0 {
+					atv.FPrint(w, a...)
+				}
+			} else if w != nil {
+				if len(a) > 0 {
+					if prntr, prntrok := w.(iorw.Printer); prntrok {
+						prntr.Print(a...)
+					} else {
 
-				iorw.Fprint(w, a...)
+						iorw.Fprint(w, a...)
+					}
+				}
 			}
 		}
 	}
 }
 
 func (atv *Active) println(w io.Writer, a ...interface{}) {
-	if atv.Println != nil {
-		if len(a) > 0 {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
-			atv.Println(a...)
-		}
-	} else if atv.FPrintLn != nil && w != nil {
-		atv.lckprnt.Lock()
-		defer atv.lckprnt.Unlock()
-		atv.FPrint(w, a...)
-	} else if w != nil {
-		if prntr, prntrok := w.(iorw.Printer); prntrok {
-			prntr.Println(a...)
-		} else {
+	if prntr, prntrok := w.(iorw.Printer); prntrok {
+		prntr.Println(a...)
+	} else {
+		if atv.Println != nil {
 			if len(a) > 0 {
 				atv.lckprnt.Lock()
 				defer atv.lckprnt.Unlock()
-				fmt.Fprint(w, a...)
+				atv.Println(a...)
 			}
-			fmt.Fprintln(w)
+		} else if atv.FPrintLn != nil && w != nil {
+			atv.lckprnt.Lock()
+			defer atv.lckprnt.Unlock()
+			atv.FPrint(w, a...)
+		} else if w != nil {
+			if prntr, prntrok := w.(iorw.Printer); prntrok {
+				prntr.Println(a...)
+			} else {
+				if len(a) > 0 {
+					atv.lckprnt.Lock()
+					defer atv.lckprnt.Unlock()
+					fmt.Fprint(w, a...)
+				}
+				fmt.Fprintln(w)
+			}
 		}
 	}
 }
@@ -137,6 +147,7 @@ type parsing struct {
 	atv            *Active
 	atvrntme       *atvruntime
 	wout           io.Writer
+	prntrs         []io.Writer
 	prslbli        []int
 	prslblprv      []rune
 	prntprsng      *parsing
@@ -159,13 +170,45 @@ type parsing struct {
 
 func (prsng *parsing) print(a ...interface{}) {
 	if prsng.atv != nil {
-		prsng.atv.print(prsng.wout, a...)
+		w := prsng.wout
+		if pl := len(prsng.prntrs); pl > 0 {
+			w = prsng.prntrs[pl-1]
+		}
+		prsng.atv.print(w, a...)
 	}
 }
 
 func (prsng *parsing) println(a ...interface{}) {
 	if prsng.atv != nil {
-		prsng.atv.println(prsng.wout, a...)
+		w := prsng.wout
+		if pl := len(prsng.prntrs); pl > 0 {
+			w = prsng.prntrs[pl-1]
+		}
+		prsng.atv.println(w, a...)
+	}
+}
+
+func (prsng *parsing) incprint(w io.Writer) {
+	if prsng != nil {
+		prsng.prntrs = append(prsng.prntrs, w)
+	}
+}
+
+func (prsng *parsing) resetprint() {
+	if prsng.prntrs != nil {
+		for len(prsng.prntrs) > 0 {
+			prsng.prntrs[len(prsng.prntrs)-1] = nil
+			prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
+		}
+	}
+}
+
+func (prsng *parsing) decprint() {
+	if prsng.prntrs != nil {
+		if len(prsng.prntrs) > 0 {
+			prsng.prntrs[len(prsng.prntrs)-1] = nil
+			prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
+		}
 	}
 }
 
@@ -186,6 +229,13 @@ func (prsng *parsing) close() {
 				cdeks = nil
 			}
 			prsng.cdemap = nil
+		}
+		if prsng.prntrs != nil {
+			for len(prsng.prntrs) > 0 {
+				prsng.prntrs[len(prsng.prntrs)-1] = nil
+				prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
+			}
+			prsng.prntrs = nil
 		}
 		if prsng.atv != nil {
 			prsng.atv = nil
@@ -425,7 +475,7 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 }
 
 func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192)}
+	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{}}
 	return
 }
 
@@ -480,6 +530,21 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 		},
 		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(false, a...)
+		},
+		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
+			if atvrntme.parsing != nil {
+				atvrntme.parsing.incprint(w)
+			}
+		},
+		atvrntme.atv.namespace() + "resetprint": func() {
+			if atvrntme.parsing != nil {
+				atvrntme.parsing.resetprint()
+			}
+		},
+		atvrntme.atv.namespace() + "decprint": func() {
+			if atvrntme.parsing != nil {
+				atvrntme.parsing.decprint()
+			}
 		},
 		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
 			if atvrntme.parsing != nil {

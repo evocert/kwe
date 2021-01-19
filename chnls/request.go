@@ -185,6 +185,12 @@ func (rqst *Request) AddPath(path ...string) {
 						path = append(strings.Split(pth, "|"), path...)
 						continue
 					} else {
+						if strings.Index(pth, ":raw/") > -1 {
+							pth = strings.Replace(pth, ":raw/", "/", -1)
+							if !(strings.Index(pth, "@") > -1 && strings.Index(pth, "@") < strings.LastIndex(pth, "@")) {
+								pth += "@@"
+							}
+						}
 						if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
 							rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
 						} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
@@ -564,6 +570,12 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 	if strings.HasPrefix(tmpltpath, "http://") || strings.HasPrefix(tmpltpath, "https://") {
 		rdr, rdrerr = web.DefaultClient.Send(tmpltpath, nil)
 	} else if actn != nil {
+		if strings.Index(tmpltpath, ":raw/") > -1 {
+			tmpltpath = strings.Replace(tmpltpath, ":raw/", "/", -1)
+			if !(strings.Index(tmpltpath, "@") > -1 && strings.Index(tmpltpath, "@") < strings.LastIndex(tmpltpath, "@")) {
+				tmpltpath += "@@"
+			}
+		}
 		var tmpltpathroot = ""
 		var tmpltext = filepath.Ext(tmpltpath)
 		if tmpltext == "" {
