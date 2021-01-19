@@ -912,7 +912,7 @@ var babeljsprgm *goja.Program = nil
 
 func init() {
 	var errpgrm error = nil
-	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireMinJSString(), false); errpgrm != nil {
+	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
 	if babeljsprgm, errpgrm = goja.Compile("", babeljs.BabelJSString(), true); errpgrm != nil {
