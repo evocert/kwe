@@ -87,6 +87,51 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 				exctr.qryArgs[argi] = prmval
 			}
 		}
+	} else if exctr.cn.driverName == "oracle" {
+		if argi == -1 {
+			s = (":" + fmt.Sprintf("%d", len(exctr.qryArgs)+1))
+		}
+		if argvs, argvsok := prmval.(string); argvsok {
+			if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
+				if tstintval := int64(fltval); float64(tstintval) == fltval {
+					if argi == -1 {
+						exctr.qryArgs = append(exctr.qryArgs, tstintval)
+					} else {
+						exctr.qryArgs[argi] = tstintval
+					}
+				} else {
+					if argi == -1 {
+						exctr.qryArgs = append(exctr.qryArgs, fltval)
+					} else {
+						exctr.qryArgs[argi] = fltval
+					}
+				}
+			} else if intval, nrerr := strconv.ParseInt(argvs, 10, 64); nrerr == nil {
+				if argi == -1 {
+					exctr.qryArgs = append(exctr.qryArgs, intval)
+				} else {
+					exctr.qryArgs[argi] = intval
+				}
+			} else {
+				if argi == -1 {
+					exctr.qryArgs = append(exctr.qryArgs, argvs)
+				} else {
+					exctr.qryArgs[argi] = argvs
+				}
+			}
+		} else if argvb, argvsok := prmval.(bool); argvsok {
+			if argi == -1 {
+				exctr.qryArgs = append(exctr.qryArgs, argvb)
+			} else {
+				exctr.qryArgs[argi] = argvb
+			}
+		} else {
+			if argi == -1 {
+				exctr.qryArgs = append(exctr.qryArgs, prmval)
+			} else {
+				exctr.qryArgs[argi] = prmval
+			}
+		}
 	} else {
 		if argi == -1 {
 			exctr.qryArgs = append(exctr.qryArgs, prmval)
