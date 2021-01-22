@@ -37,11 +37,6 @@ func (rqststdio *requeststdio) captureRunes(eof bool, p ...rune) (err error) {
 				break
 			}
 		}
-		//rqststdio.inbuf.Print(string(p))
-		//if eof {
-		//	fmt.Print(rqststdio.inbuf.String())
-		//	rqststdio.inbuf.Clear()
-		//}
 	}
 	return
 }
@@ -61,41 +56,35 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 						sargsi++
 					}
 				}
-				if sargs[0] == "#!commit" || sargs[0] == "#!close" {
-					if rqststdio.inbuf.Size() > 0 {
-						rqststdio.tmpbuf.Clear()
-					}
-					if rqststdio.lsthshlnk == "#!js" {
-						if rqststdio.inbuf.Size() > 0 {
-							if bfr := rqststdio.inbuf.Reader(); bfr != nil {
-								rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
-								bfr.Close()
-							}
-							rqststdio.inbuf.Clear()
+				if sargs[0] == "#!commit" || sargs[0] == "#!close" || sargs[0] == "#!exit" {
+					if sargs[0] == "#!exit" {
+						if rqststdio.cmd != nil {
+							rqststdio.cmd.Close()
+							rqststdio.cmd = nil
 						}
-					} else if rqststdio.lsthshlnk == "#!dbms" {
+					} else {
 						if rqststdio.inbuf.Size() > 0 {
-							if bfr := rqststdio.inbuf.Reader(); bfr != nil {
-								if dbmserr := database.GLOBALDBMS().InOut(bfr, rqststdio.rqst, rqststdio.rqst.Parameters()); dbmserr != nil {
-									rqststdio.isDone = true
-									err = dbmserr
+							rqststdio.tmpbuf.Clear()
+						}
+						if rqststdio.lsthshlnk == "#!js" {
+							if rqststdio.inbuf.Size() > 0 {
+								if bfr := rqststdio.inbuf.Reader(); bfr != nil {
+									rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
+									bfr.Close()
 								}
+								rqststdio.inbuf.Clear()
 							}
-							rqststdio.inbuf.Clear()
-						} else {
-							if cmd, cmderr := osprc.NewCommand(rqststdio.lsthshlnk[len("#!"):], rqststdio.lsthshlnkargs...); cmderr == nil {
-								if rqststdio.cmd != nil {
-									rqststdio.cmd.Close()
-									rqststdio.cmd = nil
+						} else if rqststdio.lsthshlnk == "#!dbms" {
+							if rqststdio.inbuf.Size() > 0 {
+								if bfr := rqststdio.inbuf.Reader(); bfr != nil {
+									if dbmserr := database.GLOBALDBMS().InOut(bfr, rqststdio.rqst, rqststdio.rqst.Parameters()); dbmserr != nil {
+										rqststdio.isDone = true
+										err = dbmserr
+									}
 								}
-								rqststdio.cmd = cmd
-							} else {
-								err = cmderr
-								rqststdio.isDone = true
+								rqststdio.inbuf.Clear()
 							}
 						}
-					}
-					if !rqststdio.isDone {
 						rqststdio.isDone = sargs[0] == "#!close"
 					}
 				} else {
@@ -106,6 +95,28 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 							rqststdio.rqst.processPaths(false)
 						} else {
 							rqststdio.lsthshlnk = ""
+						}
+					} else if rqststdio.lsthshlnk != "" && strings.HasPrefix(rqststdio.lsthshlnk, "#!") && !(rqststdio.lsthshlnk == "#!js" || rqststdio.lsthshlnk == "#!close" || rqststdio.lsthshlnk == "#!exit" || rqststdio.lsthshlnk == "#!commit" || rqststdio.lsthshlnk == "#!dmbs") {
+						if cmd, cmderr := osprc.NewCommand(rqststdio.lsthshlnk[len("#!"):], rqststdio.lsthshlnkargs...); cmderr == nil {
+							if rqststdio.cmd != nil {
+								rqststdio.cmd.Close()
+								rqststdio.cmd = nil
+							}
+							rqststdio.cmd = cmd
+							go func() {
+								cmdp := make([]byte, 1024)
+								cmdpn := 0
+								var cmderr error
+								for !rqststdio.isDone {
+									cmdpn, cmderr = cmd.Read(cmdp)
+									if cmdpn > 0 && (cmderr == nil || cmderr == io.EOF) {
+										rqststdio.Write(cmdp[:cmdpn])
+									}
+								}
+							}()
+						} else {
+							err = cmderr
+							rqststdio.isDone = true
 						}
 					}
 				}
@@ -149,10 +160,18 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 							}
 							rqststdio.tmpbuf.Print(string(rqststdio.prvinr), string(r))
 						} else {
-							rqststdio.inbuf.Print(string(r))
+							if rqststdio.cmd == nil {
+								rqststdio.inbuf.Print(string(r))
+							} else {
+								rqststdio.cmd.Print(string(r))
+							}
 						}
 					} else {
-						rqststdio.inbuf.Print(string(r))
+						if rqststdio.cmd == nil {
+							rqststdio.inbuf.Print(string(r))
+						} else {
+							rqststdio.cmd.Print(string(r))
+						}
 					}
 				} else {
 					rqststdio.tmpbuf.Print(string(r))
@@ -250,6 +269,10 @@ func (rqststdio *requeststdio) dispose() {
 		if rqststdio.outbuf != nil {
 			rqststdio.outbuf.Close()
 			rqststdio.outbuf = nil
+		}
+		if rqststdio.cmd != nil {
+			rqststdio.cmd.Close()
+			rqststdio.cmd = nil
 		}
 		rqststdio = nil
 	}

@@ -15,23 +15,32 @@ type Command struct {
 	ctx       context.Context
 	ctxcancel context.CancelFunc
 	cmdin     io.WriteCloser
+	pin       chan []byte
 	bfr       *bufio.Reader
 	cmdout    io.ReadCloser
+	pout      chan []byte
 }
 
 //NewCommand return cmd *Command instance or err error
 func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 	var ctx, ctxcancel = context.WithCancel(context.Background())
 	excmd := exec.CommandContext(ctx, execpath, execargs...)
-	if cmdin, cmdinerr := excmd.StdinPipe(); cmdinerr == nil {
-		if cmdout, cmdouterr := excmd.StdoutPipe(); cmdouterr == nil {
-			cmd = &Command{excmd: excmd, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cmdout: cmdout}
+
+	if cmdout, cmdouterr := excmd.StdoutPipe(); cmdouterr == nil {
+		if cmdin, cmdinerr := excmd.StdinPipe(); cmdinerr == nil {
+			if err = excmd.Start(); err == nil {
+				cmd = &Command{excmd: excmd, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cmdout: cmdout}
+			} else {
+				cmdin = nil
+				cmdout = nil
+				ctxcancel()
+			}
 		} else {
-			err = cmdouterr
+			err = cmdinerr
 			ctxcancel()
 		}
 	} else {
-		err = cmdinerr
+		err = cmdouterr
 		ctxcancel()
 	}
 	return
@@ -39,12 +48,17 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 
 //Print - similar to fmt.Fprint just direct on *Command
 func (cmd *Command) Print(a ...interface{}) {
-	iorw.Fprint(cmd, a...)
+	if len(a) > 0 {
+		iorw.Fprint(cmd, a...)
+	}
 }
 
 //Println - similar to fmt.Fprint just direct on *Command
 func (cmd *Command) Println(a ...interface{}) {
-	iorw.Fprintln(cmd, a...)
+	if len(a) > 0 {
+		iorw.Fprint(cmd, a...)
+	}
+	iorw.Fprint(cmd, "\n")
 }
 
 //Readln - read line from cmd and return s string or err error
@@ -104,6 +118,7 @@ func (cmd *Command) Close() (err error) {
 			cmd.cmdout = nil
 		}
 		if cmd.excmd != nil {
+			cmd.excmd.Wait()
 			if rlserr := cmd.excmd.Process.Release(); rlserr != nil {
 				cmd.excmd.Process.Kill()
 			}

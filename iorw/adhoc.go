@@ -69,6 +69,10 @@ func ReadLine(r io.Reader) (s string, err error) {
 			rn, size, rnerr := rnrd.ReadRune()
 			if size > 0 {
 				if rn == '\n' {
+					if rnsi > 0 {
+						s += string(rns[:rnsi])
+						rnsi = 0
+					}
 					break
 				}
 				rns[rnsi] = rn
@@ -80,7 +84,7 @@ func ReadLine(r io.Reader) (s string, err error) {
 			}
 			if rnerr != nil {
 				err = rnerr
-				if rnsi > 0 && err == nil {
+				if rnsi > 0 && (err == nil || err == io.EOF) {
 					s += string(rns[:rnsi])
 					rnsi = 0
 				}
