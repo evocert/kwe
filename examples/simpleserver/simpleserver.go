@@ -74,6 +74,8 @@ func main() {
 				buff.Print(wsrw)
 				wsrw.Println("#!cmd")
 				buff.Print(wsrw)
+				fmt.Println(buff)
+				buff.Clear()
 				wsrw.Println("#!exit")
 				wsrw.Close()
 				fmt.Println(buff)

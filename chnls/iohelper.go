@@ -59,6 +59,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 				if sargs[0] == "#!commit" || sargs[0] == "#!close" || sargs[0] == "#!exit" {
 					if sargs[0] == "#!exit" {
 						if rqststdio.cmd != nil {
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
 							rqststdio.cmd.Close()
 							rqststdio.cmd = nil
 						}
@@ -84,6 +85,8 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 								}
 								rqststdio.inbuf.Clear()
 							}
+						} else if sargs[0] == "#!commit" && rqststdio.cmd != nil {
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
 						}
 						rqststdio.isDone = sargs[0] == "#!close"
 					}
@@ -103,17 +106,20 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 								rqststdio.cmd = nil
 							}
 							rqststdio.cmd = cmd
-							go func() {
-								cmdp := make([]byte, 1024)
-								cmdpn := 0
-								var cmderr error
-								for !rqststdio.isDone {
-									cmdpn, cmderr = cmd.Read(cmdp)
-									if cmdpn > 0 && (cmderr == nil || cmderr == io.EOF) {
-										rqststdio.Write(cmdp[:cmdpn])
-									}
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
+							/*go func() {
+								//cmdp := make([]byte, 1024)
+								//cmdpn := 0
+								//var cmderr error
+								for rqststdio.cmd != nil && !rqststdio.isDone {
+									//cmdpn, cmderr = cmd.Read(cmdp)
+									//cmd.Print()
+									//if cmdpn > 0 && (cmderr == nil || cmderr == io.EOF) {
+									//	rqststdio.rqst.Write(cmdp[:cmdpn])
+									//}
+									rqststdio.Print(rqststdio.cmd)
 								}
-							}()
+							}()*/
 						} else {
 							err = cmderr
 							rqststdio.isDone = true

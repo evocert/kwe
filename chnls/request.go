@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/web"
 
@@ -55,6 +56,8 @@ type Request struct {
 	isFirstRequest   bool
 	//dbms
 	activecns map[string]*database.Connection
+	//commands
+	cmnds map[int]*osprc.Command
 }
 
 //Resource - return mapped resource interface{} by path
@@ -436,6 +439,22 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.intrnbuffs = nil
 		}
+		if rqst.cmnds != nil {
+			if il := len(rqst.cmnds); il > 0 {
+				cms := make([]int, il)
+				cmsi := 0
+				for cmi := range rqst.cmnds {
+					cms[cmsi] = cmi
+					cmsi++
+				}
+				for len(cms) > 0 {
+					cmi := cms[0]
+					rqst.cmnds[cmi].Close()
+					cms = cms[1:]
+				}
+			}
+			rqst.cmnds = nil
+		}
 		if rqst.embeddedResources != nil {
 			if emdbrsrs := rqst.Resources(); len(emdbrsrs) > 0 {
 				for _, embdk := range emdbrsrs {
@@ -800,7 +819,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}}
+	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {
@@ -817,6 +836,13 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 		buff = iorw.NewBuffer()
 		buff.OnClose = rqst.removeBuffer
 		rqst.intrnbuffs[buff] = buff
+		return
+	}
+	rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+		cmd, err = osprc.NewCommand(execpath, execargs...)
+		if err == nil && cmd != nil {
+			cmd.OnClose = rqst.removeCommand
+		}
 		return
 	}
 	rqst.objmap[nmspce+"action"] = func() *Action {
@@ -859,6 +885,15 @@ func (rqst *Request) invokeAtv() {
 	if rqst.atv.LookupTemplate == nil {
 		rqst.atv.LookupTemplate = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
 			return rqst.templateLookup(rqst.lstexctngactng, tmpltpath, a...)
+		}
+	}
+}
+
+func (rqst *Request) removeCommand(cmdprcid int) {
+	if len(rqst.cmnds) > 0 {
+		if cmd, cmdok := rqst.cmnds[cmdprcid]; cmdok && cmd != nil {
+			rqst.cmnds[cmdprcid] = nil
+			delete(rqst.cmnds, cmdprcid)
 		}
 	}
 }

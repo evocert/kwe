@@ -11,5 +11,23 @@ import (
 )
 
 func main() {
+	/*if cmd, cmderr := osprc.NewCommand("cmd"); cmderr == nil {
+		for {
+			if rs, _ := cmd.Readln(); rs != "" {
+				fmt.Println(rs)
+			} else {
+				break
+			}
+		}
+		cmd.Println("go get -u -v github.com/dop251/goja")
+		for {
+			if rs, _ := cmd.Readln(); rs != "" {
+				fmt.Println(rs)
+			} else {
+				break
+			}
+		}
+		fmt.Println(cmd.Dir())
+	}*/
 	service.RunService(os.Args...)
 }
