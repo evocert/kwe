@@ -30,6 +30,7 @@ type Command struct {
 	stdinparkl int
 	stdinparki int
 	cancmdout  bool
+	milseconds int64
 }
 
 //NewCommand return cmd *Command instance or err error
@@ -39,7 +40,7 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 	if cmdout, cmdouterr := excmd.StdoutPipe(); cmdouterr == nil {
 		if cmdin, cmdinerr := excmd.StdinPipe(); cmdinerr == nil {
 			if err = excmd.Start(); err == nil {
-				cmd = &Command{excmd: excmd, excmdprcid: -1, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cancmdout: false, cmdtmpp: make([]byte, 1024), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0, cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1), cmdout: cmdout}
+				cmd = &Command{excmd: excmd, excmdprcid: -1, milseconds: 100, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cancmdout: false, cmdtmpp: make([]byte, 1024), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0, cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1), cmdout: cmdout}
 				cmd.excmdprcid = excmd.Process.Pid
 				go func() {
 					p := make([]byte, 1024)
@@ -72,6 +73,14 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 		ctxcancel()
 	}
 	return
+}
+
+//SetReadTimeout set read timeout in milliseconds int64
+func (cmd *Command) SetReadTimeout(milseconds int64) {
+	if milseconds < 100 {
+		milseconds = 100
+	}
+	cmd.milseconds = milseconds
 }
 
 //PrcID underlying os Process ID
@@ -222,6 +231,7 @@ func (cmd *Command) Read(p []byte) (n int, err error) {
 						if cmd.stdinparkl > 0 {
 							cmd.stdinparkl = 0
 						}
+						tmelpsed := time.After(time.Duration(cmd.milseconds) * time.Millisecond)
 						select {
 						case stdin, ok := <-cmd.cmdoutp:
 							if !ok {
@@ -235,7 +245,7 @@ func (cmd *Command) Read(p []byte) (n int, err error) {
 									canCapture = false
 								}
 							}
-						case <-time.After(1 * time.Second):
+						case <-tmelpsed:
 							canCapture = false
 						}
 					}
