@@ -49,6 +49,21 @@ func executeAction(actn *Action) (err error) {
 	if strings.HasPrefix(rspath, "/dbms/") || strings.HasPrefix(rspath, "/dbms-") {
 		func() {
 			defer func() {
+				if aliases != nil {
+					if aliasesl := len(aliases); aliasesl > 0 {
+						aliasks := make([]string, aliasesl)
+						aliasksi := 0
+						for aliask := range aliases {
+							aliasks[aliasksi] = aliask
+							aliasksi++
+						}
+						for _, aliask := range aliasks {
+							aliases[aliask] = nil
+							delete(aliases, aliask)
+						}
+					}
+					aliases = nil
+				}
 				if actn != nil {
 					if rspth := actn.rsngpth.Path; rspth != "" {
 						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
