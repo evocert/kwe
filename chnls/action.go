@@ -47,172 +47,180 @@ func executeAction(actn *Action) (err error) {
 	var isTextRequest = false
 	var aliases map[string]*database.Connection = nil
 	if strings.HasPrefix(rspath, "/dbms/") || strings.HasPrefix(rspath, "/dbms-") {
-		var dbmspath = rspath
-		var alias = "all"
-		if strings.HasPrefix(dbmspath, "/dbms/") {
-			dbmspath = dbmspath[len("/dbms/")-1:]
-		} else if strings.HasPrefix(dbmspath, "/dbms-") {
-			dbmspath = dbmspath[len("/dbms-"):]
-			if strings.Index(dbmspath, "/") > 0 {
-				alias = dbmspath[:strings.Index(dbmspath, "/")]
-				dbmspath = dbmspath[strings.Index(dbmspath, "/"):]
+		func() {
+			defer func() {
+				if actn != nil {
+					if rspth := actn.rsngpth.Path; rspth != "" {
+						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
+							actn.rqst.rsngpthsref[rspth] = nil
+							delete(actn.rqst.rsngpthsref, rspth)
+						}
+					}
+					actn.Close()
+					actn = nil
+				}
+			}()
+			var dbmspath = rspath
+			var alias = "all"
+			if strings.HasPrefix(dbmspath, "/dbms/") {
+				dbmspath = dbmspath[len("/dbms/")-1:]
+			} else if strings.HasPrefix(dbmspath, "/dbms-") {
+				dbmspath = dbmspath[len("/dbms-"):]
+				if strings.Index(dbmspath, "/") > 0 {
+					alias = dbmspath[:strings.Index(dbmspath, "/")]
+					dbmspath = dbmspath[strings.Index(dbmspath, "/"):]
+				}
 			}
-		}
-		if alias != "" {
-			if alias == "all" {
-				if actn.rqst.Parameters().ContainsParameter("dbms-alias") {
-					if aliassesfound := actn.rqst.Parameters().Parameter("dbms-alias"); len(aliassesfound) > 0 {
-						for _, kalias := range aliassesfound {
-							if exists, dbcn := database.GLOBALDBMS().AliasExists(kalias); exists {
-								if aliases == nil {
-									aliases = map[string]*database.Connection{}
+			if alias != "" {
+				if alias == "all" {
+					if actn.rqst.Parameters().ContainsParameter("dbms-alias") {
+						if aliassesfound := actn.rqst.Parameters().Parameter("dbms-alias"); len(aliassesfound) > 0 {
+							for _, kalias := range aliassesfound {
+								if exists, dbcn := database.GLOBALDBMS().AliasExists(kalias); exists {
+									if aliases == nil {
+										aliases = map[string]*database.Connection{}
+									}
+									aliases[kalias] = dbcn
 								}
-								aliases[kalias] = dbcn
+							}
+						}
+					} else {
+						if rspathext == ".json" {
+							actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
+							var jsnr io.Reader = nil
+							if actn.rqst.Parameters().ContainsParameter("dbms:json") {
+								jsnr = strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter("dbms:json"), ""))
+							} else {
+								jsnr = actn.rqst.RequestBody()
+							}
+							if jsnr != nil {
+								database.GLOBALDBMS().InOut(jsnr, actn.rqst, actn.rqst.Parameters())
 							}
 						}
 					}
 				} else {
-					if rspathext == ".json" {
-						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
-						var jsnr io.Reader = nil
-						if actn.rqst.Parameters().ContainsParameter("dbms:json") {
-							jsnr = strings.NewReader(strings.Join(actn.rqst.Parameters().Parameter("dbms:json"), ""))
-						} else {
-							jsnr = actn.rqst.RequestBody()
+					if exists, dbcn := database.GLOBALDBMS().AliasExists(alias); exists {
+						if aliases == nil {
+							aliases = map[string]*database.Connection{}
 						}
-						if jsnr != nil {
-							database.GLOBALDBMS().InOut(jsnr, actn.rqst, actn.rqst.Parameters())
-						}
+						aliases[alias] = dbcn
 					}
 				}
-			} else {
-				if exists, dbcn := database.GLOBALDBMS().AliasExists(alias); exists {
-					if aliases == nil {
-						aliases = map[string]*database.Connection{}
-					}
-					aliases[alias] = dbcn
-				}
-			}
-			if len(aliases) > 0 {
-				for kalias, dbcn := range aliases {
-					if actn.rqst.Parameters().ContainsParameter(kalias + ":json") {
-						jsnval := strings.Join(actn.rqst.Parameters().Parameter(kalias+":json"), "")
-						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
-						dbcn.InOut(strings.NewReader(jsnval), actn.rqst, actn.rqst.Parameters())
-					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
-						dbrdr, dbrdrerr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters())
-						if rspathext != "" {
-							if rspathext == ".json" {
-								actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-								actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false)
-							} else if rspathext == ".js" {
-								var script = true
-								if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
-									script = false
-								}
-								if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
-									if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
-										if actn.rqst.mimetype == "" {
-											actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+				if len(aliases) > 0 {
+					for kalias, dbcn := range aliases {
+						if actn.rqst.Parameters().ContainsParameter(kalias + ":json") {
+							jsnval := strings.Join(actn.rqst.Parameters().Parameter(kalias+":json"), "")
+							actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(".json", "text/plain")
+							dbcn.InOut(strings.NewReader(jsnval), actn.rqst, actn.rqst.Parameters())
+						} else if actn.rqst.Parameters().ContainsParameter(kalias + ":query") {
+							dbrdr, dbrdrerr := dbcn.GblQuery(strings.Join(actn.rqst.Parameters().Parameter(kalias+":query"), ""), actn.rqst.Parameters())
+							if rspathext != "" {
+								if rspathext == ".json" {
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false)
+								} else if rspathext == ".js" {
+									var script = true
+									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
+										script = false
+									}
+									if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
+										if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");")), nil, false)
+											}
 										}
-										if script {
-											actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
-										} else {
-											actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");")), nil, false)
+									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
+										if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";")), nil, false)
+											}
 										}
 									}
-								} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
-									if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
-										if actn.rqst.mimetype == "" {
-											actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-										}
-										if script {
-											actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
-										} else {
-											actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";")), nil, false)
-										}
-									}
-								}
-							} else if rspathext == ".csv" {
-								var csvsttngs = map[string]interface{}{}
+								} else if rspathext == ".csv" {
+									var csvsttngs = map[string]interface{}{}
 
-								if actn.rqst.Parameters().ContainsParameter(kalias + ":csv") {
-									var csvsttngsval = strings.Join(actn.rqst.Parameters().Parameter(kalias+":csv"), "")
-									var decsttngs = json.NewDecoder(strings.NewReader(csvsttngsval))
-									if decerr := decsttngs.Decode(&csvsttngs); decerr == nil {
+									if actn.rqst.Parameters().ContainsParameter(kalias + ":csv") {
+										var csvsttngsval = strings.Join(actn.rqst.Parameters().Parameter(kalias+":csv"), "")
+										var decsttngs = json.NewDecoder(strings.NewReader(csvsttngsval))
+										if decerr := decsttngs.Decode(&csvsttngs); decerr == nil {
 
+										}
+									}
+									actn.rqst.copy(io.MultiReader(database.NewCSVReader(dbrdr, dbrdrerr, csvsttngs)), nil, false)
+								}
+							} else {
+
+							}
+							if dbrdr != nil {
+								dbrdr.Close()
+							}
+						} else if actn.rqst.Parameters().ContainsParameter(kalias + ":execute") {
+							exctr, exctrerr := dbcn.GblExecute(strings.Join(actn.rqst.Parameters().Parameter(kalias+":execute"), ""), actn.rqst.Parameters())
+							if rspathext == "" {
+								rspathext = ".json"
+							}
+							if rspathext != "" {
+								if rspathext == ".json" {
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(nil, exctr, exctrerr)), nil, false)
+								} else if rspathext == ".js" {
+									var script = true
+									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
+										script = false
+									}
+									if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
+										if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");")), nil, false)
+											}
+										}
+									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
+										if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
+											if actn.rqst.mimetype == "" {
+												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+											}
+											if script {
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
+											} else {
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";")), nil, false)
+											}
+										}
 									}
 								}
-								actn.rqst.copy(io.MultiReader(database.NewCSVReader(dbrdr, dbrdrerr, csvsttngs)), nil, false)
+							} else {
+
+							}
+							if exctr != nil {
+								exctr.Close()
 							}
 						} else {
-
-						}
-						if dbrdr != nil {
-							dbrdr.Close()
-						}
-					} else if actn.rqst.Parameters().ContainsParameter(kalias + ":execute") {
-						exctr, exctrerr := dbcn.GblExecute(strings.Join(actn.rqst.Parameters().Parameter(kalias+":execute"), ""), actn.rqst.Parameters())
-						if rspathext == "" {
-							rspathext = ".json"
-						}
-						if rspathext != "" {
+							if rspathext == "" {
+								rspathext = ".json"
+							}
 							if rspathext == ".json" {
 								actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-								actn.rqst.copy(io.MultiReader(database.NewJSONReader(nil, exctr, exctrerr)), nil, false)
-							} else if rspathext == ".js" {
-								var script = true
-								if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
-									script = false
-								}
-								if actn.rqst.Parameters().ContainsParameter(kalias + ":jscall") {
-									if jscall := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jscall"), ""); jscall != "" {
-										if actn.rqst.mimetype == "" {
-											actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-										}
-										if script {
-											actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false)
-										} else {
-											actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");")), nil, false)
-										}
-									}
-								} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
-									if jsvar := strings.Join(actn.rqst.Parameters().Parameter(kalias+":jsvar"), ""); jsvar != "" {
-										if actn.rqst.mimetype == "" {
-											actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-										}
-										if script {
-											actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false)
-										} else {
-											actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";")), nil, false)
-										}
-									}
-								}
+								dbcn.InOut(actn.rqst.RequestBody(), actn.rqst, actn.rqst.Parameters())
 							}
-						} else {
-
-						}
-						if exctr != nil {
-							exctr.Close()
-						}
-					} else {
-						if rspathext == "" {
-							rspathext = ".json"
-						}
-						if rspathext == ".json" {
-							actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-							dbcn.InOut(actn.rqst.RequestBody(), actn.rqst, actn.rqst.Parameters())
 						}
 					}
 				}
 			}
-		}
-		if rspth := actn.rsngpth.Path; rspth != "" {
-			if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
-				actn.rqst.rsngpthsref[rspth] = nil
-				delete(actn.rqst.rsngpthsref, rspth)
-			}
-		}
+		}()
 	} else {
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
 			if rspth := actn.rsngpth.Path; rspth != "" {
