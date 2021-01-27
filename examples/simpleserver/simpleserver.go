@@ -68,15 +68,11 @@ func main() {
 	if rw, rwerr := cnlt.SendReceive("ws://127.0.0.1:1002"); rwerr == nil {
 		if rw != nil {
 			if wsrw, wsrwok := rw.(*ws.ReaderWriter); wsrwok {
-				wsrw.Println("#!js")
-				wsrw.Println("<@println('hello there');@>")
+				wsrw.Println("#!dbms")
+				wsrw.Println(`{"alias":"psg","5555":{"query":"select * from test.tbltest"},"1234":{"query":"select * from test.tbltest"}}`)
 				wsrw.Println("#!commit")
 				buff.Print(wsrw)
-				wsrw.Println("#!cmd")
-				buff.Print(wsrw)
-				fmt.Println(buff)
-				buff.Clear()
-				wsrw.Println("#!exit")
+				//wsrw.Println("#!exit")
 				wsrw.Close()
 				fmt.Println(buff)
 				buff.Clear()

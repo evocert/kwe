@@ -99,7 +99,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 						} else {
 							rqststdio.lsthshlnk = ""
 						}
-					} else if rqststdio.lsthshlnk != "" && strings.HasPrefix(rqststdio.lsthshlnk, "#!") && !(rqststdio.lsthshlnk == "#!js" || rqststdio.lsthshlnk == "#!close" || rqststdio.lsthshlnk == "#!exit" || rqststdio.lsthshlnk == "#!commit" || rqststdio.lsthshlnk == "#!dmbs") {
+					} else if rqststdio.lsthshlnk != "" && strings.HasPrefix(rqststdio.lsthshlnk, "#!") && !(rqststdio.lsthshlnk == "#!js" || rqststdio.lsthshlnk == "#!close" || rqststdio.lsthshlnk == "#!exit" || rqststdio.lsthshlnk == "#!commit" || rqststdio.lsthshlnk == "#!dbms") {
 						if cmd, cmderr := osprc.NewCommand(rqststdio.lsthshlnk[len("#!"):], rqststdio.lsthshlnkargs...); cmderr == nil {
 							if rqststdio.cmd != nil {
 								rqststdio.cmd.Close()

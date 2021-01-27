@@ -33,11 +33,12 @@ type Active struct {
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
 	InterruptVM    func(v interface{})
+	*atvruntime
 }
 
 //NewActive - instance
 func NewActive(namespace ...string) (atv *Active) {
-	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: ""}
+	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}
@@ -109,6 +110,21 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 	}
 }
 
+func (atv *Active) atvrun(prsng *parsing) {
+	if prsng != nil {
+		if atv.atvruntime == nil {
+			atv.atvruntime = newatvruntime(atv, prsng)
+		} else {
+			if atv.prsng != prsng {
+				atv.prsng.dispose()
+				atv.prsng = nil
+				atv.prsng = prsng
+			}
+		}
+		atv.atvruntime.run()
+	}
+}
+
 //Eval - parse rin io.Reader, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader) {
 	var parsing = nextparsing(atv, nil, wout)
@@ -130,6 +146,10 @@ func (atv *Active) Close() (err error) {
 	if atv.lckprnt != nil {
 		atv.lckprnt = nil
 	}
+	if atv.atvruntime != nil {
+		atv.atvruntime.dispose()
+		atv.atvruntime = nil
+	}
 	return
 }
 
@@ -144,8 +164,8 @@ var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
 
 type parsing struct {
 	*iorw.Buffer
-	atv            *Active
-	atvrntme       *atvruntime
+	atv *Active
+	//atvrntme       *atvruntime
 	wout           io.Writer
 	prntrs         []io.Writer
 	prslbli        []int
@@ -212,7 +232,7 @@ func (prsng *parsing) decprint() {
 	}
 }
 
-func (prsng *parsing) close() {
+func (prsng *parsing) dispose() {
 	if prsng != nil {
 		if prsng.cdemap != nil {
 			if len(prsng.cdemap) > 0 {
@@ -256,10 +276,10 @@ func (prsng *parsing) close() {
 		if prsng.wout != nil {
 			prsng.wout = nil
 		}
-		if prsng.atvrntme != nil {
+		/*if prsng.atvrntme != nil {
 			prsng.atvrntme.close()
 			prsng.atvrntme = nil
-		}
+		}*/
 		if prsng.psvctrl != nil {
 			prsng.psvctrl.close()
 			prsng.psvctrl = nil
@@ -408,8 +428,12 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err err
 		prsng.flushCde()
 		if canexec {
 			if prsng.foundCode() {
-				prsng.atvrntme = newatvruntime(prsng.atv, prsng)
-				prsng.atvrntme.run()
+				if prsng.atv.atvruntime == nil {
+
+				}
+				prsng.atv.atvrun(prsng)
+				//prsng.atvrntme = newatvruntime(prsng.atv, prsng)
+				//prsng.atvrntme.run()
 			} else {
 				if rdr := prsng.Reader(); rdr != nil {
 					io.Copy(prsng.wout, rdr)
@@ -480,10 +504,11 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 }
 
 type atvruntime struct {
-	*parsing
-	atv        *Active
-	vm         *goja.Runtime
-	intrnbuffs map[*iorw.Buffer]*iorw.Buffer
+	prsng         *parsing
+	atv           *Active
+	vm            *goja.Runtime
+	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
+	includedpgrms map[string]*goja.Program
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -532,32 +557,32 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 			return atvrntme.parseEval(false, a...)
 		},
 		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.incprint(w)
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.incprint(w)
 			}
 		},
 		atvrntme.atv.namespace() + "resetprint": func() {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.resetprint()
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.resetprint()
 			}
 		},
 		atvrntme.atv.namespace() + "decprint": func() {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.decprint()
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.decprint()
 			}
 		},
 		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.print(a...)
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.print(a...)
 			}
 		},
 		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
-			if atvrntme.parsing != nil {
-				atvrntme.parsing.println(a...)
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.println(a...)
 			}
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
-			if atvrntme.parsing != nil && atvrntme.parsing.atv != nil {
-				if lkpr, lkprerr := atvrntme.parsing.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
 					src, _ = iorw.ReaderToString(lkpr)
 				} else if lkprerr != nil {
 					srcerr = lkprerr
@@ -618,9 +643,15 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 					if len(includelibs) > 0 {
 						for _, incllib := range includelibs {
 							if incllib == "require.js" || incllib == "require.min.js" {
-								if requirejsprgm != nil {
-									if _, err = atvrntme.vm.RunProgram(requirejsprgm); err != nil {
-										break
+								if _, included := atvrntme.includedpgrms[incllib]; included {
+									continue
+								} else {
+									if requirejsprgm != nil {
+										if _, err = atvrntme.vm.RunProgram(requirejsprgm); err != nil {
+											break
+										} else {
+											atvrntme.includedpgrms[incllib] = requirejsprgm
+										}
 									}
 								}
 							} else if incllib == "babel.js" || incllib == "babel.min.js" {
@@ -711,7 +742,7 @@ func transformCode(code string, namespace string, opts map[string]interface{}) (
 }
 
 func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val interface{}, err error) {
-	var prsng = atvrntme.parsing
+	var prsng = atvrntme.prsng
 	if forceCode {
 		prsng.prslbli[0] = len(prslbl[0])
 		prsng.prslbli[1] = 0
@@ -816,15 +847,15 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 }
 
 func (atvrntme *atvruntime) code(coords ...int64) (c string) {
-	if atvrntme != nil && atvrntme.parsing != nil {
-		if cdel := len(atvrntme.parsing.cdemap); cdel > 0 {
+	if atvrntme != nil && atvrntme.prsng != nil {
+		if cdel := len(atvrntme.prsng.cdemap); cdel > 0 {
 			var cdei = 0
-			var rdr = atvrntme.parsing.Reader()
+			var rdr = atvrntme.prsng.Reader()
 			if len(coords) == 0 {
-				coords = []int64{atvrntme.parsing.cdemap[cdei][0], atvrntme.parsing.cdemap[cdel-1][1]}
+				coords = []int64{atvrntme.prsng.cdemap[cdei][0], atvrntme.prsng.cdemap[cdel-1][1]}
 			}
 			for cdei < cdel {
-				cdecoors := atvrntme.parsing.cdemap[cdei]
+				cdecoors := atvrntme.prsng.cdemap[cdei]
 				cdei++
 				if cdecoors[0] <= coords[1] {
 					if cdecoors[0] == coords[1] {
@@ -862,22 +893,23 @@ func (atvrntme *atvruntime) code(coords ...int64) (c string) {
 }
 
 func (atvrntme *atvruntime) passiveout(i int) {
-	if atvrntme != nil && atvrntme.parsing != nil {
-		if psvl := len(atvrntme.parsing.psvmap); psvl > 0 && i >= 0 && i < psvl {
-			psvcoors := atvrntme.parsing.psvmap[i]
+	if atvrntme != nil && atvrntme.prsng != nil {
+		if psvl := len(atvrntme.prsng.psvmap); psvl > 0 && i >= 0 && i < psvl {
+			psvcoors := atvrntme.prsng.psvmap[i]
 			if psvcoors[1] > psvcoors[0] {
-				rdr := atvrntme.parsing.Reader()
+				rdr := atvrntme.prsng.Reader()
 				rdr.Seek(psvcoors[0], 0)
-				io.CopyN(atvrntme.parsing.wout, rdr, psvcoors[1]-psvcoors[0])
+				io.CopyN(atvrntme.prsng.wout, rdr, psvcoors[1]-psvcoors[0])
 			}
 		}
 	}
 }
 
-func (atvrntme *atvruntime) close() {
+func (atvrntme *atvruntime) dispose() {
 	if atvrntme != nil {
-		if atvrntme.parsing != nil {
-			atvrntme.parsing = nil
+		if atvrntme.prsng != nil {
+			atvrntme.prsng.dispose()
+			atvrntme.prsng = nil
 		}
 		if atvrntme.atv != nil {
 			atvrntme.atv = nil
@@ -892,6 +924,22 @@ func (atvrntme *atvruntime) close() {
 				}
 			}
 			atvrntme.vm = nil
+		}
+		if atvrntme.includedpgrms != nil {
+			if il := len(atvrntme.includedpgrms); il > 0 {
+				includedpgrms := make([]string, il)
+				incldsi := 0
+				for include := range atvrntme.includedpgrms {
+					includedpgrms[incldsi] = include
+					incldsi++
+				}
+				for len(includedpgrms) > 0 {
+					atvrntme.includedpgrms[includedpgrms[0]] = nil
+					delete(atvrntme.includedpgrms, includedpgrms[0])
+					includedpgrms = includedpgrms[1:]
+				}
+			}
+			atvrntme.includedpgrms = nil
 		}
 		if atvrntme.intrnbuffs != nil {
 			if il := len(atvrntme.intrnbuffs); il > 0 {
@@ -915,7 +963,7 @@ func (atvrntme *atvruntime) close() {
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, parsing: parsing, vm: goja.New(), intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	return
 }
 

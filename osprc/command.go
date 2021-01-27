@@ -46,17 +46,25 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 					p := make([]byte, 1024)
 					n := 0
 					err := error(nil)
-					for {
-						n, err = cmd.cmdout.Read(p)
-						var bts []byte = make([]byte, n)
-						if n > 0 {
-							copy(bts, p)
-						}
-						cmd.cmdoutp <- bts
-						cmd.cmdouterr <- err
-						if err != nil && err != io.EOF {
-							break
-						}
+					running := true
+					for running {
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									running = false
+								}
+							}()
+							n, err = cmd.cmdout.Read(p)
+							var bts []byte = make([]byte, n)
+							if n > 0 {
+								copy(bts, p)
+							}
+							cmd.cmdoutp <- bts
+							cmd.cmdouterr <- err
+							if err != nil && err != io.EOF {
+								running = false
+							}
+						}()
 					}
 				}()
 			} else {
