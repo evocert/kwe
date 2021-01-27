@@ -467,6 +467,9 @@ func (rqst *Request) Close() (err error) {
 		if rqst.lstexctngactng != nil {
 			for rqst.lstexctngactng != nil {
 				rqst.lstexctngactng.Close()
+				if rqst.lstexctngactng.rqst == nil {
+					rqst.lstexctngactng = nil
+				}
 			}
 			rqst.lstexctngactng = nil
 		}

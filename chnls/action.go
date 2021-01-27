@@ -36,6 +36,12 @@ func (actn *Action) Path() string {
 }
 
 func executeAction(actn *Action) (err error) {
+	defer func() {
+		if actn != nil {
+			actn.Close()
+			actn = nil
+		}
+	}()
 	var rspath = actn.rsngpth.Path
 	var rspathext = filepath.Ext(rspath)
 	var isTextRequest = false
@@ -308,6 +314,7 @@ func (actn *Action) Close() (err error) {
 			actn.rsngpth.Close()
 			actn.rsngpth = nil
 		}
+		actn = nil
 	}
 	return
 }
