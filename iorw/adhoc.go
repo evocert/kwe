@@ -56,11 +56,6 @@ func Fprintln(w io.Writer, a ...interface{}) {
 	Fprint(w, "\r\n")
 }
 
-type WrapReader struct {
-	scnr *bufio.Scanner
-	rdr  io.Reader
-}
-
 //ReadLine from r io.Reader as s string
 func ReadLine(r io.Reader) (s string, err error) {
 	if r != nil {
