@@ -11,6 +11,7 @@ import (
 type Printer interface {
 	Print(a ...interface{})
 	Println(a ...interface{})
+	Write(p []byte) (int, error)
 }
 
 //Reader - interface
@@ -20,6 +21,12 @@ type Reader interface {
 	Readln() (string, error)
 	Readlines() ([]string, error)
 	ReadAll() (string, error)
+}
+
+//PrinterReader - interface
+type PrinterReader interface {
+	Printer
+	Reader
 }
 
 //Fprint - refer to fmt.Fprint
