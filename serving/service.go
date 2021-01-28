@@ -198,7 +198,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 					b := false
 					lck := &sync.Mutex{}
 					for {
-						time.Sleep(time.Second * 10)
+						time.Sleep(time.Second * 5)
 						func() {
 							lck.Lock()
 							defer lck.Unlock()
@@ -222,7 +222,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 			b := false
 			lck := &sync.Mutex{}
 			for {
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Second * 5)
 				func() {
 					lck.Lock()
 					defer lck.Unlock()
@@ -243,7 +243,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 			b := false
 			lck := &sync.Mutex{}
 			for {
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Second * 5)
 				func() {
 					lck.Lock()
 					defer lck.Unlock()
