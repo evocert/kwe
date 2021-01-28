@@ -845,6 +845,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 		cmd, err = osprc.NewCommand(execpath, execargs...)
 		if err == nil && cmd != nil {
 			cmd.OnClose = rqst.removeCommand
+			rqst.cmnds[cmd.PrcID()] = cmd
 		}
 		return
 	}
