@@ -1,0 +1,29 @@
+<h1>test test</h1>
+<@
+var r=dbms.QuerySettings({alias:"avon",query:"select sysdate as col from dual",script:script,"success":function(r){
+	println("success");@><table><@
+        r.OnColumns=function(rdr) {
+            @><tr><@
+            rdr.Columns().forEach(function(val){
+                @><th><@print(val);@></th><@
+            });
+            @></tr><@
+        };
+        r.OnRow=function(rdr,rn) {
+            @><tr><@
+                rdr.Data().forEach(function(val){
+                @><td><@print(rn,":",val);@></td><@
+            });
+            @></tr><@
+        };
+        r.OnFinalize=function(){
+            @></table><@
+        };
+},"error":function(err){
+	println("error:",err.Error());
+},"finalize":function(rdr){
+	println("finalize");
+}});
+while(r.Next());
+    r.Close();
+@>

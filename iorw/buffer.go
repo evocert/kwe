@@ -554,16 +554,18 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 				}
 
 				for (bufr.MaxRead > 0 || bufr.MaxRead == -1) && (pl > n) && (len(bufr.rbytes) > bufr.rbytesi) {
+					rbtsl := len(bufr.rbytes)
 					if bufr.MaxRead > 0 {
-						if ln := int64(len(bufr.rbytes) - bufr.rbytesi); ln > bufr.MaxRead {
+						if ln := int64(rbtsl - bufr.rbytesi); ln > bufr.MaxRead {
 							rl = int(bufr.MaxRead)
 						} else {
-							rl = bufr.rbytesi + int(ln)
+							rl = int(ln)
 						}
-					} else {
-						rl = len(bufr.rbytes)
+						if (rl + bufr.rbytesi) < rbtsl {
+							rbtsl = (rl + bufr.rbytesi)
+						}
 					}
-					if cl := (rl - bufr.rbytesi); (pl - n) >= cl {
+					if cl := (rbtsl - bufr.rbytesi); (pl - n) >= cl {
 						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
 						n += cl
 						bufr.roffset += int64(cl)
@@ -574,7 +576,7 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 								bufr.MaxRead = 0
 							}
 						}
-					} else if cl := (pl - n); cl < (rl - bufr.rbytesi) {
+					} else if cl := (pl - n); cl < (rbtsl - bufr.rbytesi) {
 						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
 						n += cl
 						bufr.roffset += int64(cl)
@@ -734,6 +736,10 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 		}
 		if !adjusted {
 			n = -1
+		} else {
+			if bufr.rnr != nil {
+				bufr.rnr.Reset(bufr)
+			}
 		}
 	} else {
 		n = -1
