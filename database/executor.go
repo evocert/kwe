@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/web"
@@ -372,6 +373,37 @@ func (exctr *Executor) Repeat(args ...interface{}) (err error) {
 	if err = exctr.lasterr; err != nil {
 		invokeError(exctr.script, err, exctr.OnError)
 	}
+	return
+}
+
+//ToJSON write *Executor out to json
+func (exctr *Executor) ToJSON(w io.Writer) (err error) {
+	if w != nil {
+		if jsnrdr := exctr.JSONReader(); jsnrdr != nil {
+			func() {
+				defer func() { jsnrdr = nil }()
+				_, err = io.Copy(w, jsnrdr)
+			}()
+		}
+	}
+	return
+}
+
+//JSONReader return *JSONReader
+func (exctr *Executor) JSONReader() (jsnrdr *JSONReader) {
+	jsnrdr = NewJSONReader(nil, exctr, nil)
+	return
+}
+
+//JSON execute *Executor and return json as string
+func (exctr *Executor) JSON() (s string, err error) {
+	bufr := iorw.NewBuffer()
+	func() {
+		defer bufr.Close()
+		if err = exctr.ToJSON(bufr); err == nil {
+			s = bufr.String()
+		}
+	}()
 	return
 }
 

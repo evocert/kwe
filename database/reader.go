@@ -3,11 +3,13 @@ package database
 import (
 	"database/sql"
 	"encoding/json"
+	"io"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 )
 
@@ -178,6 +180,37 @@ func (rdr *Reader) Next() (next bool, err error) {
 		}
 	}
 	return next, err
+}
+
+//ToJSON write *Reader out to json
+func (rdr *Reader) ToJSON(w io.Writer) (err error) {
+	if w != nil {
+		if jsnrdr := rdr.JSONReader(); jsnrdr != nil {
+			func() {
+				defer func() { jsnrdr = nil }()
+				_, err = io.Copy(w, jsnrdr)
+			}()
+		}
+	}
+	return
+}
+
+//JSONReader return *JSONReader
+func (rdr *Reader) JSONReader() (jsnrdr *JSONReader) {
+	jsnrdr = NewJSONReader(rdr, nil, nil)
+	return
+}
+
+//JSON readall *Readee and return json as string
+func (rdr *Reader) JSON() (s string, err error) {
+	bufr := iorw.NewBuffer()
+	func() {
+		defer bufr.Close()
+		if err = rdr.ToJSON(bufr); err == nil {
+			s = bufr.String()
+		}
+	}()
+	return
 }
 
 //Close the Reader as well as the underlying Executor related to this Reader
