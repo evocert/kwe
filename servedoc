@@ -1,0 +1,3 @@
+#!/bin/bash
+GOPATH=`pwd` godoc -http=:81 -v
+#wget -m -k -erobots=off --no-host-directories --no-use-server-timestamps -v http://localhost:81/pkg/github.com/evocert/

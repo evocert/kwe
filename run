@@ -4,4 +4,9 @@ PORT=:80
 firewall-cmd --zone=public --permanent --add-port=$PORT/tcp
 firewall-cmd --reload
 #./kwe_ockert "$HOST" "$PORT"
-./kwe_ockert
+#./kwe_ockert
+while :
+do
+	echo starting kwe...
+	./kwe2
+done

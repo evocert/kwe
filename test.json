@@ -1,0 +1,5 @@
+{
+	"alias":"mydb2","k0":{
+		"query":"select 42"
+	}
+}
