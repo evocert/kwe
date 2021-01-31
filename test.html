@@ -1,4 +1,4 @@
 <@
-var r=dbms.QuerySettings({alias:"avon",query:"select sysdate as col from dual"});
+var r=dbms.QuerySettings({alias:"avon",query:"select @@test@@ as t, sysdate as col from dual"},{"test":"test this"},request.Parameters());
     print(r.JSON());
 @>

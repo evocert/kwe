@@ -382,7 +382,9 @@ func (exctr *Executor) ToJSON(w io.Writer) (err error) {
 		if jsnrdr := exctr.JSONReader(); jsnrdr != nil {
 			func() {
 				defer func() { jsnrdr = nil }()
-				_, err = io.Copy(w, jsnrdr)
+				if _, err = io.Copy(w, jsnrdr); err != nil && err == io.EOF {
+					err = nil
+				}
 			}()
 		}
 	}

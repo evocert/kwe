@@ -188,7 +188,9 @@ func (rdr *Reader) ToJSON(w io.Writer) (err error) {
 		if jsnrdr := rdr.JSONReader(); jsnrdr != nil {
 			func() {
 				defer func() { jsnrdr = nil }()
-				_, err = io.Copy(w, jsnrdr)
+				if _, err = io.Copy(w, jsnrdr); err != nil && err == io.EOF {
+					err = nil
+				}
 			}()
 		}
 	}
