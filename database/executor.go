@@ -45,6 +45,8 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, 
 		var d = args[argsn]
 		if _, dok := d.(*parameters.Parameters); dok {
 			argsn++
+		} else if _, dok := d.(*Reader); dok {
+			argsn++
 		} else if _, dok := d.(map[string]interface{}); dok {
 			argsn++
 		} else {
