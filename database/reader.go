@@ -261,7 +261,7 @@ func castSQLTypeValue(valToCast interface{}, colType *ColumnType) (castedVal int
 		if d, dok := valToCast.([]uint8); dok {
 			castedVal = string(d)
 		} else if sd, dok := valToCast.(string); dok {
-			castedVal = sd
+			castedVal = strings.TrimSpace(sd)
 		} else if dtime, dok := valToCast.(time.Time); dok {
 			castedVal = dtime.Format("2006-01-02T15:04:05")
 		} else if djsn, djsnok := valToCast.([]byte); djsnok {
