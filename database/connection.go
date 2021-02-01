@@ -166,15 +166,19 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 			for _, skey := range pargs.StandardKeys() {
 				mappedVals[skey] = strings.Join(pargs.Parameter(skey), "")
 			}
-		} else if rdrargs, isrdrargs := args[0].(*Reader); isrdrargs {
+		} else if rdrargs, isrdrargs := args[0].(*Reader); isrdrargs && rdrargs != nil {
 			rdr = rdrargs
-			data := rdr.Data()
-			cols := rdr.Columns()
-			for cn, ck := range cols {
-				mappedVals[ck] = data[cn]
+
+			if cols := rdr.Columns(); len(cols) > 0 {
+				data := rdr.Data()
+				if len(data) == len(cols) {
+					for cn, ck := range cols {
+						mappedVals[ck] = data[cn]
+					}
+				}
+				data = nil
+				cols = nil
 			}
-			data = nil
-			cols = nil
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
 			for pmk, pmv := range pmargs {
 				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
