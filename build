@@ -1,3 +1,19 @@
 #!/bin/bash
 echo go build ./kwe_ockert.go
-go build ./kwe_ockert.go
+GOPATH=~/go go build ./kwe.go
+GOPATH=~/go go build ./kwe_ockert.go
+GOPATH=~/go gGOARCH=amd64 GOOS=windows go build ./kwe_ockert.go
+GOPATH=~/go gGOARCH=amd64 GOOS=windows go build ./kwe.go
+upx kwe_ockert
+upx kwe_ockert.exe
+upx kwe
+upx kwe.exe
+rm -rf ./kwe2
+cp ./kwe ./kwe2
+rm -rf ./www/kwe_ockert.exe
+mv ./kwe_ockert.exe ./www/kwe_ockert.exe
+rm -rf ./www/kwe.exe
+mv ./kwe.exe ./www/kwe.exe
+rm -rf ./www/kwe
+cp ./kwe ./www/kwe
+pkill kwe2

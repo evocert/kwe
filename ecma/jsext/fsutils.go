@@ -32,12 +32,14 @@ func Register_jsext_fsutils(vm *goja.Runtime) {
 		List            func(string) []EntryInfo `json:"list"`
 		Glob            func(string) []EntryInfo `json:"glob"`
 		Walk            func(string) []EntryInfo `json:"walk"`
+		MkDir           func(string) bool        `json:"mkdir"`
+		Rm              func(string) bool        `json:"rm"`
 		//todo: globbed walk
 	}{
 		Version: Version{
 			Major: 0,
 			Minor: 0,
-			Bump:  3,
+			Bump:  4,
 		},
 		File2String: func(path string) string {
 			content, err := ioutil.ReadFile(path)
@@ -150,6 +152,20 @@ func Register_jsext_fsutils(vm *goja.Runtime) {
 				panic(vm.ToValue("Failed to open directory"))
 			}
 			return ret
+		},
+		MkDir: func(path string)(bool){
+			err:=os.MkdirAll(path,0777)
+			if err!=nil{
+				panic(vm.ToValue("Failed to create directory"))
+			}
+			return true
+		},
+		Rm: func(path string)(bool){
+			err:=os.RemoveAll(path)
+			if err!=nil{
+				panic(vm.ToValue("Failed to remove"))
+			}
+			return true
 		},
 	})
 }
