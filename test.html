@@ -1,4 +1,31 @@
+<h1>test test</h1>
 <@
-var r=dbms.QuerySettings({alias:"avon",query:"select @@test@@ as t, sysdate as col from dual"},{"test":"test this"},request.Parameters());
-    print(r.JSON());
+var sql="select @@TOACC@@ as toacc,@@AccountNumber@@ AS ACCNUMBER FROM dual";
+var r=dbms.QuerySettings({alias:"avon",query:sql,script:script,"success":function(r){
+	println("success");@><table><@
+        r.OnColumns=function(rdr) {
+            @><tr><@
+            rdr.Columns().forEach(function(val){
+                @><th><@print(val);@></th><@
+            });
+            @></tr><@
+        };
+        r.OnRow=function(rdr,rn) {
+            @><tr><@
+                rdr.Data().forEach(function(val){
+                @><td><@print(rn,":",val);@></td><@
+            });
+            @></tr><@
+        };
+        r.OnFinalize=function(){
+            @></table><@
+        };
+},"error":function(err){
+    println("error:",err.Error());
+    println("error:",err.Statement());
+},"finalize":function(rdr){
+	println("finalize");
+}},{"TOACC":"DAT","ACCOUNTNUMBER":"5659678"});
+while(r.Next());
+    r.Close();
 @>

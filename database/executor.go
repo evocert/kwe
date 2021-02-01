@@ -112,6 +112,32 @@ func (exctr *Executor) isRemote() bool {
 	return exctr.cn != nil && exctr.cn.isRemote()
 }
 
+//ExecError - struct
+type ExecError struct {
+	err   error
+	stmnt string
+}
+
+//Statement return statement executed that caused error
+func (execerr *ExecError) Statement() string {
+	if execerr != nil {
+		return execerr.stmnt
+	}
+	return ""
+}
+
+func (execerr *ExecError) Error() string {
+	if execerr != nil && execerr.err != nil {
+		return execerr.err.Error()
+	}
+	return ""
+}
+
+func newExecErr(err error, stmnt string) (execerr *ExecError) {
+	execerr = &ExecError{err: err, stmnt: stmnt}
+	return
+}
+
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
 	if exctr.isRemote() {
 		pi, po := io.Pipe()
@@ -214,7 +240,9 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 		}
 	} else {
 		if exctr.stmt == nil {
-			exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt)
+			if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr != nil {
+				exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+			}
 		}
 		if exctr.lasterr == nil && exctr.stmt != nil {
 			exctr.lastInsertID = -1
@@ -254,6 +282,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 						}
 					}
 				} else if exctr.lasterr != nil {
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
 					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			} else {
@@ -267,6 +296,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
 				} else {
 					exctr.lasterr = rslterr
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
 					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			}

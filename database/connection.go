@@ -47,6 +47,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			s = ("$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1))
 		}
 		if argvs, argvsok := prmval.(string); argvsok {
+			argvs = strings.TrimSpace(argvs)
 			if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
 				if tstintval := int64(fltval); float64(tstintval) == fltval {
 					if argi == -1 {
@@ -92,6 +93,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			s = (":" + fmt.Sprintf("%d", len(exctr.qryArgs)+1))
 		}
 		if argvs, argvsok := prmval.(string); argvsok {
+			argvs = strings.TrimSpace(argvs)
 			if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
 				if tstintval := int64(fltval); float64(tstintval) == fltval {
 					if argi == -1 {
