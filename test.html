@@ -11,6 +11,7 @@ var r=dbms.QuerySettings({alias:"avon",query:sql,script:script,"success":functio
             @></tr><@
         };
         r.OnRow=function(rdr,rn) {
+            var rs=dbms.QuerySettings({alias:"avon",query:"select @@toacc@@ as t from dual"},r);
             @><tr><@
                 rdr.Data().forEach(function(val){
                 @><td><@print(rn,":",val);@></td><@

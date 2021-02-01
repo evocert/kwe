@@ -516,6 +516,8 @@ func (cn *Connection) query(query interface{}, noreader bool, onsuccess, onerror
 		var d = args[argsn]
 		if _, dok := d.(*parameters.Parameters); dok {
 			argsn++
+		} else if _, dok := d.(*Reader); dok {
+			argsn++
 		} else if _, dok := d.(map[string]interface{}); dok {
 			argsn++
 		} else if _, dok := d.(bool); dok {
