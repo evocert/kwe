@@ -158,11 +158,23 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 	mappedVals = map[string]interface{}{}
 	var foundTxt = false
 
-	var params *parameters.Parameters = nil
-
+	//var params *parameters.Parameters = nil
+	var rdr *Reader = nil
 	for len(args) > 0 {
-		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs && params == nil {
-			params = pargs
+		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs && pargs != nil {
+			//params = pargs
+			for _, skey := range pargs.StandardKeys() {
+				mappedVals[skey] = strings.Join(pargs.Parameter(skey), "")
+			}
+		} else if rdrargs, isrdrargs := args[0].(*Reader); isrdrargs {
+			rdr = rdrargs
+			data := rdr.Data()
+			cols := rdr.Columns()
+			for cn, ck := range cols {
+				mappedVals[ck] = data[cn]
+			}
+			data = nil
+			cols = nil
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
 			for pmk, pmv := range pmargs {
 				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
@@ -174,11 +186,11 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 		}
 		args = args[1:]
 	}
-	if params != nil {
+	/*if params != nil {
 		for _, skey := range params.StandardKeys() {
 			mappedVals[skey] = strings.Join(params.Parameter(skey), "")
 		}
-	}
+	}*/
 	if len(exctr.qryArgs) == 0 {
 		exctr.qryArgs = []interface{}{}
 	}
