@@ -248,12 +248,12 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 				if foundTxt {
 					appr(r)
 					if r == '\'' {
-						if prvr == r {
-							foundTxt = false
-							prvr = rune(0)
-						} else {
-							prvr = r
-						}
+						//if prvr == r {
+						foundTxt = false
+						prvr = rune(0)
+						//} else {
+						//	prvr = r
+						//}
 					} else {
 						prvr = r
 					}
