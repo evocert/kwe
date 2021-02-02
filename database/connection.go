@@ -147,6 +147,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 
 func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (stmnt string, validNames []string, mappedVals map[string]interface{}) {
 	var rnrr io.RuneReader = nil
+	var sqlbuf *iorw.Buffer = nil
 	if qrys, qrysok := query.(string); qrysok && qrys != "" {
 		rnrr = bufio.NewReader(strings.NewReader(qrys))
 	} else if qryrnr, qryrnrok := query.(io.RuneReader); qryrnrok {
@@ -158,11 +159,9 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 	mappedVals = map[string]interface{}{}
 	var foundTxt = false
 
-	//var params *parameters.Parameters = nil
 	var rdr *Reader = nil
 	for len(args) > 0 {
 		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs && pargs != nil {
-			//params = pargs
 			for _, skey := range pargs.StandardKeys() {
 				mappedVals[skey] = strings.Join(pargs.Parameter(skey), "")
 			}
@@ -190,142 +189,131 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 		}
 		args = args[1:]
 	}
-	/*if params != nil {
-		for _, skey := range params.StandardKeys() {
-			mappedVals[skey] = strings.Join(params.Parameter(skey), "")
-		}
-	}*/
 	if len(exctr.qryArgs) == 0 {
 		exctr.qryArgs = []interface{}{}
 	}
 
 	stmnt = ""
 
-	var rns = make([]rune, 1024)
-	var rnsi = 0
 	var prvr = rune(0)
 	var prmslbl = [][]rune{[]rune("@@"), []rune("@@")}
 	var prmslbli = []int{0, 0}
 
 	var appr = func(r rune) {
-		rns[rnsi] = r
-		rnsi++
-		if rnsi == len(rns) {
-			stmnt += string(rns)
-			rnsi = 0
+		if sqlbuf == nil {
+			sqlbuf = iorw.NewBuffer()
 		}
+		sqlbuf.Print(string(r))
 	}
 
 	var apprs = func(p []rune) {
 		if pl := len(p); pl > 0 {
-			pi := 0
-			for pi < pl {
-				if l := (len(rns) - rnsi); (pl - pi) >= l {
-					copy(rns[rnsi:rnsi+l], p[pi:pi+l])
-					rnsi += l
-					pi += l
-				} else if l := (pl - pi); l < (len(rns) - rnsi) {
-					copy(rns[rnsi:rnsi+l], p[pi:pi+l])
-					rnsi += l
-					pi += l
-				}
-				if rnsi == len(rns) {
-					stmnt += string(rns)
-					rnsi = 0
-				}
+			if sqlbuf == nil {
+				sqlbuf = iorw.NewBuffer()
 			}
+			sqlbuf.Print(string(p))
 		}
 	}
 
-	var psblprmnme = make([]rune, 8192)
-	var psblprmnmei = 0
-	for rnrr != nil {
-		r, s, e := rnrr.ReadRune()
-		if s > 0 {
-			if len(mappedVals) == 0 {
-				appr(r)
-			} else {
-				if foundTxt {
-					appr(r)
-					if r == '\'' {
-						//if prvr == r {
-						foundTxt = false
-						prvr = rune(0)
-						//} else {
-						//	prvr = r
-						//}
-					} else {
-						prvr = r
-					}
-				} else {
-					if prmslbli[1] == 0 && prmslbli[0] < len(prmslbl[0]) {
-						if prmslbli[0] > 0 && prmslbl[0][prmslbli[0]-1] == prvr && prmslbl[0][prmslbli[0]] != r {
-							if prmsl := prmslbli[0]; prmsl > 0 {
-								prmslbli[0] = 0
-								apprs(prmslbl[0][:prmsl])
-							}
-						}
-						if prmslbl[0][prmslbli[0]] == r {
-							prmslbli[0]++
-							if prmslbli[0] == len(prmslbl[0]) {
+	if len(mappedVals) == 0 {
+		stmnt, _ = iorw.ReaderToString(rnrr)
+	} else {
+		var psblprmnme = make([]rune, 8192)
+		var psblprmnmei = 0
+		iorw.ReadRunesEOFFunc(rnrr, func(r rune) error {
 
-								prvr = rune(0)
-							} else {
-								prvr = r
-							}
-						} else {
-							if prmsl := prmslbli[0]; prmsl > 0 {
-								prmslbli[0] = 0
-								apprs(prmslbl[0][:prmsl])
-							}
-							appr(r)
-							if r == '\'' {
-								foundTxt = true
-								prvr = rune(0)
-							} else {
-								prvr = r
-							}
+			if foundTxt {
+				appr(r)
+				if r == '\'' {
+					foundTxt = false
+					prvr = rune(0)
+				} else {
+					prvr = r
+				}
+			} else {
+				if prmslbli[1] == 0 && prmslbli[0] < len(prmslbl[0]) {
+					if prmslbli[0] > 0 && prmslbl[0][prmslbli[0]-1] == prvr && prmslbl[0][prmslbli[0]] != r {
+						if prmsl := prmslbli[0]; prmsl > 0 {
+							prmslbli[0] = 0
+							apprs(prmslbl[0][:prmsl])
 						}
-					} else if prmslbli[0] == len(prmslbl[0]) && prmslbli[1] < len(prmslbl[1]) {
-						if prmslbl[1][prmslbli[1]] == r {
-							prmslbli[1]++
-							if prmslbli[1] == len(prmslbl[1]) {
-								if psblprmnmei > 0 {
-									if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
-										fndprm := false
-										if !exctr.isRemote() {
-											for mpvk, mpv := range mappedVals {
-												if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
-													if validNames == nil {
-														validNames = []string{}
-													}
-													validNames = append(validNames, mpvk)
-													apprs([]rune(parseParam(exctr, mpv, -1)))
-													break
+					}
+					if prmslbl[0][prmslbli[0]] == r {
+						prmslbli[0]++
+						if prmslbli[0] == len(prmslbl[0]) {
+
+							prvr = rune(0)
+						} else {
+							prvr = r
+						}
+					} else {
+						if prmsl := prmslbli[0]; prmsl > 0 {
+							prmslbli[0] = 0
+							apprs(prmslbl[0][:prmsl])
+						}
+						appr(r)
+						if r == '\'' {
+							foundTxt = true
+							prvr = rune(0)
+						} else {
+							prvr = r
+						}
+					}
+				} else if prmslbli[0] == len(prmslbl[0]) && prmslbli[1] < len(prmslbl[1]) {
+					if prmslbl[1][prmslbli[1]] == r {
+						prmslbli[1]++
+						if prmslbli[1] == len(prmslbl[1]) {
+							if psblprmnmei > 0 {
+								if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
+									fndprm := false
+									if !exctr.isRemote() {
+										for mpvk, mpv := range mappedVals {
+											if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
+												if validNames == nil {
+													validNames = []string{}
 												}
+												validNames = append(validNames, mpvk)
+												apprs([]rune(parseParam(exctr, mpv, -1)))
+												break
 											}
 										}
-										if !fndprm {
-											apprs(prmslbl[0])
-											apprs(psblprmnme[:psblprmnmei])
-											apprs(prmslbl[1])
-										}
-									} else {
+									}
+									if !fndprm {
 										apprs(prmslbl[0])
+										apprs(psblprmnme[:psblprmnmei])
 										apprs(prmslbl[1])
 									}
-									psblprmnmei = 0
 								} else {
 									apprs(prmslbl[0])
 									apprs(prmslbl[1])
 								}
-								prmslbli[1] = 0
-								prvr = rune(0)
-								prmslbli[0] = 0
+								psblprmnmei = 0
+							} else {
+								apprs(prmslbl[0])
+								apprs(prmslbl[1])
 							}
+							prmslbli[1] = 0
+							prvr = rune(0)
+							prmslbli[0] = 0
+						}
+					} else {
+						if prmsl := prmslbli[1]; prmsl > 0 {
+							//Invalid End Parameter
+							prmslbli[1] = 0
+							prvr = rune(0)
+							prmslbli[0] = 0
+							apprs(prmslbl[0])
+							if psblprmnmei > 0 {
+								apprs(psblprmnme[:psblprmnmei])
+								psblprmnmei = 0
+							}
+							apprs(prmslbl[1][:prmsl])
 						} else {
-							if prmsl := prmslbli[1]; prmsl > 0 {
-								//Invalid End Parameter
+							psblprmnme[psblprmnmei] = r
+							psblprmnmei++
+							prvr = r
+							if psblprmnmei == len(psblprmnme) {
+								//Invalid Parameter Length
 								prmslbli[1] = 0
 								prvr = rune(0)
 								prmslbli[0] = 0
@@ -334,34 +322,23 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 									apprs(psblprmnme[:psblprmnmei])
 									psblprmnmei = 0
 								}
-								apprs(prmslbl[1][:prmsl])
-							} else {
-								psblprmnme[psblprmnmei] = r
-								psblprmnmei++
-								prvr = r
-								if psblprmnmei == len(psblprmnme) {
-									//Invalid Parameter Length
-									prmslbli[1] = 0
-									prvr = rune(0)
-									prmslbli[0] = 0
-									apprs(prmslbl[0])
-									if psblprmnmei > 0 {
-										apprs(psblprmnme[:psblprmnmei])
-										psblprmnmei = 0
-									}
-								}
 							}
 						}
 					}
 				}
 			}
+			return nil
+		})
+
+		if sqlbuf != nil {
+			if sqlbuf.Size() > 0 {
+				stmnt = sqlbuf.String()
+			}
+			sqlbuf.Close()
+			sqlbuf = nil
+		} else {
+			stmnt = ""
 		}
-		if e != nil {
-			break
-		}
-	}
-	if rnsi > 0 {
-		stmnt += string(rns[:rnsi])
 	}
 	return
 }

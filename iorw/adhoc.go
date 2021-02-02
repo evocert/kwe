@@ -99,35 +99,49 @@ func ReadLine(r io.Reader) (s string, err error) {
 }
 
 //ReaderToString read reader and return content as string
-func ReaderToString(r io.Reader) (s string, err error) {
-	if r != nil {
+func ReaderToString(r interface{}) (s string, err error) {
+	runes := make([]rune, 1024)
+	runesi := 0
+	if err = ReadRunesEOFFunc(r, func(rn rune) error {
+		runes[runesi] = rn
+		runesi++
+		if runesi == len(runes) {
+			s += string(runes[:runesi])
+			runesi = 0
+		}
+		return nil
+	}); err == nil {
+		if runesi > 0 {
+			s += string(runes[:runesi])
+			runesi = 0
+		}
+	}
+	return
+}
+
+//ReadRunesEOFFunc read runes from r io.Reader and call fncrne func(rune) error
+func ReadRunesEOFFunc(r interface{}, fncrne func(rune) error) (err error) {
+	if r != nil && fncrne != nil {
 		var rnrd io.RuneReader = nil
 		if rnr, rnrok := r.(io.RuneReader); rnrok {
 			rnrd = rnr
-		} else {
-			rnrd = bufio.NewReader(r)
+		} else if rdr, rdrok := r.(io.Reader); rdrok {
+			rnrd = bufio.NewReader(rdr)
 		}
-		rns := make([]rune, 1024)
-		rnsi := 0
-		for {
-			rn, size, rnerr := rnrd.ReadRune()
-			if size > 0 {
-				rns[rnsi] = rn
-				rnsi++
-				if rnsi == len(rns) {
-					s += string(rns[:rnsi])
-					rnsi = 0
+		if rnrd != nil {
+			for {
+				rn, size, rnerr := rnrd.ReadRune()
+				if size > 0 {
+					if err = fncrne(rn); err != nil {
+						break
+					}
 				}
-			}
-			if rnerr != nil {
-				if rnerr != io.EOF {
-					err = rnerr
+				if err == nil && rnerr != nil {
+					if rnerr != io.EOF {
+						err = rnerr
+					}
+					break
 				}
-				if rnsi > 0 && err == nil {
-					s += string(rns[:rnsi])
-					rnsi = 0
-				}
-				break
 			}
 		}
 	}
