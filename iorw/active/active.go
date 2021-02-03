@@ -12,7 +12,6 @@ import (
 	"github.com/dop251/goja/parser"
 
 	"github.com/dop251/goja"
-	"github.com/evocert/kwe/babeljs"
 
 	//"github.com/evocert/kwe/ecma/es51"
 	//"github.com/evocert/kwe/ecma/es51/parser"
@@ -654,12 +653,6 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 										}
 									}
 								}
-							} else if incllib == "babel.js" || incllib == "babel.min.js" {
-								if babeljsprgm != nil {
-									if _, err = atvrntme.vm.RunProgram(babeljsprgm); err != nil {
-										break
-									}
-								}
 							}
 						}
 					}
@@ -708,31 +701,6 @@ var (
 )
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
-	/*vm := goja.New()
-	_, err = vm.RunProgram(babeljsprgm)
-	if err != nil {
-		err = fmt.Errorf("unable to load babel.js: %s", err)
-	} else {
-		var transform goja.Callable
-		babel := vm.Get("Babel")
-		if err := vm.ExportTo(babel.ToObject(vm).Get("transform"), &transform); err != nil {
-			err = fmt.Errorf("unable to export transform fn: %s", err)
-		} else {
-			if opts == nil {
-				opts = defaultOpts
-			}
-			if v, verr := transform(babel, vm.ToValue(code), vm.ToValue(opts)); verr != nil {
-				err = fmt.Errorf("unable to export transform fn: %s", verr)
-				fmt.Println(err.Error())
-			} else {
-				trsnfrmdcde = v.ToObject(vm).Get("code").String()
-				isrequired = strings.IndexAny(code, "require(\"") > -1
-				if isrequired {
-					trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
-				}
-			}
-		}
-	}*/
 	trsnfrmdcde = code
 	isrequired = strings.IndexAny(code, "require(\"") > -1
 	if isrequired {
@@ -968,16 +936,12 @@ func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
 }
 
 var requirejsprgm *goja.Program = nil
-var babeljsprgm *goja.Program = nil
 
 //var GlobelModules map[string]*
 
 func init() {
 	var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
-		fmt.Println(errpgrm.Error())
-	}
-	if babeljsprgm, errpgrm = goja.Compile("", babeljs.BabelJSString(), true); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
 	}
 }
