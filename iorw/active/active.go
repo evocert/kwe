@@ -582,7 +582,11 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
-					src, _ = iorw.ReaderToString(lkpr)
+					if s, _ := iorw.ReaderToString(lkpr); s != "" {
+						src = strings.TrimSpace(s)
+					} else {
+						src = s
+					}
 				} else if lkprerr != nil {
 					srcerr = lkprerr
 				}

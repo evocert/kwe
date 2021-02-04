@@ -113,24 +113,26 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 
 			var resp, resperr = clnt.Do(rqst)
 			if resperr == nil {
-				if respbdy := resp.Body; respbdy != nil {
-					if w != nil {
-						wg := &sync.WaitGroup{}
-						wg.Add(1)
-						pi, pw := io.Pipe()
-						go func() {
-							defer func() {
-								pw.Close()
+				if scde := resp.StatusCode; scde >= 200 && scde < 300 {
+					if respbdy := resp.Body; respbdy != nil {
+						if w != nil {
+							wg := &sync.WaitGroup{}
+							wg.Add(1)
+							pi, pw := io.Pipe()
+							go func() {
+								defer func() {
+									pw.Close()
+								}()
+								wg.Done()
+								if w != nil {
+									io.Copy(pw, respbdy)
+								}
 							}()
-							wg.Done()
-							if w != nil {
-								io.Copy(pw, respbdy)
-							}
-						}()
-						wg.Wait()
-						io.Copy(w, pi)
-					} else if rspr == nil {
-						rspr = respbdy
+							wg.Wait()
+							io.Copy(w, pi)
+						} else if rspr == nil {
+							rspr = respbdy
+						}
 					}
 				}
 			} else {

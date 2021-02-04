@@ -115,7 +115,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 						}
 					}
 					remoteHeaders["Content-Type"] = mimetype
-					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+rscngepnt.host+rscngepnt.path+path, remoteHeaders, nil, rqstr); rerr == nil {
+					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
 						rs = newRS(rscngepnt, path, r)
 					} else if rerr != nil {
 						err = rerr
