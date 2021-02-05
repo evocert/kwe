@@ -1,5 +1,0 @@
-#!/bin/bash
-
-git config user.email "evocert@gmail.com"
-git config user.name "Ev0cert3v0v3rt"
-git pull https://evocert:Ev0cert3v0v3rt@github.com/evocert/kwe.git
