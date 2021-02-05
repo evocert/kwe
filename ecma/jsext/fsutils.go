@@ -171,11 +171,9 @@ func Register_jsext_fsutils(vm *goja.Runtime) {
 		},
         Rename: func(src string,tgt string)(bool){
             //stub
-            //stub
 			return true
 		},
         Mv: func(src string,tgt string)(bool){
-            //stub
             //stub
 			return true
 		},
