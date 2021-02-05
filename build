@@ -1,19 +1,36 @@
 #!/bin/bash
-echo go build ./kwe_ockert.go
-GOPATH=~/go go build ./kwe.go
-GOPATH=~/go go build ./kwe_ockert.go
-GOPATH=~/go gGOARCH=amd64 GOOS=windows go build ./kwe_ockert.go
-GOPATH=~/go gGOARCH=amd64 GOOS=windows go build ./kwe.go
-upx kwe_ockert
-upx kwe_ockert.exe
-upx kwe
-upx kwe.exe
+
+git config user.email "evocert@gmail.com"
+git config user.name "Ev0cert3v0v3rt"
+git pull https://evocert:Ev0cert3v0v3rt@github.com/evocert/kwe.git
+echo ---------------------------------
+figlet -f /usr/share/figlet/smslant.flf BUILDING...
+echo ---------------------------------
+echo Compiling linux executable...
+echo ---------------------------------
+GOPATH=~/go go build -x ./kwe.go
+echo ---------------------------------
+echo Compiling windows executable...
+echo ---------------------------------
+GOPATH=~/go GOARCH=amd64 GOOS=windows go build -x ./kwe.go
+#echo ---------------------------------
+#echo Compressing linux executable...
+#echo ---------------------------------
+#upx kwe
+#echo ---------------------------------
+#echo Compressing windows executable...
+#echo ---------------------------------
+#upx kwe.exe
+echo ---------------------------------
+echo Replacing server executable...
+echo ---------------------------------
 rm -rf ./kwe2
 cp ./kwe ./kwe2
-rm -rf ./www/kwe_ockert.exe
-mv ./kwe_ockert.exe ./www/kwe_ockert.exe
-rm -rf ./www/kwe.exe
+echo Deploying binaries to webdir...
+echo ---------------------------------
 mv ./kwe.exe ./www/kwe.exe
-rm -rf ./www/kwe
-cp ./kwe ./www/kwe
+mv ./kwe ./www/kwe
+figlet -f /usr/share/figlet/smslant.flf RESTARTING...
+echo ---------------------------------
+sleep 4
 pkill kwe2

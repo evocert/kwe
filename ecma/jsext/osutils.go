@@ -19,7 +19,7 @@ func Register_jsext_osutils(vm *goja.Runtime) {
 		Version: Version{
 			Major: 0,
 			Minor: 0,
-			Bump:  1,
+			Bump:  2,
 		},
 		GOOS: func() string {
 			return runtime.GOOS

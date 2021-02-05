@@ -34,6 +34,8 @@ func Register_jsext_fsutils(vm *goja.Runtime) {
 		Walk            func(string) []EntryInfo `json:"walk"`
 		MkDir           func(string) bool        `json:"mkdir"`
 		Rm              func(string) bool        `json:"rm"`
+		Rename          func(string,string)bool  `json:"rename"`
+		Mv              func(string,string)bool  `json:"mv"`
 		//todo: globbed walk
 	}{
 		Version: Version{
@@ -167,5 +169,18 @@ func Register_jsext_fsutils(vm *goja.Runtime) {
 			}
 			return true
 		},
+        Rename: func(src string,tgt string)(bool){
+            //stub
+			return true
+		},
+        Mv: func(src string,tgt string)(bool){
+            //stub
+			return true
+		},
 	})
 }
+
+
+
+
+
