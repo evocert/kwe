@@ -4,9 +4,21 @@ import (
 	"strings"
 )
 
+//SchedulesHandler - interface
+type SchedulesHandler interface {
+	NewSchedule(...interface{}) ScheduleHandler
+}
+
 //Schedules - struct
 type Schedules struct {
-	schdls map[string]*Schedule
+	schdls      map[string]*Schedule
+	schdlshndlr SchedulesHandler
+}
+
+//NewSchedules instance
+func NewSchedules(schdlshndlr SchedulesHandler) (schdls *Schedules) {
+	schdls = &Schedules{schdlshndlr: schdlshndlr, schdls: map[string]*Schedule{}}
+	return
 }
 
 //Get - Scheduler by schdlname
@@ -23,7 +35,11 @@ func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (s
 	if schdls != nil {
 		if schdlname = strings.TrimSpace(schdlname); schdlname != "" {
 			if _, schdlok := schdls.schdls[schdlname]; !schdlok {
-				schdl = newSchedule(schdls, a...)
+				if schdls.schdlshndlr != nil {
+					schdl = newSchedule(schdls, schdls.schdlshndlr.NewSchedule(a...), a...)
+				} else {
+					schdl = newSchedule(schdls, nil, a...)
+				}
 				schdls.schdls[schdlname] = schdl
 			}
 		}
@@ -39,5 +55,5 @@ func GLOBALSCHEDULES() *Schedules {
 }
 
 func init() {
-	schdls = &Schedules{schdls: map[string]*Schedule{}}
+	schdls = NewSchedules(nil)
 }

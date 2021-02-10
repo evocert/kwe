@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/evocert/kwe/listen"
+	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/ws"
 	"github.com/gorilla/websocket"
 )
@@ -16,6 +17,7 @@ type Channel struct {
 	rqsts  map[*Request]*Request
 	objmap map[string]interface{}
 	lstnr  *listen.Listener
+	schdls *scheduling.Schedules
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -24,6 +26,19 @@ func (chnl *Channel) Listener() *listen.Listener {
 		chnl.lstnr = listen.NewListener(chnl)
 	}
 	return chnl.lstnr
+}
+
+//Schedules - *scheduling.Schedules schedules for Channel
+func (chnl *Channel) Schedules() *scheduling.Schedules {
+	if chnl.schdls == nil {
+		chnl.schdls = scheduling.NewSchedules(chnl)
+	}
+	return chnl.schdls
+}
+
+//NewSchedule - implement scheduling.ScheduleHandler NewScheduler()
+func (chnl *Channel) NewSchedule(...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
+	return
 }
 
 //NewChannel - instance

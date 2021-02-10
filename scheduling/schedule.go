@@ -7,36 +7,52 @@ import (
 	"time"
 )
 
-//Schedule - struct
-type Schedule struct {
-	schdlid    string
-	once       bool
-	From       time.Time
-	To         time.Time
-	schdlrs    *Schedules
-	frstactn   *schdlaction
-	lstactn    *schdlaction
-	actnslck   *sync.Mutex
-	StartArgs  []interface{}
-	OnError    func(*Schedules, *Schedule, error)
-	OnStart    func(a ...interface{}) error
-	StopArgs   []interface{}
-	OnStop     func(a ...interface{}) error
-	OnShutdown func() error
-	Seconds    int64
-	intrvl     time.Duration
-	running    bool
-	prcng      bool
-	wg         *sync.WaitGroup
+//ScheduleHandler - interface
+type ScheduleHandler interface {
+	StartedSchedule(...interface{}) error
+	StoppedSchedule(...interface{}) error
+	ShutdownSchedule() error
+	NewScheduleAction(...interface{}) ActionHandler
 }
 
-func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
+//Schedule - struct
+type Schedule struct {
+	schdlid      string
+	once         bool
+	schdlhndlr   ScheduleHandler
+	From         time.Time
+	To           time.Time
+	schdlrs      *Schedules
+	frstactn     *schdlaction
+	lstactn      *schdlaction
+	actnslck     *sync.Mutex
+	StartArgs    []interface{}
+	OnError      func(*Schedules, *Schedule, error)
+	OnStart      func(a ...interface{}) error
+	StopArgs     []interface{}
+	OnStop       func(a ...interface{}) error
+	OnShutdown   func() error
+	Milliseconds int64
+	Seconds      int64
+	Minutes      int64
+	Hours        int64
+	prcintrvl    int64
+	intrvl       time.Duration
+	running      bool
+	prcng        bool
+	wg           *sync.WaitGroup
+}
+
+func newSchedule(schdlrs *Schedules, schdlhndlr ScheduleHandler, a ...interface{}) (schdl *Schedule) {
 	var start func(a ...interface{}) error = nil
 	var startargs []interface{} = nil
 	var stop func(a ...interface{}) error = nil
 	var stopargs []interface{} = nil
 	var shutdown func() error = nil
-	var seconds int64 = 10
+	var milliseconds int64 = 0
+	var seconds int64 = 0
+	var minutes int64 = 0
+	var hours int64 = 0
 	var once = false
 	var frm time.Time = time.Now()
 	frm = time.Date(frm.Year(), frm.Month(), frm.Day(), 0, 0, 0, 0, frm.Location())
@@ -54,8 +70,30 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 					stopargs, _ = stngv.([]interface{})
 				} else if strings.ToLower(stngk) == "shutdown" {
 					shutdown, _ = stngv.(func() error)
-				} else if strings.ToLower(stngk) == "seconds" {
-					seconds, _ = stngv.(int64)
+				} else if strings.ToLower(stngk) == "milliseconds" && hours == 0 && seconds == 0 && minutes == 0 {
+					if scint, scintok := stngv.(int); scintok {
+						milliseconds = int64(scint)
+					} else {
+						milliseconds, _ = stngv.(int64)
+					}
+				} else if strings.ToLower(stngk) == "seconds" && hours == 0 && milliseconds == 0 && minutes == 0 {
+					if scint, scintok := stngv.(int); scintok {
+						seconds = int64(scint)
+					} else {
+						seconds, _ = stngv.(int64)
+					}
+				} else if strings.ToLower(stngk) == "minutes" && hours == 0 && seconds == 0 && milliseconds == 0 {
+					if scint, scintok := stngv.(int); scintok {
+						minutes = int64(scint)
+					} else {
+						minutes, _ = stngv.(int64)
+					}
+				} else if strings.ToLower(stngk) == "hours" && milliseconds == 0 && seconds == 0 && minutes == 0 {
+					if scint, scintok := stngv.(int); scintok {
+						hours = int64(scint)
+					} else {
+						hours, _ = stngv.(int64)
+					}
 				} else if strings.ToLower(stngk) == "once" {
 					once, _ = stngv.(bool)
 				} else if strings.ToLower(stngk) == "from" {
@@ -79,23 +117,40 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		}
 	}
 
+	if schdlhndlr != nil {
+		if start == nil {
+			start = schdlhndlr.StartedSchedule
+		}
+		if stop == nil {
+			stop = schdlhndlr.StoppedSchedule
+		}
+		if shutdown == nil {
+			shutdown = schdlhndlr.ShutdownSchedule
+		}
+	}
+
 	schdl = &Schedule{schdlrs: schdlrs,
-		wg:         &sync.WaitGroup{},
-		intrvl:     time.Microsecond * 500,
-		frstactn:   nil,
-		lstactn:    nil,
-		running:    false,
-		prcng:      false,
-		once:       once,
-		actnslck:   &sync.Mutex{},
-		OnStart:    start,
-		StartArgs:  startargs,
-		OnStop:     stop,
-		StopArgs:   stopargs,
-		OnShutdown: shutdown,
-		Seconds:    seconds,
-		From:       frm,
-		To:         to,
+		wg:           &sync.WaitGroup{},
+		intrvl:       time.Microsecond * 10,
+		schdlhndlr:   schdlhndlr,
+		prcintrvl:    0,
+		frstactn:     nil,
+		lstactn:      nil,
+		running:      false,
+		prcng:        false,
+		once:         once,
+		actnslck:     &sync.Mutex{},
+		OnStart:      start,
+		StartArgs:    startargs,
+		OnStop:       stop,
+		StopArgs:     stopargs,
+		OnShutdown:   shutdown,
+		Milliseconds: milliseconds,
+		Seconds:      seconds,
+		Minutes:      minutes,
+		Hours:        hours,
+		From:         frm,
+		To:           to,
 	}
 	return
 }
@@ -107,6 +162,10 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 	var al = 0
 	var vldactions = []*schdlaction{}
 	var cactn func(...interface{}) error = nil
+	var actnhndlr ActionHandler = nil
+	if schdl.schdlhndlr != nil {
+		actnhndlr = schdl.schdlhndlr.NewScheduleAction(a...)
+	}
 	for {
 		if al = len(a); al > 0 {
 			d := a[0]
@@ -115,11 +174,11 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 				if al > 1 {
 					d = a[0]
 					if atcne, actneok := d.(func(...interface{}) error); actneok {
-						vldactions = append(vldactions, newSchdlAction(schdl, atcne, args...))
+						vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, atcne, args...))
 						a = a[1:]
 						lstargs = nil
 					} else if actn, actnok := d.(func(...interface{})); actnok {
-						vldactions = append(vldactions, newSchdlAction(schdl, func(fna ...interface{}) (fnerr error) {
+						vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, func(fna ...interface{}) (fnerr error) {
 							func() {
 								defer func() {
 									if rv := recover(); rv != nil {
@@ -137,7 +196,7 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 					}
 				} else {
 					if lstactn != nil {
-						vldactions = append(vldactions, newSchdlAction(schdl, lstactn, args...))
+						vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, lstactn, args...))
 					}
 					break
 				}
@@ -187,12 +246,12 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 				if cactn != nil {
 					if al > 1 {
 						if lstargs != nil {
-							vldactions = append(vldactions, newSchdlAction(schdl, cactn, lstargs...))
+							vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, cactn, lstargs...))
 							lstargs = nil
 						} else {
 							d = a[0]
 							if args, argsok := d.([]interface{}); argsok {
-								vldactions = append(vldactions, newSchdlAction(schdl, cactn, args...))
+								vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, cactn, args...))
 								a = a[1:]
 							} else {
 								lstactn = cactn
@@ -200,7 +259,7 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 							}
 						}
 					} else {
-						vldactions = append(vldactions, newSchdlAction(schdl, cactn, lstargs...))
+						vldactions = append(vldactions, newSchdlAction(schdl, actnhndlr, cactn, lstargs...))
 						break
 					}
 				} else {
@@ -262,52 +321,86 @@ func (schdl *Schedule) Start() (err error) {
 
 func (schdl *Schedule) ticking() {
 	schdl.wg.Done()
+	tckwg := &sync.WaitGroup{}
 	//var strtprcng, endprcng time.Time
 	var errprcng error = nil
 	var nxttrggrstmp, frmstmp, tostmp time.Time
 	frmstmp = schdl.From
 	tostmp = schdl.To
-	nxttrggrstmp = frmstmp
+	tostmp = time.Date(tostmp.Year(), tostmp.Month(), tostmp.Day(), tostmp.Hour(), tostmp.Minute(), tostmp.Second(), tostmp.Nanosecond()-1, tostmp.Location())
+	nxttrggrstmp = frmstmp.Add(time.Nanosecond * 0)
 	var intrvl time.Duration = schdl.intrvl
-	//var scnds int64 = schdl.Seconds
+	var recheck bool = false
 	var calcnxttrggr = func() (cantrggr bool) {
 		tmpNow := time.Now()
 		tmpfrm := time.Date(tmpNow.Year(), tmpNow.Month(), tmpNow.Day(), frmstmp.Hour(), frmstmp.Minute(), frmstmp.Second(), frmstmp.Nanosecond(), frmstmp.Location())
 		tmpto := time.Date(tmpNow.Year(), tmpNow.Month(), tmpNow.Day(), tostmp.Hour(), tostmp.Minute(), tostmp.Second(), tostmp.Nanosecond(), tostmp.Location())
-
 		if tmpNow.After(tmpfrm) && tmpNow.Before(tmpto) {
-			if nxttrggrstmp.Before(tmpfrm) {
-				nxttrggrstmp = time.Date(tmpfrm.Year(), tmpfrm.Month(), tmpfrm.Day(), tmpfrm.Hour(), tmpfrm.Minute(), tmpfrm.Second(), tmpfrm.Nanosecond(), tmpfrm.Location())
-				cantrggr = true
-			} else {
-				//var tmdif = int64(tmpNow.Sub(tmpfrm))
-				//var secdif = int64(time.Duration(scnds) * time.Nanosecond)
-
-				//var nxttrggrdif = int64(nxttrggrstmp.Sub(tmpfrm))
-
+			if cantrggr {
+				cantrggr = false
 			}
-
+			if nxttrggrstmp.Before(tmpfrm) || recheck {
+				if recheck {
+					recheck = false
+				}
+				nxttrggrstmp = time.Date(tmpfrm.Year(), tmpfrm.Month(), tmpfrm.Day(), tmpfrm.Hour(), tmpfrm.Minute(), tmpfrm.Second(), tmpfrm.Nanosecond(), tmpfrm.Location())
+			}
+			if secdif := int64(time.Duration(schdl.prcintrvl)); secdif > 0 {
+				if tmdif := int64(tmpNow.Sub(tmpfrm)); tmdif > 0 {
+					tf := (tmdif / secdif)
+					if tmpfrm.Add(time.Duration(tf * secdif)).Before(tmpNow) {
+						if nxttrggrstmp.Before(tmpfrm.Add(time.Duration(tf * secdif)).Add(time.Nanosecond * (1))) {
+							nxttrggrstmp = tmpfrm.Add(time.Duration((tf + 1) * secdif))
+							cantrggr = true
+						}
+					}
+				}
+			}
 		} else {
 			cantrggr = false
 		}
 		return
 	}
+
+	var crntprcintrvl = func() int64 {
+		if schdl.Milliseconds > 0 {
+			return schdl.Milliseconds * int64(time.Millisecond)
+		} else if schdl.Seconds > 0 {
+			return schdl.Seconds * int64(time.Second)
+		} else if schdl.Minutes > 0 {
+			return schdl.Minutes * int64(time.Minute)
+		} else if schdl.Hours > 0 {
+			return schdl.Hours * int64(time.Hour)
+		}
+		return 0
+	}
+
 	for schdl.running {
-		if calcnxttrggr() {
-			//if !schdl.prcng {
-			//schdl.prcng = true
-			_, _, errprcng = schdl.process()
-			if errprcng != nil {
-				if schdl.OnError != nil {
-					schdl.OnError(schdl.schdlrs, schdl, errprcng)
-					//endprcng = time.Now()
+		if cnrtsec := crntprcintrvl(); cnrtsec > int64(intrvl) {
+			if schdl.prcintrvl != cnrtsec {
+				schdl.prcintrvl = cnrtsec
+				recheck = true
+			}
+			if calcnxttrggr() {
+				func() {
+					defer tckwg.Wait()
+					tckwg.Add(1)
+					go func() {
+						defer tckwg.Done()
+						if errprcng = schdl.process(); errprcng != nil {
+							if schdl.OnError != nil {
+								schdl.OnError(schdl.schdlrs, schdl, errprcng)
+							}
+						}
+					}()
+				}()
+				schdl.prcng = false
+				if schdl.once {
+					break
 				}
+			} else {
+				time.Sleep(intrvl)
 			}
-			schdl.prcng = false
-			if schdl.once {
-				break
-			}
-			//}
 		} else {
 			time.Sleep(intrvl)
 		}
@@ -315,9 +408,8 @@ func (schdl *Schedule) ticking() {
 	schdl.wg.Done()
 }
 
-func (schdl *Schedule) process() (strtprcng, endprcng time.Time, err error) {
+func (schdl *Schedule) process() (err error) {
 	if schdl != nil {
-		strtprcng = time.Now()
 		func() {
 			defer func() {
 				if rv := recover(); rv != nil {
@@ -326,7 +418,6 @@ func (schdl *Schedule) process() (strtprcng, endprcng time.Time, err error) {
 			}()
 			err = schdl.execute()
 		}()
-		endprcng = time.Now()
 	}
 	return
 }
@@ -402,17 +493,22 @@ func removeactn(schdl *Schedule, schdlactn *schdlaction) {
 	}
 }
 
-type schdlaction struct {
-	schdl   *Schedule
-	prvactn *schdlaction
-	nxtactn *schdlaction
-	args    []interface{}
-	actn    func(...interface{}) error
-	valid   bool
+//ActionHandler interface
+type ActionHandler interface {
 }
 
-func newSchdlAction(schdl *Schedule, actn func(...interface{}) error, a ...interface{}) (scdhlactn *schdlaction) {
-	scdhlactn = &schdlaction{schdl: schdl, prvactn: nil, nxtactn: nil, actn: actn, args: a, valid: true}
+type schdlaction struct {
+	schdl     *Schedule
+	actnhndlr ActionHandler
+	prvactn   *schdlaction
+	nxtactn   *schdlaction
+	args      []interface{}
+	actn      func(...interface{}) error
+	valid     bool
+}
+
+func newSchdlAction(schdl *Schedule, actnhndlr ActionHandler, actn func(...interface{}) error, a ...interface{}) (scdhlactn *schdlaction) {
+	scdhlactn = &schdlaction{schdl: schdl, actnhndlr: actnhndlr, prvactn: nil, nxtactn: nil, actn: actn, args: a, valid: true}
 	return
 }
 

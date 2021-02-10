@@ -361,12 +361,15 @@ type Field struct {
 
 //Value - of Field
 func (fld *Field) Value() (val interface{}) {
+	if fld != nil && fld.rdr != nil && (fld.index > -1 && fld.index < len(fld.rdr.data)) {
+		val = fld.rdr.dispdata[fld.index]
+	}
 	return
 }
 
 //Name - of Field
 func (fld *Field) Name() (nme string) {
-	if fld.index >= 0 {
+	if fld != nil && fld.rdr != nil && (fld.index > -1 && fld.index < len(fld.rdr.cls)) {
 		nme = fld.rdr.cls[fld.index]
 	}
 	return
@@ -374,7 +377,7 @@ func (fld *Field) Name() (nme string) {
 
 //Type - ColumnType of Field
 func (fld *Field) Type() (tpe *ColumnType) {
-	if fld.index >= 0 {
+	if fld != nil && fld.rdr != nil && (fld.index > -1 && fld.index < len(fld.rdr.cltpes)) {
 		tpe = fld.rdr.cltpes[fld.index]
 	}
 	return
