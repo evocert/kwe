@@ -35,9 +35,46 @@ type Active struct {
 	*atvruntime
 }
 
+//InvokeFunction ivoke *Acive.actvruntime function
+func (atv *Active) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
+	if atv != nil {
+		result = atv.atvruntime.InvokeFunction(functocall, args...)
+	}
+	return
+}
+
+//ExtractGlobals extract globals from atv.atvruntime
+func (atv *Active) ExtractGlobals(extrglbs map[string]interface{}) {
+	if atv.atvruntime != nil {
+		if extrglbs != nil {
+			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
+				for _, k := range gbl.Keys() {
+					extrglbs[k] = gbl.Get(k)
+				}
+				gbl = nil
+			}
+		}
+	}
+}
+
+//ImportGlobals import globals into atv.atvruntime
+func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
+	if atv.atvruntime != nil {
+		if imprtglbs != nil && len(imprtglbs) > 0 {
+			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
+				for k, kv := range imprtglbs {
+					gbl.Set(k, kv)
+				}
+				gbl = nil
+			}
+		}
+	}
+}
+
 //NewActive - instance
 func NewActive(namespace ...string) (atv *Active) {
 	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
+	atv.atvruntime = newatvruntime(atv, nil)
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}

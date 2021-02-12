@@ -6,7 +6,8 @@ import (
 
 //SchedulesHandler - interface
 type SchedulesHandler interface {
-	NewSchedule(...interface{}) ScheduleHandler
+	NewSchedule(*Schedule, ...interface{}) ScheduleHandler
+	Schedules() *Schedules
 }
 
 //Schedules - struct
@@ -35,10 +36,18 @@ func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (s
 	if schdls != nil {
 		if schdlname = strings.TrimSpace(schdlname); schdlname != "" {
 			if _, schdlok := schdls.schdls[schdlname]; !schdlok {
+				schdl = newSchedule(schdls, a...)
 				if schdls.schdlshndlr != nil {
-					schdl = newSchedule(schdls, schdls.schdlshndlr.NewSchedule(a...), a...)
-				} else {
-					schdl = newSchedule(schdls, nil, a...)
+					schdl.schdlhndlr = schdls.schdlshndlr.NewSchedule(schdl, a...)
+					if schdl.OnStart == nil {
+						schdl.OnStart = schdl.schdlhndlr.StartedSchedule
+					}
+					if schdl.OnStop == nil {
+						schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
+					}
+					if schdl.OnShutdown == nil {
+						schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
+					}
 				}
 				schdls.schdls[schdlname] = schdl
 			}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
+	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/web"
 
 	"github.com/evocert/kwe/database"
@@ -58,6 +59,8 @@ type Request struct {
 	activecns map[string]*database.Connection
 	//commands
 	cmnds map[int]*osprc.Command
+	//scheduling
+	schdl *scheduling.Schedule
 }
 
 //Resource - return mapped resource interface{} by path
@@ -472,6 +475,9 @@ func (rqst *Request) Close() (err error) {
 				}
 			}
 			rqst.lstexctngactng = nil
+		}
+		if rqst.schdl != nil {
+			rqst.schdl = nil
 		}
 		rqst = nil
 	}

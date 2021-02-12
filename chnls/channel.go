@@ -37,7 +37,36 @@ func (chnl *Channel) Schedules() *scheduling.Schedules {
 }
 
 //NewSchedule - implement scheduling.ScheduleHandler NewScheduler()
-func (chnl *Channel) NewSchedule(...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
+func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
+	if al := len(a); al > 0 {
+		ai := 0
+		atvprntmap := map[string]interface{}{}
+		for ai < al {
+			d := a[ai]
+			if rqst, rqstok := d.(*Request); rqstok {
+				if rqst.atv != nil {
+					rqst.atv.ExtractGlobals(atvprntmap)
+				}
+				a = append(a[:ai], a[ai+1:])
+				al--
+			} else {
+				ai++
+			}
+		}
+
+		if scdhlrqst, _ := newRequest(chnl, nil, nil, a...); scdhlrqst != nil {
+			scdhlrqst.schdl = schdl
+			if len(atvprntmap) > 0 {
+				scdhlrqst.invokeAtv()
+				for k, kv := range atvprntmap {
+					if _, kobjok := scdhlrqst.objmap[k]; !kobjok {
+						scdhlrqst.objmap[k] = kv
+					}
+				}
+			}
+			scdhlhndlr = scdhlrqst
+		}
+	}
 	return
 }
 
