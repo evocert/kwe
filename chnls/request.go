@@ -470,7 +470,7 @@ func (rqst *Request) Close() (err error) {
 		if rqst.lstexctngactng != nil {
 			for rqst.lstexctngactng != nil {
 				rqst.lstexctngactng.Close()
-				if rqst.lstexctngactng.rqst == nil {
+				if rqst.lstexctngactng != nil && rqst.lstexctngactng.rqst == nil {
 					rqst.lstexctngactng = nil
 				}
 			}
@@ -755,7 +755,8 @@ func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
 		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
-		rqst.AddPath(rqst.httpr.URL.Path)
+		httppath := rqst.httpr.URL.Path
+		rqst.AddPath(httppath)
 		rqst.processPaths(true)
 	}
 }
