@@ -74,7 +74,7 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 //NewActive - instance
 func NewActive(namespace ...string) (atv *Active) {
 	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
-	atv.atvruntime = newatvruntime(atv, nil)
+	atv.atvruntime, _ = newatvruntime(atv, nil)
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}
@@ -149,7 +149,7 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 func (atv *Active) atvrun(prsng *parsing) {
 	if prsng != nil {
 		if atv.atvruntime == nil {
-			atv.atvruntime = newatvruntime(atv, prsng)
+			atv.atvruntime, _ = newatvruntime(atv, prsng)
 		} else {
 			if atv.prsng != prsng {
 				atv.prsng.dispose()
@@ -157,7 +157,9 @@ func (atv *Active) atvrun(prsng *parsing) {
 				atv.prsng = prsng
 			}
 		}
-		atv.atvruntime.run()
+		if atv.atvruntime != nil {
+			atv.atvruntime.run()
+		}
 	}
 }
 
@@ -464,12 +466,7 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err err
 		prsng.flushCde()
 		if canexec {
 			if prsng.foundCode() {
-				if prsng.atv.atvruntime == nil {
-
-				}
 				prsng.atv.atvrun(prsng)
-				//prsng.atvrntme = newatvruntime(prsng.atv, prsng)
-				//prsng.atvrntme.run()
 			} else {
 				if rdr := prsng.Reader(); rdr != nil {
 					io.Copy(prsng.wout, rdr)
@@ -540,11 +537,12 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 }
 
 type atvruntime struct {
-	prsng         *parsing
-	atv           *Active
-	vm            *goja.Runtime
-	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
-	includedpgrms map[string]*goja.Program
+	prsng            *parsing
+	atv              *Active
+	vm               *goja.Runtime
+	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
+	includedpgrms    map[string]*goja.Program
+	glblobjstoremove []string
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -576,85 +574,26 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 	if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
 		objmapref = atvrntme.atv.ObjectMapRef()
 	}
-	val, err = atvrntme.corerun(atvrntme.code(), objmapref, map[string]interface{}{
-		atvrntme.atv.namespace() + "newbuffer": func() (buff *iorw.Buffer) {
-			buff = iorw.NewBuffer()
-			buff.OnClose = atvrntme.removeBuffer
-			atvrntme.intrnbuffs[buff] = buff
-			return
-		},
-		"_passiveout": func(i int) {
-			atvrntme.passiveout(i)
-		},
-		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
-			return atvrntme.parseEval(true, a...)
-		},
-		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
-			return atvrntme.parseEval(false, a...)
-		},
-		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
-			if atvrntme.prsng != nil {
-				atvrntme.prsng.incprint(w)
-			}
-		},
-		atvrntme.atv.namespace() + "resetprint": func() {
-			if atvrntme.prsng != nil {
-				atvrntme.prsng.resetprint()
-			}
-		},
-		atvrntme.atv.namespace() + "decprint": func() {
-			if atvrntme.prsng != nil {
-				atvrntme.prsng.decprint()
-			}
-		},
-		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
-			if atvrntme.prsng != nil {
-				atvrntme.prsng.print(a...)
-			}
-		},
-		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
-			if atvrntme.prsng != nil {
-				atvrntme.prsng.println(a...)
-			}
-		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
-					if s, _ := iorw.ReaderToString(lkpr); s != "" {
-						src = strings.TrimSpace(s)
-					} else {
-						src = s
-					}
-				} else if lkprerr != nil {
-					srcerr = lkprerr
-				}
-			}
-			if src == nil {
-				src = ""
-			}
-			return
-		},
-		"script": atvrntme}, "require.js")
+	val, err = atvrntme.corerun(atvrntme.code(), objmapref)
 	return
 }
 
-func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{}, internmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
+func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{} /* internmapref map[string]interface{},*/, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
 		atvrntme.vm.ClearInterrupt()
 		jsext.Register(atvrntme.vm)
-		atvrntme.atv.InterruptVM = func(v interface{}) {
-			atvrntme.vm.Interrupt(v)
-		}
-		var glblobjstoremove []string = nil
+
+		//var glblobjstoremove []string = nil
 		if objmapref != nil && len(objmapref) > 0 {
-			if glblobjstoremove == nil {
-				glblobjstoremove = []string{}
-			}
+			//if glblobjstoremove == nil {
+			//	glblobjstoremove = []string{}
+			//}
 			for k, ref := range objmapref {
-				glblobjstoremove = append(glblobjstoremove, k)
+				//	glblobjstoremove = append(glblobjstoremove, k)
 				atvrntme.vm.Set(k, ref)
 			}
 		}
-		if internmapref != nil && len(internmapref) > 0 {
+		/*if internmapref != nil && len(internmapref) > 0 {
 			if glblobjstoremove == nil {
 				glblobjstoremove = []string{}
 			}
@@ -662,7 +601,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 				glblobjstoremove = append(glblobjstoremove, k)
 				atvrntme.vm.Set(k, ref)
 			}
-		}
+		}*/
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -702,14 +641,14 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 						if err != nil {
 							fmt.Println(err.Error())
 						}
-						if len(glblobjstoremove) > 0 {
+						/*if len(glblobjstoremove) > 0 {
 							if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
 								for _, k := range glblobjstoremove {
 									gbl.Delete(k)
 								}
 								gbl = nil
 							}
-						}
+						}*/
 					} else {
 						err = perr
 					}
@@ -729,7 +668,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	return
 }
 
-var (
+/*var (
 	defaultOpts = map[string]interface{}{
 		"presets":       []interface{}{"es2015"},
 		"ast":           false,
@@ -739,7 +678,7 @@ var (
 		"retainLines":   true,
 		"highlightCode": false,
 	}
-)
+)*/
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	trsnfrmdcde = code
@@ -830,7 +769,7 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 						cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
 					}
 					cde := atvrntme.code(cdecoords...)
-					val, err = atvrntme.corerun(cde, nil, nil)
+					val, err = atvrntme.corerun(cde, nil)
 				} else {
 					if rdr := prsng.Reader(); rdr != nil {
 						io.Copy(prsng.wout, rdr)
@@ -971,8 +910,91 @@ func (atvrntme *atvruntime) dispose() {
 	}
 }
 
-func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime) {
-	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]interface{}) {
+	internmapref = map[string]interface{}{
+		atvrntme.atv.namespace() + "newbuffer": func() (buff *iorw.Buffer) {
+			buff = iorw.NewBuffer()
+			buff.OnClose = atvrntme.removeBuffer
+			atvrntme.intrnbuffs[buff] = buff
+			return
+		},
+		"_passiveout": func(i int) {
+			atvrntme.passiveout(i)
+		},
+		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
+			return atvrntme.parseEval(true, a...)
+		},
+		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
+			return atvrntme.parseEval(false, a...)
+		},
+		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.incprint(w)
+			}
+		},
+		atvrntme.atv.namespace() + "resetprint": func() {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.resetprint()
+			}
+		},
+		atvrntme.atv.namespace() + "decprint": func() {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.decprint()
+			}
+		},
+		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.print(a...)
+			}
+		},
+		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.println(a...)
+			}
+		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
+					if s, _ := iorw.ReaderToString(lkpr); s != "" {
+						src = strings.TrimSpace(s)
+					} else {
+						src = s
+					}
+				} else if lkprerr != nil {
+					srcerr = lkprerr
+				}
+			}
+			if src == nil {
+				src = ""
+			}
+			return
+		},
+		"script": atvrntme}
+	return
+}
+
+func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
+	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, glblobjstoremove: []string{}}
+	atvrntme.atv.InterruptVM = func(v interface{}) {
+		atvrntme.vm.Interrupt(v)
+	}
+	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); definternmapref != nil && len(definternmapref) > 0 {
+		if definternmapref != nil && len(definternmapref) > 0 {
+			if atvrntme.glblobjstoremove == nil {
+				atvrntme.glblobjstoremove = []string{}
+			}
+			for k, ref := range definternmapref {
+				atvrntme.glblobjstoremove = append(atvrntme.glblobjstoremove, k)
+				atvrntme.vm.Set(k, ref)
+			}
+		}
+	}
+	if requirejsprgm != nil {
+		if _, err = atvrntme.vm.RunProgram(requirejsprgm); err != nil {
+			//atvrntme.includedpgrms[incllib] = requirejsprgm
+		} else {
+			//atvrntme.includedpgrms[incllib] = requirejsprgm
+		}
+	}
 	return
 }
 
