@@ -20,6 +20,6 @@ for (var i=0;i<cntdone;i++){
         }
     });
 }
-//test1.AddAction({"request":{"path":"/test/this.js"}});
+test1.AddAction({"request":{"path":"/test/this.js"}});
 test1.Start();
  @>
