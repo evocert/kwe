@@ -6,13 +6,20 @@ resourcing.RegisterEndpoint("/master/kweutils","https://raw.githubusercontent.co
 resourcing.MapEndpointResource("/","test-this.html","<h1>test this</h1>");
 channel.Listener().Listen(":1040");
 //println(resourcing.FindRSString("/test-this.html"))
-/*println(resourcing.RegisteredPaths().join("\r\n"));
-println(resourcing.RegisteredRootPaths().join("\r\n"));
+//println(resourcing.RegisteredPaths().join("\r\n"));
+//println(resourcing.RegisteredRootPaths().join("\r\n"));
 channel.Listener().Listen(":1040");
+var cntdone=2;
 var test1=channel.Schedules().RegisterSchedule("test1",{"Seconds":20},request);
-for (var i=0;i<20;i++){
-    test1.AddAction((i+""), function() {
+for (var i=0;i<cntdone;i++){
+    test1.AddAction(function() {
         println("test action ",(i+""));
+        cntdone--;
+        if (cntdone<=0) {
+            return true;
+        }
     });
-}*/
+}
+//test1.AddAction({"request":{"path":"/test/this.js"}});
+test1.Start();
  @>

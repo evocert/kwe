@@ -1,7 +1,11 @@
 package chnls
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/dop251/goja"
+	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/scheduling"
 )
 
@@ -22,6 +26,7 @@ func (rqst *Request) StoppedSchedule(a ...interface{}) (err error) {
 
 //ShutdownSchedule refer to scheduling.ScheduleHandler - ShutdownSchedule()
 func (rqst *Request) ShutdownSchedule() (err error) {
+	err = rqst.Close()
 	return
 }
 
@@ -32,28 +37,125 @@ type RequestScheduleAction struct {
 	atvfunc func(goja.FunctionCall) goja.Value
 }
 
-//NewScheduleAction refer to scheduling.ScheduleHandler - NewScheduleAction()
-func (rqst *Request) NewScheduleAction(a ...interface{}) (actnhndlr scheduling.ActionHandler) {
-	var atvfunc func(goja.FunctionCall) goja.Value = nil
+func (rqst *Request) executeSchdlRequest(a ...interface{}) (err error) {
+	for len(a) > 0 {
+		d := a[0]
+		a = a[1:]
+		if s, sok := d.(string); sok {
+			if s != "" {
+				rqst.AddPath(s)
+				rqst.processPaths(false)
+			}
+		} else if args, argsok := d.([]interface{}); argsok {
+			if len(args) > 0 {
+				a = append(a, args...)
+			}
+		} else if rqstmp, rqstmpok := d.(map[string]interface{}); rqstmpok {
+			for rqstk, rqstv := range rqstmp {
+				if rqstk == "path" {
+					a = append(a, rqstv)
+				} else if rqstk == "paths" {
+					a = append(a, rqstv)
+				}
+			}
+		}
+	}
+	return
+}
+
+func (rqst *Request) executeSchdlDbms(a ...interface{}) (err error) {
+	if len(a) > 0 {
+		err = database.GLOBALDBMS().InOut(a[0], nil, a[1:]...)
+	}
+	return
+}
+
+func (rqst *Request) executeSchdlCommand(a ...interface{}) (err error) {
+
+	return
+}
+
+func (rqst *Request) executeScheduleAction(a ...interface{}) (err error) {
+	for len(a) > 1 {
+		if cmd, cmdok := a[0].(string); cmdok && cmd != "" {
+			a = a[1:]
+			var cmdfnctoexec func(...interface{}) error = nil
+			if cmd == "dbms" {
+				cmdfnctoexec = rqst.executeSchdlDbms
+			} else if cmd == "request" {
+				cmdfnctoexec = rqst.executeSchdlRequest
+			} else if cmd == "command" {
+				cmdfnctoexec = rqst.executeSchdlCommand
+			}
+			if cmdfnctoexec != nil {
+				if cmdmap, cmdmapok := a[0].(map[string]interface{}); cmdmapok && len(cmdmap) > 0 {
+					cmdfnctoexec(cmdmap)
+				} else if cmdargs, cmdargsok := a[0].([]interface{}); cmdargsok && len(cmdargs) > 0 {
+					cmdfnctoexec(cmdargs)
+				} else if cmdarg, cmdargok := a[0].(interface{}); cmdargok {
+					if cmdarg != nil {
+						cmdfnctoexec(cmdarg)
+					}
+				} else {
+					break
+				}
+				a = a[1:]
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+
+	return
+}
+
+//PrepActionArgs refer to scheduling.ScheduleHandler - PrepActionArgs()
+func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}, err error) {
 	if al := len(a); al > 0 {
 		ai := 0
 		for ai < al {
 			d := a[ai]
 			if atvfnc, atvfcnok := d.(func(goja.FunctionCall) goja.Value); atvfcnok {
 				if atvfnc != nil {
-					//rqst.atv.InvokeFunction(atvfnc)
-					atvfunc = atvfnc
+					var prppdatvfnc scheduling.FuncArgsErrHandle = nil
+					prppdatvfnc = func(args ...interface{}) (rserr error) {
+						rqst.invokeAtv()
+						if rslt := rqst.atv.InvokeFunction(atvfnc, args...); rslt != nil {
+							if dne, dneok := rslt.(bool); dneok && dne {
+								rserr = fmt.Errorf("DONE")
+							}
+						}
+						return
+					}
+					a[ai] = nil
+					a[ai] = prppdatvfnc
 				}
-				a = append(a[:ai], a[ai+1:])
-			} else {
-				ai++
-			}
-		}
-		if atvfunc != nil {
+			} else if rqstactnmap, rqstactnmapok := d.(map[string]interface{}); rqstactnmapok {
+				ignore := false
+				for rqstmk, rqstmv := range rqstactnmap {
+					if rqstmk != "" && strings.Contains("|request|dbms|command|", "|"+rqstmk+"|") {
+						if !ignore {
+							ignore = true
+						}
+						a[ai] = scheduling.FuncArgsErrHandle(rqst.executeScheduleAction)
+						tmpa := a[ai+1:]
+						a = append(append(a[:ai+1], []interface{}{rqstmk, rqstmv}), tmpa...)
+						al = len(a)
+						ai++
+						ai++
+					}
+				}
+				if ignore {
 
+					continue
+				}
+			}
+			ai++
 		}
+		preppedargs = a[:]
 	}
-	//var schdlactn *scheduling.ScheduleAction = scheduling.NewScheduleAction()
 	return
 }
 

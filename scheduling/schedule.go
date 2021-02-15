@@ -12,7 +12,7 @@ type ScheduleHandler interface {
 	StartedSchedule(...interface{}) error
 	StoppedSchedule(...interface{}) error
 	ShutdownSchedule() error
-	NewScheduleAction(...interface{}) ActionHandler
+	PrepActionArgs(...interface{}) ([]interface{}, error)
 	Schedule() *Schedule
 }
 
@@ -58,7 +58,7 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 	var frm time.Time = time.Now()
 	frm = time.Date(frm.Year(), frm.Month(), frm.Day(), 0, 0, 0, 0, frm.Location())
 	var to time.Time = frm.Add(time.Hour * 24)
-	if len(a) == 1 {
+	if len(a) > 1 {
 		if dmp, dmpok := a[0].(map[string]interface{}); dmpok {
 			for stngk, stngv := range dmp {
 				if strings.ToLower(stngk) == "start" {
@@ -143,6 +143,11 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 	return
 }
 
+type FuncArgsErrHandle func(...interface{}) error
+type FuncArgsHandle func(...interface{})
+type FuncErrHandle func() error
+type FuncHandle func(...interface{})
+
 //AddAction - add action to *Schedule
 func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 	var lstargs []interface{} = nil
@@ -150,10 +155,16 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 	var al = 0
 	var vldactions = []*schdlaction{}
 	var cactn func(...interface{}) error = nil
-	//var actnhndlr ActionHandler = nil
-	//if schdl.schdlhndlr != nil {
-	//	actnhndlr = schdl.schdlhndlr.NewScheduleAction(a...)
-	//}
+	if schdl.schdlhndlr != nil && len(a) > 0 {
+		if preppedargs, preppederr := schdl.schdlhndlr.PrepActionArgs(a...); preppederr == nil {
+			if len(preppedargs) > 0 {
+				a = preppedargs[:]
+			}
+		} else {
+			err = preppederr
+			return
+		}
+	}
 	for {
 		if al = len(a); al > 0 {
 			d := a[0]
@@ -162,11 +173,11 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 				if al > 1 {
 					d = a[0]
 					if atcne, actneok := d.(func(...interface{}) error); actneok {
-						vldactions = append(vldactions, newSchdlAction(schdl, nil, atcne, args...))
+						vldactions = append(vldactions, newSchdlAction(schdl, atcne, args...))
 						a = a[1:]
 						lstargs = nil
 					} else if actn, actnok := d.(func(...interface{})); actnok {
-						vldactions = append(vldactions, newSchdlAction(schdl, nil, func(fna ...interface{}) (fnerr error) {
+						vldactions = append(vldactions, newSchdlAction(schdl, func(fna ...interface{}) (fnerr error) {
 							func() {
 								defer func() {
 									if rv := recover(); rv != nil {
@@ -184,7 +195,7 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 					}
 				} else {
 					if lstactn != nil {
-						vldactions = append(vldactions, newSchdlAction(schdl, nil, lstactn, args...))
+						vldactions = append(vldactions, newSchdlAction(schdl, lstactn, args...))
 					}
 					break
 				}
@@ -192,7 +203,46 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 				if cactn != nil {
 					cactn = nil
 				}
-				if actnae, actnaeok := d.(func(...interface{}) error); actnaeok {
+				d = interface{}(d)
+				if actnae, actnaeok := d.(FuncArgsErrHandle); actnaeok {
+					cactn = actnae
+				} else if actna, actnaok := d.(FuncArgsHandle); actnaok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actna(fna...)
+						}()
+						return fnerr
+					}
+				} else if actne, actneok := d.(FuncErrHandle); actneok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							fnerr = actne()
+						}()
+						return fnerr
+					}
+				} else if actn, actnok := d.(FuncHandle); actnok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actn()
+						}()
+						return fnerr
+					}
+				} else if actnae, actnaeok := d.(func(...interface{}) error); actnaeok {
 					cactn = actnae
 				} else if actna, actnaok := d.(func(...interface{})); actnaok {
 					cactn = func(fna ...interface{}) (fnerr error) {
@@ -234,12 +284,12 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 				if cactn != nil {
 					if al > 1 {
 						if lstargs != nil {
-							vldactions = append(vldactions, newSchdlAction(schdl, nil, cactn, lstargs...))
+							vldactions = append(vldactions, newSchdlAction(schdl, cactn, lstargs...))
 							lstargs = nil
 						} else {
 							d = a[0]
 							if args, argsok := d.([]interface{}); argsok {
-								vldactions = append(vldactions, newSchdlAction(schdl, nil, cactn, args...))
+								vldactions = append(vldactions, newSchdlAction(schdl, cactn, args...))
 								a = a[1:]
 							} else {
 								lstactn = cactn
@@ -247,7 +297,7 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 							}
 						}
 					} else {
-						vldactions = append(vldactions, newSchdlAction(schdl, nil, cactn, lstargs...))
+						vldactions = append(vldactions, newSchdlAction(schdl, cactn, lstargs...))
 						break
 					}
 				} else {
@@ -481,23 +531,17 @@ func removeactn(schdl *Schedule, schdlactn *schdlaction) {
 	}
 }
 
-//ActionHandler interface
-type ActionHandler interface {
-	ExecuteAction() (bool, error)
-}
-
 type schdlaction struct {
-	schdl     *Schedule
-	actnhndlr ActionHandler
-	prvactn   *schdlaction
-	nxtactn   *schdlaction
-	args      []interface{}
-	actn      func(...interface{}) error
-	valid     bool
+	schdl   *Schedule
+	prvactn *schdlaction
+	nxtactn *schdlaction
+	args    []interface{}
+	actn    func(...interface{}) error
+	valid   bool
 }
 
-func newSchdlAction(schdl *Schedule, actnhndlr ActionHandler, actn func(...interface{}) error, a ...interface{}) (scdhlactn *schdlaction) {
-	scdhlactn = &schdlaction{schdl: schdl, actnhndlr: actnhndlr, prvactn: nil, nxtactn: nil, actn: actn, args: a, valid: true}
+func newSchdlAction(schdl *Schedule, actn func(...interface{}) error, a ...interface{}) (scdhlactn *schdlaction) {
+	scdhlactn = &schdlaction{schdl: schdl, prvactn: nil, nxtactn: nil, actn: actn, args: a, valid: true}
 	return
 }
 

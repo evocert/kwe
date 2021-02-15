@@ -56,14 +56,25 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 
 		if scdhlrqst, _ := newRequest(chnl, nil, nil, a...); scdhlrqst != nil {
 			scdhlrqst.schdl = schdl
+			lclglbs := map[string]interface{}{}
+			scdhlrqst.atv.ExtractGlobals(lclglbs)
 			if len(atvprntmap) > 0 {
-				scdhlrqst.invokeAtv()
 				for k, kv := range atvprntmap {
-					if _, kobjok := scdhlrqst.objmap[k]; !kobjok {
-						scdhlrqst.objmap[k] = kv
+					if len(atvprntmap) > 0 {
+						if _, katvok := scdhlrqst.objmap[k]; katvok {
+							atvprntmap[k] = nil
+							delete(atvprntmap, k)
+						} else if _, klclok := lclglbs[k]; klclok {
+							atvprntmap[k] = nil
+							delete(atvprntmap, k)
+						} else if _, kobjok := scdhlrqst.objmap[k]; !kobjok {
+							scdhlrqst.objmap[k] = kv
+						}
 					}
 				}
 			}
+			scdhlrqst.atv.ImportGlobals(atvprntmap)
+
 			scdhlhndlr = scdhlrqst
 		}
 	}

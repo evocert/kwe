@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/kwe/ecma/jsext"
-
 	"github.com/dop251/goja/parser"
 
 	"github.com/dop251/goja"
@@ -16,6 +14,7 @@ import (
 	//"github.com/evocert/kwe/ecma/es51"
 	//"github.com/evocert/kwe/ecma/es51/parser"
 
+	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/requirejs"
 
 	"github.com/evocert/kwe/iorw"
@@ -559,6 +558,9 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 				argsn++
 			}
 			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
+				if len(fnccallargs) == 0 || fnccallargs == nil {
+					fnccallargs = []goja.Value{}
+				}
 				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
 				if rsltval := atvfunc(funccll); rsltval != nil {
 					result = rsltval.Export()
@@ -581,8 +583,6 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{} /* internmapref map[string]interface{},*/, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
 		atvrntme.vm.ClearInterrupt()
-		jsext.Register(atvrntme.vm)
-
 		//var glblobjstoremove []string = nil
 		if objmapref != nil && len(objmapref) > 0 {
 			//if glblobjstoremove == nil {
@@ -977,6 +977,7 @@ func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err err
 	atvrntme.atv.InterruptVM = func(v interface{}) {
 		atvrntme.vm.Interrupt(v)
 	}
+	jsext.Register(atvrntme.vm)
 	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); definternmapref != nil && len(definternmapref) > 0 {
 		if definternmapref != nil && len(definternmapref) > 0 {
 			if atvrntme.glblobjstoremove == nil {
