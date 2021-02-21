@@ -75,6 +75,11 @@ func (rqst *Request) executeSchdlCommand(a ...interface{}) (err error) {
 	return
 }
 
+func (rqst *Request) executeSchdlScript(a ...interface{}) (err error) {
+	fmt.Print(a...)
+	return
+}
+
 func (rqst *Request) executeScheduleAction(a ...interface{}) (err error) {
 	for len(a) > 1 {
 		if cmd, cmdok := a[0].(string); cmdok && cmd != "" {
@@ -86,6 +91,8 @@ func (rqst *Request) executeScheduleAction(a ...interface{}) (err error) {
 				cmdfnctoexec = rqst.executeSchdlRequest
 			} else if cmd == "command" {
 				cmdfnctoexec = rqst.executeSchdlCommand
+			} else if cmd == "script" {
+				cmdfnctoexec = rqst.executeSchdlScript
 			}
 			if cmdfnctoexec != nil {
 				if cmdmap, cmdmapok := a[0].(map[string]interface{}); cmdmapok && len(cmdmap) > 0 {
@@ -117,6 +124,21 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 		ai := 0
 		for ai < al {
 			d := a[ai]
+			if sfnc, sfncok := d.(string); sfncok {
+				if sfnc != "" {
+					if strings.HasPrefix(sfnc, "function(") {
+						rqst.atv.InvokeVM(func(vm *goja.Runtime) (vmerr error) {
+							atvfncval, _ := vm.RunString("(" + sfnc + ")")
+							var atvfncref func(goja.FunctionCall) goja.Value = nil
+							vm.ExportTo(atvfncval, &atvfncref)
+							d = atvfncref
+							return
+						})
+					}
+				} else {
+
+				}
+			}
 			if atvfnc, atvfcnok := d.(func(goja.FunctionCall) goja.Value); atvfcnok {
 				if atvfnc != nil {
 					var prppdatvfnc scheduling.FuncArgsErrHandle = nil
@@ -135,7 +157,7 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 			} else if rqstactnmap, rqstactnmapok := d.(map[string]interface{}); rqstactnmapok {
 				ignore := false
 				for rqstmk, rqstmv := range rqstactnmap {
-					if rqstmk != "" && strings.Contains("|request|dbms|command|", "|"+rqstmk+"|") {
+					if rqstmk != "" && strings.Contains("|request|dbms|command|script|", "|"+rqstmk+"|") {
 						if !ignore {
 							ignore = true
 						}

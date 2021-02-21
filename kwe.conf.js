@@ -1,11 +1,8 @@
 <@ 
-dbms.RegisterConnection("avon","oracle","oracle://SYSTEM:N%40N61ng%40@localhost/XE");
-resourcing.RegisterEndpoint("/","D:/projects/system");
-resourcing.RegisterEndpoint("/bs","https://cdn.jsdelivr.net/npm/bootstrap");
-resourcing.RegisterEndpoint("/master/kweutils","https://raw.githubusercontent.com/evocert/kweutils/main/");
-resourcing.MapEndpointResource("/","test-this.html","<h1>test this</h1>");
-//println(resourcing.FindRSString("/test-this.html"))
-println(resourcing.RegisteredPaths())
-println(resourcing.RegisteredRootPaths())
+//dbms.RegisterConnection("avon","oracle","oracle://SYSTEM:N%40N61ng%40@localhost/XE");
+//resourcing.RegisterEndpoint("/","D:/projects/system");
+resourcing.RegisterEndpoint("/etl","https://raw.githubusercontent.com/evocert/kwetl/main/src");
+resourcing.RegisterEndpoint("/etl/wspace","D:/projects/system/etl/workspace/");
+request.AddPath("/etl/init.js")
 channel.Listener().Listen(":1030");
  @>

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
@@ -881,8 +882,16 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 		return rqst.lstexctngactng
 	}
 	rqst.objmap[nmspce+"webing"] = web.DefaultClient
+
+	fstls := fsutils.NewFSUtils()
+	rqst.objmap[nmspce+"_fsutils"] = fstls
+
 	for cobjk, cobj := range chnl.objmap {
 		rqst.objmap[cobjk] = cobj
+	}
+
+	if len(rqst.objmap) > 0 {
+		rqst.atv.ImportGlobals(rqst.objmap)
 	}
 
 	if len(rqst.args) > 0 {
@@ -892,6 +901,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	interrupt = func() {
 		rqst.Interrupt()
 	}
+
 	return
 }
 

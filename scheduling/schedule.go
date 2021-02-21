@@ -316,17 +316,31 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 
 func (schdl *Schedule) execute() (err error) {
 	if schdl != nil {
-		actn := schdl.frstactn
-		for actn != nil {
-			if actn.valid {
-				if actnerr := actn.actn(actn.args...); actnerr != nil {
-					if strings.ToLower(actnerr.Error()) == "done" {
-						actn.valid = false
-						removeactn(schdl, actn)
+		var nxtactn *schdlaction = schdl.frstactn
+		var actn *schdlaction = nxtactn
+		var actnerr error = nil
+		for nxtactn != nil {
+			nxtactn = nxtactn.nxtactn
+			if actn != nil && actn.valid {
+				func() {
+					defer func() {
+						if rv := recover(); rv != nil {
+							actnerr = fmt.Errorf("%v", rv)
+						}
+					}()
+					if actnerr = actn.actn(actn.args...); actnerr != nil {
+						if strings.ToLower(actnerr.Error()) == "done" {
+							actn.valid = false
+							actnerr = nil
+							//actn.dispose()
+						}
 					}
+				}()
+				if actnerr != nil {
+					actn.valid = false
 				}
 			}
-			actn = actn.nxtactn
+			actn = nxtactn
 		}
 	}
 	return
@@ -452,6 +466,7 @@ func (schdl *Schedule) process() (err error) {
 			defer func() {
 				if rv := recover(); rv != nil {
 					err = fmt.Errorf("%v", rv)
+					fmt.Println(err.Error())
 				}
 			}()
 			err = schdl.execute()
@@ -526,8 +541,20 @@ func removeactns(schdl *Schedule, schdlactns ...*schdlaction) {
 func removeactn(schdl *Schedule, schdlactn *schdlaction) {
 	if schdlactn != nil {
 		if schdl != nil {
-
+			var prvactn *schdlaction = schdlactn.prvactn
+			var nxtactn *schdlaction = schdlactn.nxtactn
+			if prvactn != nil {
+				if nxtactn != nil {
+					prvactn.nxtactn = nxtactn
+				} else {
+					prvactn.nxtactn = nil
+				}
+			}
+			if nxtactn != nil {
+				nxtactn.prvactn = prvactn
+			}
 		}
+		schdlactn = nil
 	}
 }
 
@@ -549,6 +576,15 @@ func (scdhlctn *schdlaction) dispose() {
 	if scdhlctn != nil {
 		if scdhlctn.schdl != nil {
 			removeactn(scdhlctn.schdl, scdhlctn)
+		}
+		if scdhlctn.schdl != nil {
+			scdhlctn.schdl = nil
+		}
+		if scdhlctn.actn != nil {
+			scdhlctn.actn = nil
+		}
+		if scdhlctn.args != nil {
+			scdhlctn.args = nil
 		}
 		scdhlctn = nil
 	}

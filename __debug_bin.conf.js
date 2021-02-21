@@ -8,18 +8,23 @@ channel.Listener().Listen(":1040");
 //println(resourcing.FindRSString("/test-this.html"))
 //println(resourcing.RegisteredPaths().join("\r\n"));
 //println(resourcing.RegisteredRootPaths().join("\r\n"));
-channel.Listener().Listen(":1040");
+var fis = _fsutils.FIND("C:/GitHub");
+    if (fis!==undefined) {
+        println(_fsutils.FINFOPATHSJSON(fis));
+    }
 var cntdone=2;
 var test1=channel.Schedules().RegisterSchedule("test1",{"Seconds":20},request);
 for (var i=0;i<cntdone;i++){
-    test1.AddAction(function() {
-        println("test action ",(i+""));
-        cntdone--;
-        if (cntdone<=0) {
-            return true;
-        }
-    });
+    test1.AddAction(`function() {
+        println("test this"+_fsutils.FINFOPATHSJSON(fis));
+        //cntdone--;
+    }`);
 }
 test1.AddAction({"request":{"path":"/test/this.js"}});
 test1.Start();
+
+    /*for _, fi := range fis {
+        fmt.Println(fi.JSON())
+    }*/
+
  @>

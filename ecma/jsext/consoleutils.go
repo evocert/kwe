@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/dop251/goja"
+	"github.com/evocert/kwe/iorw"
 )
 
 func Register_jsext_consoleutils(vm *goja.Runtime) {
@@ -17,12 +18,12 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
 	vm.Set("console", struct {
-		Version Version      `json:"version"`
-		Log     func(string) `json:"log"`
-		Warn    func(string) `json:"warn"`
-		Error   func(string) `json:"error"`
-		Debug   func(string) `json:"debug"`
-		Trace   func(string) `json:"trace"`
+		Version Version              `json:"version"`
+		Log     func(...interface{}) `json:"log"`
+		Warn    func(...interface{}) `json:"warn"`
+		Error   func(...interface{}) `json:"error"`
+		Debug   func(...interface{}) `json:"debug"`
+		Trace   func(...interface{}) `json:"trace"`
 	}{
 		Version: Version{
 			Major: 0,
@@ -30,20 +31,41 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 			Bump:  1,
 		},
 		//todo: colors
-		Log: func(msg string) {
-			log.Println("LOG:   ", msg)
+		Log: func(msg ...interface{}) {
+			buf := iorw.NewBuffer()
+			buf.Print(msg...)
+			lgmsg := buf.String()
+			buf.Close()
+			buf = nil
+			log.Println("LOG:   ", lgmsg)
 		},
-		Warn: func(msg string) {
-			log.Println("WARN:  ", msg)
+		Warn: func(msg ...interface{}) {
+			buf := iorw.NewBuffer()
+			buf.Print(msg...)
+			lgmsg := buf.String()
+			buf = nil
+			log.Println("WARN:  ", lgmsg)
 		},
-		Error: func(msg string) {
-			log.Println("ERROR: ", msg)
+		Error: func(msg ...interface{}) {
+			buf := iorw.NewBuffer()
+			buf.Print(msg...)
+			lgmsg := buf.String()
+			buf = nil
+			log.Println("ERROR: ", lgmsg)
 		},
-		Debug: func(msg string) {
-			log.Println("DEBUG: ", msg)
+		Debug: func(msg ...interface{}) {
+			buf := iorw.NewBuffer()
+			buf.Print(msg...)
+			lgmsg := buf.String()
+			buf = nil
+			log.Println("DEBUG: ", lgmsg)
 		},
-		Trace: func(msg string) {
-			log.Println("TRACE: ", msg)
+		Trace: func(msg ...interface{}) {
+			buf := iorw.NewBuffer()
+			buf.Print(msg...)
+			lgmsg := buf.String()
+			buf = nil
+			log.Println("TRACE: ", lgmsg)
 		},
 	})
 }

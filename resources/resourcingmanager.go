@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"io"
 	"strings"
+
+	"github.com/evocert/kwe/fsutils"
 )
 
 //ResourcingManager - struct
 type ResourcingManager struct {
+	*fsutils.FSUtils
 	rsngpaths     map[string]string
 	rsngrootpaths map[string]*ResourcingEndpoint
 }

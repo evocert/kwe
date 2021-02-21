@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/web"
@@ -17,9 +18,10 @@ import (
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
 	lck               *sync.Mutex
+	fsutils           *fsutils.FSUtils
 	path              string
 	epnttype          string
-	islocal           bool
+	isLocal           bool
 	isRemote          bool
 	isEmbedded        bool
 	remoteHeaders     map[string]string
@@ -28,6 +30,25 @@ type ResourcingEndpoint struct {
 	querystring       string
 	embeddedResources map[string]interface{}
 	rsngmngr          *ResourcingManager
+}
+
+func (rscngepnt *ResourcingEndpoint) FSUtils() *fsutils.FSUtils {
+	if rscngepnt.fsutils == nil {
+		rscngepnt.fsutils = &fsutils.FSUtils{FIND: func(path string) (finfos []fsutils.FileInfo) {
+			finfos, _ = rscngepnt.fsfind(path)
+			return
+		},
+		}
+	}
+	return rscngepnt.fsutils
+}
+
+func (rscngepnt *ResourcingEndpoint) fsfind(path string) (finfos []fsutils.FileInfo, err error) {
+	if rscngepnt.isLocal {
+		finfos, _ = fsutils.FIND(path)
+	}
+
+	return
 }
 
 func (rscngepnt *ResourcingEndpoint) dispose() {
@@ -42,12 +63,14 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 			}
 			rscngepnt.rsngmngr = nil
 		}
-		rscngepnt = nil
 		if rscngepnt.embeddedResources != nil {
 			for embk := range rscngepnt.embeddedResources {
 				rscngepnt.RemoveResource(embk)
 			}
 			rscngepnt.embeddedResources = nil
+		}
+		if rscngepnt.fsutils != nil {
+			rscngepnt.fsutils = nil
 		}
 		rscngepnt = nil
 	}
@@ -65,13 +88,13 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 					} else if funcr, funcrok := embdrs.(func() io.Reader); funcrok {
 						rs = newRS(rscngepnt, path, funcr())
 					}
-				} else if rscngepnt.islocal {
+				} else if rscngepnt.isLocal {
 					var tmppath = ""
 					var tmppaths = strings.Split(path, "/")
 					for pn, ps := range tmppaths {
-						if pn < len(tmppaths)-1 {
+						if tmpl := len(tmppaths); pn < tmpl-1 {
 							if fi, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
-								var testpath = strings.Join(tmppaths[pn+1:len(tmppaths)], "/")
+								var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
 								if testpath != "" {
 									if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
 										for _, f := range r.File {
@@ -304,7 +327,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
 				}
 			}
 		} else {
@@ -313,12 +336,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, islocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
+		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
 	}
 	return
 }

@@ -46,5 +46,6 @@ func main() {
 		fmt.Println(cmd.Dir())
 		cmd.Close()
 	}*/
+
 	service.RunService(os.Args...)
 }

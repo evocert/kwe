@@ -48,7 +48,14 @@ func (atv *Active) ExtractGlobals(extrglbs map[string]interface{}) {
 		if extrglbs != nil {
 			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
 				for _, k := range gbl.Keys() {
-					extrglbs[k] = gbl.Get(k)
+					glbv := gbl.Get(k)
+					if t := glbv.ExportType(); t != nil {
+						if expv := glbv.Export(); expv == nil {
+							extrglbs[k] = glbv
+						} else {
+							extrglbs[k] = expv
+						}
+					}
 				}
 				gbl = nil
 			}
@@ -62,7 +69,15 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 		if imprtglbs != nil && len(imprtglbs) > 0 {
 			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
 				for k, kv := range imprtglbs {
-					gbl.Set(k, kv)
+					if gjv, gjvok := kv.(goja.Value); gjvok {
+						if expv := gjv.Export(); expv == nil {
+							gbl.Set(k, gjv)
+						} else {
+							gbl.Set(k, expv)
+						}
+					} else {
+						gbl.Set(k, kv)
+					}
 				}
 				gbl = nil
 			}
@@ -143,6 +158,20 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 			}
 		}
 	}
+}
+
+//InvokeVM invoke vm
+func (atv *Active) InvokeVM(callback func(vm *goja.Runtime) error) {
+	if callback != nil {
+		callback(atv.vm())
+	}
+}
+
+func (atv *Active) vm() (vm *goja.Runtime) {
+	if atv != nil && atv.atvruntime != nil && atv.atvruntime.vm != nil {
+		vm = atv.atvruntime.vm
+	}
+	return
 }
 
 func (atv *Active) atvrun(prsng *parsing) {
@@ -313,15 +342,10 @@ func (prsng *parsing) dispose() {
 		if prsng.wout != nil {
 			prsng.wout = nil
 		}
-		/*if prsng.atvrntme != nil {
-			prsng.atvrntme.close()
-			prsng.atvrntme = nil
-		}*/
 		if prsng.psvctrl != nil {
 			prsng.psvctrl.close()
 			prsng.psvctrl = nil
 		}
-
 		prsng = nil
 	}
 }
@@ -536,12 +560,12 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer) (prsng *parsin
 }
 
 type atvruntime struct {
-	prsng            *parsing
-	atv              *Active
-	vm               *goja.Runtime
-	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
-	includedpgrms    map[string]*goja.Program
-	glblobjstoremove []string
+	prsng         *parsing
+	atv           *Active
+	vm            *goja.Runtime
+	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
+	includedpgrms map[string]*goja.Program
+	//glblobjstoremove []string
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -580,28 +604,14 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 	return
 }
 
-func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{} /* internmapref map[string]interface{},*/, includelibs ...string) (val interface{}, err error) {
+func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
 		atvrntme.vm.ClearInterrupt()
-		//var glblobjstoremove []string = nil
 		if objmapref != nil && len(objmapref) > 0 {
-			//if glblobjstoremove == nil {
-			//	glblobjstoremove = []string{}
-			//}
 			for k, ref := range objmapref {
-				//	glblobjstoremove = append(glblobjstoremove, k)
 				atvrntme.vm.Set(k, ref)
 			}
 		}
-		/*if internmapref != nil && len(internmapref) > 0 {
-			if glblobjstoremove == nil {
-				glblobjstoremove = []string{}
-			}
-			for k, ref := range internmapref {
-				glblobjstoremove = append(glblobjstoremove, k)
-				atvrntme.vm.Set(k, ref)
-			}
-		}*/
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -641,14 +651,6 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 						if err != nil {
 							fmt.Println(err.Error())
 						}
-						/*if len(glblobjstoremove) > 0 {
-							if gbl := atvrntme.vm.GlobalObject(); gbl != nil {
-								for _, k := range glblobjstoremove {
-									gbl.Delete(k)
-								}
-								gbl = nil
-							}
-						}*/
 					} else {
 						err = perr
 					}
@@ -682,7 +684,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	trsnfrmdcde = code
-	isrequired = strings.IndexAny(code, "require(\"") > -1
+	isrequired = strings.Index(code, "require(\"") > -1
 	if isrequired {
 		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 	}
@@ -973,18 +975,14 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
-	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, glblobjstoremove: []string{}}
+	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	atvrntme.atv.InterruptVM = func(v interface{}) {
 		atvrntme.vm.Interrupt(v)
 	}
 	jsext.Register(atvrntme.vm)
 	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); definternmapref != nil && len(definternmapref) > 0 {
 		if definternmapref != nil && len(definternmapref) > 0 {
-			if atvrntme.glblobjstoremove == nil {
-				atvrntme.glblobjstoremove = []string{}
-			}
 			for k, ref := range definternmapref {
-				atvrntme.glblobjstoremove = append(atvrntme.glblobjstoremove, k)
 				atvrntme.vm.Set(k, ref)
 			}
 		}

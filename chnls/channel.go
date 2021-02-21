@@ -59,7 +59,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 			lclglbs := map[string]interface{}{}
 			scdhlrqst.atv.ExtractGlobals(lclglbs)
 			if len(atvprntmap) > 0 {
-				for k, kv := range atvprntmap {
+				for k := range atvprntmap {
 					if len(atvprntmap) > 0 {
 						if _, katvok := scdhlrqst.objmap[k]; katvok {
 							atvprntmap[k] = nil
@@ -67,12 +67,11 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 						} else if _, klclok := lclglbs[k]; klclok {
 							atvprntmap[k] = nil
 							delete(atvprntmap, k)
-						} else if _, kobjok := scdhlrqst.objmap[k]; !kobjok {
-							scdhlrqst.objmap[k] = kv
 						}
 					}
 				}
 			}
+
 			scdhlrqst.atv.ImportGlobals(atvprntmap)
 
 			scdhlhndlr = scdhlrqst
