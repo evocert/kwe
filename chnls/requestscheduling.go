@@ -122,6 +122,24 @@ func (rqst *Request) executeScheduleAction(a ...interface{}) (err error) {
 func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}, err error) {
 	if al := len(a); al > 0 {
 		ai := 0
+		regatvfnc := func(atvfnc func(goja.FunctionCall) goja.Value) bool {
+			if atvfnc != nil {
+				var prppdatvfnc scheduling.FuncArgsErrHandle = nil
+				prppdatvfnc = func(args ...interface{}) (rserr error) {
+					rqst.invokeAtv()
+					if rslt := rqst.atv.InvokeFunction(atvfnc, args...); rslt != nil {
+						if dne, dneok := rslt.(bool); dneok && dne {
+							rserr = fmt.Errorf("DONE")
+						}
+					}
+					return
+				}
+				a[ai] = nil
+				a[ai] = prppdatvfnc
+				return true
+			}
+			return false
+		}
 		for ai < al {
 			d := a[ai]
 			if sfnc, sfncok := d.(string); sfncok {
@@ -131,7 +149,9 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 							atvfncval, _ := vm.RunString("(" + sfnc + ")")
 							var atvfncref func(goja.FunctionCall) goja.Value = nil
 							vm.ExportTo(atvfncval, &atvfncref)
-							d = atvfncref
+							if !regatvfnc(atvfncref) {
+
+							}
 							return
 						})
 					}
@@ -140,19 +160,28 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 				}
 			}
 			if atvfnc, atvfcnok := d.(func(goja.FunctionCall) goja.Value); atvfcnok {
-				if atvfnc != nil {
-					var prppdatvfnc scheduling.FuncArgsErrHandle = nil
-					prppdatvfnc = func(args ...interface{}) (rserr error) {
-						rqst.invokeAtv()
-						if rslt := rqst.atv.InvokeFunction(atvfnc, args...); rslt != nil {
-							if dne, dneok := rslt.(bool); dneok && dne {
-								rserr = fmt.Errorf("DONE")
+				if rqst.prntrqst != nil && rqst.prntrqst.atv != nil {
+					rqst.prntrqst.atv.InvokeVM(func(vm *goja.Runtime) (vmerr error) {
+						/*atvfncval, _ := vm.RunString("(" + sfnc + ")")
+						var atvfncref func(goja.FunctionCall) goja.Value = nil
+						vm.ExportTo(atvfncval, &atvfncref)
+						if !regatvfnc(atvfncref) {
+
+						}*/
+						vm.Set("xfnc", atvfnc)
+						if fncv, _ := vm.RunString("xfnc.toString()"); fncv != nil {
+							fncs := ""
+							vm.ExportTo(fncv, &fncs)
+							if fncs != "" {
+
 							}
 						}
 						return
-					}
-					a[ai] = nil
-					a[ai] = prppdatvfnc
+					})
+				}
+				if !regatvfnc(atvfnc) {
+					//a[ai] = nil
+					//a[ai] = prppdatvfnc
 				}
 			} else if rqstactnmap, rqstactnmapok := d.(map[string]interface{}); rqstactnmapok {
 				ignore := false

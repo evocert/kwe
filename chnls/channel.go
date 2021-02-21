@@ -47,8 +47,9 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 				if rqst.atv != nil {
 					rqst.atv.ExtractGlobals(atvprntmap)
 				}
-				a = append(a[:ai], a[ai+1:])
-				al--
+				//a = append(a[:ai], a[ai+1:])
+				//al--
+				ai++
 			} else {
 				ai++
 			}

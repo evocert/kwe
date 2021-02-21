@@ -61,7 +61,8 @@ type Request struct {
 	//commands
 	cmnds map[int]*osprc.Command
 	//scheduling
-	schdl *scheduling.Schedule
+	schdl    *scheduling.Schedule
+	prntrqst *Request
 }
 
 //Resource - return mapped resource interface{} by path
@@ -480,6 +481,9 @@ func (rqst *Request) Close() (err error) {
 		if rqst.schdl != nil {
 			rqst.schdl = nil
 		}
+		if rqst.prntrqst != nil {
+			rqst.prntrqst = nil
+		}
 		rqst = nil
 	}
 	return
@@ -782,7 +786,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	var httpw http.ResponseWriter = nil
 	var httpflshr http.Flusher = nil
 	var httpr *http.Request = nil
-
+	var prntrqst *Request = nil
 	if wtr != nil {
 		if dhttpw, dhttpwok := wtr.(http.ResponseWriter); dhttpwok {
 			if httpw == nil {
@@ -805,6 +809,12 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 			} else {
 				a = a[1:]
 			}
+			continue
+		} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
+			if prntrqst == nil {
+				prntrqst = prnstrq
+			}
+			a = a[1:]
 			continue
 		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
 			if rqstsettings == nil {
@@ -851,7 +861,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {
