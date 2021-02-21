@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/denisenkom/go-mssqldb v0.9.0
 	github.com/dlclark/regexp2 v1.4.0 // indirect
-	github.com/dop251/goja v0.0.0-20210209213638-ed7b3dc62eb9
+	github.com/dop251/goja v0.0.0-20210216182323-60bc6ebb9fc1
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gorilla/websocket v1.4.2

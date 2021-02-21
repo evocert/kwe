@@ -13,6 +13,8 @@ github.com/dop251/goja v0.0.0-20210120143036-e933a5491723 h1:aVx1yXro067pRCasEEa
 github.com/dop251/goja v0.0.0-20210120143036-e933a5491723/go.mod h1:Mw6PkjjMXWbTj+nnj4s3QPXq1jaT0s5pC0iFD4+BOAA=
 github.com/dop251/goja v0.0.0-20210209213638-ed7b3dc62eb9 h1:AAZXK1sdwpWX8MSxgfl8ZskVhsCO+/4QV4uGnSnqijU=
 github.com/dop251/goja v0.0.0-20210209213638-ed7b3dc62eb9/go.mod h1:Mw6PkjjMXWbTj+nnj4s3QPXq1jaT0s5pC0iFD4+BOAA=
+github.com/dop251/goja v0.0.0-20210216182323-60bc6ebb9fc1 h1:2Xfv4vHdBWlxJLq8BU4I28a+DsKsyi7Rqjrfo4qp9L4=
+github.com/dop251/goja v0.0.0-20210216182323-60bc6ebb9fc1/go.mod h1:Mw6PkjjMXWbTj+nnj4s3QPXq1jaT0s5pC0iFD4+BOAA=
 github.com/go-sourcemap/sourcemap v2.1.3+incompatible h1:W1iEw64niKVGogNgBN3ePyLFfuisuzeidWPMPWmECqU=
 github.com/go-sourcemap/sourcemap v2.1.3+incompatible/go.mod h1:F8jJfvm2KbVjc5NqelyYJmf/v5J0dwNLS2mL4sNA1Jg=
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
