@@ -273,6 +273,7 @@ type FSUtils struct {
 	MKDIRALL       func(path string) bool                  `json:"mkdirall"`
 	RM             func(path string) bool                  `json:"rm"`
 	MV             func(path string, destpath string) bool `json:"mv"`
+	TOUCH          func(path string) bool                  `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)          `json:"finfopathsjson"`
 }
 
@@ -307,6 +308,12 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 		},
 		RM: func(path string) bool {
 			if err := RM(path); err == nil {
+				return true
+			}
+			return false
+		},
+		TOUCH: func(path string) bool {
+			if err := TOUCH(path); err == nil {
 				return true
 			}
 			return false
