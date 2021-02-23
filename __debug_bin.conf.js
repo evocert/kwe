@@ -8,15 +8,18 @@ channel.Listener().Listen(":1040");
 //println(resourcing.FindRSString("/test-this.html"))
 //println(resourcing.RegisteredPaths().join("\r\n"));
 //println(resourcing.RegisteredRootPaths().join("\r\n"));
-var fis = _fsutils.FIND("C:/GitHub");
+var fis = _fsutils.FIND("C:/GitHub","ge");
     if (fis!==undefined) {
-        println(_fsutils.FINFOPATHSJSON(fis));
+        fis.forEach(function(fi){
+            println(fi.Path())
+        });
+        //println(_fsutils.FINFOPATHSJSON(fis));
     }
 var cntdone=2;
 var test1=channel.Schedules().RegisterSchedule("test1",{"Seconds":20},request);
 for (var i=0;i<cntdone;i++){
     test1.AddAction(`function() {
-        println("test this"+_fsutils.FINFOPATHSJSON(fis));
+        //console.Log("test this"+_fsutils.FINFOPATHSJSON(fis));
         //cntdone--;
     }`);
 }

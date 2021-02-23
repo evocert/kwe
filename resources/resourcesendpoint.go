@@ -32,10 +32,11 @@ type ResourcingEndpoint struct {
 	rsngmngr          *ResourcingManager
 }
 
+//FSUtils implementation of *ResourcingEndPoint
 func (rscngepnt *ResourcingEndpoint) FSUtils() *fsutils.FSUtils {
 	if rscngepnt.fsutils == nil {
-		rscngepnt.fsutils = &fsutils.FSUtils{FIND: func(path string) (finfos []fsutils.FileInfo) {
-			finfos, _ = rscngepnt.fsfind(path)
+		rscngepnt.fsutils = &fsutils.FSUtils{FIND: func(path ...string) (finfos []fsutils.FileInfo) {
+			finfos, _ = rscngepnt.fsfind(path...)
 			return
 		},
 		}
@@ -43,9 +44,13 @@ func (rscngepnt *ResourcingEndpoint) FSUtils() *fsutils.FSUtils {
 	return rscngepnt.fsutils
 }
 
-func (rscngepnt *ResourcingEndpoint) fsfind(path string) (finfos []fsutils.FileInfo, err error) {
+func (rscngepnt *ResourcingEndpoint) fsfind(path ...string) (finfos []fsutils.FileInfo, err error) {
 	if rscngepnt.isLocal {
-		finfos, _ = fsutils.FIND(path)
+		if len(path) == 1 {
+			finfos, _ = fsutils.FIND(path[0])
+		} else if len(path) == 2 {
+			finfos, _ = fsutils.FIND(path[0], path[1])
+		}
 	}
 
 	return

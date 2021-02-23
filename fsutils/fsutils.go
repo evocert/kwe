@@ -14,34 +14,58 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 	path = strings.Replace(path, "\\", "/", -1)
 	var altpth = ""
 	if len(altpath) == 1 && altpath[0] != "" {
-		altpth = altpath[0]
+		altpth = strings.Replace(altpath[0], "\\", "/", -1)
 	}
 	if fi, fierr := os.Stat(path); fierr == nil {
 		if fi.IsDir() {
-			if !strings.HasSuffix(path, "/") {
-				path += "/"
-			}
+			//if !strings.HasSuffix(path, "/") {
+			//	path += "/"
+			//}
 			if fifis, fifpath, fifaltpath, fifiserr := internalFind(fi, path, altpth); fifiserr == nil {
 				if !strings.HasSuffix(fifpath, "/") {
 					fifpath += "/"
 				}
-				if !strings.HasSuffix(fifaltpath, "/") {
+				if fifaltpath != "" && !strings.HasSuffix(fifaltpath, "/") {
 					fifaltpath += "/"
 				}
-				if fifaltpath != "" {
-					fifpath = fifaltpath
-				}
+
 				for _, fifi := range fifis {
 					if finfos == nil {
 						finfos = []FileInfo{}
 					}
-					finfos = append(finfos, newFileInfo(fifi.Name(), path+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+					if fifaltpath != "" {
+						finfos = append(finfos, newFileInfo(fifi.Name(), fifaltpath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+					} else {
+						finfos = append(finfos, newFileInfo(fifi.Name(), fifpath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+					}
 				}
 			} else {
 
 			}
 		} else {
-			finfos = []FileInfo{newFileInfo(fi.Name(), path+fi.Name(), path+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())}
+			fname := fi.Name()
+			if strings.HasSuffix(path, fi.Name()) {
+				path = path[:len(path)-len(fi.Name())]
+			}
+			if altpth != "" {
+				if !strings.HasSuffix(altpth, fi.Name()) {
+					if strings.LastIndex(altpth, ".") > strings.LastIndex(altpth, "/") {
+						if strings.LastIndex(altpth, "/") > -1 {
+							fname = altpth[strings.LastIndex(altpth, "/")+1:]
+						} else {
+							fname = altpth
+						}
+					} else {
+						if !strings.HasSuffix(altpth, "/") {
+							altpth += "/"
+						}
+						altpth += fi.Name()
+					}
+				}
+				finfos = []FileInfo{newFileInfo(fname, altpth, path+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())}
+			} else {
+				finfos = []FileInfo{newFileInfo(fi.Name(), path+fi.Name(), path+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())}
+			}
 		}
 	} else {
 		err = fierr
@@ -59,7 +83,7 @@ func internalFind(fi os.FileInfo, rootpath string, altrootpath string) (finfos [
 	}
 
 	altrootpath = strings.Replace(altrootpath, "\\", "/", -1)
-	if !strings.HasSuffix(altrootpath, "/") {
+	if altrootpath != "" && !strings.HasSuffix(altrootpath, "/") {
 		altrootpath += "/"
 	}
 	if fi.IsDir() {
@@ -142,7 +166,7 @@ func (finfo *fileInfo) IsDir() bool {
 func (finfo *fileInfo) JSON() (s string) {
 	buf := iorw.NewBuffer()
 	enc := json.NewEncoder(buf)
-	enc.Encode(map[string]interface{}{"Name": finfo.name, "Path": finfo.path, "Dir": finfo.IsDir(), "Modified": finfo.modtime, "Size": finfo.size})
+	enc.Encode(map[string]interface{}{"Name": finfo.name, "Path": finfo.path, "Absolute-Path": finfo.absolutepath, "Dir": finfo.IsDir(), "Modified": finfo.modtime, "Size": finfo.size})
 	s = buf.String()
 	buf.Close()
 	buf = nil
@@ -158,9 +182,6 @@ func FIND(path string, altpath ...string) (finfos []FileInfo, err error) {
 	var altpth = ""
 	if len(altpath) == 1 && altpath[0] != "" {
 		altpth = strings.Replace(altpath[0], "\\", "/", -1)
-		if altpth != "/" && !strings.HasSuffix(altpth, "/") {
-			altpth += "/"
-		}
 	}
 
 	fisfunc := func(fi os.FileInfo, fipath string, fialtpath string) {
@@ -171,33 +192,73 @@ func FIND(path string, altpath ...string) (finfos []FileInfo, err error) {
 			fipath = fipath[:len(fipath)-len(fi.Name())]
 		}
 		fipath = strings.Replace(fipath, "\\", "/", -1)
-		if !strings.HasSuffix(fipath, "/") {
-			fipath += "/"
-		}
-		finfos = append(
-			finfos,
-			newFileInfo(fi.Name(), fipath+fi.Name(), fipath+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime()),
-		)
-		if fifis, fifpath, fifaltpath, fifiserr := internalFind(fi, fipath, fialtpath); fifiserr == nil {
-			if !strings.HasSuffix(fifpath, "/") {
-				fifpath += "/"
+		if fi.IsDir() {
+			if !strings.HasSuffix(fipath, "/") {
+				fipath += "/"
 			}
-			if !strings.HasSuffix(fifaltpath, "/") {
-				fifaltpath += "/"
-			}
-			for _, fifi := range fifis {
-				if finfos == nil {
-					finfos = []FileInfo{}
+			if fialtpath != "" {
+				if fialtpath != "/" && !strings.HasSuffix(fialtpath, "/") {
+					fialtpath += "/"
 				}
-				if fifi.IsDir() {
-					nxtfisfunc(fifi, fifpath+fifi.Name(), fifaltpath+fifi.Name())
-				} else {
-					if fifaltpath != "" {
-						finfos = append(finfos, newFileInfo(fifi.Name(), fifaltpath+fifi.Name(), fifaltpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+				finfos = append(
+					finfos,
+					newFileInfo(fi.Name(), fialtpath, fipath+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime()),
+				)
+			} else {
+				finfos = append(
+					finfos,
+					newFileInfo(fi.Name(), fipath+fi.Name(), fipath+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime()),
+				)
+			}
+			if fifis, fifpath, fifaltpath, fifiserr := internalFind(fi, fipath, fialtpath); fifiserr == nil {
+				if !strings.HasSuffix(fifpath, "/") {
+					fifpath += "/"
+				}
+				if fifaltpath != "" && !strings.HasSuffix(fifaltpath, "/") {
+					fifaltpath += "/"
+				}
+				for _, fifi := range fifis {
+					if finfos == nil {
+						finfos = []FileInfo{}
+					}
+					if fifi.IsDir() {
+						if fifaltpath != "" {
+							nxtfisfunc(fifi, fifpath+fifi.Name(), fifaltpath+fifi.Name())
+						} else {
+							nxtfisfunc(fifi, fifpath+fifi.Name(), "")
+						}
 					} else {
-						finfos = append(finfos, newFileInfo(fifi.Name(), fipath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+						if fifaltpath != "" {
+							finfos = append(finfos, newFileInfo(fifi.Name(), fifaltpath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+						} else {
+							finfos = append(finfos, newFileInfo(fifi.Name(), fifpath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+						}
 					}
 				}
+			}
+		} else {
+			fname := fi.Name()
+			if strings.HasSuffix(fipath, fi.Name()) {
+				fipath = path[:len(fipath)-len(fi.Name())]
+			}
+			if fialtpath != "" {
+				if !strings.HasSuffix(fialtpath, fi.Name()) {
+					if strings.LastIndex(fialtpath, ".") > strings.LastIndex(fialtpath, "/") {
+						if strings.LastIndex(fialtpath, "/") > -1 {
+							fname = altpth[strings.LastIndex(fialtpath, "/")+1:]
+						} else {
+							fname = fialtpath
+						}
+					} else {
+						if !strings.HasSuffix(fialtpath, "/") {
+							fialtpath += "/"
+						}
+						fialtpath += fi.Name()
+					}
+				}
+				finfos = []FileInfo{newFileInfo(fname, fialtpath, fipath+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())}
+			} else {
+				finfos = []FileInfo{newFileInfo(fi.Name(), fipath+fi.Name(), fipath+fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())}
 			}
 		}
 	}
@@ -254,7 +315,7 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 		if al := len(a); al > 0 {
 			s += a[0].JSON()
 			a = a[1:]
-			if al > 0 {
+			if al > 1 {
 				s += ","
 			}
 		} else {
@@ -267,25 +328,34 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 
 //FSUtils struct
 type FSUtils struct {
-	LS             func(path string) (finfos []FileInfo)   `json:"ls"`
-	FIND           func(path string) (finfos []FileInfo)   `json:"find"`
-	MKDIR          func(path string) bool                  `json:"mkdir"`
-	MKDIRALL       func(path string) bool                  `json:"mkdirall"`
-	RM             func(path string) bool                  `json:"rm"`
-	MV             func(path string, destpath string) bool `json:"mv"`
-	TOUCH          func(path string) bool                  `json:"touch"`
-	FINFOPATHSJSON func(a ...FileInfo) (s string)          `json:"finfopathsjson"`
+	LS             func(path ...string) (finfos []FileInfo) `json:"ls"`
+	FIND           func(path ...string) (finfos []FileInfo) `json:"find"`
+	MKDIR          func(path string) bool                   `json:"mkdir"`
+	MKDIRALL       func(path string) bool                   `json:"mkdirall"`
+	RM             func(path string) bool                   `json:"rm"`
+	MV             func(path string, destpath string) bool  `json:"mv"`
+	TOUCH          func(path string) bool                   `json:"touch"`
+	FINFOPATHSJSON func(a ...FileInfo) (s string)           `json:"finfopathsjson"`
 }
 
 //NewFSUtils return instance of FSUtils
 func NewFSUtils() (fsutlsstrct FSUtils) {
 	fsutlsstrct = FSUtils{
-		FIND: func(path string) (finfos []FileInfo) {
-			finfos, _ = FIND(path)
+		FIND: func(path ...string) (finfos []FileInfo) {
+			if len(path) == 1 {
+				finfos, _ = FIND(path[0])
+			} else if len(path) == 2 {
+				finfos, _ = FIND(path[0], path[1])
+			}
+
 			return
 		},
-		LS: func(path string) (finfos []FileInfo) {
-			finfos, _ = LS(path)
+		LS: func(path ...string) (finfos []FileInfo) {
+			if len(path) == 1 {
+				finfos, _ = LS(path[0])
+			} else if len(path) == 2 {
+				finfos, _ = LS(path[0], path[1])
+			}
 			return
 		},
 		MKDIR: func(path string) bool {
