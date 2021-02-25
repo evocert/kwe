@@ -1,7 +1,9 @@
 package fsutils
 
 import (
+	"archive/zip"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -16,11 +18,9 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 	if len(altpath) == 1 && altpath[0] != "" {
 		altpth = strings.Replace(altpath[0], "\\", "/", -1)
 	}
+
 	if fi, fierr := os.Stat(path); fierr == nil {
 		if fi.IsDir() {
-			//if !strings.HasSuffix(path, "/") {
-			//	path += "/"
-			//}
 			if fifis, fifpath, fifaltpath, fifiserr := internalFind(fi, path, altpth); fifiserr == nil {
 				if !strings.HasSuffix(fifpath, "/") {
 					fifpath += "/"
@@ -68,6 +68,115 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 			}
 		}
 	} else {
+		var tmppath = ""
+		var tmppaths = strings.Split(path, "/")
+		for pn, ps := range tmppaths {
+			if tmpl := len(tmppaths); pn < tmpl {
+				if fi, fierr := os.Stat(tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
+					var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
+					var remainingpath = strings.Join(tmppaths[:pn+1], "/")
+					if remainingpath != "" {
+						if r, zerr := zip.OpenReader(tmppath + ps + ".zip"); zerr == nil {
+							dirsfound := map[string]bool{}
+							fname := ""
+							for _, f := range r.File {
+								if fname = f.Name; strings.HasPrefix(fname, testpath) {
+									if fname[len(testpath):] == "" {
+										if fname == testpath {
+											fname = testpath
+										}
+									} else {
+										fname = fname[len(testpath):]
+									}
+
+									if fname != "" {
+										if strings.HasPrefix(fname, "/") {
+											fname = fname[1:]
+										}
+										if fname != "" {
+											if fname != testpath {
+												if strings.Index(fname, "/") > -1 {
+													fname = fname[:strings.Index(fname, "/")]
+													if df, dfok := dirsfound[fname]; dfok {
+														if !df {
+															dirsfound[fname] = true
+															if len(testpath) > 0 && !strings.HasSuffix(testpath, "/") {
+																fmt.Println(testpath + "/" + fname)
+															} else {
+																fmt.Println(testpath + fname)
+															}
+														} else {
+															fname = ""
+														}
+													} else {
+														dirsfound[fname] = true
+														if len(testpath) > 0 && !strings.HasSuffix(testpath, "/") {
+															fname = testpath + "/" + fname
+
+														} else {
+															fname = testpath + fname
+														}
+													}
+												} else {
+													if len(testpath) > 0 && !strings.HasSuffix(testpath, "/") {
+														fname = testpath + "/" + fname
+													} else {
+														fname = testpath + fname
+													}
+												}
+											}
+											if fname != "" {
+												finame := fname
+												if strings.Index(finame, "/") > -1 {
+													finame = finame[strings.Index(finame, "/")+1:]
+												}
+												fifi := f.FileInfo()
+												if finfos == nil {
+													finfos = []FileInfo{}
+												}
+												if altpth != "" {
+													if strings.LastIndex(altpth, ".") == -1 && !strings.HasSuffix(altpth, "/") {
+														altpth += "/"
+													}
+													if fname == testpath {
+														if !strings.HasSuffix(testpath, "/") {
+															finfos = append(finfos, newFileInfo(fifi.Name(), altpth+fifi.Name(), remainingpath+".zip/"+testpath+"/"+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														} else {
+															finfos = append(finfos, newFileInfo(fifi.Name(), altpth+fifi.Name(), remainingpath+".zip/"+testpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														}
+													} else {
+														if !strings.HasSuffix(testpath, "/") {
+															finfos = append(finfos, newFileInfo(fifi.Name(), altpth+fifi.Name(), remainingpath+".zip/"+testpath+"/"+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														} else {
+															finfos = append(finfos, newFileInfo(fifi.Name(), altpth+fifi.Name(), remainingpath+".zip/"+testpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														}
+													}
+												} else {
+													if fname == testpath {
+														finfos = append(finfos, newFileInfo(fifi.Name(), remainingpath+"/"+testpath, remainingpath+".zip/"+testpath, fifi.Size(), fifi.Mode(), fifi.ModTime()))
+													} else {
+														if !strings.HasSuffix(testpath, "/") {
+															finfos = append(finfos, newFileInfo(fifi.Name(), remainingpath+"/"+testpath+"/"+fifi.Name(), remainingpath+".zip/"+testpath+"/"+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														} else {
+															finfos = append(finfos, newFileInfo(fifi.Name(), remainingpath+"/"+testpath+"/"+fifi.Name(), remainingpath+".zip/"+testpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					break
+				} else {
+					tmppath = tmppath + ps + "/"
+				}
+			} else {
+				break
+			}
+		}
 		err = fierr
 	}
 	return

@@ -52,7 +52,6 @@ func (rscngepnt *ResourcingEndpoint) fsfind(path ...string) (finfos []fsutils.Fi
 			finfos, _ = fsutils.FIND(path[0], path[1])
 		}
 	}
-
 	return
 }
 

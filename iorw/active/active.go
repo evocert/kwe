@@ -945,13 +945,17 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			}
 		},
 		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
-			if atvrntme.prsng != nil {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				atvrntme.prsng.print(a...)
+			} else if atvrntme.atv != nil {
+				atvrntme.atv.print(nil, a...)
 			}
 		},
 		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
-			if atvrntme.prsng != nil {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				atvrntme.prsng.println(a...)
+			} else if atvrntme.atv != nil {
+				atvrntme.atv.println(nil, a...)
 			}
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {

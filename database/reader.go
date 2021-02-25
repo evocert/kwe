@@ -256,12 +256,46 @@ func (rdr *Reader) Close() (err error) {
 	return
 }
 
+var strrnstoreplace []rune = []rune{2, 3}
+var strnstoignore []rune = []rune{0, 8}
+
+func cleanupStringData(str string) (strcleaned string) {
+	strcleaned = str
+	if strcleaned != "" {
+		strns := []rune(str)
+		n := 0
+		nl := len(strns)
+		for n < nl {
+			rn := strns[n]
+			n++
+			for _, rnrpls := range strrnstoreplace {
+				if rn == rnrpls {
+					strns[n-1] = ' '
+					break
+				}
+			}
+			for _, rnrignr := range strnstoignore {
+				if rn == rnrignr {
+					strns = append(strns[:(n-1)], strns[n:]...)
+					if nl = len(strns); n == nl {
+						break
+					}
+					n--
+					break
+				}
+			}
+		}
+		strcleaned = strings.TrimSpace(string(strns))
+	}
+	return
+}
+
 func castSQLTypeValue(valToCast interface{}, colType *ColumnType) (castedVal interface{}) {
 	if valToCast != nil {
 		if d, dok := valToCast.([]uint8); dok {
-			castedVal = string(d)
+			castedVal = cleanupStringData(string(d))
 		} else if sd, dok := valToCast.(string); dok {
-			castedVal = strings.TrimSpace(sd)
+			castedVal = cleanupStringData(sd)
 		} else if dtime, dok := valToCast.(time.Time); dok {
 			castedVal = dtime.Format("2006-01-02T15:04:05")
 		} else if djsn, djsnok := valToCast.([]byte); djsnok {
