@@ -417,6 +417,60 @@ func TOUCH(path string) (err error) {
 	return
 }
 
+//CAT return file content if file exists else empty string
+func CAT(path string) (cntnt string, err error) {
+	if statf, staterr := os.Stat(path); staterr != nil {
+		err = staterr
+	} else if !statf.IsDir() {
+		if statf.Size() > 0 {
+			if f, ferr := os.Open(path); ferr == nil {
+				func() {
+					defer f.Close()
+					buf := iorw.NewBuffer()
+					buf.Print(f)
+					cntnt = buf.String()
+				}()
+			} else {
+				err = ferr
+			}
+		}
+	}
+
+	return
+}
+
+//SET if file exists replace content else create file and append content
+func SET(path string, a ...interface{}) (err error) {
+	if f, ferr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); ferr == nil {
+		func() {
+			defer f.Close()
+			if ferr = f.Truncate(0); ferr == nil {
+
+				iorw.Fprint(f, a...)
+
+			} else {
+				err = ferr
+			}
+		}()
+	} else {
+		err = ferr
+	}
+	return
+}
+
+//APPEND if file exists append content else create file and append content
+func APPEND(path string, a ...interface{}) (err error) {
+	if f, ferr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); ferr == nil {
+		func() {
+			defer f.Close()
+			iorw.Fprint(f, a...)
+		}()
+	} else {
+		err = ferr
+	}
+	return
+}
+
 //FINFOPATHSJSON []FileInfo to JSON array
 func FINFOPATHSJSON(a ...FileInfo) (s string) {
 	s = "["
@@ -445,6 +499,9 @@ type FSUtils struct {
 	MV             func(path string, destpath string) bool  `json:"mv"`
 	TOUCH          func(path string) bool                   `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)           `json:"finfopathsjson"`
+	CAT            func(path string) (s string)             `json:"cat"`
+	SET            func(path string, a ...interface{}) bool `json:"set"`
+	APPEND         func(path string, a ...interface{}) bool `json:"append"`
 }
 
 //NewFSUtils return instance of FSUtils
@@ -493,6 +550,24 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 		},
 		TOUCH: func(path string) bool {
 			if err := TOUCH(path); err == nil {
+				return true
+			}
+			return false
+		},
+		CAT: func(path string) (s string) {
+			if cats, err := CAT(path); err == nil {
+				s = cats
+			}
+			return
+		},
+		SET: func(path string, a ...interface{}) bool {
+			if err := SET(path, a...); err == nil {
+				return true
+			}
+			return false
+		},
+		APPEND: func(path string, a ...interface{}) bool {
+			if err := APPEND(path, a...); err == nil {
 				return true
 			}
 			return false
