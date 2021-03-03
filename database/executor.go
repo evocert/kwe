@@ -454,6 +454,9 @@ func (exctr *Executor) Close() (err error) {
 			err = exctr.stmt.Close()
 			exctr.stmt = nil
 		}
+		if exctr.db != nil {
+			exctr.db = nil
+		}
 		if exctr.lasterr != nil {
 			exctr.lasterr = nil
 		}
