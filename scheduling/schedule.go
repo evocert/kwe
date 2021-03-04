@@ -20,6 +20,8 @@ type ScheduleHandler interface {
 
 //Schedule - struct
 type Schedule struct {
+	actnmde      scheduleactiontype
+	initstart    bool
 	schdlid      string
 	once         bool
 	schdlhndlr   ScheduleHandler
@@ -123,7 +125,10 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		}
 	}
 
-	schdl = &Schedule{schdlrs: schdlrs,
+	schdl = &Schedule{
+		initstart:    true,
+		actnmde:      schdlactninit,
+		schdlrs:      schdlrs,
 		wg:           &sync.WaitGroup{},
 		intrvl:       time.Microsecond * 10,
 		prcintrvl:    0,
@@ -390,8 +395,26 @@ func (schdl *Schedule) errDoneLink(lnk *enumeration.Link, err error) (done bool)
 
 func (schdl *Schedule) execute() (err error) {
 	if schdl != nil {
-		if actnsl := schdl.actns.Size(); actnsl > 0 {
-			schdl.actns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+		if schdl.actnmde == schdlactninit && schdl.initstart {
+			schdl.initstart = false
+			schdl.actnmde = schdlactninit
+			if actnsl := schdl.initactns.Size(); actnsl > 0 {
+				schdl.initactns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+			}
+			schdl.actnmde = schdlactnmain
+		} else if schdl.actnmde == schdlactnmain {
+			if actnsl := schdl.actns.Size(); actnsl > 0 {
+				schdl.actns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+			}
+			if schdl.actns.Size() == 0 {
+				schdl.actnmde = schdlactnwrapup
+				if actnsl := schdl.wrapupactns.Size(); actnsl > 0 {
+					schdl.wrapupactns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+				}
+				if schdl.actns.Size() > 0 {
+					schdl.actnmde = schdlactnmain
+				}
+			}
 		}
 		/*var nxtactn *schdlaction = schdl.frstactn
 		var actn *schdlaction = nxtactn
