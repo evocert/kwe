@@ -155,8 +155,6 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 							return
 						})
 					}
-				} else {
-
 				}
 			}
 			if atvfnc, atvfcnok := d.(func(goja.FunctionCall) goja.Value); atvfcnok {

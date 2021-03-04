@@ -15,7 +15,7 @@ var fis = _fsutils.LS("D:/projects/system/bootstrap/css","bla");
         });
         //println(_fsutils.FINFOPATHSJSON(fis));
     }
-var cntdone=1;
+var cntdone=100;
 for (var j=0;j<cntdone/1;j++){
     var test1=channel.Schedules().RegisterSchedule("test"+(j+1),{"Seconds":2},request);
     test1.AddInitAction(`function() {
@@ -25,7 +25,7 @@ for (var j=0;j<cntdone/1;j++){
         test1.AddAction(`function() {
             //console.Log("test this"+_fsutils.FINFOPATHSJSON(fis));
             //cntdone--;
-            return true;
+            return;
         }`);
     }
     //test1.AddAction({"request":{"path":"/test/this.js"}});
