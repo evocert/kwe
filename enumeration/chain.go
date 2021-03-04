@@ -1,6 +1,9 @@
 package enumeration
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 //Chain struct
 type Chain struct {
@@ -57,12 +60,22 @@ func NewChain(settings ...map[string]interface{}) (chn *Chain) {
 type Link struct {
 	chn   *Chain
 	value interface{}
+	done  bool
 	//API
 	DoLink        func(*Link) (bool, error)
 	DoneLink      func(*Link) error
 	ErrorDoneLink func(*Link, error) bool
 	ErrorDoLink   func(*Link, error) bool
 	Removed       func(*Link)
+}
+
+//Done  set lnk.done to true
+func (lnk *Link) Done() {
+	if lnk != nil {
+		if !lnk.done {
+			lnk.done = true
+		}
+	}
 }
 
 //Value of *Link
@@ -352,29 +365,55 @@ func (chn *Chain) Size() int {
 
 //Do dolnk (func(*Link) (boolm,error)) iterate over *Chain
 // iterate until end or dolnk return true or error
-func (chn *Chain) Do(dolnk func(*Link) (bool, error), donelnk func(*Link) error, errlnk func(*Link, error) bool) (diddo bool) {
+func (chn *Chain) Do(dolnk FuncDoLink, errdolnk FuncErrorDoLink, donelnk FuncDoneLink, errdonelnk FuncErrorDoneLink) (diddo bool) {
 	if chn != nil && chn.head != nil && chn.tale != nil {
 		var done = false
 		var err error = nil
-		for e := chn.Front(); e != nil && !done; e = e.Next() {
-			if done, err = dolnk(e); done || err != nil {
-				if done && err == nil {
-					if donelnk != nil {
-						if err = donelnk(e); err != nil {
-							if errlnk != nil {
-								if errlnk(e, err) {
+		wg := &sync.WaitGroup{}
+		cnt := 0
+		func() {
+			for e := chn.Front(); e != nil && !done; e = e.Next() {
+				cnt++
+				func() {
+					wg.Add(1)
+					defer wg.Wait()
+					go func() {
+						defer wg.Done()
+						if done, err = dolnk(e); done || err != nil {
+							if done && err == nil {
+								if donelnk != nil {
+									if err = donelnk(e); err != nil {
+										if errdonelnk != nil {
+											if errdonelnk(e, err) {
 
+											}
+										}
+									}
+								}
+							}
+							if !done && errdonelnk != nil {
+								done = errdonelnk(e, err)
+							}
+						} else if err != nil {
+							if errdolnk != nil {
+								if done = errdolnk(e, err); done {
+									if donelnk != nil {
+										if err = donelnk(e); err != nil {
+											if errdonelnk != nil {
+												if errdonelnk(e, err) {
+
+												}
+											}
+										}
+									}
 								}
 							}
 						}
-					}
-				}
-				if !done && errlnk != nil {
-					done = errlnk(e, err)
-				}
+					}()
+				}()
 			}
-		}
-		diddo = true
+			diddo = true
+		}()
 	}
 	return false
 }

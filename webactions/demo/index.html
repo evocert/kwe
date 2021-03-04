@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title></title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
+    <script src="/jquery/jquery.min.js"></script>
+    <script src="/webactions/webactions.js"></script>
+    <script src='main.js'></script>
+</head>
+<body>
+    <div class="nav-section"></div>
+    <div class="content-section">content</div>
+    <span class="blaid1"><input name="t1" value="t 1"/></span>
+    <span class="blaid2"><input name="t2" value="t 2"/></span>
+    <button target=".content-section" url_ref="/webactions/demo/mycontent.html" onclick="postElem(this);" form_ref=".blaid1|.blaid2">my content</button>
+
+    <button target=".content-section" url_ref="/webactions/demo/mycontent.html" onclick="postElem(this);" form_ref=".blaid1">my content</button>
+    <script>
+        //postNode({"target":".nav-section","url_ref":"/webactions/demo/nav.html"});
+        postNode({"url_ref":"/webactions/demo/all.html"});
+
+</script>
+</body>
+</html>

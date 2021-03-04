@@ -28,7 +28,7 @@ function postElem() {
 	$(elem).each(function() {
 		$.each(this.attributes, function() {
 			if(this.specified) {
-				if (this.name=="url_ref" || this.name=="form_ref" || this.name=="enable_progress_elem" || this.name=="progress_elem" || this.name=="target" || this.name=="command"){
+				if (this.name=="url_ref" || this.name=="form_ref" || this.name=="enable_progress_elem" || this.name=="progress_elem" || this.name=="target" || this.name=="command" || this.name=="scriptlabel" || this.name=="replacelabel"){
 					options[this.name] = this.value;
 				} else if (this.name=="json_ref"){
 					if (this.value!=undefined && this.value!="") {
@@ -97,7 +97,6 @@ function postNode(){
 		hasForm=true;
 		formid=options.form_ref;
 	}
-
 
 	var jsondata=null;
 
@@ -177,13 +176,14 @@ function postNode(){
         formIds.forEach(function(fid,i,arr){
 			if($(fid).length){
 				if(!$(fid).is("form")){
-					if ($(fid).find(" select[name],input[name],textarea[name]")!=undefined){
-						$(fid).find(" select[name],input[name],textarea[name]").each(function(){
+					if ($(fid).find("select[name],input[name],textarea[name]")!=undefined){
+						$(fid).find("select[name],input[name],textarea[name]").each(function(){
 							var input = $(this);
 
 							if (input.attr("name")!=""){
 								var canAddVal=true;
-								if (input.attr("type")=="checkbox" || input.attr("type")=="radio") {
+								var inputtype=input.attr("type")!==undefined?input.attr("type"):"text";
+								if (inputtype==="checkbox" || inputtype==="radio") {
 									canAddVal=input.prop("checked")?true:false; 
 								}
 								if(canAddVal) {
@@ -194,8 +194,9 @@ function postNode(){
 											formData["reqst-params"]={}
 										}
 									}
-									if(input.attr("type")!=undefined && input.attr("type")!="button"&&input.attr("type")!="submit"&&input.attr("type")!="image"){
-										if(input.attr("type")=="file"){
+									
+									if(inputtype!==undefined && inputtype!=="button"&&inputtype!=="submit"&&inputtype!=="image"){
+										if(inputtype==="file"){
 											if (!hasJson) {	formData.append(input.attr("name"),input[0].files[0]); }
 										} else {
 											if (hasJson) {
@@ -262,14 +263,23 @@ function postNode(){
 									}
 						}
 					}
-					var parsed=parseActiveString("script||","||script",response);
+					var replacelabel="replace-content";
+					if(options.replacelabel!=undefined&&options.replacelabel!=""){
+						replacelabel=options.replacelabel;
+					}
+					var scriptlabel="script";
+					if(options.scriptlabel!=undefined&&options.scriptlabel!=""){
+						scriptlabel=options.scriptlabel;
+					}
+					var parsed=parseActiveString(`${scriptlabel}||`,`||${scriptlabel}`,response);
 					var parsedScript=parsed[1].join("");
 					response=parsed[0].trim();
 					var targets=[];
 					var targetSections=[];
+					
 					if(response!=""){
-						if(response.indexOf("replace-content||")>-1){
-							parsed=parseActiveString("replace-content||","||replace-content",response);
+						if(response.indexOf(`${replacelabel}||`)>-1){
+							parsed=parseActiveString(`${replacelabel}||`,`||${replacelabel}`,response);
 							response=parsed[0];
 							parsed[1].forEach(function(possibleTargetContent,i){
 								if(possibleTargetContent.indexOf("||")>-1){

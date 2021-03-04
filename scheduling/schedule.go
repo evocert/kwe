@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/evocert/kwe/enumeration"
 )
 
 //ScheduleHandler - interface
@@ -24,6 +26,9 @@ type Schedule struct {
 	From         time.Time
 	To           time.Time
 	schdlrs      *Schedules
+	actns        *enumeration.Chain
+	initactns    *enumeration.Chain
+	wrapupactns  *enumeration.Chain
 	frstactn     *schdlaction
 	lstactn      *schdlaction
 	actnslck     *sync.Mutex
@@ -122,6 +127,9 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		wg:           &sync.WaitGroup{},
 		intrvl:       time.Microsecond * 10,
 		prcintrvl:    0,
+		actns:        nil,
+		initactns:    nil,
+		wrapupactns:  nil,
 		frstactn:     nil,
 		lstactn:      nil,
 		running:      false,
@@ -140,6 +148,9 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		From:         frm,
 		To:           to,
 	}
+	schdl.actns = enumeration.NewChain()
+	schdl.initactns = enumeration.NewChain()
+	schdl.wrapupactns = enumeration.NewChain()
 	return
 }
 
@@ -148,8 +159,34 @@ type FuncArgsHandle func(...interface{})
 type FuncErrHandle func() error
 type FuncHandle func(...interface{})
 
-//AddAction - add action to *Schedule
+type scheduleactiontype int
+
+const (
+	schdlactnmain scheduleactiontype = iota
+	schdlactninit
+	schdlactnwrapup
+)
+
+//AddAction - add action(s) to *Schedule
 func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
+	err = schdl.internalAction(schdlactnmain, a...)
+	return
+}
+
+//AddInitAction - add action(s) to *Schedule that will be execute initially
+func (schdl *Schedule) AddInitAction(a ...interface{}) (err error) {
+	err = schdl.internalAction(schdlactninit, a...)
+	return
+}
+
+//AddWarpupAction - add action(s) to *Schedule that will be execute when there are no more
+// main list fo action(s) to execute
+func (schdl *Schedule) AddWarpupAction(a ...interface{}) (err error) {
+	err = schdl.internalAction(schdlactnwrapup, a...)
+	return
+}
+
+func (schdl *Schedule) internalAction(actntpe scheduleactiontype, a ...interface{}) (err error) {
 	var lstargs []interface{} = nil
 	var lstactn func(...interface{}) error = nil
 	var al = 0
@@ -309,14 +346,54 @@ func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
 		}
 	}
 	if len(vldactions) > 0 {
-		addactns(schdl, vldactions...)
+		addactns(schdl, actntpe, vldactions...)
 	}
+	return
+}
+
+func (schdl *Schedule) doLink(lnk *enumeration.Link) (done bool, err error) {
+	if d := lnk.Value(); d != nil {
+		if schdlactn, schdlactnok := d.(*schdlaction); schdlactnok {
+			func() {
+				defer func() {
+					if rv := recover(); rv != nil {
+						err = fmt.Errorf("%v", rv)
+					}
+				}()
+				if err = schdlactn.actn(schdlactn.args...); err != nil {
+					if strings.ToLower(err.Error()) == "done" {
+						schdlactn.valid = false
+						err = nil
+						lnk.Done()
+					}
+				}
+			}()
+		}
+	}
+	return
+}
+
+func (schdl *Schedule) errDoLink(lnk *enumeration.Link, err error) (done bool) {
+
+	return
+}
+
+func (schdl *Schedule) doneLink(lnk *enumeration.Link) (err error) {
+
+	return
+}
+
+func (schdl *Schedule) errDoneLink(lnk *enumeration.Link, err error) (done bool) {
+
 	return
 }
 
 func (schdl *Schedule) execute() (err error) {
 	if schdl != nil {
-		var nxtactn *schdlaction = schdl.frstactn
+		if actnsl := schdl.actns.Size(); actnsl > 0 {
+			schdl.actns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+		}
+		/*var nxtactn *schdlaction = schdl.frstactn
 		var actn *schdlaction = nxtactn
 		var actnerr error = nil
 		for nxtactn != nil {
@@ -341,7 +418,7 @@ func (schdl *Schedule) execute() (err error) {
 				}
 			}
 			actn = nxtactn
-		}
+		}*/
 	}
 	return
 }
@@ -508,25 +585,40 @@ func (schdl *Schedule) Shutdown() (err error) {
 	return
 }
 
-func addactns(schdl *Schedule, schdlactns ...*schdlaction) {
-	for len(schdlactns) > 0 {
+func addactns(schdl *Schedule, actntpe scheduleactiontype, schdlactns ...*schdlaction) {
 
-		addactn(schdl, schdlactns[0])
+	for len(schdlactns) > 0 {
+		schlactn := schdlactns[0]
+		addactn(schdl, actntpe, schlactn)
 		schdlactns = schdlactns[1:]
 	}
 }
 
-func addactn(schdl *Schedule, schdlactn *schdlaction) {
+func addactn(schdl *Schedule, actntpe scheduleactiontype, schdlactn *schdlaction) {
 	if schdl != nil {
 		if schdlactn != nil {
-			if schdl.frstactn == nil && schdl.lstactn == nil {
+			switch actntpe {
+			case schdlactnmain:
+				if schdl.actns != nil {
+					schdl.actns.Add(schdlactn)
+				}
+			case schdlactninit:
+				if schdl.initactns != nil {
+					schdl.initactns.Add(schdlactn)
+				}
+			case schdlactnwrapup:
+				if schdl.wrapupactns != nil {
+					schdl.wrapupactns.Add(schdlactn)
+				}
+			}
+			/*if schdl.frstactn == nil && schdl.lstactn == nil {
 				schdl.frstactn = schdlactn
 				schdl.lstactn = schdlactn
 			} else if schdl.frstactn != nil && schdl.lstactn != nil {
 				schdlactn.prvactn = schdl.lstactn
 				schdl.lstactn.nxtactn = schdlactn
 				schdl.lstactn = schdlactn
-			}
+			}*/
 		}
 	}
 }

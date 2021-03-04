@@ -9,6 +9,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gorilla/websocket v1.4.2
+	github.com/ibmdb/go_ibm_db v0.3.0 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/sijms/go-ora v0.0.0-20210301201657-604392efe05f
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b
