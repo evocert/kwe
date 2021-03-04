@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"strings"
+	"sync"
 )
 
 //SchedulesHandler - interface
@@ -14,11 +15,12 @@ type SchedulesHandler interface {
 type Schedules struct {
 	schdls      map[string]*Schedule
 	schdlshndlr SchedulesHandler
+	lck         *sync.Mutex
 }
 
 //NewSchedules instance
 func NewSchedules(schdlshndlr SchedulesHandler) (schdls *Schedules) {
-	schdls = &Schedules{schdlshndlr: schdlshndlr, schdls: map[string]*Schedule{}}
+	schdls = &Schedules{schdlshndlr: schdlshndlr, schdls: map[string]*Schedule{}, lck: &sync.Mutex{}}
 	return
 }
 
@@ -35,25 +37,43 @@ func (schdls *Schedules) Get(schdlname string) (schdl *Schedule) {
 func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (schdl *Schedule) {
 	if schdls != nil {
 		if schdlname = strings.TrimSpace(schdlname); schdlname != "" {
-			if _, schdlok := schdls.schdls[schdlname]; !schdlok {
-				schdl = newSchedule(schdls, a...)
-				if schdls.schdlshndlr != nil {
-					schdl.schdlhndlr = schdls.schdlshndlr.NewSchedule(schdl, a...)
-					if schdl.OnStart == nil {
-						schdl.OnStart = schdl.schdlhndlr.StartedSchedule
+			func() {
+				defer schdls.lck.Unlock()
+				schdls.lck.Lock()
+				if _, schdlok := schdls.schdls[schdlname]; !schdlok {
+					schdl = newSchedule(schdls, a...)
+					if schdls.schdlshndlr != nil {
+						schdl.schdlhndlr = schdls.schdlshndlr.NewSchedule(schdl, a...)
+						if schdl.OnStart == nil {
+							schdl.OnStart = schdl.schdlhndlr.StartedSchedule
+						}
+						if schdl.OnStop == nil {
+							schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
+						}
+						if schdl.OnShutdown == nil {
+							schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
+						}
 					}
-					if schdl.OnStop == nil {
-						schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
-					}
-					if schdl.OnShutdown == nil {
-						schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
-					}
+					schdls.schdls[schdlname] = schdl
+					schdl.schdlid = schdlname
 				}
-				schdls.schdls[schdlname] = schdl
-			}
+			}()
 		}
 	}
 	return
+}
+
+func (schdls *Schedules) removeSchedule(schdl *Schedule) {
+	if schdls != nil && schdl != nil {
+		func() {
+			defer schdls.lck.Unlock()
+			schdls.lck.Lock()
+			if _, schdlok := schdls.schdls[schdl.schdlid]; schdlok {
+				schdls.schdls[schdl.schdlid] = nil
+				delete(schdls.schdls, schdl.schdlid)
+			}
+		}()
+	}
 }
 
 var schdls *Schedules

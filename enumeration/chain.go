@@ -409,6 +409,9 @@ func (chn *Chain) Do(dolnk FuncDoLink, errdolnk FuncErrorDoLink, donelnk FuncDon
 								}
 							}
 						}
+						if done || e.done {
+							chn.Remove(e)
+						}
 					}()
 				}()
 			}

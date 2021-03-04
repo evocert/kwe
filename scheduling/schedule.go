@@ -47,8 +47,8 @@ type Schedule struct {
 	prcintrvl    int64
 	intrvl       time.Duration
 	running      bool
-	prcng        bool
-	wg           *sync.WaitGroup
+	//prcng        bool
+	wg *sync.WaitGroup
 }
 
 func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
@@ -130,7 +130,7 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		actnmde:      schdlactninit,
 		schdlrs:      schdlrs,
 		wg:           &sync.WaitGroup{},
-		intrvl:       time.Microsecond * 10,
+		intrvl:       time.Microsecond * 2,
 		prcintrvl:    0,
 		actns:        nil,
 		initactns:    nil,
@@ -138,7 +138,6 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		frstactn:     nil,
 		lstactn:      nil,
 		running:      false,
-		prcng:        false,
 		once:         once,
 		actnslck:     &sync.Mutex{},
 		OnStart:      start,
@@ -184,9 +183,9 @@ func (schdl *Schedule) AddInitAction(a ...interface{}) (err error) {
 	return
 }
 
-//AddWarpupAction - add action(s) to *Schedule that will be execute when there are no more
+//AddWrapupAction - add action(s) to *Schedule that will be execute when there are no more
 // main list fo action(s) to execute
-func (schdl *Schedule) AddWarpupAction(a ...interface{}) (err error) {
+func (schdl *Schedule) AddWrapupAction(a ...interface{}) (err error) {
 	err = schdl.internalAction(schdlactnwrapup, a...)
 	return
 }
@@ -371,6 +370,10 @@ func (schdl *Schedule) doLink(lnk *enumeration.Link) (done bool, err error) {
 						err = nil
 						lnk.Done()
 					}
+				} else {
+					if schdl.actnmde == schdlactninit || schdl.actnmde == schdlactnwrapup {
+						lnk.Done()
+					}
 				}
 			}()
 		}
@@ -379,7 +382,9 @@ func (schdl *Schedule) doLink(lnk *enumeration.Link) (done bool, err error) {
 }
 
 func (schdl *Schedule) errDoLink(lnk *enumeration.Link, err error) (done bool) {
-
+	if schdl.actnmde != schdlactnmain {
+		done = true
+	}
 	return
 }
 
@@ -389,59 +394,52 @@ func (schdl *Schedule) doneLink(lnk *enumeration.Link) (err error) {
 }
 
 func (schdl *Schedule) errDoneLink(lnk *enumeration.Link, err error) (done bool) {
-
+	if schdl.actnmde != schdlactnmain {
+		done = true
+	}
 	return
 }
 
-func (schdl *Schedule) execute() (err error) {
+func (schdl *Schedule) executeMain() (done bool, err error) {
+	if actnsl := schdl.actns.Size(); actnsl > 0 {
+		schdl.actns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+	}
+	if schdl.actns.Size() == 0 || schdl.once {
+		schdl.actnmde = schdlactnwrapup
+		if actnsl := schdl.wrapupactns.Size(); actnsl > 0 {
+			schdl.wrapupactns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
+		}
+		if done = (schdl.actns.Size() == 0 || schdl.once); !done {
+			schdl.actnmde = schdlactnmain
+		}
+	}
+	return
+}
+
+func (schdl *Schedule) executeInit() (nextactns bool, err error) {
 	if schdl != nil {
 		if schdl.actnmde == schdlactninit && schdl.initstart {
 			schdl.initstart = false
-			schdl.actnmde = schdlactninit
 			if actnsl := schdl.initactns.Size(); actnsl > 0 {
 				schdl.initactns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
 			}
-			schdl.actnmde = schdlactnmain
-		} else if schdl.actnmde == schdlactnmain {
-			if actnsl := schdl.actns.Size(); actnsl > 0 {
-				schdl.actns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
-			}
-			if schdl.actns.Size() == 0 {
-				schdl.actnmde = schdlactnwrapup
-				if actnsl := schdl.wrapupactns.Size(); actnsl > 0 {
-					schdl.wrapupactns.Do(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink)
-				}
-				if schdl.actns.Size() > 0 {
-					schdl.actnmde = schdlactnmain
-				}
+			if actnsl := schdl.initactns.Size(); actnsl == 0 {
+				schdl.actnmde = schdlactnmain
 			}
 		}
-		/*var nxtactn *schdlaction = schdl.frstactn
-		var actn *schdlaction = nxtactn
-		var actnerr error = nil
-		for nxtactn != nil {
-			nxtactn = nxtactn.nxtactn
-			if actn != nil && actn.valid {
-				func() {
-					defer func() {
-						if rv := recover(); rv != nil {
-							actnerr = fmt.Errorf("%v", rv)
-						}
-					}()
-					if actnerr = actn.actn(actn.args...); actnerr != nil {
-						if strings.ToLower(actnerr.Error()) == "done" {
-							actn.valid = false
-							actnerr = nil
-							//actn.dispose()
-						}
-					}
-				}()
-				if actnerr != nil {
-					actn.valid = false
-				}
-			}
-			actn = nxtactn
-		}*/
+	}
+	return
+}
+
+func (schdl *Schedule) execute() (done bool, err error) {
+	if schdl != nil {
+		var nextactns bool = false
+		if nextactns = (schdl.actnmde == schdlactninit && schdl.initstart); nextactns {
+			nextactns, err = schdl.executeInit()
+		}
+		if (!nextactns || nextactns) && (schdl.actnmde == schdlactnmain) {
+			done, err = schdl.executeMain()
+		}
 	}
 	return
 }
@@ -476,6 +474,7 @@ func (schdl *Schedule) ticking() {
 	tckwg := &sync.WaitGroup{}
 	//var strtprcng, endprcng time.Time
 	var errprcng error = nil
+	var prcngdone bool = false
 	var nxttrggrstmp, frmstmp, tostmp time.Time
 	frmstmp = schdl.From
 	tostmp = schdl.To
@@ -539,16 +538,15 @@ func (schdl *Schedule) ticking() {
 					tckwg.Add(1)
 					go func() {
 						defer tckwg.Done()
-						if errprcng = schdl.process(); errprcng != nil {
+						if prcngdone, errprcng = schdl.process(); errprcng != nil {
 							if schdl.OnError != nil {
 								schdl.OnError(schdl.schdlrs, schdl, errprcng)
 							}
 						}
 					}()
 				}()
-				schdl.prcng = false
-				if schdl.once {
-					break
+				if prcngdone {
+					schdl.running = false
 				}
 			} else {
 				time.Sleep(intrvl)
@@ -557,10 +555,12 @@ func (schdl *Schedule) ticking() {
 			time.Sleep(intrvl)
 		}
 	}
-	schdl.wg.Done()
+	if schdl != nil && (prcngdone) {
+		errprcng = schdl.Shutdown()
+	}
 }
 
-func (schdl *Schedule) process() (err error) {
+func (schdl *Schedule) process() (done bool, err error) {
 	if schdl != nil {
 		func() {
 			defer func() {
@@ -569,7 +569,7 @@ func (schdl *Schedule) process() (err error) {
 					fmt.Println(err.Error())
 				}
 			}()
-			err = schdl.execute()
+			done, err = schdl.execute()
 		}()
 	}
 	return
@@ -581,6 +581,10 @@ func (schdl *Schedule) Stop() (err error) {
 		schdl.wg.Add(1)
 		schdl.running = false
 		schdl.wg.Wait()
+		if schdl.OnStop != nil {
+			err = schdl.OnStop(schdl.StopArgs...)
+		}
+	} else {
 		if schdl.OnStop != nil {
 			err = schdl.OnStop(schdl.StopArgs...)
 		}
@@ -597,10 +601,7 @@ func (schdl *Schedule) Shutdown() (err error) {
 			err = schdl.OnShutdown()
 		}
 		if schdl.schdlrs != nil {
-			if _, schdlok := schdl.schdlrs.schdls[schdl.schdlid]; schdlok {
-				schdl.schdlrs.schdls[schdl.schdlid] = nil
-				delete(schdl.schdlrs.schdls, schdl.schdlid)
-			}
+			schdl.schdlrs.removeSchedule(schdl)
 			schdl.schdlrs = nil
 		}
 		schdl = nil

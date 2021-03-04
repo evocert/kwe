@@ -16,15 +16,22 @@ var fis = _fsutils.LS("D:/projects/system/bootstrap/css","bla");
         //println(_fsutils.FINFOPATHSJSON(fis));
     }
 var cntdone=1;
-for (var j=0;j<cntdone/10;j++){
+for (var j=0;j<cntdone/1;j++){
     var test1=channel.Schedules().RegisterSchedule("test"+(j+1),{"Seconds":2},request);
+    test1.AddInitAction(`function() {
+        console.Log("test init");
+    }`);
     for (var i=0;i<(cntdone*2);i++){
         test1.AddAction(`function() {
             //console.Log("test this"+_fsutils.FINFOPATHSJSON(fis));
             //cntdone--;
+            return true;
         }`);
     }
-    test1.AddAction({"request":{"path":"/test/this.js"}});
+    //test1.AddAction({"request":{"path":"/test/this.js"}});
+    test1.AddWrapupAction(`function() {
+        console.Log("test wrapup");
+    }`);
     test1.Start();
 }
  @>
