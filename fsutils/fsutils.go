@@ -388,9 +388,9 @@ func MKDIRALL(path string) error {
 	return os.MkdirAll(path, os.ModeDir)
 }
 
-//RM Remove file or directory
+//RM Remove file or directory recursive
 func RM(path string) (err error) {
-	err = os.Remove(path)
+	err = os.RemoveAll(path)
 	return
 }
 
