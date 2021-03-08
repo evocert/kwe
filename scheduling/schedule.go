@@ -1,12 +1,15 @@
 package scheduling
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/evocert/kwe/enumeration"
+	"github.com/evocert/kwe/iorw"
 )
 
 //ScheduleHandler - interface
@@ -31,8 +34,6 @@ type Schedule struct {
 	actns        *enumeration.Chain
 	initactns    *enumeration.Chain
 	wrapupactns  *enumeration.Chain
-	frstactn     *schdlaction
-	lstactn      *schdlaction
 	actnslck     *sync.Mutex
 	StartArgs    []interface{}
 	OnError      func(*Schedules, *Schedule, error)
@@ -47,8 +48,7 @@ type Schedule struct {
 	prcintrvl    int64
 	intrvl       time.Duration
 	running      bool
-	//prcng        bool
-	wg *sync.WaitGroup
+	wg           *sync.WaitGroup
 }
 
 func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
@@ -135,8 +135,6 @@ func newSchedule(schdlrs *Schedules, a ...interface{}) (schdl *Schedule) {
 		actns:        nil,
 		initactns:    nil,
 		wrapupactns:  nil,
-		frstactn:     nil,
-		lstactn:      nil,
 		running:      false,
 		once:         once,
 		actnslck:     &sync.Mutex{},
@@ -472,7 +470,6 @@ func (schdl *Schedule) Start() (err error) {
 func (schdl *Schedule) ticking() {
 	schdl.wg.Done()
 	tckwg := &sync.WaitGroup{}
-	//var strtprcng, endprcng time.Time
 	var errprcng error = nil
 	var prcngdone bool = false
 	var nxttrggrstmp, frmstmp, tostmp time.Time
@@ -609,6 +606,188 @@ func (schdl *Schedule) Shutdown() (err error) {
 	return
 }
 
+func (schdl *Schedule) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
+	if schdl != nil {
+		var enc *json.Encoder = nil
+		if mpl := len(mpin); mpl > 0 {
+			if out != nil {
+				hasoutput = true
+				iorw.Fprint(out, "{")
+			}
+			for mk, mv := range mpin {
+				mpl--
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "\""+mk+"\":[")
+				}
+				if mvarr, mvarrok := mv.([]interface{}); mvarrok {
+					if mvarrl := len(mvarr); mvarrl > 0 {
+						for _, mvmvarrv := range mvarr {
+							mvarrl--
+							if mvp, mvpok := mvmvarrv.(map[string]interface{}); mvpok {
+								if len(mvp) > 0 {
+									for mk, mv := range mvp {
+										if actnsargs, atcnsargsok := mv.([]interface{}); atcnsargsok {
+											if len(actnsargs) > 0 {
+												if actnk := strings.ToLower(mk); actnk != "" && strings.HasPrefix(actnk, "action-") && (actnk[len("action-"):] == "" || strings.Contains("|wrapup|init|main|", "|"+actnk[len("action-"):]+"|")) {
+													iorw.Fprint(out, "{\""+"action-"+actnk+"\":")
+													var actnerr error = nil
+													if actnk = actnk[len("action-"):]; actnk == "" || actnk == "main" {
+														actnerr = schdl.AddAction(actnsargs...)
+													} else if actnk == "init" {
+														actnerr = schdl.AddInitAction(actnsargs...)
+													} else if actnk == "wrapup" {
+														actnerr = schdl.AddWrapupAction(actnsargs...)
+													}
+													if out != nil {
+														hasoutput = true
+														if actnerr != nil {
+															if enc == nil {
+																enc = json.NewEncoder(out)
+															}
+															iorw.Fprint(out, "{\"error\":")
+															enc.Encode(err.Error())
+															iorw.Fprint(out, "}")
+															err = nil
+														} else {
+															iorw.Fprint(out, "{}")
+														}
+													}
+													iorw.Fprint(out, "}")
+												}
+											}
+										}
+									}
+								} else {
+									if out != nil {
+										hasoutput = true
+										//jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
+										//io.Copy(out, jsnrdr)
+										//jsnrdr = nil
+										iorw.Fprint(out, "{}")
+									}
+								}
+							} else if schdlargs, schdlargsok := mvmvarrv.([]interface{}); schdlargsok && len(schdlargs) > 0 {
+								scdhdlsargsl := len(schdlargs)
+								for _, schdla := range schdlargs {
+									if schdlas, schdlasok := schdla.(string); schdlasok && schdlas != "" {
+										if schdlas = strings.ToLower(schdlas); schdlas != "" && strings.Contains("|start|stop|shutdown|", "|"+schdlas+"|") {
+
+										}
+									} else {
+										if out != nil {
+											hasoutput = true
+											//jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+											//io.Copy(out, jsnrdr)
+											//jsnrdr = nil
+											iorw.Fprint(out, "{\"error\":\"invalid request\"}")
+										}
+									}
+									scdhdlsargsl--
+									if scdhdlsargsl >= 1 {
+										if out != nil {
+											hasoutput = true
+											iorw.Fprint(out, ",")
+										}
+									}
+								}
+
+							} else {
+								if out != nil {
+									hasoutput = true
+									//jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
+									//io.Copy(out, jsnrdr)
+									//jsnrdr = nil
+									iorw.Fprint(out, "{\"error\":\"invalid request\"}")
+								}
+							}
+						}
+						if mvarrl >= 1 {
+							if out != nil {
+								hasoutput = true
+								iorw.Fprint(out, ",")
+							}
+						}
+					}
+				}
+				if out != nil {
+					hasoutput = true
+					iorw.Fprint(out, "]")
+				}
+				if mpl >= 1 {
+					if out != nil {
+						hasoutput = true
+						iorw.Fprint(out, ",")
+					}
+				}
+			}
+			if out != nil {
+				hasoutput = true
+				iorw.Fprint(out, "}")
+			}
+		}
+	}
+	return
+}
+
+func (schdl *Schedule) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
+	if ri != nil {
+		func() {
+			var buff = iorw.NewBuffer()
+			defer buff.Close()
+			buffl, bufferr := io.Copy(buff, ri)
+			if bufferr == nil || bufferr == io.EOF {
+				if buffl > 0 {
+					func() {
+						var buffr = buff.Reader()
+						defer func() {
+							buffr.Close()
+						}()
+						d := json.NewDecoder(buffr)
+						rqstmp := map[string]interface{}{}
+						if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+							if len(rqstmp) > 0 {
+								hasoutput, err = schdl.inMapOut(rqstmp, out, ioargs...)
+							}
+						} else {
+							err = jsnerr
+						}
+					}()
+				}
+			}
+		}()
+	}
+	return
+}
+
+//InOut - OO{ in io.Reader -> out io.Writer } loop till no input
+func (schdl *Schedule) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
+	if in != nil {
+		var hasoutput = false
+		if mp, mpok := in.(map[string]interface{}); mpok {
+			hasoutput, err = schdl.inMapOut(mp, out, ioargs...)
+		} else if ri, riok := in.(io.Reader); riok && ri != nil {
+			hasoutput, err = schdl.inReaderOut(ri, out, ioargs...)
+		} else if si, siok := in.(string); siok && si != "" {
+			hasoutput, err = schdl.inReaderOut(strings.NewReader(si), out, ioargs...)
+		}
+		if !hasoutput {
+			if out != nil {
+				if err != nil {
+					iorw.Fprint(out, "{\"error\":\""+err.Error()+"\"}")
+				} else {
+					iorw.Fprint(out, "{}")
+				}
+			}
+		}
+	} else {
+		if out != nil {
+			iorw.Fprint(out, "{}")
+		}
+	}
+	return
+}
+
 func addactns(schdl *Schedule, actntpe scheduleactiontype, schdlactns ...*schdlaction) {
 
 	for len(schdlactns) > 0 {
@@ -635,14 +814,6 @@ func addactn(schdl *Schedule, actntpe scheduleactiontype, schdlactn *schdlaction
 					schdl.wrapupactns.Add(schdlactn)
 				}
 			}
-			/*if schdl.frstactn == nil && schdl.lstactn == nil {
-				schdl.frstactn = schdlactn
-				schdl.lstactn = schdlactn
-			} else if schdl.frstactn != nil && schdl.lstactn != nil {
-				schdlactn.prvactn = schdl.lstactn
-				schdl.lstactn.nxtactn = schdlactn
-				schdl.lstactn = schdlactn
-			}*/
 		}
 	}
 }
