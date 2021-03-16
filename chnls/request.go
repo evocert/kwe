@@ -57,6 +57,7 @@ type Request struct {
 	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
 	isFirstRequest   bool
 	//dbms
+	dbms      *rqstdbms
 	activecns map[string]*database.Connection
 	//commands
 	cmnds map[int]*osprc.Command
@@ -410,6 +411,11 @@ func (rqst *Request) Close() (err error) {
 				ks = nil
 			}
 			rqst.objmap = nil
+		}
+		if rqst.dbms != nil {
+			rqst.dbms.dbms = nil
+			rqst.dbms.rqst = nil
+			rqst.dbms = nil
 		}
 		if rqst.activecns != nil {
 			if l := len(rqst.activecns); l > 0 {
@@ -780,6 +786,76 @@ func (rqst *Request) executeRW(interrupt func()) (err error) {
 	return
 }
 
+type rqstdbms struct {
+	dbms *database.DBMS
+	rqst *Request
+}
+
+func (rstdbms *rqstdbms) QuerySettings(a interface{}, qryargs ...interface{}) (reader *database.Reader) {
+	if len(qryargs) == 0 {
+		qryargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		qryargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, qryargs...)
+	}
+	reader = rstdbms.dbms.QuerySettings(a, qryargs...)
+	return
+}
+
+func (rstdbms *rqstdbms) Query(alias string, query interface{}, prms ...interface{}) (reader *database.Reader) {
+	if len(prms) == 0 {
+		prms = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		prms = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, prms...)
+	}
+	reader = rstdbms.dbms.Query(alias, query, prms...)
+	return
+}
+
+func (rstdbms *rqstdbms) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr *database.Executor) {
+	if len(excargs) == 0 {
+		excargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		excargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, excargs...)
+	}
+	exctr = rstdbms.dbms.ExecuteSettings(a, excargs...)
+	return
+}
+
+func (rstdbms *rqstdbms) Execute(alias string, query interface{}, prms ...interface{}) (exctr *database.Executor) {
+	if len(prms) == 0 {
+		prms = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		prms = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, prms...)
+	}
+	exctr = rstdbms.dbms.Execute(alias, query, prms...)
+	return
+}
+
+func (rstdbms *rqstdbms) InOutS(in interface{}, ioargs ...interface{}) (out string, err error) {
+	if len(ioargs) == 0 {
+		ioargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		ioargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, ioargs...)
+	}
+	out, err = rstdbms.dbms.InOutS(in, ioargs...)
+	return
+}
+
+func (rstdbms *rqstdbms) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
+	if len(ioargs) == 0 {
+		ioargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
+	} else {
+		ioargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, ioargs...)
+	}
+	err = rstdbms.dbms.InOut(in, out, ioargs...)
+	return
+}
+
+func (rqtdbms *rqstdbms) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
+	registered = rqtdbms.dbms.RegisterConnection(alias, driver, datasource, a...)
+	return
+}
+
 func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (rqst *Request, interrupt func()) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
@@ -872,7 +948,8 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	}
 	rqst.objmap[nmspce+"request"] = rqst
 	rqst.objmap[nmspce+"channel"] = chnl
-	rqst.objmap[nmspce+"dbms"] = database.GLOBALDBMS()
+	rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
+	rqst.objmap[nmspce+"dbms"] = rqst.dbms
 	rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
 	rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
 		buff = iorw.NewBuffer()

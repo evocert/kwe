@@ -1,11 +1,14 @@
 <@ 
-resourcing.RegisterEndpoint("/","D:/projects/system");
+dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
+resourcing.RegisterEndpoint("/","D:/projects/collections");
+channel.Listener().Listen(":1111");
+/*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 resourcing.RegisterEndpoint("/etl","https://raw.githubusercontent.com/evocert/kwetl/main/src");
 resourcing.RegisterEndpoint("/etl/wspace","D:/projects/system/etl/workspace/");
 request.AddPath("/etl/init.js")
-channel.Listener().Listen(":1040");
+channel.Listener().Listen(":1040");*/
  @><@/*
 dbms.RegisterConnection("avon","oracle","oracle://SYSTEM:N%40N61ng%40@localhost/XE");
 resourcing.RegisterEndpoint("/","D:/projects/system");
