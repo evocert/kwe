@@ -32,16 +32,121 @@ type ResourcingEndpoint struct {
 	rsngmngr          *ResourcingManager
 }
 
-//FSUtils implementation of *ResourcingEndPoint
-func (rscngepnt *ResourcingEndpoint) FSUtils() *fsutils.FSUtils {
+//FS return fsutils.FSUtils implementation for *ResourcingEndPoint
+func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 	if rscngepnt.fsutils == nil {
-		rscngepnt.fsutils = &fsutils.FSUtils{FIND: func(path ...string) (finfos []fsutils.FileInfo) {
-			finfos, _ = rscngepnt.fsfind(path...)
-			return
-		},
+		rscngepnt.fsutils = &fsutils.FSUtils{
+			FIND: func(path ...string) (finfos []fsutils.FileInfo) {
+				finfos, _ = rscngepnt.fsfind(path...)
+				return
+			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
+				return
+			}, MKDIR: func(path string) bool {
+				return rscngepnt.fsmkdir(path)
+			}, MKDIRALL: func(path string) bool {
+				return rscngepnt.fsmkdirall(path)
+			}, RM: func(path string) bool {
+				return rscngepnt.fsrm(path)
+			}, MV: func(path string, destpath string) bool {
+				return rscngepnt.fsmv(path, destpath)
+			}, TOUCH: func(path string) bool {
+				return rscngepnt.fstouch(path)
+			}, CAT: func(path string) string {
+				return rscngepnt.fscat(path)
+			}, SET: func(path string, a ...interface{}) bool {
+				return rscngepnt.fsset(path, a...)
+			}, APPEND: func(path string, a ...interface{}) bool {
+				return rscngepnt.fsappend(path, a...)
+			},
 		}
 	}
 	return rscngepnt.fsutils
+}
+
+func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.APPEND(path, a...); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.SET(path, a...); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fscat(path string) (s string) {
+	if rscngepnt.isLocal {
+		s, _ = fsutils.CAT(path)
+	}
+	return s
+}
+
+func (rscngepnt *ResourcingEndpoint) fstouch(path string) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.TOUCH(path); err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsmv(path string, destpath string) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.MV(path, destpath); err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsrm(path string) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.RM(path); err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsmkdirall(path string) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.MKDIRALL(path); err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsmkdir(path string) bool {
+	if rscngepnt.isLocal {
+		if err := fsutils.MKDIR(path); err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.FileInfo) {
+	if rscngepnt.isLocal {
+		if len(path) == 1 {
+			finfos, _ = fsutils.LS(path[0])
+		} else if len(path) == 2 {
+			finfos, _ = fsutils.LS(path[0], path[1])
+		}
+	}
+	return
 }
 
 func (rscngepnt *ResourcingEndpoint) fsfind(path ...string) (finfos []fsutils.FileInfo, err error) {

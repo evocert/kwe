@@ -513,7 +513,6 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 			} else if len(path) == 2 {
 				finfos, _ = FIND(path[0], path[1])
 			}
-
 			return
 		},
 		LS: func(path ...string) (finfos []FileInfo) {

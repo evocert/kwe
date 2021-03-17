@@ -10,9 +10,209 @@ import (
 
 //ResourcingManager - struct
 type ResourcingManager struct {
-	*fsutils.FSUtils
+	fsutils       *fsutils.FSUtils
 	rsngpaths     map[string]string
 	rsngrootpaths map[string]*ResourcingEndpoint
+}
+
+//FS return fsutils.FSUtils implementation for *ResourcingManager
+func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
+	if rscngmngr.fsutils == nil {
+		rscngmngr.fsutils = &fsutils.FSUtils{
+			FIND: func(path ...string) (finfos []fsutils.FileInfo) {
+				finfos, _ = rscngmngr.fsfind(path...)
+				return
+			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
+				return
+			}, MKDIR: func(path string) bool {
+				return rscngmngr.fsmkdir(path)
+			}, MKDIRALL: func(path string) bool {
+				return rscngmngr.fsmkdirall(path)
+			}, RM: func(path string) bool {
+				return rscngmngr.fsrm(path)
+			}, MV: func(path string, destpath string) bool {
+				return rscngmngr.fsmv(path, destpath)
+			}, TOUCH: func(path string) bool {
+				return rscngmngr.fstouch(path)
+			}, CAT: func(path string) string {
+				return rscngmngr.fscat(path)
+			}, SET: func(path string, a ...interface{}) bool {
+				return rscngmngr.fsset(path, a...)
+			}, APPEND: func(path string, a ...interface{}) bool {
+				return rscngmngr.fsappend(path, a...)
+			},
+		}
+	}
+	return rscngmngr.fsutils
+}
+
+func (rscngmngr *ResourcingManager) findrsendpnt(path string) (epnt *ResourcingEndpoint, rpath string) {
+	if len(path) > 0 {
+
+		pths := strings.Split(path, "/")
+		rpath = ""
+		for pn := range pths {
+			if epntfnd, epntfndok := rscngmngr.rsngpaths[strings.Join(pths[0:pn], "/")]; epntfndok && len(rpath) < len(strings.Join(pths[0:pn], "/")) {
+				rpath = strings.Join(pths[0:pn], "/")
+				epnt = rscngmngr.rsngrootpaths[epntfnd]
+			}
+		}
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) findrsendpnts(path ...string) (epnts []*ResourcingEndpoint) {
+	if pl := len(path); pl > 0 {
+		epnts = make([]*ResourcingEndpoint, pl)
+		for pn, pth := range path {
+			epnts[pn], path[pn] = rscngmngr.findrsendpnt(pth)
+		}
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) findrsendpntpaths(path ...string) (epnts []*ResourcingEndpoint, paths []string) {
+	if pl := len(path); pl > 0 {
+		if epntssrchd := rscngmngr.findrsendpnts(path...); len(epntssrchd) > 0 {
+			for pn := range epntssrchd {
+				if ept := epntssrchd[pn]; ept != nil {
+					if epnts == nil {
+						epnts = []*ResourcingEndpoint{}
+					}
+					epnts = append(epnts, ept)
+					if paths == nil {
+						paths = []string{}
+					}
+					paths = append(paths, path[pn])
+				}
+			}
+		}
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsappend(path string, a ...interface{}) (fnd bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			fnd = epnts[0].fsappend(paths[0], a...)
+		}
+		epnts = nil
+		paths = nil
+	}
+	return fnd
+}
+
+func (rscngmngr *ResourcingManager) fsset(path string, a ...interface{}) (set bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			set = epnts[0].fsset(paths[0], a...)
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fscat(path string) (s string) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			s = epnts[0].fscat(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return s
+}
+
+func (rscngmngr *ResourcingManager) fstouch(path string) (tchd bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			tchd = epnts[0].fstouch(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsmv(path string, destpath string) (mvd bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			mvd = epnts[0].fsmv(paths[0], destpath)
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			rmd = epnts[0].fsrm(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsmkdirall(path string) (mkdall bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			mkdall = epnts[0].fsmkdirall(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsmkdir(path string) (mkd bool) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			mkd = epnts[0].fsmkdir(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsls(path ...string) (finfos []fsutils.FileInfo) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path...); epnts != nil && paths != nil {
+		if len(epnts) > 0 && len(paths) == len(epnts) {
+			if finfos == nil {
+				finfos = []fsutils.FileInfo{}
+			}
+			for nepnt := range epnts {
+				if fis := epnts[0].fsls(paths[nepnt]); fis != nil {
+					finfos = append(finfos, fis...)
+				}
+			}
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsfind(path ...string) (finfos []fsutils.FileInfo, err error) {
+	if epnts, paths := rscngmngr.findrsendpntpaths(path...); epnts != nil && paths != nil {
+		if len(epnts) > 0 && len(paths) == len(epnts) {
+			if finfos == nil {
+				finfos = []fsutils.FileInfo{}
+			}
+			for nepnt := range epnts {
+				if fis, _ := epnts[0].fsfind(paths[nepnt]); fis != nil {
+					finfos = append(finfos, fis...)
+				}
+			}
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
 }
 
 //RemovePathResource - Remove Endpoint Resource via path

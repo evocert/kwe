@@ -1,6 +1,6 @@
 <@ 
 dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
-resourcing.RegisterEndpoint("/","D:/projects/collections");
+resourcing.RegisterEndpoint("/collections","D:/projects/collections");
 channel.Listener().Listen(":1111");
 /*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
