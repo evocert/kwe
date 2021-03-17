@@ -65,8 +65,10 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 
 func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.APPEND(path, a...); err == nil {
-			return true
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+			if err := fsutils.APPEND(rscngepnt.path+path, a...); err == nil {
+				return true
+			}
 		}
 	}
 	return false
@@ -74,8 +76,10 @@ func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) boo
 
 func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.SET(path, a...); err == nil {
-			return true
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+			if err := fsutils.SET(rscngepnt.path+path, a...); err == nil {
+				return true
+			}
 		}
 	}
 	return false
@@ -83,15 +87,19 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 
 func (rscngepnt *ResourcingEndpoint) fscat(path string) (s string) {
 	if rscngepnt.isLocal {
-		s, _ = fsutils.CAT(path)
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+			s, _ = fsutils.CAT(rscngepnt.path + path)
+		}
 	}
 	return s
 }
 
 func (rscngepnt *ResourcingEndpoint) fstouch(path string) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.TOUCH(path); err != nil {
-			return false
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+			if err := fsutils.TOUCH(rscngepnt.path + path); err != nil {
+				return false
+			}
 		}
 		return true
 	}
@@ -100,8 +108,12 @@ func (rscngepnt *ResourcingEndpoint) fstouch(path string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsmv(path string, destpath string) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.MV(path, destpath); err != nil {
-			return false
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" {
+			if destpath = strings.Replace(strings.TrimSpace(destpath), "\\", "/", -1); destpath != "" {
+				if err := fsutils.MV(rscngepnt.path+path, rscngepnt.path+destpath); err != nil {
+					return false
+				}
+			}
 		}
 		return true
 	}
@@ -110,8 +122,10 @@ func (rscngepnt *ResourcingEndpoint) fsmv(path string, destpath string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsrm(path string) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.RM(path); err != nil {
-			return false
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" {
+			if err := fsutils.RM(rscngepnt.path + path); err != nil {
+				return false
+			}
 		}
 		return true
 	}
@@ -120,8 +134,15 @@ func (rscngepnt *ResourcingEndpoint) fsrm(path string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsmkdirall(path string) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.MKDIRALL(path); err != nil {
-			return false
+
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, ".") < strings.LastIndex(path, "/")) {
+			lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path, "\\", "/", -1))
+			if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+				lklpath = lklpath[:len(lklpath)-1]
+			}
+			if err := fsutils.MKDIRALL(rscngepnt.path + lklpath); err != nil {
+				return false
+			}
 		}
 		return true
 	}
@@ -130,8 +151,14 @@ func (rscngepnt *ResourcingEndpoint) fsmkdirall(path string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsmkdir(path string) bool {
 	if rscngepnt.isLocal {
-		if err := fsutils.MKDIR(path); err != nil {
-			return false
+		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, ".") < strings.LastIndex(path, "/")) {
+			lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path, "\\", "/", -1))
+			if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+				lklpath = lklpath[:len(lklpath)-1]
+			}
+			if err := fsutils.MKDIR(rscngepnt.path + lklpath); err != nil {
+				return false
+			}
 		}
 		return true
 	}
@@ -140,10 +167,14 @@ func (rscngepnt *ResourcingEndpoint) fsmkdir(path string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.FileInfo) {
 	if rscngepnt.isLocal {
+		lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
+		if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+			lklpath = lklpath[:len(lklpath)-1]
+		}
 		if len(path) == 1 {
-			finfos, _ = fsutils.LS(path[0])
+			finfos, _ = fsutils.LS(lklpath, strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1)))
 		} else if len(path) == 2 {
-			finfos, _ = fsutils.LS(path[0], path[1])
+			finfos, _ = fsutils.LS(lklpath, strings.TrimSpace(strings.Replace(path[1], "\\", "/", -1)))
 		}
 	}
 	return
@@ -151,10 +182,14 @@ func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.File
 
 func (rscngepnt *ResourcingEndpoint) fsfind(path ...string) (finfos []fsutils.FileInfo, err error) {
 	if rscngepnt.isLocal {
+		lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
+		if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+			lklpath = lklpath[:len(lklpath)-1]
+		}
 		if len(path) == 1 {
-			finfos, _ = fsutils.FIND(path[0])
+			finfos, _ = fsutils.FIND(lklpath, strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1)))
 		} else if len(path) == 2 {
-			finfos, _ = fsutils.FIND(path[0], path[1])
+			finfos, _ = fsutils.FIND(lklpath, strings.TrimSpace(strings.Replace(path[1], "\\", "/", -1)))
 		}
 	}
 	return
