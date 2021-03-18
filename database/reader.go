@@ -13,6 +13,24 @@ import (
 	"github.com/evocert/kwe/iorw/active"
 )
 
+type ReaderHandle interface {
+	ColumnTypes() []ColumnTypeHandle
+	Columns() []string
+	Data() []interface{}
+	Next() (bool, error)
+	ToJSON(w io.Writer) error
+	JSON() (string, error)
+	Close() error
+}
+
+type JSONEntry interface {
+	JSON() string
+}
+
+type JSONDataEntry interface {
+	JSON() string
+}
+
 //Reader - struct
 type Reader struct {
 	*Executor
@@ -311,6 +329,21 @@ func castSQLTypeValue(valToCast interface{}, colType *ColumnType) (castedVal int
 		castedVal = valToCast
 	}
 	return castedVal
+}
+
+//ColumnTypeHandle interface defining column type api
+type ColumnTypeHandle interface {
+	Name() string
+	Numeric() bool
+	HasNullable() bool
+	HasLength() bool
+	HasPrecisionScale() bool
+	Nullable() bool
+	Length() int64
+	DatabaseType() string
+	Precision() int64
+	Scale() int64
+	Type() reflect.Type
 }
 
 //ColumnType structure defining column definition

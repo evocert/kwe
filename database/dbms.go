@@ -128,7 +128,7 @@ func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *
 			}
 			if exists, dbcn := dbms.AliasExists(alias); exists {
 				var err error = nil
-				reader, _, err = dbcn.query(query, false, onsuccess, onerror, onfinalize, prms...)
+				reader, _, err = internquery(dbcn, query, false, onsuccess, onerror, onfinalize, prms...)
 				if err != nil && reader == nil {
 
 				}
@@ -138,11 +138,20 @@ func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *
 	return
 }
 
+func (dbms *DBMS) QueryJSON(query interface{}, prms ...interface{}) (reader *Reader) {
+	var err error = nil
+	reader, _, err = internquery(nil, query, false, nil, nil, nil, prms...)
+	if err != nil && reader == nil {
+
+	}
+	return
+}
+
 //Query - query database by alias - return Reader for underlying dataset
 func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
 	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
-		reader, _, err = dbcn.query(query, false, nil, nil, nil, prms...)
+		reader, _, err = internquery(dbcn, query, false, nil, nil, nil, prms...)
 		if err != nil && reader == nil {
 
 		}
@@ -389,7 +398,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr 
 		}
 		if exists, dbcn := dbms.AliasExists(alias); exists {
 			var err error = nil
-			if _, exctr, err = dbcn.query(query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
+			if _, exctr, err = internquery(dbcn, query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
 
 			}
 		}
@@ -401,7 +410,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr 
 func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) (exctr *Executor) {
 	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
-		if _, exctr, err = dbcn.query(query, true, nil, nil, nil, prms...); err != nil {
+		if _, exctr, err = internquery(dbcn, query, true, nil, nil, nil, prms...); err != nil {
 
 		}
 	}

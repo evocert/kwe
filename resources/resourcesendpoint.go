@@ -2,6 +2,7 @@ package resources
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"io"
 	"net/url"
 	"os"
@@ -270,21 +271,35 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 				} else if rscngepnt.isRemote {
 					prms := map[string]interface{}{}
 					if rscngepnt.querystring != "" {
-
+						if strings.LastIndex(path, "?") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, "?") > strings.LastIndex(path, "/")) {
+							path += "&" + rscngepnt.querystring
+						} else {
+							path += "?" + rscngepnt.querystring
+						}
 					}
 					remoteHeaders := map[string]string{}
 					mimetype, _ := mimes.FindMimeType(path, "text/plain")
 					var rqstr io.Reader = nil
+					var buf *iorw.Buffer = nil
 					if mimetype == "application/json" {
 						if len(prms) > 0 {
-
+							buf = iorw.NewBuffer()
+							enc := json.NewEncoder(buf)
+							enc.Encode(prms)
+							enc = nil
+							rqstr = buf.Reader()
 						}
 					}
 					remoteHeaders["Content-Type"] = mimetype
+
 					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
 						rs = newRS(rscngepnt, path, r)
 					} else if rerr != nil {
 						err = rerr
+					}
+					if buf != nil {
+						buf.Close()
+						buf = nil
 					}
 				}
 			}
