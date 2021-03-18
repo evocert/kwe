@@ -64,32 +64,70 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 	return rscngepnt.fsutils
 }
 
+func isValidLocalPath(path string) bool {
+	if fi, fierr := os.Stat(path); fi != nil && fierr == nil {
+		return fi.IsDir()
+	}
+	return false
+}
+
 func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) bool {
-	if rscngepnt.isLocal {
-		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
-			if err := fsutils.APPEND(rscngepnt.path+path, a...); err == nil {
-				return true
+	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+		if rscngepnt.isLocal {
+			if isValidLocalPath(rscngepnt.path) {
+				if err := fsutils.APPEND(rscngepnt.path+path, a...); err == nil {
+					return true
+				}
 			}
+		}
+		if _, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
+			bufr := iorw.NewBuffer()
+			if emdrs, _ := rscngepnt.findRS(path); emdrs != nil {
+				bufr.Print(emdrs)
+			}
+			bufr.Print(a...)
+			rscngepnt.RemoveResource(path)
+			rscngepnt.MapResource(path, bufr)
+			return true
+		} else {
+			bufr := iorw.NewBuffer()
+			bufr.Print(a...)
+			rscngepnt.MapResource(path, bufr)
+			return true
 		}
 	}
 	return false
 }
 
 func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
-	if rscngepnt.isLocal {
-		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
-			if err := fsutils.SET(rscngepnt.path+path, a...); err == nil {
-				return true
+	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+		if rscngepnt.isLocal {
+			if isValidLocalPath(rscngepnt.path) {
+				if err := fsutils.SET(rscngepnt.path+path, a...); err == nil {
+					return true
+				}
 			}
+		}
+		if _, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
+			bufr := iorw.NewBuffer()
+			bufr.Print(a...)
+			rscngepnt.RemoveResource(path)
+			rscngepnt.MapResource(path, bufr)
+			return true
+		} else {
+			bufr := iorw.NewBuffer()
+			bufr.Print(a...)
+			rscngepnt.MapResource(path, bufr)
+			return true
 		}
 	}
 	return false
 }
 
 func (rscngepnt *ResourcingEndpoint) fscat(path string) (s string) {
-	if rscngepnt.isLocal {
-		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
-			s, _ = fsutils.CAT(rscngepnt.path + path)
+	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+		if rs, _ := rscngepnt.findRS(path); rs != nil {
+			s, _ = iorw.ReaderToString(rs)
 		}
 	}
 	return s
@@ -245,7 +283,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 											if f.Name == testpath {
 												if rc, rcerr := f.Open(); rcerr == nil {
 													rs = newRS(rscngepnt, path, rc)
-												} else {
+												} else if rcerr != nil {
 													err = rcerr
 												}
 												return
@@ -329,7 +367,7 @@ func (rscngepnt *ResourcingEndpoint) RemoveResource(path string) (rmvd bool) {
 //Resource - return mapped resource interface{} by path
 func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
 	if path != "" {
-		rs, _ = rscngepnt.embeddedResources[path]
+		rs = rscngepnt.embeddedResources[path]
 	}
 	return
 }
@@ -377,9 +415,6 @@ func (rscngepnt *ResourcingEndpoint) Dirs(lkppath ...string) (dirs []string, err
 			})
 		}
 	}
-	if err != nil {
-
-	}
 	return
 }
 
@@ -409,9 +444,6 @@ func (rscngepnt *ResourcingEndpoint) Files(lkppath ...string) (files []string, e
 			})
 		}
 	}
-	if err != nil {
-
-	}
 	return
 }
 
@@ -427,7 +459,7 @@ func (rscngepnt *ResourcingEndpoint) MapResource(path string, resource interface
 
 		if strng, validResource = resource.(string); !validResource {
 			if _, validResource = resource.(func() io.Reader); !validResource {
-				if buff, validResource = resource.(*iorw.Buffer); !validResource {
+				if buff, validResource = resource.(*iorw.Buffer); !validResource && buff == nil {
 					if r, validResource = resource.(io.Reader); validResource {
 						validResource = (r != nil)
 					}
