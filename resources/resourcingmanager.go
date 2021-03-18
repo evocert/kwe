@@ -147,8 +147,16 @@ func (rscngmngr *ResourcingManager) fstouch(path string) (tchd bool) {
 
 func (rscngmngr *ResourcingManager) fsmv(path string, destpath string) (mvd bool) {
 	if epnts, _, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
-		if len(epnts) == 1 && len(paths) == 1 {
-			mvd = epnts[0].fsmv(paths[0], destpath)
+		if destepnts, _, destpaths := rscngmngr.findrsendpntpaths(path); destepnts != nil && destpaths != nil {
+			if len(epnts) == 1 && len(paths) == 1 && len(destepnts) == 1 && len(destpaths) == 1 && epnts[0] == destepnts[0] {
+				mvd = epnts[0].fsmv(paths[0], destpaths[0])
+			} else if len(epnts) == 1 && len(paths) == 1 && len(destepnts) == 1 && len(destpaths) == 1 && epnts[0] != destepnts[0] {
+				if mverr := fsutils.MV(epnts[0].path+paths[0], destepnts[0].path+destpaths[0]); mverr == nil {
+					mvd = true
+				}
+			}
+			destepnts = nil
+			destpaths = nil
 		}
 		epnts = nil
 		paths = nil
