@@ -134,13 +134,12 @@ func (rscngepnt *ResourcingEndpoint) fsrm(path string) bool {
 
 func (rscngepnt *ResourcingEndpoint) fsmkdirall(path string) bool {
 	if rscngepnt.isLocal {
-
 		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, ".") < strings.LastIndex(path, "/")) {
 			lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path, "\\", "/", -1))
 			if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
 				lklpath = lklpath[:len(lklpath)-1]
 			}
-			if err := fsutils.MKDIRALL(rscngepnt.path + lklpath); err != nil {
+			if err := fsutils.MKDIRALL(lklpath); err != nil {
 				return false
 			}
 		}
@@ -156,7 +155,7 @@ func (rscngepnt *ResourcingEndpoint) fsmkdir(path string) bool {
 			if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
 				lklpath = lklpath[:len(lklpath)-1]
 			}
-			if err := fsutils.MKDIR(rscngepnt.path + lklpath); err != nil {
+			if err := fsutils.MKDIR(lklpath); err != nil {
 				return false
 			}
 		}
