@@ -27,12 +27,11 @@ import (
 
 //Request -
 type Request struct {
-	atv            *active.Active
-	actns          []*Action
-	lstexctngactng *Action
-	rsngpthsref    map[string]*resources.ResourcingPath
-	rqstrsngmngr   *resources.ResourcingManager
-	//curactnhndlr      *ActionHandler
+	atv              *active.Active
+	actns            []*Action
+	lstexctngactng   *Action
+	rsngpthsref      map[string]*resources.ResourcingPath
+	rqstrsngmngr     *resources.ResourcingManager
 	chnl             *Channel
 	settings         map[string]interface{}
 	args             []interface{}
@@ -85,15 +84,6 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			}
 			rs = rqst.FS().CAT("require/" + path)
 		}
-		/*rs, _ = rqst.embeddedResources[path]
-		if rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
-			if strings.HasSuffix(path, "require.js") {
-				rqst.MapResource(path, requirejs.RequireJS())
-			} else {
-				rqst.MapResource(path, requirejs.RequireJS())
-			}
-			rs, _ = rqst.embeddedResources[path]
-		}*/
 	}
 	return
 }
@@ -451,15 +441,6 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.cmnds = nil
 		}
-		/*if rqst.embeddedResources != nil {
-			if emdbrsrs := rqst.Resources(); len(emdbrsrs) > 0 {
-				for _, embdk := range emdbrsrs {
-					rqst.RemoveResource(embdk)
-				}
-				emdbrsrs = nil
-			}
-			rqst.embeddedResources = nil
-		}*/
 		if rqst.rqstrsngmngr != nil {
 			rqst.rqstrsngmngr.Close()
 			rqst.rqstrsngmngr = nil

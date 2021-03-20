@@ -714,8 +714,12 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						adjustOffsetRead()
 					}
 				} else if whence == io.SeekEnd {
-					if (bufs-offset) >= 0 && (bufs-offset) < bufs {
-						n = (bufs - offset)
+					if (bufs-offset) >= 0 && (bufs-offset) <= bufs {
+						if (bufs - offset) < bufs {
+							n = (bufs - offset)
+						} else {
+							n = (bufs - offset)
+						}
 						adjustOffsetRead()
 					}
 				}
