@@ -540,7 +540,7 @@ type FSUtils struct {
 	TOUCH          func(path string) bool                   `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)           `json:"finfopathsjson"`
 	CAT            func(path string) (r io.Reader)          `json:"cat"`
-	CATS           func(path string) (s string)             `json:"cat"`
+	CATS           func(path string) (s string)             `json:"cats"`
 	SET            func(path string, a ...interface{}) bool `json:"set"`
 	APPEND         func(path string, a ...interface{}) bool `json:"append"`
 }
