@@ -628,7 +628,19 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error
 //Close *ResouringManager
 func (rscngmngr *ResourcingManager) Close() (err error) {
 	if rscngmngr != nil {
-
+		if rscngmngr.fsutils != nil {
+			rscngmngr.fsutils = nil
+		}
+		if rscngmngr.rsngpaths != nil {
+			for _, pth := range rscngmngr.rsngpaths {
+				rscngmngr.RemovePathResource(pth)
+			}
+			rscngmngr.rsngpaths = nil
+		}
+		if rscngmngr.rsngrootpaths != nil {
+			rscngmngr.rsngrootpaths = nil
+		}
+		rscngmngr = nil
 	}
 	return
 }

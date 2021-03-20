@@ -14,6 +14,7 @@ import (
 
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/osprc"
+	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/web"
 
@@ -70,6 +71,20 @@ type Request struct {
 //Resource - return mapped resource interface{} by path
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
+		if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
+			if strings.HasSuffix(path, "require.js") {
+				path = "require.js"
+			} else if strings.HasSuffix(path, "require.min.js") {
+				path = "require.min.js"
+			}
+			rqst.FS().MKDIR("require")
+			if rs = rqst.FS().CAT("require/" + path); rs == nil {
+				if path == "require.js" || path == "require.min.js" {
+					rqst.FS().SET("require/"+path, requirejs.RequireJS())
+				}
+			}
+			rs = rqst.FS().CAT("require/" + path)
+		}
 		/*rs, _ = rqst.embeddedResources[path]
 		if rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
 			if strings.HasSuffix(path, "require.js") {
