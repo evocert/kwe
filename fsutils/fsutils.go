@@ -543,7 +543,7 @@ type FSUtils struct {
 	CATS           func(path string) (s string)                                                                                 `json:"cats"`
 	SET            func(path string, a ...interface{}) bool                                                                     `json:"set"`
 	APPEND         func(path string, a ...interface{}) bool                                                                     `json:"append"`
-	DUMMYFINFO     func(name string, path string, absolutepath string, size int64, mod os.FileMode, modtime time.Time) FileInfo `json:dummyfino`
+	DUMMYFINFO     func(name string, path string, absolutepath string, size int64, mod os.FileMode, modtime time.Time) FileInfo `json:"dummyfino"`
 }
 
 //NewFSUtils return instance of FSUtils
