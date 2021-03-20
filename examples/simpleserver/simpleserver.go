@@ -57,8 +57,8 @@ func main() {
 		resources.GLOBALRSNG().RegisterEndpoint("/mem/", "")
 		resources.GLOBALRSNG().RegisterEndpoint("/dojo/", "https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/")
 		if f, ferr := os.Open("./trythis.html"); ferr == nil {
-			resources.GLOBALRSNG().MapEndpointResource("/mem/", "uiop/string.txt", f)
-			resources.GLOBALRSNG().MapEndpointResource("/dojo/", "uiop/string.html", f)
+			resources.GLOBALRSNG().FS().SET("/mem/uiop/string.txt", f)
+			resources.GLOBALRSNG().FS().SET("/dojo/uiop/string.html", f)
 		}
 		chnls.GLOBALCHNL().Listener().Listen(":1002")
 	}

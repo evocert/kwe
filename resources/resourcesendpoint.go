@@ -6,15 +6,49 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/web"
 )
+
+type EmbeddedResource struct {
+	rscngendpnt *ResourcingEndpoint
+	*iorw.Buffer
+	modified time.Time
+	path     string
+}
+
+func NewEmbeddedResource(rscngendpnt *ResourcingEndpoint) (embdrs *EmbeddedResource) {
+	embdrs = &EmbeddedResource{Buffer: iorw.NewBuffer(), modified: time.Now()}
+	return
+}
+
+func (embdrs *EmbeddedResource) Clear() {
+	embdrs.Buffer.Clear()
+}
+
+func (embdrs *EmbeddedResource) Close() (err error) {
+	if embdrs != nil {
+		if embdrs.rscngendpnt != nil {
+			if embdrs.rscngendpnt.embeddedResources[embdrs.path] == embdrs {
+				embdrs.rscngendpnt.embeddedResources[embdrs.path] = nil
+				delete(embdrs.rscngendpnt.embeddedResources, embdrs.path)
+			}
+			embdrs.rscngendpnt = nil
+		}
+		if embdrs.Buffer != nil {
+			err = embdrs.Buffer.Close()
+			embdrs.Buffer = nil
+		}
+		embdrs = nil
+	}
+	return
+}
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
@@ -29,7 +63,7 @@ type ResourcingEndpoint struct {
 	host              string
 	schema            string
 	querystring       string
-	embeddedResources map[string]interface{}
+	embeddedResources map[string]*EmbeddedResource
 	rsngmngr          *ResourcingManager
 }
 
@@ -42,10 +76,16 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return
 			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
 				return
-			}, MKDIR: func(path string) bool {
-				return rscngepnt.fsmkdir(path)
-			}, MKDIRALL: func(path string) bool {
-				return rscngepnt.fsmkdirall(path)
+			}, MKDIR: func(path ...string) bool {
+				if len(path) == 1 {
+					return rscngepnt.fsmkdir(path[0])
+				}
+				return false
+			}, MKDIRALL: func(path ...string) bool {
+				if len(path) == 1 {
+					return rscngepnt.fsmkdirall(path[0])
+				}
+				return false
 			}, RM: func(path string) bool {
 				return rscngepnt.fsrm(path)
 			}, MV: func(path string, destpath string) bool {
@@ -80,19 +120,13 @@ func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) boo
 				}
 			}
 		}
-		if _, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
-			bufr := iorw.NewBuffer()
-			if emdrs, _ := rscngepnt.findRS(path); emdrs != nil {
-				bufr.Print(emdrs)
-			}
-			bufr.Print(a...)
-			rscngepnt.RemoveResource(path)
-			rscngepnt.MapResource(path, bufr)
+		if embdrs, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
+			embdrs.Print(a...)
 			return true
 		} else {
-			bufr := iorw.NewBuffer()
-			bufr.Print(a...)
-			rscngepnt.MapResource(path, bufr)
+			embdrs := NewEmbeddedResource(rscngepnt)
+			embdrs.Print(a...)
+			rscngepnt.embeddedResources[path] = embdrs
 			return true
 		}
 	}
@@ -108,16 +142,14 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 				}
 			}
 		}
-		if _, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
-			bufr := iorw.NewBuffer()
-			bufr.Print(a...)
-			rscngepnt.RemoveResource(path)
-			rscngepnt.MapResource(path, bufr)
+		if embdrs, emdrsok := rscngepnt.embeddedResources[path]; emdrsok {
+			embdrs.Clear()
+			embdrs.Print(a...)
 			return true
 		} else {
-			bufr := iorw.NewBuffer()
-			bufr.Print(a...)
-			rscngepnt.MapResource(path, bufr)
+			embdrs := NewEmbeddedResource(rscngepnt)
+			embdrs.Print(a...)
+			rscngepnt.embeddedResources[path] = embdrs
 			return true
 		}
 	}
@@ -265,10 +297,8 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 			defer rscngepnt.lck.Unlock()
 			if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
 				if embdrs, embdrsok := rscngepnt.embeddedResources[path]; embdrsok {
-					if buff, buffok := embdrs.(*iorw.Buffer); buffok {
-						rs = newRS(rscngepnt, path, buff.Reader())
-					} else if funcr, funcrok := embdrs.(func() io.Reader); funcrok {
-						rs = newRS(rscngepnt, path, funcr())
+					if embdrs != nil {
+						rs = newRS(rscngepnt, path, embdrs.Reader())
 					}
 				} else if rscngepnt.isLocal {
 					var tmppath = ""
@@ -351,14 +381,7 @@ func (rscngepnt *ResourcingEndpoint) RemoveResource(path string) (rmvd bool) {
 	if path != "" {
 		if rs, rsok := rscngepnt.embeddedResources[path]; rsok {
 			rmvd = rsok
-			rscngepnt.embeddedResources[path] = nil
-			delete(rscngepnt.embeddedResources, path)
-			if rs != nil {
-				if bf, bfok := rs.(*iorw.Buffer); bfok && bf != nil {
-					bf.Close()
-					bf = nil
-				}
-			}
+			rs.Close()
 		}
 	}
 	return
@@ -370,135 +393,6 @@ func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
 		rs = rscngepnt.embeddedResources[path]
 	}
 	return
-}
-
-//Resources list of embedded resource paths
-func (rscngepnt *ResourcingEndpoint) Resources() (rsrs []string) {
-	if lrsrs := len(rscngepnt.embeddedResources); lrsrs > 0 {
-		rsrs = make([]string, lrsrs)
-		rsrsi := 0
-		for rsrsk := range rscngepnt.embeddedResources {
-			rsrs[rsrsi] = rsrsk
-			rsrsi++
-		}
-	}
-	return
-}
-
-//Dirs return list of directories of a local endpoint
-func (rscngepnt *ResourcingEndpoint) Dirs(lkppath ...string) (dirs []string, err error) {
-	dirs = []string{}
-	if len(lkppath) == 0 {
-		err = filepath.Walk(rscngepnt.path, func(path string, info os.FileInfo, err error) error {
-			path = strings.Replace(path, "\\", "/", -1)
-			if info.IsDir() {
-				if path != rscngepnt.path {
-					dirs = append(dirs, path[len(rscngepnt.path):])
-				}
-			} else if strings.HasSuffix(path, ".zip") {
-				dirs = append(dirs, path[len(rscngepnt.path):len(path)-len(".zip")])
-			}
-			return nil
-		})
-	} else {
-		for _, lkp := range lkppath {
-			err = filepath.Walk(rscngepnt.path+lkp, func(path string, info os.FileInfo, err error) error {
-				path = strings.Replace(path, "\\", "/", -1)
-				if info.IsDir() {
-					if path != rscngepnt.path {
-						dirs = append(dirs, path[len(rscngepnt.path+lkp):])
-					}
-				} else if strings.HasSuffix(path, ".zip") {
-					dirs = append(dirs, path[len(rscngepnt.path+lkp):len(path)-len(".zip")])
-				}
-				return nil
-			})
-		}
-	}
-	return
-}
-
-//Files return list of files of a local endpoint
-func (rscngepnt *ResourcingEndpoint) Files(lkppath ...string) (files []string, err error) {
-	files = []string{}
-	if len(lkppath) == 0 {
-		err = filepath.Walk(rscngepnt.path, func(path string, info os.FileInfo, err error) error {
-			path = strings.Replace(path, "\\", "/", -1)
-			if !info.IsDir() {
-				if !strings.HasSuffix(path, ".zip") && path != rscngepnt.path {
-					files = append(files, path[len(rscngepnt.path):])
-				}
-			}
-			return nil
-		})
-	} else {
-		for _, lkp := range lkppath {
-			err = filepath.Walk(rscngepnt.path+lkp, func(path string, info os.FileInfo, err error) error {
-				path = strings.Replace(path, "\\", "/", -1)
-				if !info.IsDir() {
-					if path != rscngepnt.path {
-						files = append(files, path[len(rscngepnt.path+lkp):])
-					}
-				}
-				return nil
-			})
-		}
-	}
-	return
-}
-
-//MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
-func (rscngepnt *ResourcingEndpoint) MapResource(path string, resource interface{}) {
-	if path != "" && resource != nil {
-		var validResource = false
-		var strng = ""
-		var isReader = false
-		var r io.Reader = nil
-		var isBuffer = false
-		var buff *iorw.Buffer = nil
-
-		if strng, validResource = resource.(string); !validResource {
-			if _, validResource = resource.(func() io.Reader); !validResource {
-				if buff, validResource = resource.(*iorw.Buffer); !validResource && buff == nil {
-					if r, validResource = resource.(io.Reader); validResource {
-						validResource = (r != nil)
-					}
-					isReader = validResource
-				} else {
-					isBuffer = true
-				}
-			}
-		} else {
-			if strng != "" {
-				r = strings.NewReader(strng)
-				isReader = true
-			} else {
-				validResource = false
-			}
-		}
-		if validResource {
-			if isReader {
-				buff := iorw.NewBuffer()
-				io.Copy(buff, r)
-				resource = buff
-			}
-			if _, resourceok := rscngepnt.embeddedResources[path]; resourceok && rscngepnt.embeddedResources[path] != resource {
-				if rscngepnt.embeddedResources[path] != nil {
-					if isBuffer {
-						if buff, isBuffer = rscngepnt.embeddedResources[path].(*iorw.Buffer); isBuffer {
-							buff.Close()
-							buff = nil
-						}
-						rscngepnt.embeddedResources[path] = resource
-					}
-				} else {
-					rscngepnt.embeddedResources[path] = resource
-				}
-			} else {
-				rscngepnt.embeddedResources[path] = resource
-			}
-		}
-	}
 }
 
 func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
@@ -517,7 +411,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]interface{}{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
 				}
 			}
 		} else {
@@ -526,12 +420,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]interface{}{}, host: "", schema: "", querystring: "", path: ""}
+		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: ""}
 	}
 	return
 }

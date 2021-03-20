@@ -14,7 +14,6 @@ import (
 
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/osprc"
-	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/web"
 
@@ -27,11 +26,11 @@ import (
 
 //Request -
 type Request struct {
-	atv               *active.Active
-	actns             []*Action
-	lstexctngactng    *Action
-	rsngpthsref       map[string]*resources.ResourcingPath
-	embeddedResources map[string]interface{}
+	atv            *active.Active
+	actns          []*Action
+	lstexctngactng *Action
+	rsngpthsref    map[string]*resources.ResourcingPath
+	rqstrsngmngr   *resources.ResourcingManager
 	//curactnhndlr      *ActionHandler
 	chnl             *Channel
 	settings         map[string]interface{}
@@ -64,12 +63,14 @@ type Request struct {
 	//scheduling
 	schdl    *scheduling.Schedule
 	prntrqst *Request
+	//fsutils
+	fsutils *fsutils.FSUtils
 }
 
 //Resource - return mapped resource interface{} by path
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
-		rs, _ = rqst.embeddedResources[path]
+		/*rs, _ = rqst.embeddedResources[path]
 		if rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
 			if strings.HasSuffix(path, "require.js") {
 				rqst.MapResource(path, requirejs.RequireJS())
@@ -77,44 +78,13 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 				rqst.MapResource(path, requirejs.RequireJS())
 			}
 			rs, _ = rqst.embeddedResources[path]
-		}
-	}
-	return
-}
-
-//RemoveResource - remove inline resource - true if found and removed and false if not exists
-func (rqst *Request) RemoveResource(path string) (rmvd bool) {
-	if path != "" {
-		if rs, rsok := rqst.embeddedResources[path]; rsok {
-			rmvd = rsok
-			rqst.embeddedResources[path] = nil
-			delete(rqst.embeddedResources, path)
-			if rs != nil {
-				if bf, bfok := rs.(*iorw.Buffer); bfok && bf != nil {
-					bf.Close()
-					bf = nil
-				}
-			}
-		}
-	}
-	return
-}
-
-//Resources list of embedded resource paths
-func (rqst *Request) Resources() (rsrs []string) {
-	if lrsrs := len(rqst.embeddedResources); lrsrs > 0 {
-		rsrs = make([]string, lrsrs)
-		rsrsi := 0
-		for rsrsk := range rqst.embeddedResources {
-			rsrs[rsrsi] = rsrsk
-			rsrsi++
-		}
+		}*/
 	}
 	return
 }
 
 //MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
-func (rqst *Request) MapResource(path string, resource interface{}) {
+/*func (rqst *Request) MapResource(path string, resource interface{}) {
 	if path != "" && resource != nil {
 		var validResource = false
 		var strng = ""
@@ -163,7 +133,7 @@ func (rqst *Request) MapResource(path string, resource interface{}) {
 			}
 		}
 	}
-}
+}*/
 
 //ProtoMethod - http e.g request METHOD
 func (rqst *Request) ProtoMethod() string {
@@ -466,7 +436,7 @@ func (rqst *Request) Close() (err error) {
 			}
 			rqst.cmnds = nil
 		}
-		if rqst.embeddedResources != nil {
+		/*if rqst.embeddedResources != nil {
 			if emdbrsrs := rqst.Resources(); len(emdbrsrs) > 0 {
 				for _, embdk := range emdbrsrs {
 					rqst.RemoveResource(embdk)
@@ -474,6 +444,10 @@ func (rqst *Request) Close() (err error) {
 				emdbrsrs = nil
 			}
 			rqst.embeddedResources = nil
+		}*/
+		if rqst.rqstrsngmngr != nil {
+			rqst.rqstrsngmngr.Close()
+			rqst.rqstrsngmngr = nil
 		}
 		if rqst.lstexctngactng != nil {
 			for rqst.lstexctngactng != nil {
@@ -937,7 +911,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, embeddedResources: map[string]interface{}{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {

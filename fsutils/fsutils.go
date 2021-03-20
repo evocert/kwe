@@ -4,8 +4,10 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -418,24 +420,62 @@ func TOUCH(path string) (err error) {
 }
 
 //CAT return file content if file exists else empty string
-func CAT(path string) (cntnt string, err error) {
+func CAT(path string) (r io.Reader, err error) {
 	if statf, staterr := os.Stat(path); staterr != nil {
 		err = staterr
 	} else if !statf.IsDir() {
 		if statf.Size() > 0 {
 			if f, ferr := os.Open(path); ferr == nil {
-				func() {
-					defer f.Close()
-					buf := iorw.NewBuffer()
-					buf.Print(f)
-					cntnt = buf.String()
+				pr, pw := io.Pipe()
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				go func() {
+					var pwerr error = nil
+					defer func() {
+						f.Close()
+						if pwerr == nil {
+							pw.Close()
+						} else {
+							pw.CloseWithError(pwerr)
+						}
+					}()
+					wg.Done()
+					if _, pwerr = io.Copy(pw, f); pwerr != nil {
+						if pwerr == io.EOF {
+							pwerr = nil
+						}
+					}
 				}()
+				wg.Done()
+				r = pr
 			} else {
 				err = ferr
 			}
 		}
 	}
 
+	return
+}
+
+//CATS return file content if file exists else empty string
+func CATS(path string) (cntnt string, err error) {
+	var r io.Reader = nil
+	if r, err = CAT(path); err == nil {
+		if r != nil {
+			var rc io.Closer = nil
+			rc, _ = r.(io.Closer)
+			func() {
+				defer func() {
+					if rc != nil {
+						rc.Close()
+						rc = nil
+					}
+					r = nil
+				}()
+				cntnt, err = iorw.ReaderToString(r)
+			}()
+		}
+	}
 	return
 }
 
@@ -493,13 +533,14 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 type FSUtils struct {
 	LS             func(path ...string) (finfos []FileInfo) `json:"ls"`
 	FIND           func(path ...string) (finfos []FileInfo) `json:"find"`
-	MKDIR          func(path string) bool                   `json:"mkdir"`
-	MKDIRALL       func(path string) bool                   `json:"mkdirall"`
+	MKDIR          func(path ...string) bool                `json:"mkdir"`
+	MKDIRALL       func(path ...string) bool                `json:"mkdirall"`
 	RM             func(path string) bool                   `json:"rm"`
 	MV             func(path string, destpath string) bool  `json:"mv"`
 	TOUCH          func(path string) bool                   `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)           `json:"finfopathsjson"`
-	CAT            func(path string) (s string)             `json:"cat"`
+	CAT            func(path string) (r io.Reader)          `json:"cat"`
+	CATS           func(path string) (s string)             `json:"cat"`
 	SET            func(path string, a ...interface{}) bool `json:"set"`
 	APPEND         func(path string, a ...interface{}) bool `json:"append"`
 }
@@ -523,15 +564,19 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 			}
 			return
 		},
-		MKDIR: func(path string) bool {
-			if err := MKDIR(path); err == nil {
-				return true
+		MKDIR: func(path ...string) bool {
+			if len(path) == 1 {
+				if err := MKDIR(path[0]); err == nil {
+					return true
+				}
 			}
 			return false
 		},
-		MKDIRALL: func(path string) bool {
-			if err := MKDIRALL(path); err == nil {
-				return true
+		MKDIRALL: func(path ...string) bool {
+			if len(path) == 0 {
+				if err := MKDIRALL(path[0]); err == nil {
+					return true
+				}
 			}
 			return false
 		},
@@ -553,8 +598,13 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 			}
 			return false
 		},
-		CAT: func(path string) (s string) {
-			if cats, err := CAT(path); err == nil {
+		CAT: func(path string) (r io.Reader) {
+			if catr, err := CAT(path); err == nil {
+				r = catr
+			}
+			return
+		}, CATS: func(path string) (s string) {
+			if cats, err := CATS(path); err == nil {
 				s = cats
 			}
 			return

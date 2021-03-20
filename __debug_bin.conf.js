@@ -2,6 +2,9 @@
 dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/collections","D:/projects/collections");
 channel.Listener().Listen(":1111");
+request.FS().MKDIR("test");
+request.FS().SET("test/test.txt","bla","bla");
+print(request.FS().CAT("test/test.txt"));
 resourcing.FS().MKDIR("/collections/testdir")
 resourcing.FS().FIND("/collections/testdir")
 /*resourcing.RegisterEndpoint("/","D:/projects/system");

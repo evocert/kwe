@@ -25,10 +25,10 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
 				finfos = rscngmngr.fsls(path...)
 				return
-			}, MKDIR: func(path string) bool {
-				return rscngmngr.fsmkdir(path)
-			}, MKDIRALL: func(path string) bool {
-				return rscngmngr.fsmkdirall(path)
+			}, MKDIR: func(path ...string) bool {
+				return rscngmngr.fsmkdir(path...)
+			}, MKDIRALL: func(path ...string) bool {
+				return rscngmngr.fsmkdirall(path...)
 			}, RM: func(path string) bool {
 				return rscngmngr.fsrm(path)
 			}, MV: func(path string, destpath string) bool {
@@ -48,6 +48,9 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 }
 
 func (rscngmngr *ResourcingManager) findrsendpnt(path string) (epnt *ResourcingEndpoint, rpath string) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if len(path) > 0 {
 		pths := strings.Split(path, "/")
 		rpath = ""
@@ -102,6 +105,9 @@ func (rscngmngr *ResourcingManager) findrsendpntpaths(path ...string) (epnts []*
 }
 
 func (rscngmngr *ResourcingManager) fsappend(path string, a ...interface{}) (fnd bool) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			fnd = epnts[0].fsappend(paths[0], a...)
@@ -113,6 +119,9 @@ func (rscngmngr *ResourcingManager) fsappend(path string, a ...interface{}) (fnd
 }
 
 func (rscngmngr *ResourcingManager) fsset(path string, a ...interface{}) (set bool) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			set = epnts[0].fsset(paths[0], a...)
@@ -124,6 +133,9 @@ func (rscngmngr *ResourcingManager) fsset(path string, a ...interface{}) (set bo
 }
 
 func (rscngmngr *ResourcingManager) fscat(path string) (s string) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			s = epnts[0].fscat(paths[0])
@@ -135,6 +147,9 @@ func (rscngmngr *ResourcingManager) fscat(path string) (s string) {
 }
 
 func (rscngmngr *ResourcingManager) fstouch(path string) (tchd bool) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			tchd = epnts[0].fstouch(paths[0])
@@ -146,8 +161,14 @@ func (rscngmngr *ResourcingManager) fstouch(path string) (tchd bool) {
 }
 
 func (rscngmngr *ResourcingManager) fsmv(path string, destpath string) (mvd bool) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if destpath != "" && !strings.HasPrefix(destpath, "/") {
+		destpath = "/" + destpath
+	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
-		if destepnts, destpaths, _ := rscngmngr.findrsendpntpaths(path); destepnts != nil && destpaths != nil {
+		if destepnts, destpaths, _ := rscngmngr.findrsendpntpaths(destpath); destepnts != nil && destpaths != nil {
 			if len(epnts) == 1 && len(paths) == 1 && len(destepnts) == 1 && len(destpaths) == 1 && epnts[0] == destepnts[0] {
 				mvd = epnts[0].fsmv(paths[0], destpaths[0])
 			} else if len(epnts) == 1 && len(paths) == 1 && len(destepnts) == 1 && len(destpaths) == 1 && epnts[0] != destepnts[0] {
@@ -165,6 +186,9 @@ func (rscngmngr *ResourcingManager) fsmv(path string, destpath string) (mvd bool
 }
 
 func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	if epnts, _, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			rmd = epnts[0].fsrm(paths[0])
@@ -175,25 +199,48 @@ func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
 	return
 }
 
-func (rscngmngr *ResourcingManager) fsmkdirall(path string) (mkdall bool) {
-	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
-		if len(epnts) == 1 && len(paths) == 1 {
-			mkdall = epnts[0].fsmkdirall(paths[0])
+func (rscngmngr *ResourcingManager) fsmkdirall(path ...string) (mkdall bool) {
+	if pthl := len(path); pthl > 0 {
+		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
+			path[0] = "/" + path[0]
 		}
-		epnts = nil
-		paths = nil
+		if pthl == 1 {
+			if epnts, paths, _ := rscngmngr.findrsendpntpaths(path[0]); epnts != nil && paths != nil {
+				if len(epnts) == 1 && len(paths) == 1 {
+					mkdall = epnts[0].fsmkdirall(paths[0])
+				}
+				epnts = nil
+				paths = nil
+			}
+		} else if pthl > 1 {
+			path[1] = strings.TrimSpace(path[1])
+			rscngmngr.RegisterEndpoint(path[0], path[1])
+			mkdall = true
+		}
 	}
 	return
 }
 
-func (rscngmngr *ResourcingManager) fsmkdir(path string) (mkd bool) {
-	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
-		if len(epnts) == 1 && len(paths) == 1 {
-			mkd = epnts[0].fsmkdir(paths[0])
+func (rscngmngr *ResourcingManager) fsmkdir(path ...string) (mkd bool) {
+	if pthl := len(path); pthl > 0 {
+		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
+			path[0] = "/" + path[0]
 		}
-		epnts = nil
-		paths = nil
+		if pthl == 1 {
+			if epnts, paths, _ := rscngmngr.findrsendpntpaths(path[0]); epnts != nil && paths != nil {
+				if len(epnts) == 1 && len(paths) == 1 {
+					mkd = epnts[0].fsmkdir(paths[0])
+				}
+				epnts = nil
+				paths = nil
+			}
+		} else if pthl > 1 {
+			path[1] = strings.TrimSpace(path[1])
+			rscngmngr.RegisterEndpoint(path[0], path[1])
+			mkd = true
+		}
 	}
+
 	return
 }
 
@@ -301,46 +348,6 @@ func (rscngmngr *ResourcingManager) EndpointResource(path string) (epntrs interf
 		}
 	}
 	return
-}
-
-//MapEndpointResources map multiple endpoint embedable resources
-func (rscngmngr *ResourcingManager) MapEndpointResources(a ...interface{}) {
-	var epntpath string = ""
-	var path string = ""
-	var resource interface{} = nil
-	var epntok = false
-	for {
-		if al := len(a); al >= 3 {
-			if epntpath, epntok = a[0].(string); epntok && epntpath != "" {
-				if path, epntok = a[1].(string); epntok {
-					resource = a[2]
-					a = a[3:]
-					if _, epntpathok := rscngmngr.rsngpaths[epntpath]; epntpathok {
-						if rscngepnt := rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[epntpath]]; rscngepnt != nil {
-							rscngepnt.MapResource(path, resource)
-						}
-					}
-				} else {
-					break
-				}
-			} else {
-				break
-			}
-		} else {
-			break
-		}
-	}
-}
-
-//MapEndpointResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
-func (rscngmngr *ResourcingManager) MapEndpointResource(epntpath string, path string, resource interface{}) {
-	if epntpath != "" && path != "" {
-		if _, epntpathok := rscngmngr.rsngpaths[epntpath]; epntpathok {
-			if rscngepnt := rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[epntpath]]; rscngepnt != nil {
-				rscngepnt.MapResource(path, resource)
-			}
-		}
-	}
 }
 
 //UnregisterPaths unregister multiple paths
@@ -597,6 +604,14 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error
 		if len(rspthFound) > 0 {
 			rs, err = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].findRS(path[len(rspthFound):])
 		}
+	}
+	return
+}
+
+//Close *ResouringManager
+func (rscngmngr *ResourcingManager) Close() (err error) {
+	if rscngmngr != nil {
+
 	}
 	return
 }
