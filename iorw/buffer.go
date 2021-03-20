@@ -37,18 +37,6 @@ func (buff *Buffer) Println(a ...interface{}) {
 	Fprintln(buff, a...)
 }
 
-type offsetLength []int64
-
-func (ofs offsetLength) Len() int {
-	return len(ofs)
-}
-func (ofs offsetLength) Swap(i, j int) {
-	ofs[i], ofs[j] = ofs[j], ofs[i]
-}
-func (ofs offsetLength) Less(i, j int) bool {
-	return ofs[i] < ofs[j]
-}
-
 //SubString - return buffer as string value based on offset ...int64
 func (buff *Buffer) SubString(offset ...int64) (s string) {
 	if buff != nil {
@@ -316,7 +304,6 @@ func (bufr *BuffReader) WriteTo(w io.Writer) (n int64, err error) {
 			if pnerr == nil {
 				if pn == 0 {
 					pnerr = io.EOF
-					break
 				}
 			}
 			if pnerr != nil {
@@ -694,9 +681,9 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						if bflen > 0 {
 							if n < int64(bflen) {
 								rnbufi = 0
-							} else {
+							} /* else {
 								rnbufi = int(n / int64(bflen))
-							}
+							}*/
 							if n == (int64(bufl) * int64(bflen)) {
 								bufr.rbytesi = 0
 							} else {
