@@ -161,7 +161,7 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 func (rscngepnt *ResourcingEndpoint) fscat(path string) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
 		if rs, _ := rscngepnt.findRS(path); rs != nil {
-			r = iorw.NewEOFCloseReader(rs)
+			r = iorw.NewEOFCloseSeekReader(rs)
 		}
 	}
 	return r
