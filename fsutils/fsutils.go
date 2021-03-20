@@ -531,18 +531,19 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 
 //FSUtils struct
 type FSUtils struct {
-	LS             func(path ...string) (finfos []FileInfo) `json:"ls"`
-	FIND           func(path ...string) (finfos []FileInfo) `json:"find"`
-	MKDIR          func(path ...string) bool                `json:"mkdir"`
-	MKDIRALL       func(path ...string) bool                `json:"mkdirall"`
-	RM             func(path string) bool                   `json:"rm"`
-	MV             func(path string, destpath string) bool  `json:"mv"`
-	TOUCH          func(path string) bool                   `json:"touch"`
-	FINFOPATHSJSON func(a ...FileInfo) (s string)           `json:"finfopathsjson"`
-	CAT            func(path string) (r io.Reader)          `json:"cat"`
-	CATS           func(path string) (s string)             `json:"cats"`
-	SET            func(path string, a ...interface{}) bool `json:"set"`
-	APPEND         func(path string, a ...interface{}) bool `json:"append"`
+	LS             func(path ...string) (finfos []FileInfo)                                                                     `json:"ls"`
+	FIND           func(path ...string) (finfos []FileInfo)                                                                     `json:"find"`
+	MKDIR          func(path ...string) bool                                                                                    `json:"mkdir"`
+	MKDIRALL       func(path ...string) bool                                                                                    `json:"mkdirall"`
+	RM             func(path string) bool                                                                                       `json:"rm"`
+	MV             func(path string, destpath string) bool                                                                      `json:"mv"`
+	TOUCH          func(path string) bool                                                                                       `json:"touch"`
+	FINFOPATHSJSON func(a ...FileInfo) (s string)                                                                               `json:"finfopathsjson"`
+	CAT            func(path string) (r io.Reader)                                                                              `json:"cat"`
+	CATS           func(path string) (s string)                                                                                 `json:"cats"`
+	SET            func(path string, a ...interface{}) bool                                                                     `json:"set"`
+	APPEND         func(path string, a ...interface{}) bool                                                                     `json:"append"`
+	DUMMYFINFO     func(name string, path string, absolutepath string, size int64, mod os.FileMode, modtime time.Time) FileInfo `json:dummyfino`
 }
 
 //NewFSUtils return instance of FSUtils
@@ -623,6 +624,10 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 		},
 		FINFOPATHSJSON: func(a ...FileInfo) (s string) {
 			s = FINFOPATHSJSON(a...)
+			return
+		},
+		DUMMYFINFO: func(name string, path string, absolutepath string, size int64, mod os.FileMode, modtime time.Time) (finfo FileInfo) {
+			finfo = newFileInfo(name, path, absolutepath, size, mod, modtime)
 			return
 		}}
 	return
