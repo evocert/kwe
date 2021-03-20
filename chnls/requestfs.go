@@ -1,6 +1,7 @@
 package chnls
 
 import (
+	"io"
 	"strings"
 
 	"github.com/evocert/kwe/fsutils"
@@ -27,8 +28,10 @@ func (rqst *Request) FS() *fsutils.FSUtils {
 				return rqst.fsmv(rqst.rscngmnger(), path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rqst.fstouch(rqst.rqstrsngmngr, path)
-			}, CAT: func(path string) string {
+			}, CAT: func(path string) io.Reader {
 				return rqst.fscat(rqst.rscngmnger(), path)
+			}, CATS: func(path string) string {
+				return rqst.fscats(rqst.rscngmnger(), path)
 			}, SET: func(path string, a ...interface{}) bool {
 				return rqst.fsset(rqst.rscngmnger(), path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
@@ -116,6 +119,10 @@ func (rsqt *Request) fsmv(rsngmngr *resources.ResourcingManager, path string, de
 	return rsngmngr.FS().MV(path, destpath)
 }
 
-func (rsqt *Request) fscat(rsngmngr *resources.ResourcingManager, path string) string {
+func (rsqt *Request) fscat(rsngmngr *resources.ResourcingManager, path string) io.Reader {
 	return rsngmngr.FS().CAT(path)
+}
+
+func (rsqt *Request) fscats(rsngmngr *resources.ResourcingManager, path string) string {
+	return rsngmngr.FS().CATS(path)
 }

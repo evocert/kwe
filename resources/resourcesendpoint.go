@@ -92,8 +92,10 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return rscngepnt.fsmv(path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rscngepnt.fstouch(path)
-			}, CAT: func(path string) string {
+			}, CAT: func(path string) io.Reader {
 				return rscngepnt.fscat(path)
+			}, CATS: func(path string) string {
+				return rscngepnt.fscats(path)
 			}, SET: func(path string, a ...interface{}) bool {
 				return rscngepnt.fsset(path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
@@ -156,11 +158,18 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 	return false
 }
 
-func (rscngepnt *ResourcingEndpoint) fscat(path string) (s string) {
+func (rscngepnt *ResourcingEndpoint) fscat(path string) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
 		if rs, _ := rscngepnt.findRS(path); rs != nil {
-			s, _ = iorw.ReaderToString(rs)
+			r = iorw.NewEOFCloseReader(rs)
 		}
+	}
+	return r
+}
+
+func (rscngepnt *ResourcingEndpoint) fscats(path string) (s string) {
+	if r := rscngepnt.fscat(path); r != nil {
+		s, _ = iorw.ReaderToString(r)
 	}
 	return s
 }

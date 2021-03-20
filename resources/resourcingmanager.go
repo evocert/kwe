@@ -35,8 +35,11 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 				return rscngmngr.fsmv(path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rscngmngr.fstouch(path)
-			}, CAT: func(path string) string {
+			}, CAT: func(path string) io.Reader {
 				return rscngmngr.fscat(path)
+			},
+			CATS: func(path string) string {
+				return rscngmngr.fscats(path)
 			}, SET: func(path string, a ...interface{}) bool {
 				return rscngmngr.fsset(path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
@@ -132,13 +135,27 @@ func (rscngmngr *ResourcingManager) fsset(path string, a ...interface{}) (set bo
 	return
 }
 
-func (rscngmngr *ResourcingManager) fscat(path string) (s string) {
+func (rscngmngr *ResourcingManager) fscat(path string) (r io.Reader) {
 	if path != "" && !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
-			s = epnts[0].fscat(paths[0])
+			r = epnts[0].fscat(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fscats(path string) (s string) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			s = epnts[0].fscats(paths[0])
 		}
 		epnts = nil
 		paths = nil
