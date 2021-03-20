@@ -41,8 +41,6 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 						finfos = append(finfos, newFileInfo(fifi.Name(), fifpath+fifi.Name(), fifpath+fifi.Name(), fifi.Size(), fifi.Mode(), fifi.ModTime()))
 					}
 				}
-			} else {
-
 			}
 		} else {
 			fname := fi.Name()
@@ -97,7 +95,7 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 										}
 										if fname != "" {
 											if fname != testpath {
-												if strings.Index(fname, "/") > -1 {
+												if strings.Contains(fname, "/") {
 													fname = fname[:strings.Index(fname, "/")]
 													if df, dfok := dirsfound[fname]; dfok {
 														if !df {
@@ -129,7 +127,7 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 											}
 											if fname != "" {
 												finame := fname
-												if strings.Index(finame, "/") > -1 {
+												if strings.Contains(finame, "/") {
 													finame = finame[strings.Index(finame, "/")+1:]
 												}
 												fifi := f.FileInfo()
