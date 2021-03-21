@@ -23,6 +23,13 @@ type EmbeddedResource struct {
 	path     string
 }
 
+func (embdrs *EmbeddedResource) Name() string {
+	if strings.Contains(embdrs.path, "/") && strings.LastIndex(embdrs.path, "/") < strings.LastIndex(embdrs.path, ".") {
+		return embdrs.path[strings.LastIndex(embdrs.path, "/")+1:]
+	}
+	return embdrs.path
+}
+
 func NewEmbeddedResource(rscngendpnt *ResourcingEndpoint) (embdrs *EmbeddedResource) {
 	embdrs = &EmbeddedResource{Buffer: iorw.NewBuffer(), modified: time.Now()}
 	return
@@ -256,19 +263,63 @@ func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.File
 			finfos, _ = fsutils.LS(lklpath, strings.TrimSpace(strings.Replace(path[1], "\\", "/", -1)))
 		}
 	}
+	if rscngepnt.embeddedResources != nil {
+		if pthl := len(path); pthl > 0 {
+			for embdrspth, emdbrs := range rscngepnt.embeddedResources {
+				if finfos == nil {
+					finfos = []fsutils.FileInfo{}
+				}
+				if strings.HasPrefix(embdrspth, path[0]) && (embdrspth == path[0] || path[0] == "" && strings.LastIndex(embdrspth, "/") == -1 && strings.LastIndex(embdrspth, "/") < strings.LastIndex(embdrspth, ".")) {
+					lkppath := embdrspth
+					if pthl == 1 {
+						finfos = append(finfos, fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified))
+					} else if pthl == 2 {
+						if path[0] == "" {
+							lkppath = path[1] + "/" + lkppath
+						} else {
+							lkppath = path[1][:len(path[1])-len(embdrspth)] + embdrspth
+						}
+						finfos = append(finfos, fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified))
+					}
+				}
+			}
+		}
+	}
 	return
 }
 
 func (rscngepnt *ResourcingEndpoint) fsfind(path ...string) (finfos []fsutils.FileInfo, err error) {
+	lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
+	if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+		lklpath = lklpath[:len(lklpath)-1]
+	}
 	if rscngepnt.isLocal {
-		lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
-		if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
-			lklpath = lklpath[:len(lklpath)-1]
-		}
 		if len(path) == 1 {
 			finfos, _ = fsutils.FIND(lklpath, strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1)))
 		} else if len(path) == 2 {
 			finfos, _ = fsutils.FIND(lklpath, strings.TrimSpace(strings.Replace(path[1], "\\", "/", -1)))
+		}
+	}
+	if rscngepnt.embeddedResources != nil {
+		if pthl := len(path); pthl > 0 {
+			for embdrspth, emdbrs := range rscngepnt.embeddedResources {
+				if finfos == nil {
+					finfos = []fsutils.FileInfo{}
+				}
+				if strings.HasPrefix(embdrspth, path[0]) && (embdrspth == path[0] || path[0] == "" && strings.LastIndex(embdrspth, "/") == -1 && strings.LastIndex(embdrspth, "/") < strings.LastIndex(embdrspth, ".")) {
+					lkppath := embdrspth
+					if pthl == 1 {
+						finfos = append(finfos, fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified))
+					} else if pthl == 2 {
+						if path[0] == "" {
+							lkppath = path[1] + "/" + lkppath
+						} else {
+							lkppath = path[1][:len(path[1])-len(embdrspth)] + embdrspth
+						}
+						finfos = append(finfos, fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified))
+					}
+				}
+			}
 		}
 	}
 	return

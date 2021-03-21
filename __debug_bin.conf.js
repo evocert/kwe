@@ -4,9 +4,10 @@ resourcing.RegisterEndpoint("/collections","D:/projects/collections");
 channel.Listener().Listen(":1111");
 request.FS().MKDIR("test");
 request.FS().SET("test/test.txt","bla","bla");
-print(request.FS().CAT("test/test.txt"));
+println(request.FS().LS("test")[0].JSON());
+println(request.FS().CAT("test/test.txt"));
 resourcing.FS().MKDIR("/collections/testdir")
-resourcing.FS().FIND("/collections/testdir")
+println(resourcing.FS().FIND("/collections/testdir"))
 /*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
