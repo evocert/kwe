@@ -6,6 +6,7 @@ request.FS().MKDIR("test");
 request.FS().SET("test/test.txt","bla","bla");
 println(request.FS().LS("test")[0].JSON());
 println(request.FS().CAT("test/test.txt"));
+request.FS().RM("test");
 resourcing.FS().MKDIR("/collections/testdir")
 println(resourcing.FS().FIND("/collections/testdir"))
 /*resourcing.RegisterEndpoint("/","D:/projects/system");

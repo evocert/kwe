@@ -25,9 +25,9 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
 				finfos = rscngmngr.fsls(path...)
 				return
-			}, MKDIR: func(path ...string) bool {
+			}, MKDIR: func(path ...interface{}) bool {
 				return rscngmngr.fsmkdir(path...)
-			}, MKDIRALL: func(path ...string) bool {
+			}, MKDIRALL: func(path ...interface{}) bool {
 				return rscngmngr.fsmkdirall(path...)
 			}, RM: func(path string) bool {
 				return rscngmngr.fsrm(path)
@@ -206,9 +206,18 @@ func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
 	if path != "" && !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	if epnts, _, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
-		if len(epnts) == 1 && len(paths) == 1 {
-			rmd = epnts[0].fsrm(paths[0])
+	if epnts, epntpaths, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if endpntsl := len(epnts); endpntsl > 0 && endpntsl == len(paths) {
+			endpntsi := 0
+			pthstoUnregister := []string{}
+			for endpntsi < endpntsl {
+				rmd = epnts[endpntsi].fsrm(epntpaths[endpntsi])
+				if epntpaths[endpntsi] == "" {
+					pthstoUnregister = append(pthstoUnregister, paths[endpntsi])
+				}
+				endpntsi++
+			}
+			rscngmngr.UnregisterPaths(pthstoUnregister...)
 		}
 		epnts = nil
 		paths = nil
@@ -216,48 +225,69 @@ func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
 	return
 }
 
-func (rscngmngr *ResourcingManager) fsmkdirall(path ...string) (mkdall bool) {
+func (rscngmngr *ResourcingManager) fsmkdirall(path ...interface{}) (mkdall bool) {
 	if pthl := len(path); pthl > 0 {
-		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
-			path[0] = "/" + path[0]
+		var pth1, _ = path[0].(string)
+		pth1 = strings.TrimSpace(pth1)
+		var pth2 = ""
+		if pthl > 1 {
+			pth2, _ = path[1].(string)
+			pth2 = strings.TrimSpace(pth2)
+			path[1] = pth2
 		}
+		if pth1 != "" && !strings.HasPrefix(pth1, "/") {
+			pth1 = "/" + pth1
+		}
+		path[0] = pth1
 		if pthl == 1 {
-			if epnts, paths, _ := rscngmngr.findrsendpntpaths(path[0]); epnts != nil && paths != nil {
+			if epnts, paths, _ := rscngmngr.findrsendpntpaths(pth1); epnts != nil && paths != nil {
 				if len(epnts) == 1 && len(paths) == 1 {
 					mkdall = epnts[0].fsmkdirall(paths[0])
 				}
 				epnts = nil
 				paths = nil
 			}
-		} else if pthl > 1 {
-			path[1] = strings.TrimSpace(path[1])
-			rscngmngr.RegisterEndpoint(path[0], path[1])
+		} else if pthl == 2 {
+			rscngmngr.RegisterEndpoint(pth1, pth2)
+			mkdall = true
+		} else if pthl > 2 {
+			rscngmngr.RegisterEndpoint(pth1, pth2, path[2:]...)
 			mkdall = true
 		}
 	}
 	return
 }
 
-func (rscngmngr *ResourcingManager) fsmkdir(path ...string) (mkd bool) {
+func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
 	if pthl := len(path); pthl > 0 {
-		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
-			path[0] = "/" + path[0]
+		var pth1, _ = path[0].(string)
+		pth1 = strings.TrimSpace(pth1)
+		var pth2 = ""
+		if pthl > 1 {
+			pth2, _ = path[1].(string)
+			pth2 = strings.TrimSpace(pth2)
+			path[1] = pth2
 		}
+		if pth1 != "" && !strings.HasPrefix(pth1, "/") {
+			pth1 = "/" + pth1
+		}
+		path[0] = pth1
 		if pthl == 1 {
-			if epnts, paths, _ := rscngmngr.findrsendpntpaths(path[0]); epnts != nil && paths != nil {
+			if epnts, paths, _ := rscngmngr.findrsendpntpaths(pth1); epnts != nil && paths != nil {
 				if len(epnts) == 1 && len(paths) == 1 {
 					mkd = epnts[0].fsmkdir(paths[0])
 				}
 				epnts = nil
 				paths = nil
 			}
-		} else if pthl > 1 {
-			path[1] = strings.TrimSpace(path[1])
-			rscngmngr.RegisterEndpoint(path[0], path[1])
+		} else if pthl == 2 {
+			rscngmngr.RegisterEndpoint(pth1, pth2)
+			mkd = true
+		} else if pthl > 2 {
+			rscngmngr.RegisterEndpoint(pth1, pth2, path[2:]...)
 			mkd = true
 		}
 	}
-
 	return
 }
 

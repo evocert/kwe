@@ -531,8 +531,8 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 type FSUtils struct {
 	LS             func(path ...string) (finfos []FileInfo)                                                                     `json:"ls"`
 	FIND           func(path ...string) (finfos []FileInfo)                                                                     `json:"find"`
-	MKDIR          func(path ...string) bool                                                                                    `json:"mkdir"`
-	MKDIRALL       func(path ...string) bool                                                                                    `json:"mkdirall"`
+	MKDIR          func(path ...interface{}) bool                                                                               `json:"mkdir"`
+	MKDIRALL       func(path ...interface{}) bool                                                                               `json:"mkdirall"`
 	RM             func(path string) bool                                                                                       `json:"rm"`
 	MV             func(path string, destpath string) bool                                                                      `json:"mv"`
 	TOUCH          func(path string) bool                                                                                       `json:"touch"`
@@ -563,18 +563,22 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 			}
 			return
 		},
-		MKDIR: func(path ...string) bool {
+		MKDIR: func(path ...interface{}) bool {
 			if len(path) == 1 {
-				if err := MKDIR(path[0]); err == nil {
-					return true
+				if pth, _ := path[0].(string); pth != "" {
+					if err := MKDIR(pth); err == nil {
+						return true
+					}
 				}
 			}
 			return false
 		},
-		MKDIRALL: func(path ...string) bool {
+		MKDIRALL: func(path ...interface{}) bool {
 			if len(path) == 0 {
-				if err := MKDIRALL(path[0]); err == nil {
-					return true
+				if pth, _ := path[0].(string); pth != "" {
+					if err := MKDIRALL(pth); err == nil {
+						return true
+					}
 				}
 			}
 			return false

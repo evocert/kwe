@@ -83,14 +83,16 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return
 			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
 				return
-			}, MKDIR: func(path ...string) bool {
+			}, MKDIR: func(path ...interface{}) bool {
 				if len(path) == 1 {
-					return rscngepnt.fsmkdir(path[0])
+					pth, _ := path[0].(string)
+					return rscngepnt.fsmkdir(pth)
 				}
 				return false
-			}, MKDIRALL: func(path ...string) bool {
+			}, MKDIRALL: func(path ...interface{}) bool {
 				if len(path) == 1 {
-					return rscngepnt.fsmkdirall(path[0])
+					pth, _ := path[0].(string)
+					return rscngepnt.fsmkdirall(pth)
 				}
 				return false
 			}, RM: func(path string) bool {
@@ -207,16 +209,26 @@ func (rscngepnt *ResourcingEndpoint) fsmv(path string, destpath string) bool {
 	return false
 }
 
-func (rscngepnt *ResourcingEndpoint) fsrm(path string) bool {
+func (rscngepnt *ResourcingEndpoint) fsrm(path string) (rmvd bool) {
 	if rscngepnt.isLocal {
 		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" {
-			if err := fsutils.RM(rscngepnt.path + path); err != nil {
-				return false
+			if err := fsutils.RM(rscngepnt.path + path); err == nil {
+				rmvd = true
 			}
 		}
-		return true
 	}
-	return false
+	if !rmvd {
+		if len(rscngepnt.embeddedResources) > 0 {
+			for embdpth := range rscngepnt.embeddedResources {
+				if strings.HasPrefix(embdpth, path) {
+					rscngepnt.embeddedResources[embdpth].Close()
+					rscngepnt.embeddedResources[embdpth] = nil
+					delete(rscngepnt.embeddedResources, embdpth)
+				}
+			}
+		}
+	}
+	return rmvd
 }
 
 func (rscngepnt *ResourcingEndpoint) fsmkdirall(path string) bool {

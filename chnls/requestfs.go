@@ -18,9 +18,9 @@ func (rqst *Request) FS() *fsutils.FSUtils {
 			}, LS: func(path ...string) (finfos []fsutils.FileInfo) {
 				finfos = rqst.fsls(rqst.rscngmnger(), path...)
 				return
-			}, MKDIR: func(path ...string) bool {
+			}, MKDIR: func(path ...interface{}) bool {
 				return rqst.fsmkdir(rqst.rscngmnger(), path...)
-			}, MKDIRALL: func(path ...string) bool {
+			}, MKDIRALL: func(path ...interface{}) bool {
 				return rqst.fsmkdirall(rqst.rscngmnger(), path...)
 			}, RM: func(path string) bool {
 				return rqst.fsrm(rqst.rscngmnger(), path)
@@ -62,34 +62,56 @@ func (rqst *Request) fsls(rsngmngr *resources.ResourcingManager, path ...string)
 	return
 }
 
-func (rsqt *Request) fsmkdir(rsngmngr *resources.ResourcingManager, path ...string) bool {
+func (rsqt *Request) fsmkdir(rsngmngr *resources.ResourcingManager, path ...interface{}) bool {
 	if pthl := len(path); pthl > 0 {
-		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
-			path[0] = "/" + path[0]
+		var pth1 = ""
+		var pth2 = ""
+		if pthl > 1 {
+			pth2, _ = path[1].(string)
+			pth2 = strings.TrimSpace(pth2)
+			path[1] = pth2
+		}
+		if pth1, _ = path[0].(string); pth1 != "" && !strings.HasPrefix(pth1, "/") {
+			path[0] = "/" + pth1
 		}
 		if !rsngmngr.FS().MKDIR(path...) {
-			if pthl == 1 {
-				rsngmngr.RegisterEndpoint(path[0], "")
+			if pthl == 1 && pth1 != "" {
+				rsngmngr.RegisterEndpoint(pth1, "")
 				return true
 			} else if pthl == 2 {
-				rsngmngr.RegisterEndpoint(path[0], path[1])
+				rsngmngr.RegisterEndpoint(pth1, pth2)
+				return true
+			} else if pthl > 2 {
+				rsngmngr.RegisterEndpoint(pth1, pth2, path[2:]...)
+				return true
 			}
 		}
 	}
 	return false
 }
 
-func (rsqt *Request) fsmkdirall(rsngmngr *resources.ResourcingManager, path ...string) bool {
+func (rsqt *Request) fsmkdirall(rsngmngr *resources.ResourcingManager, path ...interface{}) bool {
 	if pthl := len(path); pthl > 0 {
-		if path[0] != "" && !strings.HasPrefix(path[0], "/") {
-			path[0] = "/" + path[0]
+		var pth1 = ""
+		var pth2 = ""
+		if pthl > 1 {
+			pth2, _ = path[1].(string)
+			pth2 = strings.TrimSpace(pth2)
+			path[1] = pth2
+		}
+		if pth1, _ = path[0].(string); pth1 != "" && !strings.HasPrefix(pth1, "/") {
+			path[0] = "/" + pth1
 		}
 		if !rsngmngr.FS().MKDIRALL(path...) {
-			if pthl == 1 {
-				rsngmngr.RegisterEndpoint(path[0], "")
+			if pthl == 1 && pth1 != "" {
+				rsngmngr.RegisterEndpoint(pth1, "")
 				return true
 			} else if pthl == 2 {
-				rsngmngr.RegisterEndpoint(path[0], path[1])
+				rsngmngr.RegisterEndpoint(pth1, pth2)
+				return true
+			} else if pthl > 2 {
+				rsngmngr.RegisterEndpoint(pth1, pth2, path[2:]...)
+				return true
 			}
 		}
 	}
