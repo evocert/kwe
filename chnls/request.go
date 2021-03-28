@@ -17,6 +17,7 @@ import (
 	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/web"
+	"github.com/evocert/kwe/webactions"
 
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/iorw"
@@ -70,7 +71,9 @@ type Request struct {
 //Resource - return mapped resource interface{} by path
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
-		if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
+		if strings.HasSuffix(path, "webactions.bundle.js") {
+			rs = webactions.WebactionsBundleJS()
+		} else if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
 			if strings.HasSuffix(path, "require.js") {
 				path = "require.js"
 			} else if strings.HasSuffix(path, "require.min.js") {
