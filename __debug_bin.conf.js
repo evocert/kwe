@@ -1,14 +1,8 @@
 <@ 
 dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
-resourcing.RegisterEndpoint("/collections","D:/projects/collections");
+resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 channel.Listener().Listen(":1111");
-request.FS().MKDIR("test");
-request.FS().SET("test/test.txt","bla","bla");
-println(request.FS().LS("test")[0].JSON());
-println(request.FS().CAT("test/test.txt"));
-request.FS().RM("test");
-resourcing.FS().MKDIR("/collections/testdir")
-println(resourcing.FS().FIND("/collections/testdir"))
+
 /*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");

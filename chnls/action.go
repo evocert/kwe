@@ -460,9 +460,9 @@ func executeAction(actn *Action) (err error) {
 							}
 							if isTextRequest {
 								isTextRequest = false
-								actn.rqst.copy(curactnhndlr, nil, true)
+								actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
 							} else {
-								actn.rqst.copy(curactnhndlr, nil, false)
+								actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
 							}
 							curactnhndlr.Close()
 							curactnhndlr = nil
@@ -494,9 +494,9 @@ func executeAction(actn *Action) (err error) {
 			}
 			if isTextRequest {
 				isTextRequest = false
-				actn.rqst.copy(curactnhndlr, nil, true)
+				actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
 			} else {
-				actn.rqst.copy(curactnhndlr, nil, false)
+				actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
 			}
 			if curactnhndlr != nil {
 				curactnhndlr.Close()

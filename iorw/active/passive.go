@@ -3,6 +3,8 @@ package active
 import (
 	"bufio"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -34,9 +36,11 @@ type passivectrl struct {
 	bfrawr       *bufio.Reader
 	tmpbuf       *iorw.Buffer
 	cchdbuf      *iorw.Buffer
+	phrsmaps     map[string]*iorw.Buffer
 	prvrn        rune
 	elmtype      int
 	elmName      string
+	elmExt       string
 	lastElmType  int
 	lastElemName string
 	phrslbli     []int
@@ -143,6 +147,14 @@ func (psvctrl *passivectrl) close() {
 			psvctrl.cchdbuf.Close()
 			psvctrl.cchdbuf = nil
 		}
+		if psvctrl.phrsmaps != nil {
+			for k, v := range psvctrl.phrsmaps {
+				v.Close()
+				psvctrl.phrsmaps[k] = nil
+				delete(psvctrl.phrsmaps, k)
+			}
+			psvctrl.phrsmaps = nil
+		}
 		/*if psvctrl.tmpcde != nil {
 			psvctrl.tmpcde.Close()
 			psvctrl.tmpcde = nil
@@ -162,7 +174,6 @@ func (psvctrl *passivectrl) validate() (valid bool) {
 }
 
 func (psvctrl *passivectrl) outputrn(rn rune) (err error) {
-	//err = psvctrl._outputrn(rn)
 	err = parsepsvctrl(psvctrl, psvctrl.phrslbli, rn)
 	return
 }
@@ -192,12 +203,12 @@ func (psvctrl *passivectrl) _outputrn(rn rune) (err error) {
 	return
 }
 
-func processPhrase(psvctrl *passivectrl, phrsbuf *iorw.Buffer) (err error) {
-	if bufs := phrsbuf.String(); bufs != "" {
-		if bufs == "content" {
-			if psvctrl.cntntbuf != nil && psvctrl.cntntbuf.Size() > 0 {
+func processPhrase(psvctrl *passivectrl, phrslblbuf *iorw.Buffer) (err error) {
+	if bufs := phrslblbuf.String(); bufs != "" {
+		if psvctrl.phrsmaps != nil {
+			if phrsbuf, phrsbufok := psvctrl.phrsmaps[bufs]; phrsbufok && phrsbuf != nil && phrsbuf.Size() > 0 {
 				func() {
-					if cntntr := psvctrl.cntntbuf.Reader(); cntntr != nil {
+					if cntntr := phrsbuf.Reader(); cntntr != nil {
 						defer cntntr.Close()
 						err = parseprsngrunerdr(psvctrl.prsng, cntntr, false)
 					}
@@ -226,7 +237,9 @@ func parsepsvctrl(psvctrl *passivectrl, phrslbli []int, pr rune) (err error) {
 		} else {
 			if phrsi := phrslbli[0]; phrsi > 0 {
 				phrslbli[0] = 0
-				err = psvctrl._outputruns(phrslbl[0][:phrsi])
+				if err = psvctrl._outputruns(phrslbl[0][:phrsi]); err != nil {
+					return
+				}
 			}
 			psvctrl.phrsprvr = pr
 			err = psvctrl._outputrn(pr)
@@ -249,7 +262,9 @@ func parsepsvctrl(psvctrl *passivectrl, phrslbli []int, pr rune) (err error) {
 		} else {
 			if phrsi := phrslbli[1]; phrsi > 0 {
 				phrslbli[1] = 0
-				err = psvctrl.phrasebuf().WriteRunes(phrslbl[1][:phrsi]...)
+				if err = psvctrl.phrasebuf().WriteRunes(phrslbl[1][:phrsi]...); err != nil {
+					return
+				}
 			}
 			psvctrl.phrsprvr = pr
 			err = psvctrl.phrasebuf().WriteRune(pr)
@@ -267,7 +282,7 @@ func (psvctrl *passivectrl) flushout(rns ...rune) (err error) {
 		}
 	}
 	if psvctrl.bufsize() > 0 {
-		for _, rn := range []rune(psvctrl.buf().String()) {
+		for _, rn := range psvctrl.buf().String() {
 			if err = psvctrl.outputrn(rn); err != nil {
 				break
 			}
@@ -297,6 +312,20 @@ func (psvctrl *passivectrl) resetphrase() {
 	psvctrl.phrslbli[1] = 0
 	if psvctrl.phrsbuf != nil && psvctrl.phrsbuf.Size() > 0 {
 		psvctrl.phrsbuf.Clear()
+	}
+}
+
+func (psvctrl *passivectrl) setPhrase(phrslbl string, phrsbuf *iorw.Buffer) {
+	if psvctrl != nil && phrslbl != "" && phrsbuf != nil {
+		if psvctrl.phrsmaps == nil {
+			psvctrl.phrsmaps = map[string]*iorw.Buffer{}
+		}
+		if _, phrslblok := psvctrl.phrsmaps[phrslbl]; phrslblok {
+			psvctrl.phrsmaps[phrslbl].Print(phrsbuf.Reader())
+			phrsbuf.Close()
+		} else {
+			psvctrl.phrsmaps[phrslbl] = phrsbuf
+		}
 	}
 }
 
@@ -376,28 +405,54 @@ func parsepsvrune(prsng *parsing, rn rune) (err error) {
 func parseValidity(psvctrl *passivectrl) (err error) {
 	var elmtype = psvctrl.elmtype
 	var elmname = psvctrl.buf().String()
-	var elmpath = elmname[1:]
+	var elmpath = strings.Replace(elmname[1:], "|", "/", -1)
+	psvctrl.prsng.prslbli[0] = 0
+	psvctrl.prsng.prslbli[1] = 0
+	psvctrl.prsng.prslblprv[0] = rune(0)
+	psvctrl.prsng.prslblprv[0] = rune(0)
 	psvctrl.reset()
 	if elmname != "" {
 		if elmtype == ElemStart || elmtype == ElemSingle {
 			if psvctrl.prsng.atv.LookupTemplate != nil {
-				if rawr, rawrerr := psvctrl.prsng.atv.LookupTemplate(elmpath); rawr != nil && rawrerr == nil {
-					psvctrl.rawr = rawr
-					psvctrl.prsng.flushPsv()
-					if elmtype == ElemSingle {
-						err = parseprsngrunerdr(psvctrl.prsng, psvctrl, false)
-					} else {
-						if psvctrl.lastElmType == elemnone && psvctrl.lastElemName == "" {
-							psvctrl.lastElmType = elmtype
-							psvctrl.lastElemName = elmname
-							newpsvctrl(psvctrl.prsng, psvctrl)
+				var lkpext = filepath.Ext(elmpath)
+				if lkpext == "" {
+					lkpext = filepath.Ext(psvctrl.prsng.prsvpth)
+				} else {
+					elmname = elmname[:len(elmname)-len(lkpext)]
+				}
+				var rdr io.RuneReader = nil
+				if tmpltrdr, mxln := psvctrl.prsng.tmpltrdr(elmpath + lkpext); mxln > -1 {
+					rdr = tmpltrdr
+				} else {
+					if rawr, rawrerr := psvctrl.prsng.atv.LookupTemplate(elmpath + lkpext); rawr != nil && rawrerr == nil {
+						stri := psvctrl.prsng.tmpltBuf().Size()
+						psvctrl.prsng.tmpltBuf().Print(rawr)
+						endi := psvctrl.prsng.tmpltBuf().Size()
+						psvctrl.prsng.tmpltMap()[elmpath+lkpext] = []int64{stri, endi}
+						if tmpltrdr, mxln := psvctrl.prsng.tmpltrdr(elmpath + lkpext); mxln > -1 {
+							rdr = tmpltrdr
 						}
+					} else {
+						err = rawrerr
 					}
-				} else if rawrerr != nil {
-					err = rawrerr
+				}
+				if err == nil {
+					psvctrl.rawr, _ = rdr.(io.Reader)
+					psvctrl.prsng.flushPsv()
+					psvctrl.prsng.flushCde()
+					if elmtype == ElemSingle {
+						if rdr != nil {
+							if err = parseprsngrunerdr(psvctrl.prsng, rdr, false); err == io.EOF {
+								err = nil
+							}
+						}
+					} else if psvctrl.lastElmType == elemnone && psvctrl.lastElemName == "" {
+						psvctrl.lastElmType = elmtype
+						psvctrl.lastElemName = elmname
+						newpsvctrl(psvctrl.prsng, psvctrl)
+					}
 				}
 			}
-			//}
 		} else if elmtype == ElemEnd {
 			if psvctrl.nxtpsvctrl != nil {
 				if psvctrl.lastElemName != "" && psvctrl.lastElmType == ElemStart {
@@ -410,7 +465,7 @@ func parseValidity(psvctrl *passivectrl) (err error) {
 								nxtpsvctrl.cntntbuf.Close()
 								nxtpsvctrl.cntntbuf = nil
 							}
-							nxtpsvctrl.cntntbuf = psvctrl.cchdbuf
+							nxtpsvctrl.setPhrase("content", psvctrl.cchdbuf)
 							psvctrl.cchdbuf = nil
 						}
 						psvctrl.prsng.psvctrl = psvctrl.nxtpsvctrl
