@@ -26,15 +26,17 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 		if path != "" {
 			if rqstrs := actn.rqst.Resource(path); rqstrs != nil {
 				if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
-					if eofclsr.Size() > 0 {
-						actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr}
-					} else if eofclsr.Size() == -1 {
-						actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr}
-					}
+					//if eofclsr.Size() > 0 {
+					//	actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr}
+					//} else if eofclsr.Size() == -1 {
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr}
+					//}
 				} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
 					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: bf.Reader()}
 				} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
 					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: fncr()}
+				} else if rd, rdok := rqstrs.(io.Reader); rdok {
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: iorw.NewEOFCloseSeekReader(rd)}
 				}
 			}
 		}
