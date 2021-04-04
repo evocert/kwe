@@ -27,6 +27,24 @@ func (buff *Buffer) BuffersLen() (s int) {
 	return len(buff.buffer)
 }
 
+//Clone - return *Buffer clone
+func (buff *Buffer) Clone() (clnbf *Buffer) {
+	clnbf = NewBuffer()
+	if buff.Size() > 0 {
+		if len(buff.buffer) > 0 {
+			if clnbf.buffer == nil {
+				clnbf.buffer = [][]byte{}
+			}
+			clnbf.buffer = append(clnbf.buffer, buff.buffer...)
+		}
+		if buff.bytesi > 0 {
+			copy(clnbf.bytes, buff.bytes[:buff.bytesi])
+			clnbf.bytesi = buff.bytesi
+		}
+	}
+	return
+}
+
 //Print - same as fmt.Print just on buffer
 func (buff *Buffer) Print(a ...interface{}) {
 	Fprint(buff, a...)
