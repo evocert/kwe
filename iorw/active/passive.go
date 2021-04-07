@@ -1,7 +1,6 @@
 package active
 
 import (
-	"bufio"
 	"io"
 	"path/filepath"
 	"strings"
@@ -9,16 +8,252 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-const (
-	none int = iota
-	gthan
-	start
-	end
-	done
-)
+func parsepsvrune(prsng *parsing, rn rune) (err error) {
+	prsng.flushCde()
+	if prsng.hascde {
+		prsng.hascde = false
+	}
+	err = parseelmpsvrrune(prsng, prsng.elmoffset, prsng.elmlbli, prsng.elmprvrns, rn)
+	return
+}
+
+func parsepsvphrase(prsng *parsing, psvsctn *psvsection, phrslbli []int, rn rune) (err error) {
+	if phrslbli[1] == 0 && phrslbli[0] < len(phrslbl[0]) {
+		if phrslbli[0] > 0 && phrslbl[0][phrslbli[0]-1] == psvsctn.phrsprvrn && phrslbl[0][phrslbli[0]] != rn {
+			phrsi := phrslbli[0]
+			phrslbli[0] = 0
+			psvsctn.phrsprvrn = rune(0)
+			psvsctn.CachedBuf().WriteRunes(phrslbl[0][:phrsi]...)
+		}
+		if phrslbl[0][phrslbli[0]] == rn {
+			phrslbli[0]++
+			if phrslbli[0] == len(phrslbl[0]) {
+				psvsctn.phrsprvrn = rune(0)
+			} else {
+				psvsctn.phrsprvrn = rn
+			}
+		} else {
+			if phrsi := phrslbli[0]; phrsi > 0 {
+				phrslbli[0] = 0
+				psvsctn.phrsprvrn = rune(0)
+				psvsctn.CachedBuf().WriteRunes(phrslbl[0][:phrsi]...)
+			}
+			psvsctn.phrsprvrn = rn
+			psvsctn.CachedBuf().WriteRune(rn)
+		}
+	} else if phrslbli[0] == len(phrslbl[0]) && phrslbli[1] < len(phrslbl[1]) {
+		if phrslbl[1][phrslbli[1]] == rn {
+			phrslbli[1]++
+			if phrslbli[1] == len(phrslbl[1]) {
+				var phrsfound = ""
+				if psvsctn.phrsbuf != nil && psvsctn.phrsbuf.Size() > 0 {
+					if phrsfound = psvsctn.phrsbuf.String(); phrsfound != "" {
+						psvsctn.phrsbuf.Clear()
+						phrslbli[1] = 0
+						phrslbli[0] = 0
+						psvsctn.phrsprvrn = rune(0)
+						if phrscoord, phrsok := psvsctn.phrsmap[phrsfound]; phrsok && phrscoord[1] > phrscoord[0] {
+							if phrsrdr := psvsctn.PhraseTemplateBuf().Reader(); phrsrdr != nil {
+								func() {
+									defer func() {
+										phrsrdr.Close()
+										phrsrdr = nil
+									}()
+									phrsrdr.Seek(phrscoord[0], io.SeekStart)
+									phrsrdr.MaxRead = phrscoord[1] - phrscoord[0]
+									err = parseprsngrunerdr(psvsctn.prsng, phrsrdr, false)
+								}()
+								return
+							}
+						} else {
+							if phrsfound != "content" {
+								psvsctn.CachedBuf().WriteRunes(phrslbl[0]...)
+								psvsctn.CachedBuf().WriteRunes([]rune(phrsfound)...)
+								psvsctn.CachedBuf().WriteRunes(phrslbl[1]...)
+							}
+						}
+					}
+				} else {
+					psvsctn.CachedBuf().WriteRunes(phrslbl[0]...)
+					psvsctn.CachedBuf().WriteRunes(phrslbl[1]...)
+				}
+				phrslbli[1] = 0
+				phrslbli[0] = 0
+				psvsctn.phrsprvrn = rune(0)
+
+			}
+		} else {
+			if phrsi := phrslbli[1]; phrsi > 0 {
+				psvsctn.CachedBuf().WriteRunes(phrslbl[0]...)
+				if psvsctn.phrsbuf != nil && psvsctn.phrsbuf.Size() > 0 {
+					psvsctn.CachedBuf().Print(psvsctn.phrsbuf.String())
+					psvsctn.phrsbuf.Clear()
+				}
+				psvsctn.CachedBuf().WriteRunes(phrslbl[1]...)
+				phrslbli[1] = 0
+				phrslbli[0] = 0
+				psvsctn.phrsprvrn = rune(0)
+				return
+			}
+			if strings.TrimSpace(string(rn)) != "" {
+				psvsctn.PhraseBuf().WriteRune(rn)
+			} else {
+				psvsctn.CachedBuf().WriteRunes(phrslbl[0]...)
+				if psvsctn.phrsbuf != nil && psvsctn.phrsbuf.Size() > 0 {
+					psvsctn.CachedBuf().Print(psvsctn.phrsbuf.String())
+					psvsctn.phrsbuf.Clear()
+				}
+				psvsctn.CachedBuf().WriteRune(rn)
+				phrslbli[1] = 0
+				phrslbli[0] = 0
+				psvsctn.phrsprvrn = rune(0)
+			}
+		}
+	}
+	return
+}
+
+func parseelmpsvrrune(prsng *parsing, elmoffset int, elmlbli []int, elmprvrns []rune, rn rune) (err error) {
+	if elmoffset == -1 {
+		elmoffset = 0
+		prsng.elmoffset = elmoffset
+	} else {
+		if rn == '/' {
+			if elmoffset == 0 && elmlbli[1] == 0 && elmlbli[0] == 1 && elmprvrns[0] == '<' {
+				elmoffset = 2
+				prsng.elmoffset = elmoffset
+				elmprvrns[0] = rune(0)
+			} else if elmoffset == 0 && elmlbli[0] == len(elmlbl[elmoffset]) {
+				elmoffset = 4
+				elmlbli[0] = len(elmlbl[elmoffset])
+				prsng.elmoffset = elmoffset
+				elmprvrns[1] = rune(0)
+			}
+		}
+	}
+	if elmlbli[1] == 0 && elmlbli[0] < len(elmlbl[elmoffset]) {
+		if elmlbli[0] > 0 && elmlbl[elmoffset][elmlbli[0]-1] == elmprvrns[0] && elmlbl[elmoffset][elmlbli[0]] != rn {
+			elmri := elmlbli[0]
+			elmlbli[0] = 0
+			elmprvrns[0] = rune(0)
+			prsng.writePsv(elmlbl[elmoffset][:elmri]...)
+			if elmoffset > 0 {
+				prsng.elmoffset = 0
+				elmoffset = 0
+			}
+		}
+		if elmlbl[elmoffset][elmlbli[0]] == rn {
+			elmlbli[0]++
+			if elmlbli[0] == len(elmlbl[elmoffset]) {
+				if prsng.tmpbuf != nil {
+					prsng.tmpbuf.Clear()
+				}
+				elmprvrns[0] = rune(0)
+			} else {
+				elmprvrns[0] = rn
+			}
+		} else {
+			if elmlbli[0] > 0 {
+				elmri := elmlbli[0]
+				elmlbli[0] = 0
+				elmprvrns[0] = rune(0)
+				prsng.writePsv(elmlbl[elmoffset][:elmri]...)
+				if elmoffset > 0 {
+					prsng.elmoffset = 0
+					elmoffset = 0
+				}
+			}
+			elmprvrns[0] = rn
+			prsng.writePsv(rn)
+		}
+	} else if elmlbli[0] == len(elmlbl[elmoffset]) && elmlbli[1] < len(elmlbl[elmoffset+1]) {
+		if elmlbl[elmoffset+1][elmlbli[1]] == rn {
+			elmlbli[1]++
+			if elmlbli[1] == len(elmlbl[elmoffset+1]) {
+				prsng.elmoffset = -1
+				elmlbli[0] = 0
+				elmlbli[1] = 0
+				elmprvrns[0] = rune(0)
+				elmprvrns[1] = rune(0)
+				valid, elmTpe, psvsctn, verr := validElemParsing(prsng, elmoffset, prsng.crntpsvsctn)
+				if verr != nil {
+					err = verr
+					return
+				} else if valid && psvsctn != nil {
+					if elmTpe == ElemEnd || elmTpe == ElemSingle {
+						err = processPsvSection(psvsctn)
+					}
+				} else {
+					if err = prsng.writePsv(elmlbl[elmoffset]...); err != nil {
+						return
+					}
+					if prsng.tmpbuf != nil && prsng.tmpbuf.Size() > 0 {
+						if tmprdr := prsng.tmpbuf.Reader(); tmprdr != nil {
+							for {
+								tmpr, tmps, tmperr := tmprdr.ReadRune()
+								if tmps > 0 {
+									prsng.writePsv(tmpr)
+								}
+								if tmperr != nil {
+									tmprdr.Close()
+									tmprdr = nil
+									if tmperr != io.EOF {
+										err = tmperr
+										return
+									}
+									break
+								}
+							}
+						}
+					}
+					if err = prsng.writePsv(elmlbl[elmoffset+1]...); err != nil {
+						return
+					}
+				}
+			}
+		} else {
+			if elmlbli[1] > 0 {
+				elmrl := elmlbli[0]
+				elmlbli[0] = 0
+				elmprvrns[0] = rune(0)
+				for _, tmprn := range elmlbl[elmoffset][:elmrl] {
+					if err = prsng.tempbuf().WriteRune(tmprn); err != nil {
+						return
+					}
+				}
+			}
+			elmprvrns[1] = rn
+			err = prsng.tempbuf().WriteRune(rn)
+		}
+	}
+	return
+}
+
+func validElemParsing(prsng *parsing, elmoffset int, crntpsvsctn *psvsection) (valid bool, elmTpe elemtype, psvsctn *psvsection, err error) {
+	if prsng.tmpbuf == nil || prsng.tmpbuf.Size() == 0 {
+		return
+	}
+	valid = true
+	elmTpe = ElemStart
+	if elmoffset == 2 {
+		elmTpe = ElemEnd
+	} else if elmoffset == 4 {
+		elmTpe = ElemSingle
+	}
+	if elmTpe == ElemStart || elmTpe == ElemSingle {
+		if psvsctn = newPsvSection(prsng, elmTpe, prsng.tmpbuf, crntpsvsctn); psvsctn == nil {
+			valid = false
+		}
+	} else {
+		psvsctn = crntpsvsctn
+	}
+	return
+}
+
+type elemtype int
 
 const (
-	elemnone int = iota
+	ElemNone elemtype = iota
 	//ElemStart - elem start
 	ElemStart
 	//ElemEnd - elem end
@@ -27,457 +262,364 @@ const (
 	ElemSingle
 )
 
-type passivectrl struct {
-	prvpsvctrl   *passivectrl
-	nxtpsvctrl   *passivectrl
-	ctrlstage    int
+func (elmtpe elemtype) String() (s string) {
+	if elmtpe == ElemEnd {
+		s = "ELEM-END"
+	} else if elmtpe == ElemSingle {
+		s = "ELEM-SINGLE"
+	} else if elmtpe == ElemStart {
+		s = "ELEM-START"
+	}
+	return
+}
+
+type psvsection struct {
 	prsng        *parsing
-	rawr         io.Reader
-	bfrawr       *bufio.Reader
+	elmtpe       elemtype
 	tmpbuf       *iorw.Buffer
-	cchdbuf      *iorw.Buffer
-	phrsmaps     map[string]*iorw.Buffer
-	prvrn        rune
-	elmtype      int
-	elmName      string
-	elmExt       string
-	lastElmType  int
-	lastElemName string
-	phrslbli     []int
-	phrsprvr     rune
+	prvsctn      *psvsection
+	nxtsctn      *psvsection
+	chcdbf       *iorw.Buffer
 	phrsbuf      *iorw.Buffer
-	cntntbuf     *iorw.Buffer
-	prepped      bool
+	phrstmpltbuf *iorw.Buffer
+	phrsmap      map[string][]int64
+	canphrs      bool
+	phrslbli     []int
+	phrsprvrn    rune
+	tmpltpath    string
+	tmpstrti     int64
+	tmpendi      int16
 }
 
-var phrslbl [][]rune = [][]rune{[]rune("{:"), []rune(":}")}
+func removePsvSection(prsng *parsing, psvsctn *psvsection) {
+	if prsng != nil && psvsctn != nil && psvsctn.prsng == prsng {
+		prvsctn := psvsctn.prvsctn
+		nxtsctn := psvsctn.nxtsctn
 
-func newpsvctrl(prsng *parsing, prvpsvctrl *passivectrl) (psvctrl *passivectrl) {
-	psvctrl = &passivectrl{prsng: prsng, prvrn: rune(0), prvpsvctrl: prvpsvctrl, phrslbli: []int{0, 0}, phrsprvr: rune(0)}
-	if prvpsvctrl != nil {
-		psvctrl.rawr = prvpsvctrl.rawr
-		prvpsvctrl.rawr = nil
-		if prsng.prvpsvctrls == nil {
-			prsng.prvpsvctrls = map[*passivectrl]*passivectrl{}
-		}
-		prvpsvctrl.nxtpsvctrl = psvctrl
-		prsng.prvpsvctrls[prvpsvctrl] = psvctrl
-	}
-	return
-}
+		prsng.crntpsvsctn = prvsctn
 
-func (psvctrl *passivectrl) cachedbuf() *iorw.Buffer {
-	if psvctrl.cchdbuf == nil {
-		psvctrl.cchdbuf = iorw.NewBuffer()
-	}
-	return psvctrl.cchdbuf
-}
-
-func (psvctrl *passivectrl) phrasebuf() *iorw.Buffer {
-	if psvctrl.phrsbuf == nil {
-		psvctrl.phrsbuf = iorw.NewBuffer()
-	}
-	return psvctrl.phrsbuf
-}
-
-func (psvctrl *passivectrl) ReadRune() (r rune, size int, err error) {
-	if psvctrl.rawr != nil {
-		if psvctrl.bfrawr == nil {
-			psvctrl.bfrawr = bufio.NewReader(psvctrl.rawr)
-		}
-		r, size, err = psvctrl.bfrawr.ReadRune()
-	} else {
-		err = io.EOF
-	}
-	return
-}
-
-func (psvctrl *passivectrl) clearcchdbuf() {
-	if psvctrl.cchdbuf != nil {
-		psvctrl.cchdbuf.Clear()
-	}
-}
-
-func (psvctrl *passivectrl) reset() {
-	if psvctrl.tmpbuf != nil {
-		psvctrl.tmpbuf.Clear()
-	}
-
-	/*if psvctrl.tmpcde != nil {
-		psvctrl.tmpcde.Clear()
-	}*/
-	if psvctrl.rawr != nil {
-		psvctrl.rawr = nil
-	}
-	if psvctrl.bfrawr != nil {
-		psvctrl.bfrawr = nil
-	}
-	if psvctrl.prepped {
-		psvctrl.prepped = false
-	}
-	psvctrl.ctrlstage = none
-	psvctrl.elmtype = elemnone
-	psvctrl.prvrn = rune(0)
-}
-
-func (psvctrl *passivectrl) buf() *iorw.Buffer {
-	if psvctrl.tmpbuf == nil {
-		psvctrl.tmpbuf = iorw.NewBuffer()
-	}
-	return psvctrl.tmpbuf
-}
-
-func (psvctrl *passivectrl) bufsize() int64 {
-	if psvctrl.tmpbuf == nil {
-		return 0
-	}
-	return psvctrl.tmpbuf.Size()
-}
-
-func (psvctrl *passivectrl) close() {
-	if psvctrl != nil {
-		if psvctrl.prsng != nil {
-			psvctrl.prsng = nil
-		}
-		if psvctrl.tmpbuf != nil {
-			psvctrl.tmpbuf.Close()
-			psvctrl.tmpbuf = nil
-		}
-		if psvctrl.cchdbuf != nil {
-			psvctrl.cchdbuf.Close()
-			psvctrl.cchdbuf = nil
-		}
-		if psvctrl.phrsmaps != nil {
-			for k, v := range psvctrl.phrsmaps {
-				v.Close()
-				psvctrl.phrsmaps[k] = nil
-				delete(psvctrl.phrsmaps, k)
+		if prsng.headpsvsctn == psvsctn {
+			if prsng.tailpsvsctn == psvsctn {
+				prsng.headpsvsctn = nil
+				prsng.tailpsvsctn = nil
+			} else {
+				prsng.headpsvsctn.nxtsctn = prvsctn
 			}
-			psvctrl.phrsmaps = nil
+		} else if prsng.tailpsvsctn == psvsctn {
+			prsng.tailpsvsctn = prvsctn
 		}
-		/*if psvctrl.tmpcde != nil {
-			psvctrl.tmpcde.Close()
-			psvctrl.tmpcde = nil
-		}*/
-		if psvctrl.prvpsvctrl != nil {
-			psvctrl.prvpsvctrl = nil
+		if nxtsctn != nil {
+			nxtsctn.prvsctn = prvsctn
 		}
-		if psvctrl.nxtpsvctrl != nil {
-			psvctrl.nxtpsvctrl = nil
+		if prvsctn != nil {
+			prvsctn.nxtsctn = nxtsctn
 		}
+		prsng = nil
 	}
 }
 
-func (psvctrl *passivectrl) validate() (valid bool) {
-	valid = true
-	return
-}
-
-func (psvctrl *passivectrl) outputrn(rn rune) (err error) {
-	err = parsepsvctrl(psvctrl, psvctrl.phrslbli, rn)
-	return
-}
-
-func (psvctrl *passivectrl) _outputruns(p []rune) (err error) {
-	if pl := len(p); pl > 0 {
-		for _, rn := range p {
-			if err = psvctrl._outputrn(rn); err != nil {
-				break
+func (psvsctn *psvsection) dispose() {
+	if psvsctn != nil {
+		if psvsctn.prsng != nil {
+			removePsvSection(psvsctn.prsng, psvsctn)
+			psvsctn.prsng = nil
+		}
+		if psvsctn.chcdbf != nil {
+			psvsctn.chcdbf.Close()
+			psvsctn.chcdbf = nil
+		}
+		if psvsctn.phrsmap != nil {
+			for k := range psvsctn.phrsmap {
+				psvsctn.phrsmap[k] = nil
+				delete(psvsctn.phrsmap, k)
 			}
+			psvsctn.phrsmap = nil
 		}
+		if psvsctn.phrsbuf != nil {
+			psvsctn.phrsbuf.Close()
+			psvsctn.phrsbuf = nil
+		}
+		if psvsctn.tmpbuf != nil {
+			psvsctn.tmpbuf.Close()
+			psvsctn.tmpbuf = nil
+		}
+		psvsctn = nil
 	}
-	return
 }
 
-func (psvctrl *passivectrl) _outputrn(rn rune) (err error) {
-	psvctrl.prsng.psvr[psvctrl.prsng.psvri] = rn
-	psvctrl.prsng.psvri++
-	if psvctrl.prsng.psvri == len(psvctrl.prsng.psvr) {
-		psvctrl.prsng.psvri = 0
-		if psvctrl.lastElmType == ElemStart {
-			err = psvctrl.cachedbuf().WriteRunes(psvctrl.prsng.psvr...)
+func (psvsctn *psvsection) PhraseBuf() *iorw.Buffer {
+	if psvsctn.phrsbuf == nil {
+		psvsctn.phrsbuf = iorw.NewBuffer()
+	}
+	return psvsctn.phrsbuf
+}
+
+func (psvsctn *psvsection) PhraseTemplateBuf() *iorw.Buffer {
+	if psvsctn.phrstmpltbuf == nil {
+		psvsctn.phrstmpltbuf = iorw.NewBuffer()
+	}
+	return psvsctn.phrstmpltbuf
+}
+
+func (psvsctn *psvsection) path() (path string) {
+	path = strings.Replace(psvsctn.tmpltpath, "|", "/", -1)
+	prsngext := filepath.Ext(psvsctn.prsng.prsvpth)
+	prvsctnext := ""
+	if strings.HasPrefix(path, ".") {
+		if psvsctn.prvsctn != nil {
+			prvsctnpth := psvsctn.prvsctn.path()
+			prvsctnext = filepath.Ext(prvsctnpth)
+			path = prvsctnpth[:strings.LastIndex(prvsctnpth, "/")+1] + path[1:]
 		} else {
-			err = psvctrl.prsng.writePsv(psvctrl.prsng.psvr)
+			prsngpth := psvsctn.prsng.prsvpth
+			path = prsngpth[:strings.LastIndex(prsngpth, "/")+1] + path[1:]
 		}
+	} else if !strings.HasPrefix(path, "/") {
+		prsngpth := psvsctn.prsng.prsvpth
+		path = prsngpth[:strings.LastIndex(prsngpth, "/")+1] + path
+	}
+	if pthext := filepath.Ext(path); pthext == "" {
+		if prvsctnext != "" {
+			pthext = prvsctnext
+		} else if prsngext != "" {
+			pthext = prsngext
+		}
+		path = path + pthext
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
 	return
 }
 
-func processPhrase(psvctrl *passivectrl, phrslblbuf *iorw.Buffer) (err error) {
-	if bufs := phrslblbuf.String(); bufs != "" {
-		if psvctrl.phrsmaps != nil {
-			if phrsbuf, phrsbufok := psvctrl.phrsmaps[bufs]; phrsbufok && phrsbuf != nil && phrsbuf.Size() > 0 {
-				func() {
-					if cntntr := phrsbuf.Reader(); cntntr != nil {
-						defer cntntr.Close()
-						err = parseprsngrunerdr(psvctrl.prsng, cntntr, false)
-					}
-				}()
-			}
-		}
-	}
-	return
-}
+func newPsvSection(prsng *parsing, elmtpe elemtype, tmpbuf *iorw.Buffer, crntsctn *psvsection) (psvsctn *psvsection) {
+	if tmpbuf != nil && tmpbuf.Size() > 0 {
 
-func parsepsvctrl(psvctrl *passivectrl, phrslbli []int, pr rune) (err error) {
-	if phrslbli[1] == 0 && phrslbli[0] < len(phrslbl[0]) {
-		if phrslbli[0] > 0 && phrslbl[0][phrslbli[0]-1] == psvctrl.phrsprvr && phrslbl[0][phrslbli[0]] != pr {
-			if phrsi := phrslbli[0]; phrsi > 0 {
-				phrslbli[0] = 0
-				err = psvctrl._outputruns(phrslbl[0][:phrsi])
-			}
-		}
-		if phrslbl[0][phrslbli[0]] == pr {
-			phrslbli[0]++
-			if phrslbli[0] == len(phrslbl[0]) {
+		var tmpltpath = ""
 
-				psvctrl.phrsprvr = 0
-			}
-			psvctrl.phrsprvr = pr
-		} else {
-			if phrsi := phrslbli[0]; phrsi > 0 {
-				phrslbli[0] = 0
-				if err = psvctrl._outputruns(phrslbl[0][:phrsi]); err != nil {
+		tmprdr := tmpbuf.Reader()
+		var nxttmpbuf *iorw.Buffer = nil
+		var rnferr error = nil
+		tmpclbli := []int{0, 0}
+		tmpclbl := [][]rune{[]rune("{@"), []rune("@}")}
+		tmpclprnrn := rune(0)
+		foundtmltnme := false
+		for !foundtmltnme {
+			rn, rns, rnerr := tmprdr.ReadRune()
+			if rns > 0 {
+				if strings.TrimSpace(string(rn)) == "" {
+					tmprdr.Close()
 					return
 				}
-			}
-			psvctrl.phrsprvr = pr
-			err = psvctrl._outputrn(pr)
-		}
-	} else if phrslbli[0] == len(phrslbl[0]) && phrslbli[1] < len(phrslbl[1]) {
-		if phrslbl[1][phrslbli[1]] == pr {
-			phrslbli[1]++
-			if phrslbli[1] == len(phrslbl[1]) {
-
-				phrslbli[0] = 0
-				phrslbli[1] = 0
-				psvctrl.phrsprvr = 0
-				if psvctrl.phrsbuf != nil {
-					if psvctrl.phrsbuf.Size() > 0 {
-						err = processPhrase(psvctrl, psvctrl.phrsbuf)
+				if tmpclbli[1] == 0 && tmpclbli[0] < len(tmpclbl[0]) {
+					if tmpclbli[0] > 0 && tmpclbl[0][tmpclbli[0]-1] == tmpclprnrn && tmpclbl[0][tmpclbli[0]] != rn {
+						tmprdr.Close()
+						return
 					}
-					psvctrl.phrsbuf.Clear()
-				}
-			}
-		} else {
-			if phrsi := phrslbli[1]; phrsi > 0 {
-				phrslbli[1] = 0
-				if err = psvctrl.phrasebuf().WriteRunes(phrslbl[1][:phrsi]...); err != nil {
-					return
-				}
-			}
-			psvctrl.phrsprvr = pr
-			err = psvctrl.phrasebuf().WriteRune(pr)
-		}
-	}
-	return
-}
-
-func (psvctrl *passivectrl) flushout(rns ...rune) (err error) {
-	psvctrl.ctrlstage = none
-	if psvctrl.elmtype != elemnone {
-		psvctrl.outputrn('<')
-		if psvctrl.elmtype == ElemEnd {
-			psvctrl.outputrn('/')
-		}
-	}
-	if psvctrl.bufsize() > 0 {
-		for _, rn := range psvctrl.buf().String() {
-			if err = psvctrl.outputrn(rn); err != nil {
-				break
-			}
-		}
-	}
-	if psvctrl.elmtype == ElemSingle {
-		psvctrl.outputrn('/')
-	}
-	if len(rns) > 0 {
-		for _, rn := range rns {
-			if err = psvctrl.outputrn(rn); err != nil {
-				break
-			}
-		}
-	}
-	psvctrl.reset()
-	return err
-}
-
-func (psvctrl *passivectrl) validrune(rn rune) bool {
-	//  (A-Z) || (a-z) || (0-9) || ('.','/','|')
-	return (rn >= 65 && rn <= 90) || (rn >= 97 && rn <= 122) || (rn >= 30 && rn <= 39) || (rn == '.' || rn == '/' || rn == '|')
-}
-
-func (psvctrl *passivectrl) resetphrase() {
-	psvctrl.phrslbli[0] = 0
-	psvctrl.phrslbli[1] = 0
-	if psvctrl.phrsbuf != nil && psvctrl.phrsbuf.Size() > 0 {
-		psvctrl.phrsbuf.Clear()
-	}
-}
-
-func (psvctrl *passivectrl) setPhrase(phrslbl string, phrsbuf *iorw.Buffer) {
-	if psvctrl != nil && phrslbl != "" && phrsbuf != nil {
-		if psvctrl.phrsmaps == nil {
-			psvctrl.phrsmaps = map[string]*iorw.Buffer{}
-		}
-		if _, phrslblok := psvctrl.phrsmaps[phrslbl]; phrslblok {
-			psvctrl.phrsmaps[phrslbl].Print(phrsbuf.Reader())
-			phrsbuf.Close()
-		} else {
-			psvctrl.phrsmaps[phrslbl] = phrsbuf
-		}
-	}
-}
-
-func (psvctrl *passivectrl) processrn(rn rune) (err error) {
-	if psvctrl.ctrlstage == none {
-		if rn == '<' {
-			psvctrl.resetphrase()
-			psvctrl.ctrlstage = gthan
-			psvctrl.prvrn = rn
-			psvctrl.elmtype = ElemStart
-		} else {
-			err = psvctrl.outputrn(rn)
-		}
-	} else if psvctrl.ctrlstage == gthan {
-		if rn == ':' && (psvctrl.prvrn == '/' || psvctrl.prvrn == '<') {
-			psvctrl.ctrlstage = start
-			if psvctrl.elmtype == ElemEnd {
-				psvctrl.buf().Print(string('/'))
-			}
-			psvctrl.buf().Print(string(rn))
-			psvctrl.prvrn = 0
-			psvctrl.prvrn = rn
-		} else if rn == '/' && psvctrl.prvrn == '<' {
-			if psvctrl.elmtype == ElemStart {
-				psvctrl.elmtype = ElemEnd
-				psvctrl.prvrn = rn
-			} else {
-				psvctrl.flushout(rn)
-				//Flush
-			}
-		} else {
-			psvctrl.flushout(rn)
-			//Flush
-		}
-	} else if psvctrl.ctrlstage == start {
-		if rn == '>' {
-			if psvctrl.prvrn == '/' {
-				if psvctrl.elmtype == ElemStart {
-					psvctrl.elmtype = ElemSingle
-				}
-			}
-			if psvctrl.validate() {
-				if err = parseValidity(psvctrl); err == nil {
-					psvctrl.reset()
-				}
-			} else {
-				psvctrl.flushout(rn)
-			}
-		} else if psvctrl.validrune(rn) {
-			if rn == '/' {
-				if psvctrl.elmtype == ElemEnd {
-					err = psvctrl.flushout(rn)
-				} else {
-					psvctrl.prvrn = rn
-				}
-			} else {
-				psvctrl.buf().Print(string(rn))
-				psvctrl.prvrn = rn
-			}
-		}
-	}
-	return
-}
-
-func parsepsvrune(prsng *parsing, rn rune) (err error) {
-	prsng.flushCde()
-	if prsng.hascde {
-		prsng.hascde = false
-	}
-	if prsng.psvctrl == nil {
-		prsng.psvctrl = newpsvctrl(prsng, nil)
-	}
-	err = prsng.psvctrl.processrn(rn)
-	return
-}
-
-func parseValidity(psvctrl *passivectrl) (err error) {
-	var elmtype = psvctrl.elmtype
-	var elmname = psvctrl.buf().String()
-	var elmpath = strings.Replace(elmname[1:], "|", "/", -1)
-	psvctrl.prsng.prslbli[0] = 0
-	psvctrl.prsng.prslbli[1] = 0
-	psvctrl.prsng.prslblprv[0] = rune(0)
-	psvctrl.prsng.prslblprv[0] = rune(0)
-	psvctrl.reset()
-	if elmname != "" {
-		if elmtype == ElemStart || elmtype == ElemSingle {
-			if psvctrl.prsng.atv.LookupTemplate != nil {
-				var lkpext = filepath.Ext(elmpath)
-				if lkpext == "" {
-					lkpext = filepath.Ext(psvctrl.prsng.prsvpth)
-				} else {
-					elmname = elmname[:len(elmname)-len(lkpext)]
-				}
-				var rdr io.RuneReader = nil
-				if tmpltrdr, mxln := psvctrl.prsng.tmpltrdr(elmpath + lkpext); mxln > -1 {
-					rdr = tmpltrdr
-				} else {
-					if rawr, rawrerr := psvctrl.prsng.atv.LookupTemplate(elmpath + lkpext); rawr != nil && rawrerr == nil {
-						stri := psvctrl.prsng.tmpltBuf().Size()
-						psvctrl.prsng.tmpltBuf().Print(rawr)
-						endi := psvctrl.prsng.tmpltBuf().Size()
-						psvctrl.prsng.tmpltMap()[elmpath+lkpext] = []int64{stri, endi}
-						if tmpltrdr, mxln := psvctrl.prsng.tmpltrdr(elmpath + lkpext); mxln > -1 {
-							rdr = tmpltrdr
+					if tmpclbl[0][tmpclbli[0]] == rn {
+						tmpclbli[0]++
+						if tmpclbli[0] == len(tmpclbl[0]) {
+							if tmpltpath == "" {
+								tmprdr.Close()
+								return
+							}
+							foundtmltnme = true
+							nxttmpbuf = iorw.NewBuffer()
+							nxttmpbuf.WriteRunes(prslbl[0]...)
+							tmpclprnrn = rune(0)
 						}
 					} else {
-						err = rawrerr
-					}
-				}
-				if err == nil {
-					psvctrl.rawr, _ = rdr.(io.Reader)
-					psvctrl.prsng.flushPsv()
-					psvctrl.prsng.flushCde()
-					if elmtype == ElemSingle {
-						if rdr != nil {
-							if err = parseprsngrunerdr(psvctrl.prsng, rdr, false); err == io.EOF {
-								err = nil
-							}
+						if tmpclbli[0] > 0 {
+							tmprdr.Close()
+							return
 						}
-					} else if psvctrl.lastElmType == elemnone && psvctrl.lastElemName == "" {
-						psvctrl.lastElmType = elmtype
-						psvctrl.lastElemName = elmname
-						newpsvctrl(psvctrl.prsng, psvctrl)
+						tmpclprnrn = rn
+						tmpltpath += string(rn)
 					}
 				}
 			}
-		} else if elmtype == ElemEnd {
-			if psvctrl.nxtpsvctrl != nil {
-				if psvctrl.lastElemName != "" && psvctrl.lastElmType == ElemStart {
-					psvctrl.prsng.flushPsv()
-					psvctrl.lastElemName = ""
-					psvctrl.lastElmType = elemnone
-					if nxtpsvctrl := psvctrl.nxtpsvctrl; nxtpsvctrl != nil {
-						if psvctrl.cchdbuf != nil && psvctrl.cchdbuf.Size() > 0 {
-							if nxtpsvctrl.cntntbuf != nil {
-								nxtpsvctrl.cntntbuf.Close()
-								nxtpsvctrl.cntntbuf = nil
+			if rnerr != nil {
+				if rnerr != io.EOF {
+					rnferr = rnerr
+				}
+				break
+			}
+		}
+
+		if rnferr == nil {
+			if foundtmltnme {
+				for {
+					rn, rns, rnerr := tmprdr.ReadRune()
+					if rns > 0 {
+						if tmpclbli[1] == 0 && tmpclbli[0] < len(tmpclbl[0]) {
+							if tmpclbli[0] > 0 && tmpclbl[0][tmpclbli[0]-1] == tmpclprnrn && tmpclbl[0][tmpclbli[0]] != rn {
+								tmprdr.Close()
+								nxttmpbuf.Close()
+								return
 							}
-							nxtpsvctrl.setPhrase("content", psvctrl.cchdbuf)
-							psvctrl.cchdbuf = nil
+							if tmpclbl[0][tmpclbli[0]] == rn {
+								tmpclbli[0]++
+								if tmpclbli[0] == len(tmpclbl[0]) {
+									nxttmpbuf.WriteRunes(prslbl[0]...)
+									tmpclprnrn = rune(0)
+								} else {
+									tmpclprnrn = rn
+								}
+							} else {
+								if tmpclbli[0] > 0 {
+									tmprdr.Close()
+									return
+								}
+								tmpclprnrn = rn
+								tmpltpath += string(rn)
+							}
+						} else if tmpclbli[0] == len(tmpclbl[0]) && tmpclbli[1] < len(tmpclbl[1]) {
+							if tmpclbl[1][tmpclbli[1]] == rn {
+								tmpclbli[1]++
+								if tmpclbli[1] == len(tmpclbl[1]) {
+									nxttmpbuf.WriteRunes(prslbl[1]...)
+									tmpclbli[0] = 0
+									tmpclbli[1] = 0
+									tmpclprnrn = rune(0)
+								}
+							} else {
+								if tmpclbli[1] > 0 {
+									tmprdr.Close()
+									nxttmpbuf.Close()
+									return
+								}
+								nxttmpbuf.WriteRune(rn)
+							}
 						}
-						psvctrl.prsng.psvctrl = psvctrl.nxtpsvctrl
-						if err = parseprsngrunerdr(psvctrl.prsng, psvctrl.prsng.psvctrl, false); err == nil || err == io.EOF {
-							psvctrl.prsng.psvctrl = nxtpsvctrl.prvpsvctrl
-						}
-						psvctrl.prsng.psvctrl.reset()
-						nxtpsvctrl.close()
 					}
+					if rnerr != nil {
+						if rnerr != io.EOF || tmpclbli[0] == len(tmpclbl[0]) {
+							tmprdr.Close()
+							nxttmpbuf.Close()
+							return
+						}
+						break
+					}
+				}
+				tmprdr.Close()
+				if nxttmpbuf != nil && nxttmpbuf.Size() > 0 {
+					tmpbuf.Clear()
+					tmpbuf.Print(nxttmpbuf)
+				}
+			} else {
+				tmprdr.Close()
+				tmpbuf.Clear()
+			}
+		} else {
+			tmprdr.Close()
+			return
+		}
+
+		psvsctn = &psvsection{prsng: prsng, elmtpe: elmtpe, prvsctn: crntsctn, tmpbuf: tmpbuf.Clone(), chcdbf: nil, tmpstrti: -1, tmpendi: -1,
+			phrsmap: map[string][]int64{}, phrslbli: []int{0, 0}, phrsprvrn: rune(0)}
+		if prsng.headpsvsctn == nil {
+			prsng.headpsvsctn = psvsctn
+		}
+		if prsng.tailpsvsctn != nil {
+			prsng.tailpsvsctn.nxtsctn = psvsctn
+		}
+		prsng.tailpsvsctn = psvsctn
+		psvsctn.tmpltpath = tmpltpath
+		prsng.crntpsvsctn = psvsctn
+	}
+	return
+}
+
+func (psvsctn *psvsection) Elemtype() elemtype {
+	return psvsctn.elmtpe
+}
+
+func (psvsctn *psvsection) CachedBuf() *iorw.Buffer {
+	if psvsctn.chcdbf == nil {
+		psvsctn.chcdbf = iorw.NewBuffer()
+	}
+	return psvsctn.chcdbf
+}
+
+func processPsvSection(psvsctn *psvsection) (err error) {
+	if psvsctn.nxtsctn == nil {
+		prsng := psvsctn.prsng
+		var rnrdr io.RuneReader = nil
+		if tmpltpath := psvsctn.path(); tmpltpath != "" {
+			var tmpltcoordsok bool = false
+			if _, tmpltcoordsok = psvsctn.prsng.tmpltMap()[tmpltpath]; !tmpltcoordsok {
+				if psvsctn.prsng.atv != nil && psvsctn.prsng.atv.atv.LookupTemplate != nil {
+					lkprdr, lkperr := psvsctn.prsng.atv.atv.LookupTemplate(tmpltpath)
+					if lkperr != nil {
+						err = lkperr
+					} else if lkprdr != nil {
+						tmpltsi := psvsctn.prsng.tmpltBuf().Size()
+						psvsctn.prsng.tmpltBuf().Print(lkprdr)
+						if tmpltei := psvsctn.prsng.tmpltBuf().Size(); tmpltei > tmpltsi {
+							psvsctn.prsng.tmpltMap()[tmpltpath] = []int64{tmpltsi, tmpltei}
+							tmpltcoordsok = true
+						}
+					}
+				}
+			}
+			if tmpltcoordsok {
+				if tmplrdr, mxlen := psvsctn.prsng.tmpltrdr(tmpltpath); mxlen > 0 {
+					rnrdr = tmplrdr
 				}
 			}
 		}
+
+		if elmtpe := psvsctn.elmtpe; elmtpe == ElemSingle || elmtpe == ElemStart {
+			if elmtpe == ElemStart {
+				if psvsctn.chcdbf != nil && psvsctn.chcdbf.Size() > 0 {
+					if _, cntok := psvsctn.phrsmap["content"]; !cntok {
+						stri := psvsctn.PhraseTemplateBuf().Size()
+						if cntrdr := psvsctn.chcdbf.Reader(); cntrdr != nil {
+							psvsctn.PhraseTemplateBuf().Print(cntrdr)
+							cntrdr.Close()
+							cntrdr = nil
+							endi := psvsctn.PhraseTemplateBuf().Size()
+							psvsctn.phrsmap["content"] = []int64{stri, endi}
+						}
+					}
+					psvsctn.chcdbf.Clear()
+				}
+			}
+			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
+				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@(function(){@>")), false)
+			}
+			if rnrdr != nil {
+				psvsctn.canphrs = true
+				parseprsngrunerdr(prsng, rnrdr, false)
+				psvsctn.canphrs = false
+			}
+			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
+				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")), false)
+				psvsctn.tmpbuf.Clear()
+			}
+
+			decpsvcsection(psvsctn)
+			if psvsctn.chcdbf != nil && psvsctn.chcdbf.Size() > 0 {
+				rnrdr = psvsctn.chcdbf.Reader()
+				psvsctn.canphrs = true
+				parseprsngrunerdr(prsng, rnrdr, false)
+				psvsctn.canphrs = false
+				rnrdr = nil
+			}
+
+			/**/
+		}
+	} else {
+		decpsvcsection(psvsctn)
 	}
+	psvsctn.dispose()
+	psvsctn = nil
 	return
+}
+
+func decpsvcsection(psvsctn *psvsection) {
+	if psvsctn.prsng != nil {
+		removePsvSection(psvsctn.prsng, psvsctn)
+		psvsctn.prsng = nil
+	}
 }

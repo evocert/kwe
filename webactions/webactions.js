@@ -106,7 +106,6 @@ function postNode(){
 	}
 	
 	var target="";
-
     if(enableProgressElem) {
 	    if(options.progress_elem!=undefined){
 		    progressElem=options.progress_elem+"";
@@ -134,23 +133,25 @@ function postNode(){
     }
 	
 	if(options.error_elem!=undefined){
-		errorElem=options.error_elem+"";
-	}	
+		errorElem=(options.error_elem+"").trim();
+	} else {
+		errorElem="";
+	}
 	if(options.url_ref!=undefined){
-		urlref=options.url_ref+"";
+		urlref=options.url_ref+(options.url_ref+"").trim();
     } else {
-    	urlref=lasturlref+"";
+    	urlref=(lasturlref+"").trim();
     }
     if (hasForm) {
         if(options.form_ref!=undefined){
-            formid=options.form_ref+"";
+            formid=(options.form_ref+"").trim();
         }
     }
 	if(options.target!=undefined){
-		target=options.target+"";
+		target=(options.target+"").trim();
 	}
     var formData = hasJson?jsondata:new FormData();
-	if (!hasJson) {
+	if (urlref!=="") {
 		var urlparams=getAllUrlParams(urlref);
 		if (urlref.indexOf("?")>-1){
 			urlref=urlref.slice(0,urlref.indexOf("?"));
@@ -158,15 +159,28 @@ function postNode(){
 		} else {
 			lasturlref=urlref+"";
 		}
-	
 		if (urlparams!=undefined){
 			Object.keys(urlparams).forEach(function(key) {
 				if(Array.isArray(urlparams[key])){
 					urlparams[key].forEach(function(val){
-						formData.append(key,val);
+						if(hasJson) {
+							if (formData["reqst-params"][fname]==undefined){
+								formData["reqst-params"][fname]=[];
+							} 
+							formData["reqst-params"][key].push(val);
+						} else {
+							formData.append(key,val);
+						}
 					});
 				} else {
-					formData.append(key,urlparams[key]);
+					if(hasJson) {
+						if (formData["reqst-params"][fname]==undefined){
+							formData["reqst-params"][fname]=[];
+						}
+						formData["reqst-params"][key].push(urlparams[key]);
+					} else {
+						formData.append(key,urlparams[key]);
+					}
 				}
 			});
 		}
@@ -179,7 +193,6 @@ function postNode(){
 					if ($(fid).find("select[name],input[name],textarea[name]")!=undefined){
 						$(fid).find("select[name],input[name],textarea[name]").each(function(){
 							var input = $(this);
-
 							if (input.attr("name")!=""){
 								var canAddVal=true;
 								var inputtype=input.attr("type")!==undefined?input.attr("type"):"text";
@@ -194,7 +207,6 @@ function postNode(){
 											formData["reqst-params"]={}
 										}
 									}
-									
 									if(inputtype!==undefined && inputtype!=="button"&&inputtype!=="submit"&&inputtype!=="image"){
 										if(inputtype==="file"){
 											if (!hasJson) {	formData.append(input.attr("name"),input[0].files[0]); }
@@ -233,6 +245,9 @@ function postNode(){
 			formData.append("command",command);
 		}
 	}
+	var responseFunc=defaultResponseCall;
+	var responseErrorFunc=defaultResponseErrorCall;
+
 	var ajaxpromise=new Promise(function(resolve, reject) {
 		$.ajax({
 			xhr: function () {
@@ -263,55 +278,30 @@ function postNode(){
 									}
 						}
 					}
+					
 					var replacelabel="replace-content";
-					if(options.replacelabel!=undefined&&options.replacelabel!=""){
-						replacelabel=options.replacelabel;
+					if(options.replacelabel!=undefined&&(options.replacelabel!="").trim()!==""){
+						replacelabel=(options.replacelabel!="").trim();
 					}
 					var scriptlabel="script";
-					if(options.scriptlabel!=undefined&&options.scriptlabel!=""){
-						scriptlabel=options.scriptlabel;
+					if(options.scriptlabel!=undefined&&(options.scriptlabel!="")!==""){
+						scriptlabel=(options.scriptlabel!="");
 					}
-					var parsed=parseActiveString(`${scriptlabel}||`,`||${scriptlabel}`,response);
-					var parsedScript=parsed[1].join("");
-					response=parsed[0].trim();
-					var targets=[];
-					var targetSections=[];
-					
-					if(response!=""){
-						if(response.indexOf(`${replacelabel}||`)>-1){
-							parsed=parseActiveString(`${replacelabel}||`,`||${replacelabel}`,response);
-							response=parsed[0];
-							parsed[1].forEach(function(possibleTargetContent,i){
-								if(possibleTargetContent.indexOf("||")>-1){
-									targets[targets.length]=[possibleTargetContent.substring(0,possibleTargetContent.indexOf("||")),possibleTargetContent.substring(possibleTargetContent.indexOf("||")+"||".length,possibleTargetContent.length)];
-								}        				
-							});
+
+					if (responseFunc!=null) {
+						if(options.replacelabel==undefined){
+							options.replacelabel=replacelabel;
 						}
-						targets.unshift([target,response]);
-					}
-					if(targets.length>0){
-						targets.forEach(function(targetSec){
-							if ($(targetSec[0]).length>0) {
-										if (targetSec[0].startsWith("#")) {
-											$(targetSec[0]).html(targetSec[1]);
-										} else {
-											$(targetSec[0]).each(function(i){
-												$(this).html(targetSec[1])
-											});
-										}
-							}
-						});
-					}
-					if(parsedScript!=""){
+						if(options.scriptlabel==undefined){
+							options.scriptlabel=scriptlabel;
+						}
 						try {
-							eval(parsedScript)
+							responseFunc("ajax",options,response,textStatus,xhr)
 							resolve();
 						} catch(e) {
 							reject(e);
 						}
-					} else {
-						resolve();
-					}
+					}					
 				} else {
 					var contentdisposition=(""+xhr.getResponseHeader("Content-Disposition")).trim();
 					if (contentdisposition.indexOf("attachment;")>-1) {
@@ -339,8 +329,12 @@ function postNode(){
 						}
 					}
 				}
-				if(errorElem!=undefined&&errorElem!=""){
-					$(errorElem).html("Error loading request: "+textStatus);
+				if(responseErrorFunc!==undefined) {
+					responseErrorFunc("ajax",options,textStatus,jqXHR)
+				} else {
+					if(errorElem!=undefined&&errorElem!=""){
+						$(errorElem).html("Error loading request: "+textStatus);
+					}
 				}
 				reject(Error("Error loading request: "+textStatus));
 			}
@@ -365,6 +359,58 @@ function postNode(){
 	});
 }
 
+function defaultResponseCall(){
+	var args=[].slice.call(arguments);
+	//"ajax",options,response,textStatus,xhr
+	if (args.length>=4) {
+		var options=args[1];
+		var scriptlablel=options.scriptlabel+"";
+		var replacelabel=options.replacelabel+"";
+		var response=args[2];
+		var parsed=parseActiveString(`${scriptlabel}||`,`||${scriptlabel}`,response);
+		var parsedScript=parsed[1].join("");
+		response=parsed[0].trim();
+		var targets=[];
+		var targetSections=[];
+		
+		if(response!=""){
+			if(response.indexOf(`${replacelabel}||`)>-1){
+				parsed=parseActiveString(`${replacelabel}||`,`||${replacelabel}`,response);
+				response=parsed[0];
+				parsed[1].forEach(function(possibleTargetContent,i){
+					if(possibleTargetContent.indexOf("||")>-1){
+						targets[targets.length]=[possibleTargetContent.substring(0,possibleTargetContent.indexOf("||")),possibleTargetContent.substring(possibleTargetContent.indexOf("||")+"||".length,possibleTargetContent.length)];
+					}        				
+				});
+			}
+			targets.unshift([target,response]);
+		}
+		if(targets.length>0){
+			targets.forEach(function(targetSec){
+				if ($(targetSec[0]).length>0) {
+							if (targetSec[0].startsWith("#")) {
+								$(targetSec[0]).html(targetSec[1]);
+							} else {
+								$(targetSec[0]).each(function(i){
+									$(this).html(targetSec[1])
+								});
+							}
+				}
+			});
+		}
+		if(parsedScript!=""){
+			try {
+				eval(parsedScript)
+			} catch(e) {
+				throw e;
+			}
+		}
+	}
+}
+
+function defaultResponseErrorCall(){
+	var options=[].slice.call(arguments);
+}
 function safeData(data, fileName,contentType) {
     var a = document.createElement("a");
     document.body.appendChild(a);
@@ -463,11 +509,11 @@ function getAllUrlParams(url) {
   
         // set parameter name and value (use 'true' if empty)
         var paramName = decodeURIComponent(a[0]);
-        var paramValue = typeof (a[1]) === 'undefined' ? true : decodeURIComponent(a[1]);
+        var paramValue = typeof (a[1]) === 'undefined' ? "" : decodeURIComponent(a[1]);
   
         // (optional) keep case consistent
-        paramName = paramName.toLowerCase();
-        if (typeof paramValue === 'string') paramValue = paramValue.toLowerCase();
+        //paramName = paramName.toLowerCase();
+        //if (typeof paramValue === 'string') paramValue = paramValue.toLowerCase();
   
         // if the paramName ends with square brackets, e.g. colors[] or colors[2]
         if (paramName.match(/\[(\d+)?\]$/)) {

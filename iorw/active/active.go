@@ -66,7 +66,7 @@ func (atv *Active) ExtractGlobals(extrglbs map[string]interface{}) {
 //ImportGlobals import globals into atv.atvruntime
 func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	if atv.atvruntime != nil {
-		if imprtglbs != nil && len(imprtglbs) > 0 {
+		if len(imprtglbs) > 0 {
 			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
 				for k, kv := range imprtglbs {
 					if gjv, gjvok := kv.(goja.Value); gjvok {
@@ -229,6 +229,8 @@ func (atv *Active) Interrupt() {
 }
 
 var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
+var elmlbl = [][]rune{[]rune("<#"), []rune(">"), []rune("</#"), []rune(">"), []rune("<#"), []rune("/>")}
+var phrslbl = [][]rune{[]rune("{#"), []rune("#}")}
 
 type parsing struct {
 	*iorw.Buffer
@@ -254,9 +256,26 @@ type parsing struct {
 	psvmap         map[int][]int64
 	psvr           []rune
 	psvri          int
-	psvctrl        *passivectrl
-	prvpsvctrls    map[*passivectrl]*passivectrl
-	prsvpth        string
+	//psvsection
+	tmpbuf    *iorw.Buffer
+	elmlbli   []int
+	elmoffset int
+	elmprvrns []rune
+	//elmType     elemtype
+	prvelmrn    rune
+	crntpsvsctn *psvsection
+	headpsvsctn *psvsection
+	tailpsvsctn *psvsection
+	//psvctrl        *passivectrl
+	//prvpsvctrls    map[*passivectrl]*passivectrl
+	prsvpth string
+}
+
+func (prsng *parsing) tempbuf() *iorw.Buffer {
+	if prsng.tmpbuf == nil {
+		prsng.tmpbuf = iorw.NewBuffer()
+	}
+	return prsng.tmpbuf
 }
 
 func (prsng *parsing) cdeBuff() *iorw.Buffer {
@@ -394,10 +413,6 @@ func (prsng *parsing) dispose() {
 		if prsng.wout != nil {
 			prsng.wout = nil
 		}
-		if prsng.psvctrl != nil {
-			prsng.psvctrl.close()
-			prsng.psvctrl = nil
-		}
 		if prsng.tmpltmap != nil {
 			for k := range prsng.tmpltmap {
 				prsng.tmpltmap[k] = nil
@@ -408,6 +423,22 @@ func (prsng *parsing) dispose() {
 		if prsng.tmpltbuf != nil {
 			prsng.tmpltbuf.Close()
 			prsng.tmpltbuf = nil
+		}
+		if prsng.tmpbuf != nil {
+			prsng.tmpbuf.Close()
+			prsng.tmpbuf = nil
+		}
+		for prsng.tailpsvsctn != nil {
+			prsng.tailpsvsctn.dispose()
+		}
+		if prsng.headpsvsctn != nil {
+			prsng.headpsvsctn.dispose()
+		}
+		if prsng.crntpsvsctn != nil {
+			prsng.crntpsvsctn = nil
+		}
+		if prsng.elmlbli != nil {
+			prsng.elmlbli = nil
 		}
 		prsng = nil
 	}
@@ -436,15 +467,29 @@ func (prsng *parsing) setpsvpos(startoffset int64, endoffset int64) (pos int) {
 	return
 }
 
-func (prsng *parsing) writePsv(p []rune) (err error) {
+func (prsng *parsing) writePsv(p ...rune) (err error) {
 	if pl := len(p); pl > 0 {
-		if prsng.foundCode() {
-			if prsng.psvoffsetstart == -1 {
-				prsng.psvoffsetstart = prsng.Size()
+		if prsng.crntpsvsctn == nil {
+			if prsng.foundCode() {
+				if prsng.psvoffsetstart == -1 {
+					prsng.psvoffsetstart = prsng.Size()
+				}
+				err = prsng.WriteRunes(p[:pl]...)
+			} else {
+				if bs := iorw.RunesToUTF8(p[:pl]); len(bs) > 0 {
+					_, err = prsng.wout.Write(bs)
+				}
 			}
-			err = prsng.WriteRunes(p[:pl]...)
 		} else {
-			_, err = prsng.wout.Write([]byte(string(p[:pl])))
+			if prsng.crntpsvsctn.canphrs {
+				for _, phrsr := range p[:pl] {
+					if err = parsepsvphrase(prsng, prsng.crntpsvsctn, prsng.crntpsvsctn.phrslbli, phrsr); err != nil {
+						return
+					}
+				}
+			} else {
+				err = prsng.crntpsvsctn.CachedBuf().WriteRunes(p[:pl]...)
+			}
 		}
 	}
 	return
@@ -467,19 +512,13 @@ func (prsng *parsing) foundCode() bool {
 func (prsng *parsing) flushPsv() (err error) {
 	if pi := prsng.psvri; pi > 0 {
 		prsng.psvri = 0
-		if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
-			err = prsng.psvctrl.cachedbuf().WriteRunes(prsng.psvr[:pi]...)
-		} else {
-			err = prsng.writePsv(prsng.psvr[:pi])
-		}
+		err = prsng.writePsv(prsng.psvr[:pi]...)
 	}
-	if prsng.psvctrl == nil || prsng.psvctrl.lastElmType == elemnone {
-		if prsng.foundCode() {
-			if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
-				prsng.psvoffsetstart = -1
-				pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
-				err = parseatvrunes(prsng, []rune(fmt.Sprintf("_passiveout(%d);", pos)))
-			}
+	if prsng.crntpsvsctn == nil && prsng.foundCode() {
+		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
+			prsng.psvoffsetstart = -1
+			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
+			err = parseatvrunes(prsng, []rune(fmt.Sprintf("_passiveout(%d);", pos)))
 		}
 	}
 	return
@@ -520,19 +559,11 @@ func (prsng *parsing) flushCde() (err error) {
 }
 
 func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err error) {
-	var crunes = make([]rune, 4096)
-	var crunesi = 0
 	for err == nil {
 		r, rsize, rerr := rnr.ReadRune()
 		if rsize > 0 {
-			crunes[crunesi] = r
-			crunesi++
-			if crunesi == len(crunes) {
-				cl := crunesi
-				crunesi = 0
-				for _, cr := range crunes[:cl] {
-					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
-				}
+			if err = parseprsng(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
+				break
 			}
 		}
 		if rerr != nil {
@@ -540,16 +571,9 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err err
 		}
 	}
 	if err == io.EOF || err == nil {
-		if crunesi > 0 {
-			cl := crunesi
-			crunesi = 0
-			for _, cr := range crunes[:cl] {
-				parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
-			}
-		}
 		prsng.flushPsv()
-		prsng.flushCde()
 		if canexec {
+			prsng.flushCde()
 			if prsng.foundCode() {
 				prsng.atv.atvrun(prsng)
 			} else {
@@ -565,63 +589,80 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err err
 }
 
 func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err error) {
-	if prsng.psvctrl != nil && prsng.psvctrl.lastElmType == ElemStart {
-		err = prsng.psvctrl.processrn(pr)
-	} else {
-		if prsng.cdetxt == rune(0) && prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
-			if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
-				if psvl := prslbli[0]; psvl > 0 {
-					prslbli[0] = 0
-					prslblprv[0] = 0
-					err = parsepsvrunes(prsng, prslbl[0][0:psvl])
-				}
+	if prsng.cdetxt == rune(0) && prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
+		if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
+			if psvl := prslbli[0]; psvl > 0 {
+				prslbli[0] = 0
+				prslblprv[0] = 0
+				err = parsepsvrunes(prsng, prslbl[0][0:psvl])
 			}
-			if prslbl[0][prslbli[0]] == pr {
-				prslbli[0]++
-				if prslbli[0] == len(prslbl[0]) {
-
-					prslblprv[0] = 0
-				} else {
-					prslblprv[0] = pr
-				}
-			} else {
-				if psvl := prslbli[0]; psvl > 0 {
-					prslbli[0] = 0
-					prslblprv[0] = 0
-					if err = parsepsvrunes(prsng, prslbl[0][0:psvl]); err != nil {
+		}
+		if prslbl[0][prslbli[0]] == pr {
+			prslbli[0]++
+			if prslbli[0] == len(prslbl[0]) {
+				if prsng.crntpsvsctn != nil {
+					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[0]...); err != nil {
 						return
 					}
 				}
-				err = parsepsvrune(prsng, pr)
+				prslblprv[0] = 0
+			} else {
 				prslblprv[0] = pr
 			}
-		} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
-			if prsng.cdetxt == rune(0) && prslbl[1][prslbli[1]] == pr {
-				prslbli[1]++
-				if prslbli[1] == len(prslbl[1]) {
-					prslbli[0] = 0
-					prslblprv[1] = 0
-					prslbli[1] = 0
-				} else {
-					prslblprv[1] = pr
+		} else {
+			if psvl := prslbli[0]; psvl > 0 {
+				prslbli[0] = 0
+				prslblprv[0] = 0
+				if err = parsepsvrunes(prsng, prslbl[0][0:psvl]); err != nil {
+					return
 				}
+			}
+			err = parsepsvrune(prsng, pr)
+			prslblprv[0] = pr
+		}
+	} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
+		if prsng.cdetxt == rune(0) && prslbl[1][prslbli[1]] == pr {
+			prslbli[1]++
+			if prslbli[1] == len(prslbl[1]) {
+				if prsng.crntpsvsctn != nil {
+					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1]...); err != nil {
+						return
+					}
+				}
+				prslbli[0] = 0
+				prslblprv[1] = 0
+				prslbli[1] = 0
 			} else {
-				if prsl := prslbli[1]; prsl > 0 {
-					prslbli[1] = 0
+				prslblprv[1] = pr
+			}
+		} else {
+			if prsl := prslbli[1]; prsl > 0 {
+				prslbli[1] = 0
+				if prsng.crntpsvsctn != nil {
+					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1][:prsl]...); err != nil {
+						return
+					}
+				} else {
 					if err = parseatvrunes(prsng, prslbl[1][:prsl]); err != nil {
 						return
 					}
 				}
-				err = parseatvrune(prsng, pr)
-				prslblprv[1] = pr
 			}
+			if prsng.crntpsvsctn != nil {
+				err = prsng.crntpsvsctn.CachedBuf().WriteRune(pr)
+			} else {
+				err = parseatvrune(prsng, pr)
+			}
+			prslblprv[1] = pr
 		}
 	}
+	//}
 	return
 }
 
 func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer, prsrstngs ...interface{}) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{}}
+	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
 	if len(prsrstngs) > 0 {
 		for _, d := range prsrstngs {
 			if mp, mpok := d.(map[string]interface{}); mpok && len(mp) > 0 {
@@ -650,7 +691,35 @@ type atvruntime struct {
 	vm            *goja.Runtime
 	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
 	includedpgrms map[string]*goja.Program
+	rntmeche      map[int]map[string]interface{}
 	//glblobjstoremove []string
+}
+
+func (atvrntme *atvruntime) decrntimecache() {
+	if mpl := len(atvrntme.rntmeche); mpl > 0 {
+		mp := atvrntme.rntmeche[mpl-1]
+		for k := range mp {
+			mp[k] = nil
+			delete(mp, k)
+		}
+		delete(atvrntme.rntmeche, mpl-1)
+	}
+}
+
+func (atvrntme *atvruntime) incrntimecache() map[string]interface{} {
+	if atvrntme.rntmeche == nil {
+		atvrntme.rntmeche = map[int]map[string]interface{}{}
+	}
+	mpi := len(atvrntme.rntmeche)
+	atvrntme.rntmeche[mpi] = map[string]interface{}{}
+	return atvrntme.rntmeche[mpi]
+}
+
+func (atvrntme *atvruntime) rntimecache() map[string]interface{} {
+	if mpl := len(atvrntme.rntmeche); mpl > 0 {
+		return atvrntme.rntmeche[mpl-1]
+	}
+	return atvrntme.incrntimecache()
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -762,21 +831,9 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	return
 }
 
-/*var (
-	defaultOpts = map[string]interface{}{
-		"presets":       []interface{}{"es2015"},
-		"ast":           false,
-		"sourceMaps":    false,
-		"babelrc":       false,
-		"compact":       false,
-		"retainLines":   true,
-		"highlightCode": false,
-	}
-)*/
-
 func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	trsnfrmdcde = code
-	isrequired = strings.Index(code, "require(\"") > -1
+	isrequired = strings.Contains(code, "require(\"")
 	if isrequired {
 		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 	}
@@ -821,6 +878,7 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 			}
 		}()
 		canprcss := false
+		//parseprsngrunerdr(prsng, rnr, true)
 		for err == nil {
 			r, rsize, rerr := rnr.ReadRune()
 			if rsize > 0 {
@@ -846,17 +904,16 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 			if err == io.EOF {
 				err = nil
 			}
-			if canprcss {
-				if crunesi > 0 {
-					cl := crunesi
-					crunesi = 0
-					cdetestbuf.Print(string(crunes[:cl]))
-					for _, cr := range crunes[:cl] {
-						parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
-					}
+			if crunesi > 0 {
+				cl := crunesi
+				crunesi = 0
+				cdetestbuf.Print(string(crunes[:cl]))
+				for _, cr := range crunes[:cl] {
+					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
 				}
-
-				prsng.flushPsv()
+			}
+			prsng.flushPsv()
+			if canprcss {
 				prsng.flushCde()
 				if prsng.foundCode() {
 					if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
@@ -1017,6 +1074,15 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		"_passiveout": func(i int) {
 			atvrntme.passiveout(i)
 		},
+		"_cache": func() map[string]interface{} {
+			return atvrntme.rntimecache()
+		},
+		"_inccache": func() map[string]interface{} {
+			return atvrntme.incrntimecache()
+		},
+		"_deccache": func() map[string]interface{} {
+			return atvrntme.incrntimecache()
+		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(true, a...)
 		},
@@ -1043,6 +1109,13 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 				atvrntme.prsng.print(a...)
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.print(nil, a...)
+			}
+		},
+		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				atvrntme.prsng.println(a...)
+			} else if atvrntme.atv != nil {
+				atvrntme.atv.println(nil, a...)
 			}
 		},
 		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
@@ -1078,19 +1151,15 @@ func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err err
 		atvrntme.vm.Interrupt(v)
 	}
 	jsext.Register(atvrntme.vm)
-	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); definternmapref != nil && len(definternmapref) > 0 {
-		if definternmapref != nil && len(definternmapref) > 0 {
+	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
+		if len(definternmapref) > 0 {
 			for k, ref := range definternmapref {
 				atvrntme.vm.Set(k, ref)
 			}
 		}
 	}
 	if requirejsprgm != nil {
-		if _, err = atvrntme.vm.RunProgram(requirejsprgm); err != nil {
-			//atvrntme.includedpgrms[incllib] = requirejsprgm
-		} else {
-			//atvrntme.includedpgrms[incllib] = requirejsprgm
-		}
+		_, err = atvrntme.vm.RunProgram(requirejsprgm)
 	}
 	return
 }

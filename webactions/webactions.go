@@ -19,5 +19,5 @@ func JqueryJS() io.Reader {
 }
 
 func WebactionsBundleJS() io.Reader {
-	return io.MultiReader(JqueryJS(), WebactionsJS())
+	return io.MultiReader(JqueryJS(), strings.NewReader("\r\n"), WebactionsJS())
 }

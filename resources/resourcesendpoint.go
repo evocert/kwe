@@ -377,7 +377,10 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 					var tmppaths = strings.Split(path, "/")
 					for pn, ps := range tmppaths {
 						if tmpl := len(tmppaths); pn < tmpl-1 {
-							if fi, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
+							if strings.HasPrefix(tmppath, "/") && strings.HasSuffix(rscngepnt.path, "/") {
+								tmppath = tmppath[1:]
+							}
+							if /*fi*/ _, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil /*&& fi.IsDir()*/ {
 								var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
 								if testpath != "" {
 									if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 //Printer - interface
@@ -146,4 +147,18 @@ func ReadRunesEOFFunc(r interface{}, fncrne func(rune) error) (err error) {
 		}
 	}
 	return
+}
+
+func RunesToUTF8(rs []rune) []byte {
+	size := 0
+	for _, r := range rs {
+		size += utf8.RuneLen(r)
+	}
+	bs := make([]byte, size)
+	count := 0
+	for _, r := range rs {
+		count += utf8.EncodeRune(bs[count:], r)
+	}
+
+	return bs
 }

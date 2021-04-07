@@ -173,14 +173,17 @@ func (buff *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 
 //WriteRune - Write singe rune
 func (buff *Buffer) WriteRune(r rune) (err error) {
-	_, err = buff.Write([]byte(string(r)))
+	err = buff.WriteRunes(r)
 	return
 }
 
 //WriteRunes - Write runes
 func (buff *Buffer) WriteRunes(p ...rune) (err error) {
 	if pl := len(p); pl > 0 {
-		_, err = buff.Write([]byte(string(p[:pl])))
+		if bs := RunesToUTF8(p[:pl]); len(bs) > 0 {
+			//_, err = buff.Write([]byte(string(p[:pl])))
+			_, err = buff.Write(bs)
+		}
 	}
 	return
 }

@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/ibmdb/go_ibm_db v0.3.0 // direct
 	github.com/jackc/pgx/v4 v4.10.1
-	github.com/sijms/go-ora v0.0.0-20210301201657-604392efe05f
+	github.com/sijms/go-ora v0.0.0-20210325120518-15015e6bf592
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b
 	golang.org/x/sys v0.0.0-20201223074533-0d417f636930
 	golang.org/x/text v0.3.5 // indirect

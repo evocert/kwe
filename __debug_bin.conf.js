@@ -1,6 +1,7 @@
 <@ 
 dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
+resourcing.RegisterEndpoint("/system","D:/projects/system");
 channel.Listener().Listen(":1111");
 
 /*resourcing.RegisterEndpoint("/","D:/projects/system");

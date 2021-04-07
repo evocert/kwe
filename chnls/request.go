@@ -71,7 +71,9 @@ type Request struct {
 //Resource - return mapped resource interface{} by path
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
-		if strings.HasSuffix(path, "webactions.bundle.js") {
+		if strings.HasSuffix(path, "webactions.js") {
+			rs = webactions.WebactionsJS()
+		} else if strings.HasSuffix(path, "webactions.bundle.js") {
 			rs = webactions.WebactionsBundleJS()
 		} else if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
 			if strings.HasSuffix(path, "require.js") {
@@ -547,20 +549,20 @@ func (rqst *Request) internWrite(p []byte) (n int, err error) {
 			n, err = rqst.zpw.Write(p)
 		} else if rqst.httpw != nil {
 			n, err = rqst.httpw.Write(p)
-			if rqst.flshr != nil && n > 0 && err == nil {
+			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
-			}
+			}*/
 		} else if rqst.rqstw != nil {
 			n, err = rqst.rqstw.Write(p)
-			if rqst.flshr != nil && n > 0 && err == nil {
+			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
-			}
+			}*/
 		}
 	} else if rqst.rqstw != nil {
 		n, err = rqst.rqstw.Write(p)
-		if rqst.flshr != nil && n > 0 && err == nil {
+		/*if rqst.flshr != nil && n > 0 && err == nil {
 			rqst.flshr.Flush()
-		}
+		}*/
 	}
 	return
 }

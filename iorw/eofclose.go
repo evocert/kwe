@@ -1,12 +1,17 @@
 package iorw
 
-import "io"
+import (
+	"bufio"
+	"io"
+)
+
 
 type EOFCloseSeekReader struct {
 	r    io.Reader
 	rc   io.Closer
 	rs   io.Seeker
 	size int64
+	bfr *bufio.Reader
 }
 
 func NewEOFCloseSeekReader(r io.Reader) (eofclsr *EOFCloseSeekReader) {
@@ -23,6 +28,20 @@ func NewEOFCloseSeekReader(r io.Reader) (eofclsr *EOFCloseSeekReader) {
 			eofclsr.rs = rs
 
 		}
+	}
+	return
+}
+
+func (eofclsr *EOFCloseSeekReader) ReadRune() (r rune,size int,err error) {
+	if eofclsr==nil {
+		err=io.EOF
+	}
+	if eofclsr.bfr==nil {
+		eofclsr.bfr=bufio.NewReader(eofclsr)
+	}
+	r,size,err=eofclsr.bfr.ReadRune()
+	if err==io.EOF {
+		eofclsr.Close()
 	}
 	return
 }
@@ -62,6 +81,9 @@ func (eofclsr *EOFCloseSeekReader) Close() (err error) {
 		}
 		if eofclsr.r != nil {
 			eofclsr.r = nil
+		}
+		if eofclsr.bfr!=nil {
+			eofclsr.bfr=nil
 		}
 		eofclsr = nil
 	}

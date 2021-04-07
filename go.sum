@@ -115,6 +115,8 @@ github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc h1:jUIKcSPO9MoM
 github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
 github.com/sijms/go-ora v0.0.0-20210301201657-604392efe05f h1:OIU/NK6wKi/x2j6SgtodNaj7Y4TsFhLIre+ud2T8UEo=
 github.com/sijms/go-ora v0.0.0-20210301201657-604392efe05f/go.mod h1:5lB62c+JHe5Q+/5knBlCzxwL5P4WYP+B6+X7DoLQBfc=
+github.com/sijms/go-ora v0.0.0-20210325120518-15015e6bf592 h1:dwZs79x8+kDbMoDzY9HfIj1WNvxHB1NlAhlLAh3IJJg=
+github.com/sijms/go-ora v0.0.0-20210325120518-15015e6bf592/go.mod h1:5lB62c+JHe5Q+/5knBlCzxwL5P4WYP+B6+X7DoLQBfc=
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
