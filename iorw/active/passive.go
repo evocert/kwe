@@ -585,9 +585,9 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 					psvsctn.chcdbf.Clear()
 				}
 			}
-			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
-				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@(function(){@>")), false)
-			}
+			//if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
+			parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@(function(){@>")), false)
+			//}
 			if rnrdr != nil {
 				psvsctn.canphrs = true
 				parseprsngrunerdr(prsng, rnrdr, false)
@@ -596,6 +596,8 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
 				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")), false)
 				psvsctn.tmpbuf.Clear()
+			} else {
+				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@})();@>")), false)
 			}
 
 			decpsvcsection(psvsctn)
