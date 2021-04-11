@@ -5,5 +5,6 @@ resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 resourcing.RegisterEndpoint("/etl","https://raw.githubusercontent.com/evocert/kwetl/main/src");
 resourcing.RegisterEndpoint("/etl/wspace","D:/projects/system/etl/workspace/");
 request.AddPath("/etl/init.js")
+resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 channel.Listener().Listen(":1030");
  @>

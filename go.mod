@@ -9,7 +9,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/ibmdb/go_ibm_db v0.4.1 // direct
 	github.com/jackc/pgx/v4 v4.11.0
-	github.com/sijms/go-ora v0.0.0-20210330204626-a5397c596024
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+	github.com/sijms/go-ora v0.0.0-20210409183318-9a2e22fa22b0
+	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
 )

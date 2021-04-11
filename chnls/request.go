@@ -81,7 +81,7 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			} else if strings.HasSuffix(path, "require.min.js") {
 				path = "require.min.js"
 			}
-			rqst.FS().MKDIR("require")
+			rqst.FS().MKDIR("/require")
 			if rs = rqst.FS().CAT("require/" + path); rs == nil {
 				if path == "require.js" || path == "require.min.js" {
 					rqst.FS().SET("require/"+path, requirejs.RequireJS())

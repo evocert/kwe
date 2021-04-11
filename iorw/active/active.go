@@ -560,6 +560,7 @@ func (prsng *parsing) flushCde() (err error) {
 
 func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err error) {
 	for err == nil {
+
 		r, rsize, rerr := rnr.ReadRune()
 		if rsize > 0 {
 			if err = parseprsng(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
