@@ -1,11 +1,11 @@
 package chnls
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
 	"runtime"
-	"sync"
 
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
@@ -173,10 +173,11 @@ func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, bo
 
 //DefaultServeRW - helper to perform dummy ServeRW request on channel
 func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...interface{}) {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	chnl.chnlrqsts <- func() {
-		defer wg.Done()
+	cntxt := context.Background()
+	go func() {
+		_, cncl := context.WithCancel(cntxt)
+		defer cncl()
+
 		var method = "GET"
 		if r != nil {
 			method = "POST"
@@ -188,9 +189,8 @@ func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...i
 				chnl.internalServeHTTP(whttp, rhttp, a...)
 			}
 		}
-	}
-	wg.Wait()
-	wg = nil
+	}()
+	<-cntxt.Done()
 }
 
 var gblchnl *Channel
