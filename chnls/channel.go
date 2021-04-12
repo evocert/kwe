@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
 
 	"github.com/evocert/kwe/listen"
@@ -15,10 +16,11 @@ import (
 /*Channel -
  */
 type Channel struct {
-	rqsts  map[*Request]*Request
-	objmap map[string]interface{}
-	lstnr  *listen.Listener
-	schdls *scheduling.Schedules
+	rqsts     map[*Request]*Request
+	objmap    map[string]interface{}
+	lstnr     *listen.Listener
+	schdls    *scheduling.Schedules
+	chnlrqsts chan func()
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -84,7 +86,14 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 
 //NewChannel - instance
 func NewChannel() (chnl *Channel) {
-	chnl = &Channel{rqsts: map[*Request]*Request{}, objmap: map[string]interface{}{}}
+	nrcpu := runtime.NumCPU()
+	chnl = &Channel{rqsts: map[*Request]*Request{}, objmap: map[string]interface{}{}, chnlrqsts: make(chan func(), nrcpu*nrcpu)}
+	runtime.GOMAXPROCS(nrcpu * nrcpu)
+	go func() {
+		for fnc := range chnl.chnlrqsts {
+			go fnc()
+		}
+	}()
 	return
 }
 
@@ -166,7 +175,7 @@ func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, bo
 func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...interface{}) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go func() {
+	chnl.chnlrqsts <- func() {
 		defer wg.Done()
 		var method = "GET"
 		if r != nil {
@@ -179,7 +188,7 @@ func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...i
 				chnl.internalServeHTTP(whttp, rhttp, a...)
 			}
 		}
-	}()
+	}
 	wg.Wait()
 	wg = nil
 }

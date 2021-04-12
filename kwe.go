@@ -53,7 +53,7 @@ func main() {
 		cnt := float64(0)
 
 		strtm := time.Now()
-		tlrqst := float64(1000)
+		tlrqst := float64(100000)
 
 		for cnt < tlrqst {
 			chnls.GLOBALCHNL().DefaultServeRW(nil, "/mem/test.hl", nil)
