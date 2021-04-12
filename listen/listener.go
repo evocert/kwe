@@ -31,8 +31,7 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 
 //Listener - struct
 type Listener struct {
-	hndlr http.Handler
-	//chnl         *chnls.Channel
+	hndlr        http.Handler
 	lstnrservers map[string]*lstnrserver
 	dne          chan bool
 }

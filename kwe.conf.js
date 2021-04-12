@@ -7,4 +7,6 @@ resourcing.RegisterEndpoint("/etl/wspace","D:/projects/system/etl/workspace/");
 request.AddPath("/etl/init.js")
 resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 channel.Listener().Listen(":1030");
+resourcing.FS().MKDIR("/mem");
+resourcing.FS().SET("mem/test.hl",`<html><body>mem test</body></html>`);
  @>

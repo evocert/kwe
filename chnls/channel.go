@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
@@ -163,17 +164,24 @@ func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, bo
 
 //DefaultServeRW - helper to perform dummy ServeRW request on channel
 func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...interface{}) {
-	var method = "GET"
-	if r != nil {
-		method = "POST"
-	}
-	if rhttp, rhttperr := http.NewRequest(method, url, r); rhttperr == nil {
-		if rhttp != nil {
-			var whttp = NewResponse(w, rhttp)
-			whttp.canWriteHeader = false
-			chnl.internalServeHTTP(whttp, rhttp, a...)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var method = "GET"
+		if r != nil {
+			method = "POST"
 		}
-	}
+		if rhttp, rhttperr := http.NewRequest(method, url, r); rhttperr == nil {
+			if rhttp != nil {
+				var whttp = NewResponse(w, rhttp)
+				whttp.canWriteHeader = false
+				chnl.internalServeHTTP(whttp, rhttp, a...)
+			}
+		}
+	}()
+	wg.Wait()
+	wg = nil
 }
 
 var gblchnl *Channel

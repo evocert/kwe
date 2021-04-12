@@ -4,7 +4,7 @@ resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 resourcing.RegisterEndpoint("/system","D:/projects/system");
 channel.Listener().Listen(":1111");
 resourcing.FS().MKDIR("/mem");
-resourcing.FS().SET("mem/test.html",`<html><body>mem test</body></html>`);
+resourcing.FS().SET("mem/test.hl",`<html><body>mem test</body></html>`);
 
 /*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
