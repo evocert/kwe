@@ -246,6 +246,9 @@ func (rscngmngr *ResourcingManager) fsmkdirall(path ...interface{}) (mkdall bool
 				}
 				epnts = nil
 				paths = nil
+			} else if pthl == 1 && pth1 != "" {
+				rscngmngr.RegisterEndpoint(pth1, "")
+				mkdall = true
 			}
 		} else if pthl == 2 {
 			rscngmngr.RegisterEndpoint(pth1, pth2)
@@ -279,6 +282,9 @@ func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
 				}
 				epnts = nil
 				paths = nil
+			} else if pthl == 1 && pth1 != "" {
+				rscngmngr.RegisterEndpoint(pth1, "")
+				mkd = true
 			}
 		} else if pthl == 2 {
 			rscngmngr.RegisterEndpoint(pth1, pth2)

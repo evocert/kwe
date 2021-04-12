@@ -81,7 +81,7 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			} else if strings.HasSuffix(path, "require.min.js") {
 				path = "require.min.js"
 			}
-			rqst.FS().MKDIR("/require")
+			rqst.FS().MKDIR("require")
 			if rs = rqst.FS().CAT("require/" + path); rs == nil {
 				if path == "require.js" || path == "require.min.js" {
 					rqst.FS().SET("require/"+path, requirejs.RequireJS())
@@ -92,58 +92,6 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 	}
 	return
 }
-
-//MapResource - inline resource -  can be either func() io.Reader, *iorw.Buffer
-/*func (rqst *Request) MapResource(path string, resource interface{}) {
-	if path != "" && resource != nil {
-		var validResource = false
-		var strng = ""
-		var isReader = false
-		var r io.Reader = nil
-		var isBuffer = false
-		var buff *iorw.Buffer = nil
-
-		if strng, validResource = resource.(string); !validResource {
-			if _, validResource = resource.(func() io.Reader); !validResource {
-				if buff, validResource = resource.(*iorw.Buffer); !validResource {
-					if r, validResource = resource.(io.Reader); validResource {
-						validResource = (r != nil)
-					}
-					isReader = validResource
-				} else {
-					isBuffer = true
-				}
-			}
-		} else {
-			if strng != "" {
-				r = strings.NewReader(strng)
-				isReader = true
-			} else {
-				validResource = false
-			}
-		}
-		if validResource {
-			if isReader {
-				buff := iorw.NewBuffer()
-				io.Copy(buff, r)
-				resource = buff
-			}
-			if _, resourceok := rqst.embeddedResources[path]; resourceok && rqst.embeddedResources[path] != resource {
-				if rqst.embeddedResources[path] != nil {
-					if buff, isBuffer = rqst.embeddedResources[path].(*iorw.Buffer); isBuffer {
-						buff.Close()
-						buff = nil
-					}
-					rqst.embeddedResources[path] = resource
-				} else {
-					rqst.embeddedResources[path] = resource
-				}
-			} else {
-				rqst.embeddedResources[path] = resource
-			}
-		}
-	}
-}*/
 
 //ProtoMethod - http e.g request METHOD
 func (rqst *Request) ProtoMethod() string {

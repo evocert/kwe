@@ -368,7 +368,11 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 			rscngepnt.lck.Lock()
 			defer rscngepnt.lck.Unlock()
 			if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
-				if embdrs, embdrsok := rscngepnt.embeddedResources[path]; embdrsok {
+				embedpath := path
+				if strings.HasPrefix(embedpath, "/") {
+					embedpath = embedpath[1:]
+				}
+				if embdrs, embdrsok := rscngepnt.embeddedResources[embedpath]; embdrsok {
 					if embdrs != nil {
 						rs = newRS(rscngepnt, path, embdrs.Reader())
 					}

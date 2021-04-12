@@ -72,8 +72,9 @@ func (rsqt *Request) fsmkdir(rsngmngr *resources.ResourcingManager, path ...inte
 			path[1] = pth2
 		}
 		if pth1, _ = path[0].(string); pth1 != "" && !strings.HasPrefix(pth1, "/") {
-			path[0] = "/" + pth1
+			pth1 = "/" + pth1
 		}
+		path[0] = pth1
 		if !rsngmngr.FS().MKDIR(path...) {
 			if pthl == 1 && pth1 != "" {
 				rsngmngr.RegisterEndpoint(pth1, "")
