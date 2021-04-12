@@ -195,52 +195,54 @@ func (rqststdio *requeststdio) executeStdIO() (err error) {
 		defer rqststdio.wg.Done()
 		var rnserr error = nil
 		var rdr io.RuneReader = nil
-		if stdio, stdiook := rqststdio.rqst.rqstr.(*os.File); stdiook {
-			pr, pw := io.Pipe()
-			wg := &sync.WaitGroup{}
-			wg.Add(1)
-			go func() {
-				defer pw.Close()
-				wg.Done()
-				scnr := bufio.NewScanner(stdio)
-				fmt.Print("")
-				txt := ""
-				for {
-					if scnr.Scan() {
-						if txt = scnr.Text(); txt != "" {
-							txt += "\r\n"
-							pw.Write([]byte(txt))
+		if rqstr := rqststdio.rqst.rqstr(); rqstr != nil {
+			if stdio, stdiook := rqstr.(*os.File); stdiook {
+				pr, pw := io.Pipe()
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				go func() {
+					defer pw.Close()
+					wg.Done()
+					scnr := bufio.NewScanner(stdio)
+					fmt.Print("")
+					txt := ""
+					for {
+						if scnr.Scan() {
+							if txt = scnr.Text(); txt != "" {
+								txt += "\r\n"
+								pw.Write([]byte(txt))
+							}
+						}
+					}
+				}()
+				wg.Wait()
+				rdr = bufio.NewReader(pr)
+
+			} else if wsdio, wsiook := rqstr.(*ws.ReaderWriter); wsiook {
+				rdr = wsdio
+			}
+			if rdr == nil {
+				rdr = bufio.NewReader(rqstr)
+			}
+			for {
+				r, s, rerr := rdr.ReadRune()
+				if s > 0 && (rerr == nil || rerr == io.EOF) {
+					if rnserr = rqststdio.captureRune(r); rnserr != nil {
+						if rerr == nil || rerr == io.EOF {
+							rerr = rnserr
 						}
 					}
 				}
-			}()
-			wg.Wait()
-			rdr = bufio.NewReader(pr)
-
-		} else if wsdio, wsiook := rqststdio.rqst.rqstr.(*ws.ReaderWriter); wsiook {
-			rdr = wsdio
-		}
-		if rdr == nil {
-			rdr = bufio.NewReader(rqststdio.rqst.rqstr)
-		}
-		for {
-			r, s, rerr := rdr.ReadRune()
-			if s > 0 && (rerr == nil || rerr == io.EOF) {
-				if rnserr = rqststdio.captureRune(r); rnserr != nil {
-					if rerr == nil || rerr == io.EOF {
-						rerr = rnserr
-					}
-				}
-			}
-			if rqststdio.isDone || rerr != nil {
-				if rerr == io.EOF {
-					if rqststdio.isDone {
+				if rqststdio.isDone || rerr != nil {
+					if rerr == io.EOF {
+						if rqststdio.isDone {
+							break
+						}
+						time.Sleep(10)
+					} else {
+						err = rerr
 						break
 					}
-					time.Sleep(10)
-				} else {
-					err = rerr
-					break
 				}
 			}
 		}

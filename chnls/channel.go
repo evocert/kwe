@@ -106,8 +106,9 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 	if conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024); err == nil {
 		chnl.ServeWS(conn, a...)
 	} else {
-		a = append([]interface{}{r}, a...)
-		chnl.ServeRW(r.Body, w, a...)
+		//a = append([]interface{}{r}, a...)
+		//chnl.ServeRW(r.Body, w, a...)
+		processingRequestIO(nil, chnl, nil, func() io.Reader { return r.Body }, func() io.Writer { return w }, func() http.ResponseWriter { return w }, nil, func() *http.Request { return r }, a...)
 	}
 }
 
@@ -141,19 +142,27 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	}()
 }
 
+var test bool = false
+
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	if rqst, interrupt := newRequest(chnl, r, w, a...); rqst != nil {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-				}
-				rqst.Close()
+	/*if test == false {
+		test = true
+		if rqst, interrupt := newRequest(chnl, r, w, a...); rqst != nil {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+					}
+					rqst.Close()
+				}()
+				rqst.execute(interrupt)
 			}()
-			rqst.execute(interrupt)
-		}()
-		rqst = nil
-	}
+			rqst = nil
+		}
+		return
+	}*/
+	processingRequestIO(nil, chnl, nil, func() io.Reader { return r }, func() io.Writer { return w }, nil, nil, nil, a...)
+
 }
 
 //Stdio - os.Stdout, os.Stdin

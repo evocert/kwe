@@ -38,19 +38,19 @@ type Request struct {
 	args             []interface{}
 	startedWriting   bool
 	mimetype         string
-	httpw            http.ResponseWriter
-	flshr            http.Flusher
+	httpw            func() http.ResponseWriter
+	flshr            func() http.Flusher
 	prms             *parameters.Parameters
 	wbytes           []byte
 	wbytesi          int
-	rqstw            io.Writer
-	httpr            *http.Request
+	rqstw            func() io.Writer
+	httpr            func() *http.Request
 	cchdrqstcntnt    *iorw.Buffer
 	cchdrqstcntntrdr *iorw.BuffReader
 	prtclmethod      string
 	prtcl            string
 	zpw              *gzip.Writer
-	rqstr            io.Reader
+	rqstr            func() io.Reader
 	Interrupted      bool
 	wgtxt            *sync.WaitGroup
 	objmap           map[string]interface{}
@@ -144,29 +144,39 @@ func (rqst *Request) AddPath(path ...string) {
 //ResponseHeaders wrap arround current ResponseWriter.Header
 func (rqst *Request) ResponseHeaders() (hdrs []string) {
 	hdrs = []string{}
-	for k := range rqst.httpw.Header() {
-		hdrs = append(hdrs, k)
+	if hdr := rqst.ResponseHeader(); hdr != nil {
+		for k := range hdr {
+			hdrs = append(hdrs, k)
+		}
 	}
 	return
 }
 
 //ResponseHeader wrap arround current ResponseWriter.Header
-func (rqst *Request) ResponseHeader() http.Header {
-	return rqst.httpw.Header()
+func (rqst *Request) ResponseHeader() (hdr http.Header) {
+	if httpw := rqst.httpw(); httpw != nil {
+		hdr = httpw.Header()
+	}
+	return
 }
 
 //RequestHeaders wrap arround current Request.Header
 func (rqst *Request) RequestHeaders() (hdrs []string) {
 	hdrs = []string{}
-	for k := range rqst.httpr.Header {
-		hdrs = append(hdrs, k)
+	if hdr := rqst.RequestHeader(); hdr != nil {
+		for k := range hdr {
+			hdrs = append(hdrs, k)
+		}
 	}
 	return
 }
 
 //RequestHeader wrap arround current Request.Header
-func (rqst *Request) RequestHeader() http.Header {
-	return rqst.httpr.Header
+func (rqst *Request) RequestHeader() (hdr http.Header) {
+	if httpr := rqst.httpr(); httpr != nil {
+		hdr = httpr.Header
+	}
+	return hdr
 }
 
 //Parameters - Request web Parameters
@@ -213,8 +223,10 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 				pi, po := io.Pipe()
 				go func() {
 					defer po.Close()
-					if bdy := rqst.httpr.Body; bdy != nil {
-						io.Copy(io.MultiWriter(po, rqst.cchdrqstcntnt), bdy)
+					if httpr := rqst.httpr(); httpr != nil {
+						if bdy := httpr.Body; bdy != nil {
+							io.Copy(io.MultiWriter(po, rqst.cchdrqstcntnt), bdy)
+						}
 					}
 				}()
 				bf = bufio.NewReader(pi)
@@ -232,8 +244,10 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 			if rqst.cchdrqstcntnt != nil && rqst.cchdrqstcntntrdr != nil {
 				rqst.cchdrqstcntntrdr.Seek(0, io.SeekStart)
 				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
-			} else if bdy := rqst.httpr.Body; bdy != nil {
-				bf = bufio.NewReader(bdy)
+			} else if httpr := rqst.httpr(); httpr != nil {
+				if bdy := httpr.Body; bdy != nil {
+					bf = bufio.NewReader(bdy)
+				}
 			}
 		}
 	}
@@ -419,43 +433,45 @@ func (rqst *Request) Close() (err error) {
 }
 
 func (rqst *Request) execute(interrupt func()) {
-	if rqst.httpr != nil && rqst.httpw != nil {
-		rqst.prtcl = rqst.httpr.Proto
-		rqst.prtclmethod = rqst.httpr.Method
-		func() {
-			isCancelled := false
-			ctx, cancel := context.WithCancel(rqst.httpr.Context())
-			defer func() {
-				if r := recover(); r != nil {
-
-				}
-				if !isCancelled {
-					isCancelled = true
-					cancel()
-				}
-			}()
-
-			go func() {
+	if httpr := rqst.httpr(); httpr != nil {
+		if httpw := rqst.httpw; httpw != nil {
+			rqst.prtcl = httpr.Proto
+			rqst.prtclmethod = httpr.Method
+			func() {
+				isCancelled := false
+				ctx, cancel := context.WithCancel(httpr.Context())
 				defer func() {
 					if r := recover(); r != nil {
 
 					}
-					isCancelled = true
-					cancel()
-				}()
-				rqst.executeHTTP(interrupt)
-			}()
-			select {
-			case <-ctx.Done():
-				if ctxerr := ctx.Err(); ctxerr != nil {
 					if !isCancelled {
-						if interrupt != nil {
-							interrupt()
+						isCancelled = true
+						cancel()
+					}
+				}()
+
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+
+						}
+						isCancelled = true
+						cancel()
+					}()
+					rqst.executeHTTP(interrupt)
+				}()
+				select {
+				case <-ctx.Done():
+					if ctxerr := ctx.Err(); ctxerr != nil {
+						if !isCancelled {
+							if interrupt != nil {
+								interrupt()
+							}
 						}
 					}
 				}
-			}
-		}()
+			}()
+		}
 	} else if rqst.rqstw != nil && rqst.rqstr != nil {
 		func() {
 			defer func() {
@@ -492,22 +508,22 @@ func (rqst *Request) execute(interrupt func()) {
 }
 
 func (rqst *Request) internWrite(p []byte) (n int, err error) {
-	if rqst.httpw != nil {
+	if httpw := rqst.httpw(); httpw != nil {
 		if rqst.zpw != nil {
 			n, err = rqst.zpw.Write(p)
-		} else if rqst.httpw != nil {
-			n, err = rqst.httpw.Write(p)
+		} else if httpw != nil {
+			n, err = httpw.Write(p)
 			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
 			}*/
-		} else if rqst.rqstw != nil {
-			n, err = rqst.rqstw.Write(p)
+		} else if rqstw := rqst.rqstw(); rqstw != nil {
+			n, err = rqstw.Write(p)
 			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
 			}*/
 		}
-	} else if rqst.rqstw != nil {
-		n, err = rqst.rqstw.Write(p)
+	} else if rqstw := rqst.rqstw(); rqstw != nil {
+		n, err = rqstw.Write(p)
 		/*if rqst.flshr != nil && n > 0 && err == nil {
 			rqst.flshr.Flush()
 		}*/
@@ -657,8 +673,10 @@ func (rqst *Request) wrapup() (err error) {
 			rqst.zpw = nil
 		}
 		if err == nil {
-			if wflsh, wflshok := rqst.httpw.(http.Flusher); wflshok {
-				wflsh.Flush()
+			if httpw := rqst.httpw(); httpw != nil {
+				if wflsh, wflshok := httpw.(http.Flusher); wflshok {
+					wflsh.Flush()
+				}
 			}
 		}
 	}
@@ -671,16 +689,20 @@ func (rqst *Request) startWriting() {
 			return
 		}
 		rqst.startedWriting = true
-		if rqst.httpw.Header().Get("Content-Type") == "" {
-			rqst.httpw.Header().Set("Content-Type", rqst.mimetype)
+		if hdr := rqst.RequestHeader(); hdr != nil {
+			if hdr.Get("Content-Type") == "" {
+				hdr.Set("Content-Type", rqst.mimetype)
+			}
+			hdr.Del("Content-Length")
+			hdr.Set("Cache-Control", "no-cache")
+			hdr.Set("Expires", time.Now().Format(http.TimeFormat))
+			hdr.Set("Connection", "close")
 		}
-		rqst.httpw.Header().Del("Content-Length")
-		rqst.httpw.Header().Set("Cache-Control", "no-cache")
-		rqst.httpw.Header().Set("Expires", time.Now().Format(http.TimeFormat))
-		rqst.httpw.Header().Set("Connection", "close")
 		//httpw.Header().Set("Transfer-Encoding", "chunked")
 		//rqst.zpw = gzip.NewWriter(httpw)
-		rqst.httpw.WriteHeader(200)
+		if httpw := rqst.httpw(); httpw != nil {
+			httpw.WriteHeader(200)
+		}
 
 	}
 }
@@ -688,10 +710,12 @@ func (rqst *Request) startWriting() {
 func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
-		parameters.LoadParametersFromHTTPRequest(rqst.prms, rqst.httpr)
-		httppath := rqst.httpr.URL.Path
-		rqst.AddPath(httppath)
-		rqst.processPaths(true)
+		if httpr := rqst.httpr(); httpr != nil {
+			parameters.LoadParametersFromHTTPRequest(rqst.prms, httpr)
+			httppath := httpr.URL.Path
+			rqst.AddPath(httppath)
+			rqst.processPaths(true)
+		}
 	}
 }
 
@@ -860,7 +884,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: func() http.Flusher { return httpflshr }, rqstw: func() io.Writer { return wtr }, httpw: func() http.ResponseWriter { return httpw }, rqstr: func() io.Reader { return rdr }, httpr: func() *http.Request { return httpr }, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {
@@ -928,7 +952,47 @@ func (rqst *Request) invokeAtv() {
 	if rqst.atv == nil {
 		rqst.atv = active.NewActive()
 	}
+	nmspce := ""
+	if rqst.atv != nil {
+		nmspce = rqst.atv.Namespace
+		if nmspce != "" {
+			nmspce = nmspce + "."
+		}
+	}
+	rqst.objmap[nmspce+"request"] = rqst
+	rqst.objmap[nmspce+"channel"] = rqst.chnl
+	rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
+	rqst.objmap[nmspce+"dbms"] = rqst.dbms
+	rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
+	rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
+		buff = iorw.NewBuffer()
+		buff.OnClose = rqst.removeBuffer
+		rqst.intrnbuffs[buff] = buff
+		return
+	}
+	rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+		cmd, err = osprc.NewCommand(execpath, execargs...)
+		if err == nil && cmd != nil {
+			cmd.OnClose = rqst.removeCommand
+			rqst.cmnds[cmd.PrcID()] = cmd
+		}
+		return
+	}
+	rqst.objmap[nmspce+"action"] = func() *Action {
+		return rqst.lstexctngactng
+	}
+	rqst.objmap[nmspce+"webing"] = web.DefaultClient
 
+	fstls := fsutils.NewFSUtils()
+	rqst.objmap[nmspce+"_fsutils"] = fstls
+
+	for cobjk, cobj := range rqst.chnl.objmap {
+		rqst.objmap[cobjk] = cobj
+	}
+
+	if len(rqst.objmap) > 0 {
+		rqst.atv.ImportGlobals(rqst.objmap)
+	}
 	if rqst.atv.ObjectMapRef == nil {
 		rqst.atv.ObjectMapRef = func() map[string]interface{} {
 			return rqst.objmap
