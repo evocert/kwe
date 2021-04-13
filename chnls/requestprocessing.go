@@ -96,7 +96,7 @@ func internalExecuteRequest(rqst *Request, interrupt func(), rqstw io.Writer, rq
 	}()
 }
 
-func processingRequestIO(cntxt context.Context, chnl *Channel, prntrqst *Request, rdr func() io.Reader, wtr func() io.Writer, httpw func() http.ResponseWriter, httpflshr func() http.Flusher, httpr func() *http.Request, a ...interface{}) {
+func processingRequestIO(chnl *Channel, prntrqst *Request, rdr func() io.Reader, wtr func() io.Writer, httpw func() http.ResponseWriter, httpflshr func() http.Flusher, httpr func() *http.Request, a ...interface{}) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	var excrqst *Request = nil

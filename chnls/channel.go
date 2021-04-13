@@ -10,7 +10,7 @@ import (
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/ws"
-	"github.com/gorilla/websocket"
+	websocket "github.com/gorilla/websocket"
 )
 
 /*Channel -
@@ -43,6 +43,46 @@ func (chnl *Channel) Schedules() *scheduling.Schedules {
 func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
 	if al := len(a); al > 0 {
 		ai := 0
+		var prntrqst *Request = nil
+		atvprntmap := map[string]interface{}{}
+		for ai < al {
+			d := a[ai]
+			if rqst, rqstok := d.(*Request); rqstok {
+				prntrqst = rqst
+				if rqst.atv != nil {
+					rqst.atv.ExtractGlobals(atvprntmap)
+				}
+				ai++
+			} else {
+				ai++
+			}
+		}
+		if scdhlrqst, _ := internalNewRequest(chnl, prntrqst, nil, nil, nil, nil, nil, nil, a...); scdhlrqst != nil {
+			scdhlrqst.schdl = schdl
+			lclglbs := map[string]interface{}{}
+			if len(atvprntmap) > 0 {
+				scdhlrqst.invokeAtv()
+				scdhlrqst.atv.ExtractGlobals(lclglbs)
+				if len(atvprntmap) > 0 {
+					for k := range atvprntmap {
+						if len(atvprntmap) > 0 {
+							if _, katvok := scdhlrqst.objmap[k]; katvok {
+								atvprntmap[k] = nil
+								delete(atvprntmap, k)
+							} else if _, klclok := lclglbs[k]; klclok {
+								atvprntmap[k] = nil
+								delete(atvprntmap, k)
+							}
+						}
+					}
+				}
+				scdhlrqst.atv.ImportGlobals(atvprntmap)
+			}
+			scdhlhndlr = scdhlrqst
+		}
+	}
+	/*if al := len(a); al > 0 {
+		ai := 0
 		atvprntmap := map[string]interface{}{}
 		for ai < al {
 			d := a[ai]
@@ -50,8 +90,6 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 				if rqst.atv != nil {
 					rqst.atv.ExtractGlobals(atvprntmap)
 				}
-				//a = append(a[:ai], a[ai+1:])
-				//al--
 				ai++
 			} else {
 				ai++
@@ -80,7 +118,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 
 			scdhlhndlr = scdhlrqst
 		}
-	}
+	}*/
 	return
 }
 
@@ -103,12 +141,17 @@ func (chnl *Channel) nextRequest() (rqst *Request, interrupt func()) {
 }
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
-	if conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024); err == nil {
+	wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
+		// don't return errors to maintain backwards compatibility
+	}, CheckOrigin: func(r *http.Request) bool {
+		// allow all connections by default
+		return true
+	}}
+	defer func() { wsu = nil }()
+	if conn, err := wsu.Upgrade(w, r, w.Header()); err == nil {
 		chnl.ServeWS(conn, a...)
 	} else {
-		//a = append([]interface{}{r}, a...)
-		//chnl.ServeRW(r.Body, w, a...)
-		processingRequestIO(nil, chnl, nil, func() io.Reader { return r.Body }, func() io.Writer { return w }, func() http.ResponseWriter { return w }, nil, func() *http.Request { return r }, a...)
+		processingRequestIO(chnl, nil, func() io.Reader { return r.Body }, func() io.Writer { return w }, func() http.ResponseWriter { return w }, nil, func() *http.Request { return r }, a...)
 	}
 }
 
@@ -142,26 +185,9 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	}()
 }
 
-var test bool = false
-
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	/*if test == false {
-		test = true
-		if rqst, interrupt := newRequest(chnl, r, w, a...); rqst != nil {
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-					}
-					rqst.Close()
-				}()
-				rqst.execute(interrupt)
-			}()
-			rqst = nil
-		}
-		return
-	}*/
-	processingRequestIO(nil, chnl, nil, func() io.Reader { return r }, func() io.Writer { return w }, nil, nil, nil, a...)
+	processingRequestIO(chnl, nil, func() io.Reader { return r }, func() io.Writer { return w }, nil, nil, nil, a...)
 
 }
 

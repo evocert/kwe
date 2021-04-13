@@ -8,5 +8,6 @@ request.AddPath("/etl/init.js")
 resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 channel.Listener().Listen(":1030");
 resourcing.FS().MKDIR("/mem");
-resourcing.FS().SET("mem/test.hl",`<html><body>mem test</body></html>`);
+resourcing.FS().SET("mem/test.html",`<div>mem <@ print("test"); @></div>`);
+resourcing.FS().SET("mem/index.html",`<html><body><#test/></body></html>`);
  @>
