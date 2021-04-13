@@ -195,7 +195,11 @@ func (atv *Active) atvrun(prsng *parsing) {
 
 //Eval - parse rin io.Reader, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, evalstngs ...interface{}) {
+	lck := &sync.RWMutex{}
+	lck.RLock()
+	defer lck.RUnlock()
 	var parsing = nextparsing(atv, nil, wout, evalstngs...)
+	defer parsing.Close()
 	var rnr io.RuneReader = nil
 	var bfr *bufio.Reader = nil
 	if rr, rrok := rin.(io.RuneReader); rrok {
@@ -205,8 +209,6 @@ func (atv *Active) Eval(wout io.Writer, rin io.Reader, evalstngs ...interface{})
 		rnr = bfr
 	}
 	parseprsngrunerdr(parsing, rnr, true)
-
-	parsing.Close()
 }
 
 //Close - refer to  io.Closer
@@ -560,7 +562,6 @@ func (prsng *parsing) flushCde() (err error) {
 
 func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err error) {
 	for err == nil {
-
 		r, rsize, rerr := rnr.ReadRune()
 		if rsize > 0 {
 			if err = parseprsng(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
