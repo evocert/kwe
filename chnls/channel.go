@@ -188,7 +188,6 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 	processingRequestIO(chnl, nil, func() io.Reader { return r }, func() io.Writer { return w }, nil, nil, nil, a...)
-
 }
 
 //Stdio - os.Stdout, os.Stdin

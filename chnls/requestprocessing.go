@@ -47,8 +47,9 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, 
 	return
 }
 
-func internalExecuteRequest(rqst *Request, interrupt func(), rqstw io.Writer, rqstr io.Reader, httpr *http.Request, httpw http.ResponseWriter) {
+func internalExecuteRequest(rqst *Request, interrupt func()) {
 	var bgrndctnx context.Context = nil
+	httpr, httpw, rqstw, rqstr := rqst.httpr(), rqst.httpw(), rqst.rqstw(), rqst.rqstr()
 	if httpr != nil && httpw != nil {
 		rqst.prtcl = httpr.Proto
 		rqst.prtclmethod = httpr.Method
@@ -153,32 +154,32 @@ func processingRequestIO(chnl *Channel, prntrqst *Request, rdr func() io.Reader,
 				}
 				excrqst.Close()
 			}()
-
-			internalExecuteRequest(excrqst, interrupt,
-				func() io.Writer {
-					if wtr != nil {
-						return wtr()
-					}
-					return nil
-				}(),
-				func() io.Reader {
-					if rdr != nil {
-						return rdr()
-					}
-					return nil
-				}(),
-				func() *http.Request {
-					if httpr != nil {
-						return httpr()
-					}
-					return nil
-				}(),
-				func() http.ResponseWriter {
-					if httpw != nil {
-						return httpw()
-					}
-					return nil
-				}())
+			internalExecuteRequest(excrqst, interrupt)
+			/*internalExecuteRequest(excrqst, interrupt,
+			func() io.Writer {
+				if wtr != nil {
+					return wtr()
+				}
+				return nil
+			}(),
+			func() io.Reader {
+				if rdr != nil {
+					return rdr()
+				}
+				return nil
+			}(),
+			func() *http.Request {
+				if httpr != nil {
+					return httpr()
+				}
+				return nil
+			}(),
+			func() http.ResponseWriter {
+				if httpw != nil {
+					return httpw()
+				}
+				return nil
+			}())*/
 		}()
 		excrqst = nil
 	}
