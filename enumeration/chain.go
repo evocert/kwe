@@ -384,9 +384,7 @@ func (chn *Chain) Do(dolnk FuncDoLink, errdolnk FuncErrorDoLink, donelnk FuncDon
 								if donelnk != nil {
 									if err = donelnk(e); err != nil {
 										if errdonelnk != nil {
-											if errdonelnk(e, err) {
-
-											}
+											errdonelnk(e, err)
 										}
 									}
 								}
@@ -400,9 +398,7 @@ func (chn *Chain) Do(dolnk FuncDoLink, errdolnk FuncErrorDoLink, donelnk FuncDon
 									if donelnk != nil {
 										if err = donelnk(e); err != nil {
 											if errdonelnk != nil {
-												if errdonelnk(e, err) {
-
-												}
+												errdonelnk(e, err)
 											}
 										}
 									}

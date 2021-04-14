@@ -9,9 +9,10 @@ import (
 
 //ActionHandler - struct
 type ActionHandler struct {
-	actn    *Action
-	rshndlr *resources.ResourceHandler
-	altr    io.Reader
+	actn        *Action
+	rshndlr     *resources.ResourceHandler
+	altr        io.Reader
+	hndlMaxSize int64
 }
 
 //NewActionHandler - for Action io
@@ -24,15 +25,17 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 			path = path[1:]
 		}
 		if path != "" {
+			hndlMaxSize := int64(-1)
 			if rqstrs := actn.rqst.Resource(path); rqstrs != nil {
 				if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
-					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr}
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: eofclsr, hndlMaxSize: hndlMaxSize}
 				} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
-					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: bf.Reader()}
+					hndlMaxSize = bf.Size()
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: bf.Reader(), hndlMaxSize: hndlMaxSize}
 				} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
 					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: fncr()}
 				} else if rd, rdok := rqstrs.(io.Reader); rdok {
-					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: iorw.NewEOFCloseSeekReader(rd)}
+					actnhndl = &ActionHandler{actn: actn, rshndlr: rshndl, altr: iorw.NewEOFCloseSeekReader(rd), hndlMaxSize: hndlMaxSize}
 				}
 			}
 		}

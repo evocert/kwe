@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
@@ -29,11 +30,18 @@ import (
 //Request -
 type Request struct {
 	atv              *active.Active
+	actnslst         *enumeration.List
 	actns            []*Action
 	lstexctngactng   *Action
 	rsngpthsref      map[string]*resources.ResourcingPath
 	rqstrsngmngr     *resources.ResourcingManager
 	chnl             *Channel
+	rqstoffset       int64
+	rqstendoffset    int64
+	rqstoffsetmax    int64
+	rqstmaxsize      int64
+	mediarqst        bool
+	initPath         string
 	settings         map[string]interface{}
 	args             []interface{}
 	startedWriting   bool
@@ -712,10 +720,16 @@ func (rqst *Request) executeHTTP(interrupt func()) {
 		if httpr := rqst.httpr(); httpr != nil {
 			parameters.LoadParametersFromHTTPRequest(rqst.prms, httpr)
 			httppath := httpr.URL.Path
+			rqst.initPath = httppath
 			rqst.AddPath(httppath)
 			rqst.processPaths(true)
 		}
 	}
+}
+
+func (rqst *Request) ismediaExt(ext string) bool {
+	ext = filepath.Ext(ext)
+	return ext == ".mp4"
 }
 
 func (rqst *Request) executeRW(interrupt func()) (err error) {

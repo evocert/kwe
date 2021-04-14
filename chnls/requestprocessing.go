@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/evocert/kwe/database"
+	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/resources"
@@ -35,7 +37,13 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, 
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actnslst: enumeration.NewList(), actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+		initPath:      "",
+		mediarqst:     false,
+		rqstoffset:    -1,
+		rqstendoffset: -1,
+		rqstoffsetmax: -1,
+		rqstmaxsize:   -1}
 	//rqst.invokeAtv()
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
@@ -48,6 +56,9 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, 
 }
 
 func internalExecuteRequest(rqst *Request, interrupt func()) {
+	lck := &sync.Mutex{}
+	lck.Lock()
+	defer lck.Unlock()
 	var bgrndctnx context.Context = nil
 	httpr, httpw, rqstw, rqstr := rqst.httpr(), rqst.httpw(), rqst.rqstw(), rqst.rqstr()
 	if httpr != nil && httpw != nil {

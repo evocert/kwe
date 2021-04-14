@@ -16,7 +16,6 @@ import (
 /*Channel -
  */
 type Channel struct {
-	rqsts     map[*Request]*Request
 	objmap    map[string]interface{}
 	lstnr     *listen.Listener
 	schdls    *scheduling.Schedules
@@ -125,7 +124,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 //NewChannel - instance
 func NewChannel() (chnl *Channel) {
 	nrcpu := runtime.NumCPU()
-	chnl = &Channel{rqsts: map[*Request]*Request{}, objmap: map[string]interface{}{}, chnlrqsts: make(chan func(), nrcpu*nrcpu)}
+	chnl = &Channel{objmap: map[string]interface{}{}, chnlrqsts: make(chan func(), nrcpu*nrcpu)}
 	runtime.GOMAXPROCS(nrcpu * nrcpu)
 	go func() {
 		for fnc := range chnl.chnlrqsts {

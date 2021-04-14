@@ -227,7 +227,7 @@ func (rqststdio *requeststdio) executeStdIO() (err error) {
 			for {
 				r, s, rerr := rdr.ReadRune()
 				if s > 0 && (rerr == nil || rerr == io.EOF) {
-					if rnserr = rqststdio.captureRune(r); rnserr != nil {
+					if rnserr = rqststdio.captureRunes(false, r); rnserr != nil {
 						if rerr == nil || rerr == io.EOF {
 							rerr = rnserr
 						}
@@ -238,7 +238,7 @@ func (rqststdio *requeststdio) executeStdIO() (err error) {
 						if rqststdio.isDone {
 							break
 						}
-						time.Sleep(10)
+						time.Sleep(time.Nanosecond * 10)
 					} else {
 						err = rerr
 						break

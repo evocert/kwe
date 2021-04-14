@@ -1,11 +1,13 @@
 <@ 
 dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIONSCOLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
+resourcing.RegisterEndpoint("/movies","D:/movies");
 resourcing.RegisterEndpoint("/system","D:/projects/system");
 channel.Listener().Listen(":1111");
 resourcing.FS().MKDIR("/mem");
 resourcing.FS().SET("mem/test.html",`<div>mem <@ print("test"); @></div>`);
 resourcing.FS().SET("mem/index.html",`<html><body><#test/></body></html>`);
+resourcing.FS().SET("mem/index.ht",`<html><body><#test/></body></html>`);
 
 
 /*resourcing.RegisterEndpoint("/","D:/projects/system");

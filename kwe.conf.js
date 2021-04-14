@@ -10,4 +10,5 @@ channel.Listener().Listen(":1030");
 resourcing.FS().MKDIR("/mem");
 resourcing.FS().SET("mem/test.html",`<div>mem <@ print("test"); @></div>`);
 resourcing.FS().SET("mem/index.html",`<html><body><#test/></body></html>`);
+resourcing.FS().SET("mem/index.ht",`<html><body></body></html>`);
  @>
