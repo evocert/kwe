@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"runtime"
+	"sync"
 
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
@@ -16,10 +16,10 @@ import (
 /*Channel -
  */
 type Channel struct {
-	objmap    map[string]interface{}
-	lstnr     *listen.Listener
-	schdls    *scheduling.Schedules
-	chnlrqsts chan func()
+	objmap   map[string]interface{}
+	lstnr    *listen.Listener
+	schdls   *scheduling.Schedules
+	lckrqsts *sync.RWMutex
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -123,14 +123,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 
 //NewChannel - instance
 func NewChannel() (chnl *Channel) {
-	nrcpu := runtime.NumCPU()
-	chnl = &Channel{objmap: map[string]interface{}{}, chnlrqsts: make(chan func(), nrcpu*nrcpu)}
-	runtime.GOMAXPROCS(nrcpu * nrcpu)
-	go func() {
-		for fnc := range chnl.chnlrqsts {
-			go fnc()
-		}
-	}()
+	chnl = &Channel{lckrqsts: &sync.RWMutex{}, objmap: map[string]interface{}{}}
 	return
 }
 

@@ -73,8 +73,6 @@ func executeAction(actn *Action) (err error) {
 							delete(actn.rqst.rsngpthsref, rspth)
 						}
 					}
-					actn.Close()
-					actn = nil
 				}
 			}()
 			var dbmspath = rspath
@@ -263,8 +261,6 @@ func executeAction(actn *Action) (err error) {
 							delete(actn.rqst.rsngpthsref, rspth)
 						}
 					}
-					actn.Close()
-					actn = nil
 				}
 			}()
 			var dbmspath = rspath
@@ -454,56 +450,54 @@ func executeAction(actn *Action) (err error) {
 							actn.rqst.mimetype = "text/plain"
 							isTextRequest = false
 						} else {
-							actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-							if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-								isTextRequest = false
-							}
-							if isTextRequest {
-								isTextRequest = false
-								actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
-							} else {
-								actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
-							}
-							curactnhndlr.Close()
-							curactnhndlr = nil
+							func() {
+								defer func() {
+									curactnhndlr.Close()
+									curactnhndlr = nil
+								}()
+								actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+								if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+									isTextRequest = false
+								}
+								if isTextRequest {
+									isTextRequest = false
+									actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
+								} else {
+									actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
+								}
+
+							}()
 						}
-					} else {
-						actn.Close()
 					}
-				} else {
-					actn.Close()
 				}
-			} else {
-				actn.Close()
 			}
-			actn = nil
 		} else if curactnhndlr != nil {
-			if actn.rqst.isFirstRequest {
-				if actn.rqst.mimetype == "" {
-					actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+			func() {
+				defer func() {
+					curactnhndlr.Close()
+					curactnhndlr = nil
+				}()
+				if actn.rqst.isFirstRequest {
+					if actn.rqst.mimetype == "" {
+						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+					} else {
+						_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
+					}
+					actn.rqst.isFirstRequest = false
 				} else {
 					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
-				actn.rqst.isFirstRequest = false
-			} else {
-				_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-			}
-			actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-			if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-				isTextRequest = false
-			}
-			if isTextRequest {
-				isTextRequest = false
-				actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
-			} else {
-				actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
-			}
-			if curactnhndlr != nil {
-				curactnhndlr.Close()
-				curactnhndlr = nil
-			}
-			actn.Close()
-			actn = nil
+				actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+				if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
+					isTextRequest = false
+				}
+				if isTextRequest {
+					isTextRequest = false
+					actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
+				} else {
+					actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
+				}
+			}()
 		}
 	}
 	return

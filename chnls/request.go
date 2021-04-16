@@ -29,9 +29,9 @@ import (
 
 //Request -
 type Request struct {
-	atv              *active.Active
-	actnslst         *enumeration.List
-	actns            []*Action
+	atv      *active.Active
+	actnslst *enumeration.List
+	//actns            []*Action
 	lstexctngactng   *Action
 	rsngpthsref      map[string]*resources.ResourcingPath
 	rqstrsngmngr     *resources.ResourcingManager
@@ -137,9 +137,12 @@ func (rqst *Request) AddPath(path ...string) {
 							}
 						}
 						if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
-							rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+							rqst.actnslst.Add(newAction(rqst, rsngpth))
+							//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+
 						} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
-							rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+							//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+							rqst.actnslst.Add(newAction(rqst, rsngpth))
 							rqst.rsngpthsref[pth] = rsngpth
 						}
 					}
@@ -300,13 +303,26 @@ func (rqst *Request) Close() (err error) {
 		if rqst.rqstr != nil {
 			rqst.rqstr = nil
 		}
-		if rqst.actns != nil {
+		/*if rqst.actns != nil {
 			for len(rqst.actns) > 0 {
 				rqst.actns[0].Close()
 				rqst.actns[0] = nil
 				rqst.actns = rqst.actns[1:]
 			}
 			rqst.actns = nil
+		}*/
+		if rqst.actnslst != nil {
+			var actntodispose *Action
+			rqst.actnslst.Dispose(
+				nil,
+				func(nde *enumeration.Node, val interface{}) {
+					if actntodispose, _ = val.(*Action); actntodispose != nil {
+						actntodispose.Close()
+						actntodispose = nil
+					}
+				})
+			actntodispose = nil
+			rqst.actnslst = nil
 		}
 		if rqst.rsngpthsref != nil {
 			if len(rqst.rsngpthsref) > 0 {
@@ -618,22 +634,43 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 }
 
 func (rqst *Request) processPaths(wrapup bool) {
-	var actn *Action = nil
-	for len(rqst.actns) > 0 && !rqst.Interrupted {
+	if rqst.actnslst.Length() > 0 {
+		var actn *Action = nil
+		rqst.actnslst.Do( //RemovingNode
+			func(nde *enumeration.Node, val interface{}) bool {
+				if actn, _ = val.(*Action); actn != nil {
+					executeAction(actn)
+					actn.Close()
+					nde.Set(nil)
+				}
+				return true
+			},
+			//RemovedNode
+			func(nde *enumeration.Node, val interface{}) {
+				if actn, _ = val.(*Action); actn != nil {
+					actn.Close()
+					nde.Set(nil)
+				}
+			},
+			//DisposingNode
+			func(nde *enumeration.Node, val interface{}) {
+				if actn, _ = val.(*Action); actn != nil {
+					actn.Close()
+				}
+			})
+		actn = nil
+	}
+	//var actn *Action = nil
+	/*for len(rqst.actns) > 0 && !rqst.Interrupted {
 		actn = rqst.actns[0]
 		rqst.actns = rqst.actns[1:]
 		func() {
 			defer func() {
-				/*if r := recover(); r != nil {
-					if !rqst.Interrupted {
-						rqst.Interrupt()
-					}
-					actn.Close()
-				}*/
+
 			}()
 			executeAction(actn)
 		}()
-	}
+	}*/
 	if rqst.wbytesi > 0 {
 		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
 	}
@@ -681,9 +718,13 @@ func (rqst *Request) wrapup() (err error) {
 			rqst.zpw = nil
 		}
 		if err == nil {
-			if httpw := rqst.httpw(); httpw != nil {
-				if wflsh, wflshok := httpw.(http.Flusher); wflshok {
-					wflsh.Flush()
+			if rqst.flshr != nil {
+				rqst.flshr().Flush()
+			} else {
+				if httpw := rqst.httpw(); httpw != nil {
+					if wflsh, wflshok := httpw.(http.Flusher); wflshok {
+						wflsh.Flush()
+					}
 				}
 			}
 		}
@@ -897,7 +938,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: func() http.Flusher { return httpflshr }, rqstw: func() io.Writer { return wtr }, httpw: func() http.ResponseWriter { return httpw }, rqstr: func() io.Reader { return rdr }, httpr: func() *http.Request { return httpr }, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actns: []*Action{}, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: func() http.Flusher { return httpflshr }, rqstw: func() io.Writer { return wtr }, httpw: func() http.ResponseWriter { return httpw }, rqstr: func() io.Reader { return rdr }, httpr: func() *http.Request { return httpr }, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actnslst: enumeration.NewList() /*actns: []*Action{},*/, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {
