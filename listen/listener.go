@@ -25,6 +25,7 @@ func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
 func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrvr *lstnrserver) {
 	var h2s = &http2.Server{}
 	var srvr = &http.Server{Addr: addr, Handler: h2c.NewHandler(hndlr, h2s)}
+	srvr.SetKeepAlivesEnabled(false)
 	lstnrsrvr = &lstnrserver{srvr: srvr, h2s: h2s, addr: addr}
 	return
 }

@@ -545,7 +545,9 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 	if rqst != nil {
 		if pl := len(p); pl > 0 {
 			if !rqst.startedWriting {
-				rqst.startWriting()
+				if err = rqst.startWriting(); err != nil {
+					return
+				}
 			}
 			n, err = rqst.internWrite(p)
 		}
@@ -663,6 +665,9 @@ func (rqst *Request) processPaths(wrapup bool) {
 		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
 	}
 	if !rqst.startedWriting {
+		if rqst.httpw != nil {
+			rqst.httpw.Header().Set("Content-Length", "0")
+		}
 		rqst.startWriting()
 	}
 	if wrapup {
@@ -720,7 +725,12 @@ func (rqst *Request) wrapup() (err error) {
 	return
 }
 
-func (rqst *Request) startWriting() {
+func (rqst *Request) startWriting() (err error) {
+	defer func() {
+		if rv := recover(); rv != nil {
+			err = fmt.Errorf("%v", rv)
+		}
+	}()
 	//if rqst.httpr != nil && rqst.httpw != nil {
 	if rqst.startedWriting {
 		return
@@ -730,7 +740,11 @@ func (rqst *Request) startWriting() {
 		if hdr.Get("Content-Type") == "" {
 			hdr.Set("Content-Type", rqst.mimetype)
 		}
-		hdr.Del("Content-Length")
+		if cntntl := hdr.Get("Content-Length"); cntntl != "" {
+			if cntntl != "0" {
+				hdr.Del("Content-Length")
+			}
+		}
 		hdr.Set("Cache-Control", "no-cache")
 		hdr.Set("Expires", time.Now().Format(http.TimeFormat))
 		hdr.Set("Connection", "close")
@@ -741,6 +755,7 @@ func (rqst *Request) startWriting() {
 		httpw.WriteHeader(200)
 	}
 	//}
+	return
 }
 
 func (rqst *Request) executeHTTP(interrupt func()) {
