@@ -71,19 +71,16 @@ func (lst *List) Do(RemovingNode func(*Node, interface{}) bool,
 	RemovedNode func(*Node, interface{}),
 	DisposingNode func(*Node, interface{})) {
 	if lst.head != nil && lst.tail != nil {
-
-		if lst.head != nil && lst.tail != nil {
-			crntnde := lst.head
-			nxtnde := crntnde
-			for nxtnde != nil {
-				if RemovingNode != nil && RemovingNode(nxtnde, nxtnde.val) {
-					crntnde = nxtnde
-					nxtnde = lst.forwardmap[crntnde]
-					crntnde.Dispose(RemovedNode, DisposingNode)
-					crntnde = nil
-				} else {
-					nxtnde = lst.forwardmap[crntnde]
-				}
+		crntnde := lst.head
+		nxtnde := crntnde
+		for nxtnde != nil {
+			if RemovingNode != nil && RemovingNode(nxtnde, nxtnde.val) {
+				crntnde = nxtnde
+				nxtnde = lst.forwardmap[crntnde]
+				crntnde.Dispose(RemovedNode, DisposingNode)
+				crntnde = nil
+			} else {
+				nxtnde = lst.forwardmap[crntnde]
 			}
 		}
 	}
