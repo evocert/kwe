@@ -60,13 +60,19 @@ func (rscngmngr *ResourcingManager) findrsendpnt(path string) (epnt *ResourcingE
 		tpth := ""
 		tpthl := 0
 		for pn := range pths {
-			tpth += pths[pn]
+			if tpth == "" {
+				tpth = "/" + pths[pn]
+			} else {
+				tpth += pths[pn]
+			}
 			if epntfnd, epntfndok := rscngmngr.rsngpaths[tpth]; epntfndok && tpthl < len(tpth) {
 				rpath = strings.Join(pths[pn+1:], "/")
 				tpthl = len(tpth)
 				epnt = rscngmngr.rsngrootpaths[epntfnd]
 			}
-			tpth += "/"
+			if tpth != "/" {
+				tpth += "/"
+			}
 		}
 	}
 	return
@@ -636,7 +642,7 @@ func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err err
 }
 
 //FindRS - find Resource
-func (rscngmngr *ResourcingManager) FindRS(path string) (rs *Resource, err error) {
+func (rscngmngr *ResourcingManager) FindRS(path string) (rs io.ReadCloser, err error) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {

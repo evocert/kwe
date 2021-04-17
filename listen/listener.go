@@ -44,7 +44,6 @@ func NewListener(hndlr http.Handler) (lstnr *Listener) {
 
 //ServeHTTP - refer http.Handler
 func (lstnr *Listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	if lstnr.hndlr == nil {
 		if DefaultHttpHandler != nil {
 			DefaultHttpHandler.ServeHTTP(w, r)

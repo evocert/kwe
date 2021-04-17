@@ -362,7 +362,7 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 	}
 }
 
-func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err error) {
+func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err error) {
 	if path != "" {
 		func() {
 			rscngepnt.lck.Lock()
@@ -438,7 +438,15 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs *Resource, err erro
 						}
 					}
 					remoteHeaders["Content-Type"] = mimetype
-
+					if strings.HasSuffix(rscngepnt.path, "/") {
+						if strings.HasPrefix(path, "/") {
+							path = path[1:]
+						}
+					} else {
+						if !strings.HasPrefix(path, "/") {
+							path = "/" + path
+						}
+					}
 					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
 						rs = newRS(rscngepnt, path, r)
 					} else if rerr != nil {

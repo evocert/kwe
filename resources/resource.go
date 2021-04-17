@@ -63,39 +63,3 @@ func (rs *Resource) Close() (err error) {
 	}
 	return
 }
-
-//ResourceHandler - struct
-type ResourceHandler struct {
-	rs *Resource
-}
-
-//Read - refer to io.Reader
-func (rshndlr *ResourceHandler) Read(p []byte) (n int, err error) {
-	if rshndlr != nil {
-		if rshndlr.rs != nil {
-			n, err = rshndlr.rs.Read(p)
-		}
-	}
-	if n == 0 && err == nil {
-		err = io.EOF
-	}
-	return
-}
-
-//Close - refer to io.Closer
-func (rshndlr *ResourceHandler) Close() (err error) {
-	if rshndlr != nil {
-		if rshndlr.rs != nil {
-			rshndlr.rs = nil
-		}
-		rshndlr = nil
-	}
-	return
-}
-
-func newResourceHandler(rs *Resource) (rshndlr *ResourceHandler) {
-	if rs != nil {
-		rshndlr = &ResourceHandler{rs: rs}
-	}
-	return
-}

@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
@@ -19,7 +18,6 @@ type Channel struct {
 	objmap   map[string]interface{}
 	lstnr    *listen.Listener
 	schdls   *scheduling.Schedules
-	lckrqsts *sync.RWMutex
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -123,7 +121,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 
 //NewChannel - instance
 func NewChannel() (chnl *Channel) {
-	chnl = &Channel{lckrqsts: &sync.RWMutex{}, objmap: map[string]interface{}{}}
+	chnl = &Channel{objmap: map[string]interface{}{}}
 	return
 }
 
@@ -143,7 +141,7 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 	if conn, err := wsu.Upgrade(w, r, w.Header()); err == nil {
 		chnl.ServeWS(conn, a...)
 	} else {
-		processingRequestIO(chnl, nil, func() io.Reader { return r.Body }, func() io.Writer { return w }, func() http.ResponseWriter { return w }, nil, func() *http.Request { return r }, a...)
+		processingRequestIO(chnl, nil, r.Body, w, w, nil, r, a...)
 	}
 }
 
@@ -179,7 +177,7 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	processingRequestIO(chnl, nil, func() io.Reader { return r }, func() io.Writer { return w }, nil, nil, nil, a...)
+	processingRequestIO(chnl, nil, r, w, nil, nil, nil, a...)
 }
 
 //Stdio - os.Stdout, os.Stdin

@@ -8,30 +8,27 @@ import (
 
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/mimes"
-	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/scheduling"
 )
 
 //Action - struct
 type Action struct {
 	rqst    *Request
-	rsngpth *resources.ResourcingPath
+	rspath  string
 	sttngs  map[string]interface{}
 	prvactn *Action
 }
 
-func newAction(rqst *Request, rsngpth *resources.ResourcingPath) (actn *Action) {
-	actn = &Action{rqst: rqst, rsngpth: rsngpth, prvactn: rqst.lstexctngactng}
+func newAction(rqst *Request, rspath string) (actn *Action) {
+	actn = &Action{rqst: rqst, rspath: rspath, prvactn: rqst.lstexctngactng}
 	rqst.lstexctngactng = actn
 	return
 }
 
-//Path of resource action is currently processing
+//Path of resource action thats currently processing
 func (actn *Action) Path() string {
 	if actn != nil {
-		if actn.rsngpth != nil {
-			return actn.rsngpth.Path
-		}
+		return actn.rspath
 	}
 	return ""
 }
@@ -43,7 +40,7 @@ func executeAction(actn *Action) (err error) {
 			actn = nil
 		}
 	}()
-	var rspath = actn.rsngpth.Path
+	var rspath = actn.rspath // actn.rsngpth.Path
 	var rspathext = filepath.Ext(rspath)
 	var isTextRequest = false
 	var dbmsaliases map[string]*database.Connection = nil
@@ -67,12 +64,12 @@ func executeAction(actn *Action) (err error) {
 					schdlsaliases = nil
 				}
 				if actn != nil {
-					if rspth := actn.rsngpth.Path; rspth != "" {
+					/*if rspth := actn.rsngpth.Path; rspth != "" {
 						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
 							actn.rqst.rsngpthsref[rspth] = nil
 							delete(actn.rqst.rsngpthsref, rspth)
 						}
-					}
+					}*/
 				}
 			}()
 			var dbmspath = rspath
@@ -255,12 +252,12 @@ func executeAction(actn *Action) (err error) {
 					dbmsaliases = nil
 				}
 				if actn != nil {
-					if rspth := actn.rsngpth.Path; rspth != "" {
+					/*if rspth := actn.rsngpth.Path; rspth != "" {
 						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
 							actn.rqst.rsngpthsref[rspth] = nil
 							delete(actn.rqst.rsngpthsref, rspth)
 						}
-					}
+					}*/
 				}
 			}()
 			var dbmspath = rspath
@@ -426,12 +423,12 @@ func executeAction(actn *Action) (err error) {
 		}()
 	} else {
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
-			if rspth := actn.rsngpth.Path; rspth != "" {
+			/*if rspth := actn.rsngpth.Path; rspth != "" {
 				if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
 					actn.rqst.rsngpthsref[rspth] = nil
 					delete(actn.rqst.rsngpthsref, rspth)
 				}
-			}
+			}*/
 			if actn.rqst.isFirstRequest {
 				actn.rqst.isFirstRequest = false
 				if actn.rqst.mimetype == "" {
@@ -443,8 +440,7 @@ func executeAction(actn *Action) (err error) {
 							rspath = rspath + "/"
 						}
 						rspath = rspath + "index.html"
-						actn.rsngpth.Path = rspath
-						actn.rsngpth.LookupPath = actn.rsngpth.Path
+						actn.rspath = rspath
 						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 						if curactnhndlr = actn.ActionHandler(); curactnhndlr == nil {
 							actn.rqst.mimetype = "text/plain"
@@ -455,15 +451,11 @@ func executeAction(actn *Action) (err error) {
 									curactnhndlr.Close()
 									curactnhndlr = nil
 								}()
-								actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-								if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-									isTextRequest = false
-								}
 								if isTextRequest {
 									isTextRequest = false
-									actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
+									actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
 								} else {
-									actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
+									actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
 								}
 
 							}()
@@ -487,15 +479,15 @@ func executeAction(actn *Action) (err error) {
 				} else {
 					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
-				actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
+				/*actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
 				if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
 					isTextRequest = false
-				}
+				}*/
 				if isTextRequest {
 					isTextRequest = false
-					actn.rqst.copy(curactnhndlr, nil, true, actn.rsngpth.Path)
+					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
 				} else {
-					actn.rqst.copy(curactnhndlr, nil, false, actn.rsngpth.Path)
+					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
 				}
 			}()
 		}
@@ -519,10 +511,10 @@ func (actn *Action) Close() (err error) {
 		if actn.prvactn != nil {
 			actn.prvactn = nil
 		}
-		if actn.rsngpth != nil {
+		/*if actn.rsngpth != nil {
 			actn.rsngpth.Close()
 			actn.rsngpth = nil
-		}
+		}*/
 		actn = nil
 	}
 	return

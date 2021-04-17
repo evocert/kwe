@@ -33,7 +33,6 @@ type Request struct {
 	actnslst *enumeration.List
 	//actns            []*Action
 	lstexctngactng   *Action
-	rsngpthsref      map[string]*resources.ResourcingPath
 	rqstrsngmngr     *resources.ResourcingManager
 	chnl             *Channel
 	rqstoffset       int64
@@ -46,19 +45,19 @@ type Request struct {
 	args             []interface{}
 	startedWriting   bool
 	mimetype         string
-	httpw            func() http.ResponseWriter
-	flshr            func() http.Flusher
+	httpw            http.ResponseWriter
+	flshr            http.Flusher
 	prms             *parameters.Parameters
 	wbytes           []byte
 	wbytesi          int
-	rqstw            func() io.Writer
-	httpr            func() *http.Request
+	rqstw            io.Writer
+	httpr            *http.Request
 	cchdrqstcntnt    *iorw.Buffer
 	cchdrqstcntntrdr *iorw.BuffReader
 	prtclmethod      string
 	prtcl            string
 	zpw              *gzip.Writer
-	rqstr            func() io.Reader
+	rqstr            io.Reader
 	Interrupted      bool
 	wgtxt            *sync.WaitGroup
 	objmap           map[string]interface{}
@@ -96,6 +95,8 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 				}
 			}
 			rs = rqst.FS().CAT("require/" + path)
+		} else if rs == nil {
+			rs = resources.GLOBALRSNG().FS().CAT(path)
 		}
 	}
 	return
@@ -136,15 +137,17 @@ func (rqst *Request) AddPath(path ...string) {
 								pth += "@@"
 							}
 						}
-						if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
-							rqst.actnslst.Add(newAction(rqst, rsngpth))
-							//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+						/*
+							if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
+								rqst.actnslst.Add(newAction(rqst,pth rsngpth))
+								//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
 
-						} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
-							//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
-							rqst.actnslst.Add(newAction(rqst, rsngpth))
-							rqst.rsngpthsref[pth] = rsngpth
-						}
+							} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
+								//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
+								rqst.actnslst.Add(newAction(rqst, rsngpth))
+								rqst.rsngpthsref[pth] = rsngpth
+							}*/
+						rqst.actnslst.Add(newAction(rqst, pth))
 					}
 				}
 			}
@@ -165,7 +168,7 @@ func (rqst *Request) ResponseHeaders() (hdrs []string) {
 
 //ResponseHeader wrap arround current ResponseWriter.Header
 func (rqst *Request) ResponseHeader() (hdr http.Header) {
-	if httpw := rqst.httpw(); httpw != nil {
+	if httpw := rqst.httpw; httpw != nil {
 		hdr = httpw.Header()
 	}
 	return
@@ -184,7 +187,7 @@ func (rqst *Request) RequestHeaders() (hdrs []string) {
 
 //RequestHeader wrap arround current Request.Header
 func (rqst *Request) RequestHeader() (hdr http.Header) {
-	if httpr := rqst.httpr(); httpr != nil {
+	if httpr := rqst.httpr; httpr != nil {
 		hdr = httpr.Header
 	}
 	return hdr
@@ -234,7 +237,7 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 				pi, po := io.Pipe()
 				go func() {
 					defer po.Close()
-					if httpr := rqst.httpr(); httpr != nil {
+					if httpr := rqst.httpr; httpr != nil {
 						if bdy := httpr.Body; bdy != nil {
 							io.Copy(io.MultiWriter(po, rqst.cchdrqstcntnt), bdy)
 						}
@@ -255,7 +258,7 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 			if rqst.cchdrqstcntnt != nil && rqst.cchdrqstcntntrdr != nil {
 				rqst.cchdrqstcntntrdr.Seek(0, io.SeekStart)
 				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
-			} else if httpr := rqst.httpr(); httpr != nil {
+			} else if httpr := rqst.httpr; httpr != nil {
 				if bdy := httpr.Body; bdy != nil {
 					bf = bufio.NewReader(bdy)
 				}
@@ -323,23 +326,6 @@ func (rqst *Request) Close() (err error) {
 				})
 			actntodispose = nil
 			rqst.actnslst = nil
-		}
-		if rqst.rsngpthsref != nil {
-			if len(rqst.rsngpthsref) > 0 {
-				var rsngpaths = make([]string, len(rqst.rsngpthsref))
-				var rsngpathsi = 0
-				for rsngpathk := range rqst.rsngpthsref {
-					rsngpaths[rsngpathsi] = rsngpathk
-					rsngpathsi++
-				}
-				for _, rsngpathk := range rsngpaths {
-					rqst.rsngpthsref[rsngpathk].Close()
-					rqst.rsngpthsref[rsngpathk] = nil
-					delete(rqst.rsngpthsref, rsngpathk)
-				}
-				rsngpaths = nil
-			}
-			rqst.rsngpthsref = nil
 		}
 		if rqst.wgtxt != nil {
 			rqst.wgtxt = nil
@@ -457,7 +443,7 @@ func (rqst *Request) Close() (err error) {
 }
 
 func (rqst *Request) execute(interrupt func()) {
-	if httpr := rqst.httpr(); httpr != nil {
+	if httpr := rqst.httpr; httpr != nil {
 		if httpw := rqst.httpw; httpw != nil {
 			rqst.prtcl = httpr.Proto
 			rqst.prtclmethod = httpr.Method
@@ -532,7 +518,7 @@ func (rqst *Request) execute(interrupt func()) {
 }
 
 func (rqst *Request) internWrite(p []byte) (n int, err error) {
-	if httpw := rqst.httpw(); httpw != nil {
+	if httpw := rqst.httpw; httpw != nil {
 		if rqst.zpw != nil {
 			n, err = rqst.zpw.Write(p)
 		} else if httpw != nil {
@@ -540,13 +526,13 @@ func (rqst *Request) internWrite(p []byte) (n int, err error) {
 			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
 			}*/
-		} else if rqstw := rqst.rqstw(); rqstw != nil {
+		} else if rqstw := rqst.rqstw; rqstw != nil {
 			n, err = rqstw.Write(p)
 			/*if rqst.flshr != nil && n > 0 && err == nil {
 				rqst.flshr.Flush()
 			}*/
 		}
-	} else if rqstw := rqst.rqstw(); rqstw != nil {
+	} else if rqstw := rqst.rqstw; rqstw != nil {
 		n, err = rqstw.Write(p)
 		/*if rqst.flshr != nil && n > 0 && err == nil {
 			rqst.flshr.Flush()
@@ -581,7 +567,7 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 		var tmpltpathroot = ""
 		var tmpltext = filepath.Ext(tmpltpath)
 		if tmpltext == "" {
-			tmpltext = filepath.Ext(actn.rsngpth.LookupPath)
+			tmpltext = filepath.Ext(actn.rspath)
 		}
 
 		if strings.HasPrefix(tmpltpath, "/") {
@@ -590,7 +576,7 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 		}
 		if !strings.HasPrefix(tmpltpath, "/") {
 			if tmpltpathroot == "" {
-				tmpltpathroot = actn.rsngpth.LookupPath
+				tmpltpathroot = actn.rspath //.rsngpth.LookupPath
 				if strings.LastIndex(tmpltpathroot, ".") > strings.LastIndex(tmpltpathroot, "/") {
 					if strings.LastIndex(tmpltpathroot, "/") > -1 {
 						tmpltpathroot = tmpltpathroot[:strings.LastIndex(tmpltpathroot, "/")+1]
@@ -625,7 +611,9 @@ func (rqst *Request) templateLookup(actn *Action, tmpltpath string, a ...interfa
 				}
 			}
 			if tmpltpath = tmpltpathroot + tmpltpath; /*+ tmpltext*/ tmpltpath != "" {
-				rdr = actn.rsngpth.ResourceHandler(tmpltpath)
+				if rdr = rqst.FS().CAT(tmpltpath); rdr == nil {
+					rdr = resources.GLOBALRSNG().FS().CAT(tmpltpath)
+				}
 				tmpltpath = ""
 			}
 		}
@@ -719,9 +707,9 @@ func (rqst *Request) wrapup() (err error) {
 		}
 		if err == nil {
 			if rqst.flshr != nil {
-				rqst.flshr().Flush()
+				rqst.flshr.Flush()
 			} else {
-				if httpw := rqst.httpw(); httpw != nil {
+				if httpw := rqst.httpw; httpw != nil {
 					if wflsh, wflshok := httpw.(http.Flusher); wflshok {
 						wflsh.Flush()
 					}
@@ -749,7 +737,7 @@ func (rqst *Request) startWriting() {
 	}
 	//httpw.Header().Set("Transfer-Encoding", "chunked")
 	//rqst.zpw = gzip.NewWriter(httpw)
-	if httpw := rqst.httpw(); httpw != nil {
+	if httpw := rqst.httpw; httpw != nil {
 		httpw.WriteHeader(200)
 	}
 	//}
@@ -758,7 +746,7 @@ func (rqst *Request) startWriting() {
 func (rqst *Request) executeHTTP(interrupt func()) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
-		if httpr := rqst.httpr(); httpr != nil {
+		if httpr := rqst.httpr; httpr != nil {
 			parameters.LoadParametersFromHTTPRequest(rqst.prms, httpr)
 			httppath := httpr.URL.Path
 			rqst.initPath = httppath
@@ -938,7 +926,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: func() http.Flusher { return httpflshr }, rqstw: func() io.Writer { return wtr }, httpw: func() http.ResponseWriter { return httpw }, rqstr: func() io.Reader { return rdr }, httpr: func() *http.Request { return httpr }, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actnslst: enumeration.NewList() /*actns: []*Action{},*/, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {

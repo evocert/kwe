@@ -3,6 +3,7 @@ dbms.RegisterConnection("collections","sqlserver","mssql://COLLECTIONS:COLLECTIO
 resourcing.RegisterEndpoint("/testthis","D:/projects/testthis");
 resourcing.RegisterEndpoint("/movies","D:/movies");
 resourcing.RegisterEndpoint("/system","D:/projects/system");
+resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 channel.Listener().Listen(":1111");
 resourcing.FS().MKDIR("/mem");
 resourcing.FS().SET("mem/test.html",`<div>mem <@ print("test"); @></div>`);

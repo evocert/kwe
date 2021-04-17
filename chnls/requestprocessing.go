@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/osprc"
-	"github.com/evocert/kwe/resources"
 )
 
-func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, wtr func() io.Writer, httpw func() http.ResponseWriter, httpr func() *http.Request, httpflshr func() http.Flusher, rqstsettings map[string]interface{}, a ...interface{}) (rqst *Request, interrupt func()) {
-	chnl.lckrqsts.RLock()
-	func() {
-		defer chnl.lckrqsts.RUnlock()
-	}()
+func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, rqstsettings map[string]interface{}, a ...interface{}) (rqst *Request, interrupt func()) {
 	var ai = 0
 	for ai < len(a) {
 		if da, daok := a[ai].([]interface{}); daok {
@@ -40,7 +36,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, 
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, rsngpthsref: map[string]*resources.ResourcingPath{}, actnslst: enumeration.NewList() /*actns: []*Action{},*/, args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:      "",
 		mediarqst:     false,
 		rqstoffset:    -1,
@@ -60,7 +56,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr func() io.Reader, 
 
 func internalExecuteRequest(rqst *Request, interrupt func()) {
 	var bgrndctnx context.Context = nil
-	httpr, httpw, rqstw, rqstr := rqst.httpr(), rqst.httpw(), rqst.rqstw(), rqst.rqstr()
+	httpr, httpw, rqstw, rqstr := rqst.httpr, rqst.httpw, rqst.rqstw, rqst.rqstr
 	if httpr != nil && httpw != nil {
 		rqst.prtcl = httpr.Proto
 		rqst.prtclmethod = httpr.Method
@@ -108,58 +104,80 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 	}()
 }
 
-func processingRequestIO(chnl *Channel, prntrqst *Request, rdr func() io.Reader, wtr func() io.Writer, httpw func() http.ResponseWriter, httpflshr func() http.Flusher, httpr func() *http.Request, a ...interface{}) {
-	var rqstsettings map[string]interface{} = nil
-	var ai = 0
-	var excrqst *Request = nil
-	var interrupt func() = nil
-	if wtr == nil && httpw != nil {
-		wtr = func() io.Writer { return httpw() }
-	}
-
-	if httpw != nil && httpflshr == nil {
-		if flshr, flshrok := httpw().(http.Flusher); flshrok {
-			httpflshr = func() http.Flusher { return flshr }
+func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		isDone := false
+		defer func() {
+			if !isDone {
+				isDone = true
+				wg.Done()
+			}
+		}()
+		var rqstsettings map[string]interface{} = nil
+		var ai = 0
+		var excrqst *Request = nil
+		var interrupt func() = nil
+		if wtr == nil && httpw != nil {
+			wtr = httpw
 		}
-	}
 
-	for ai < len(a) {
-		if da, daok := a[ai].([]interface{}); daok {
-			if al := len(da); al > 0 {
-				a = append(da, a[1:]...)
-				ai = 0
-			} else {
-				a = a[1:]
+		if httpw != nil && httpflshr == nil {
+			if flshr, flshrok := httpw.(http.Flusher); flshrok {
+				httpflshr = flshr
 			}
-			continue
-		} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
-			if prntrqst == nil {
-				prntrqst = prnstrq
-			}
-			a = a[1:]
-			continue
-		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
-			if rstngs != nil {
-				if rqstsettings == nil {
-					rqstsettings = rstngs
+		}
+
+		for ai < len(a) {
+			if da, daok := a[ai].([]interface{}); daok {
+				if al := len(da); al > 0 {
+					a = append(da, a[1:]...)
+					ai = 0
 				} else {
-					for k, v := range rstngs {
-						rqstsettings[k] = v
+					a = a[1:]
+				}
+				continue
+			} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
+				if prntrqst == nil {
+					prntrqst = prnstrq
+				}
+				a = a[1:]
+				continue
+			} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
+				if rstngs != nil {
+					if rqstsettings == nil {
+						rqstsettings = rstngs
+					} else {
+						for k, v := range rstngs {
+							rqstsettings[k] = v
+						}
 					}
 				}
+				a = a[1:]
+				continue
 			}
-			a = a[1:]
-			continue
+			ai++
 		}
-		ai++
-	}
-	if prntrqst == nil {
-		excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, rqstsettings, a...)
-	} else {
-		excrqst = prntrqst
-	}
-	if excrqst != nil {
-		internalExecuteRequest(excrqst, interrupt)
-		excrqst = nil
-	}
+		if prntrqst == nil {
+			excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, rqstsettings, a...)
+		} else {
+			excrqst = prntrqst
+		}
+		if excrqst != nil {
+			internalExecuteRequest(excrqst, func() {
+				defer func() {
+					if !isDone {
+						isDone = true
+						wg.Done()
+					}
+				}()
+				if interrupt != nil {
+					interrupt()
+				}
+			})
+			excrqst = nil
+		}
+	}()
+	wg.Wait()
 }

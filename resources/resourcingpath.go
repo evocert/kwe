@@ -1,7 +1,6 @@
 package resources
 
-import "strings"
-
+/*
 //ResourcingPath - struct
 type ResourcingPath struct {
 	Path       string
@@ -48,3 +47,4 @@ func (rsngpth *ResourcingPath) ResourceHandler(altpath ...string) (rshndlr *Reso
 	}
 	return
 }
+*/
