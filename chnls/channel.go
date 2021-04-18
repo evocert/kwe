@@ -15,9 +15,9 @@ import (
 /*Channel -
  */
 type Channel struct {
-	objmap   map[string]interface{}
-	lstnr    *listen.Listener
-	schdls   *scheduling.Schedules
+	objmap map[string]interface{}
+	lstnr  *listen.Listener
+	schdls *scheduling.Schedules
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -155,21 +155,6 @@ func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
 	func() {
 		if wsrw := ws.NewReaderWriter(wscon); wsrw != nil {
 			defer wsrw.Close()
-
-			/*var tmpbuf = iorw.NewBuffer()
-			for {
-				if _, rerr := io.Copy(tmpbuf, wsrw); rerr != nil && rerr != io.EOF {
-					break
-				}
-				if tmpbuf.Size() > 0 {
-					fmt.Println(tmpbuf)
-				}
-				io.Copy(wsrw, strings.NewReader(tmpbuf.String()))
-				wsrw.Print(tmpbuf)
-				tmpbuf.Clear()
-			}
-			tmpbuf.Close()
-			tmpbuf = nil*/
 			chnl.ServeRW(wsrw, wsrw, a...)
 		}
 	}()
