@@ -1,12 +1,23 @@
 package listen
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"time"
 
 	http2 "golang.org/x/net/http2"
 	h2c "golang.org/x/net/http2/h2c"
 )
+
+type basehandler struct {
+	cn net.Conn
+}
+
+func (bdshndlr basehandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	bdshndlr.cn, _ = r.Context().Value(ConnContextKey).(net.Conn)
+	bdshndlr.cn.RemoteAddr().Network()
+}
 
 type lstnrserver struct {
 	h2s  *http2.Server
@@ -23,10 +34,24 @@ func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
 	}()
 }
 
+type contextKey struct {
+	key string
+}
+
+var ConnContextKey = &contextKey{"http-conn"}
+
 func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrvr *lstnrserver) {
 	var h2s = &http2.Server{}
-	var srvr = &http.Server{Addr: addr, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 1000}
-	//srvr.SetKeepAlivesEnabled(false)
+	var srvr = &http.Server{Addr: addr, ConnState: func(cn net.Conn, cnstate http.ConnState) {
+		switch cnstate {
+		case http.StateIdle:
+			cn.SetReadDeadline(time.Now())
+		}
+	}, ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+		time.Sleep(500 * time.Nanosecond)
+		return context.WithValue(ctx, ConnContextKey, c)
+	}, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 1000}
+
 	lstnrsrvr = &lstnrserver{srvr: srvr, h2s: h2s, addr: addr}
 	return
 }
