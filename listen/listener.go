@@ -50,7 +50,7 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 	}, ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 		time.Sleep(500 * time.Nanosecond)
 		return context.WithValue(ctx, ConnContextKey, c)
-	}, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 1000}
+	}, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 2000}
 
 	lstnrsrvr = &lstnrserver{srvr: srvr, h2s: h2s, addr: addr}
 	return
