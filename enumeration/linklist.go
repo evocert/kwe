@@ -46,12 +46,17 @@ func (nde *Node) Dispose(eventRemoved func(nde *Node, val interface{}), disposin
 type List struct {
 	head       *Node
 	tail       *Node
+	vnds       map[interface{}]*Node
 	reversemap map[*Node]*Node
 	forwardmap map[*Node]*Node
+	distinct   bool
 }
 
-func NewList() (lst *List) {
-	lst = &List{head: nil, tail: nil, reversemap: map[*Node]*Node{}, forwardmap: map[*Node]*Node{}}
+func NewList(distinct ...bool) (lst *List) {
+	lst = &List{head: nil, tail: nil, reversemap: map[*Node]*Node{}, forwardmap: map[*Node]*Node{}, distinct: len(distinct) == 1 && distinct[0]}
+	if lst.distinct {
+		lst.vnds = map[interface{}]*Node{}
+	}
 	return
 }
 
@@ -103,6 +108,8 @@ func (lst *List) Dispose(eventRemoving func(*Node, interface{}), eventDisposing 
 		lst = nil
 	}
 }
+
+//func (lst *List) DoAdd(Adding func())
 
 func (lst *List) Add(val ...interface{}) {
 	lst.InsertAfter(nil, val...)

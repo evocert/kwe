@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	//mphndl := caching.NewMapHandler()
+	//mphndl.Put("k1", 89890809)
 	service.RunService(os.Args...)
-
 }
