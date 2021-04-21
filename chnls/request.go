@@ -73,6 +73,8 @@ type Request struct {
 	prntrqst *Request
 	//fsutils
 	fsutils *fsutils.FSUtils
+	//webing
+	webclient *web.ClientHandle
 }
 
 //Resource - return mapped resource interface{} by path
@@ -437,6 +439,10 @@ func (rqst *Request) Close() (err error) {
 		if rqst.prntrqst != nil {
 			rqst.prntrqst = nil
 		}
+		if rqst.webclient != nil {
+			rqst.webclient.Close()
+			rqst.webclient = nil
+		}
 		rqst = nil
 	}
 	return
@@ -551,6 +557,52 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 			}
 			n, err = rqst.internWrite(p)
 		}
+	}
+	return
+}
+
+func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
+	if rqst.webclient == nil {
+		webclient = &web.ClientHandle{
+			Client: web.NewClient(),
+		}
+		webclient.Send = func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
+			if len(a) == 0 {
+				if a == nil {
+					a = []interface{}{rqst.atv}
+				}
+			} else {
+				a = append([]interface{}{rqst.atv}, a...)
+			}
+			return rqst.webclient.Client.Send(rqstpath, rqstheaders, a...)
+		}
+		webclient.SendRespondString = func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error) {
+			if len(a) == 0 {
+				if a == nil {
+					a = []interface{}{rqst.atv}
+				}
+			} else {
+				a = append([]interface{}{rqst.atv}, a...)
+			}
+			return rqst.webclient.Client.SendRespondString(rqstpath, rqstheaders, a...)
+		}
+		webclient.SendReceive = func(rqstpath string, a ...interface{}) (rw web.ReaderWriter, err error) {
+			if len(a) == 0 {
+				if a == nil {
+					a = []interface{}{rqst.atv}
+				}
+			} else {
+				a = append([]interface{}{rqst.atv}, a...)
+			}
+			return rqst.webclient.Client.SendReceive(rqstpath, a...)
+		}
+		webclient.Close = func() {
+			if webclient.Client != nil {
+				webclient.Client.Close()
+				webclient.Client = nil
+			}
+		}
+		rqst.webclient = webclient
 	}
 	return
 }
@@ -972,7 +1024,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	rqst.objmap[nmspce+"action"] = func() *Action {
 		return rqst.lstexctngactng
 	}
-	rqst.objmap[nmspce+"webing"] = web.DefaultClient
+	rqst.objmap[nmspce+"webing"] = web.NewClient()
 
 	fstls := fsutils.NewFSUtils()
 	rqst.objmap[nmspce+"_fsutils"] = fstls
@@ -1038,7 +1090,7 @@ func (rqst *Request) invokeAtv() {
 	rqst.objmap[nmspce+"action"] = func() *Action {
 		return rqst.lstexctngactng
 	}
-	rqst.objmap[nmspce+"webing"] = web.DefaultClient
+	rqst.objmap[nmspce+"webing"] = rqst.WebClient()
 
 	fstls := fsutils.NewFSUtils()
 	rqst.objmap[nmspce+"_fsutils"] = fstls

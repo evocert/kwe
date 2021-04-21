@@ -7,11 +7,20 @@ import (
 	"sync"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/iorw/active"
 
 	"github.com/evocert/kwe/ws"
 
 	"github.com/gorilla/websocket"
 )
+
+type ClientHandle struct {
+	*Client
+	SendReceive       func(rqstpath string, a ...interface{}) (rw ReaderWriter, err error)
+	SendRespondString func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error)
+	Send              func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error)
+	Close             func()
+}
 
 //Client - struct
 type Client struct {
@@ -22,6 +31,17 @@ type Client struct {
 func NewClient() (clnt *Client) {
 	clnt = &Client{httpclient: &http.Client{}}
 	return
+}
+
+//Close *Client
+func (clnt *Client) Close() {
+	if clnt != nil {
+		if clnt.httpclient != nil {
+			clnt.httpclient.CloseIdleConnections()
+			clnt = nil
+		}
+		clnt = nil
+	}
 }
 
 //ReaderWriter interface
@@ -57,12 +77,14 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 //Send - Client send
 func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rspheaders map[string]string,*/, a ...interface{}) (rspr io.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
-		var method = "GET"
+		var method string = ""
 		var r io.Reader = nil
 		var w io.Writer = nil
 		var aok bool = false
 		var ai = 0
-
+		var rntme active.Runtime = nil
+		var onsucess interface{} = nil
+		var onerror interface{} = nil
 		for ai < len(a) {
 			d := a[ai]
 			if r == nil {
@@ -78,6 +100,39 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 						break
 					}
 				} else if r, aok = d.(io.Reader); aok {
+					if ai < len(a)-1 {
+						a = append(a[:ai], a[ai+1:]...)
+						continue
+					} else {
+						a = append(a[:ai], a[ai+1:]...)
+						break
+					}
+				} else if rntme, aok = d.(active.Runtime); aok {
+					if ai < len(a)-1 {
+						a = append(a[:ai], a[ai+1:]...)
+						continue
+					} else {
+						a = append(a[:ai], a[ai+1:]...)
+						break
+					}
+				} else if mp, mpok := d.(map[string]interface{}); mpok {
+					if mp != nil && len(mp) > 0 {
+						for k, v := range mp {
+							if k == "sucess" {
+								if onsucess == nil {
+									onsucess = v
+								}
+							} else if k == "error" {
+								if onerror == nil {
+									onerror = v
+								}
+							} else if k == "method" {
+								if mthd, _ := v.(string); mthd != "" && method == "" {
+									method = strings.ToUpper(mthd)
+								}
+							}
+						}
+					}
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue
@@ -101,7 +156,11 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 			ai++
 		}
 		if r != nil {
-			method = "POST"
+			if method == "" || method == "GET" {
+				method = "POST"
+			}
+		} else if method == "" {
+			method = "GET"
 		}
 		var rqst, rqsterr = http.NewRequest(method, rqstpath, r)
 		if rqsterr == nil {
@@ -113,6 +172,9 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 
 			var resp, resperr = clnt.Do(rqst)
 			if resperr == nil {
+				if rntme != nil && onsucess != nil {
+					rntme.InvokeFunction(onsucess, method, resp)
+				}
 				if scde := resp.StatusCode; scde >= 200 && scde < 300 {
 					if respbdy := resp.Body; respbdy != nil {
 						if w != nil {
@@ -137,6 +199,13 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 				}
 			} else {
 				err = resperr
+				if rntme != nil && onerror != nil {
+					rntme.InvokeFunction(onerror, err, onerror, method, resp)
+				}
+			}
+		} else {
+			if rntme != nil && onerror != nil {
+				rntme.InvokeFunction(onerror, err, onerror)
 			}
 		}
 	}
