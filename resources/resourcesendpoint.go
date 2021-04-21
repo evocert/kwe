@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/fsutils"
@@ -59,7 +58,7 @@ func (embdrs *EmbeddedResource) Close() (err error) {
 
 //ResourcingEndpoint - struct
 type ResourcingEndpoint struct {
-	lck               *sync.Mutex
+	//lck               *sync.Mutex
 	fsutils           *fsutils.FSUtils
 	path              string
 	epnttype          string
@@ -365,8 +364,6 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err error) {
 	if path != "" {
 		func() {
-			rscngepnt.lck.Lock()
-			defer rscngepnt.lck.Unlock()
 			if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
 				embedpath := path
 				if strings.HasPrefix(embedpath, "/") {
@@ -377,44 +374,48 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 						rs = newRS(rscngepnt, path, embdrs.Reader())
 					}
 				} else if rscngepnt.isLocal {
-					var tmppath = ""
-					var tmppaths = strings.Split(path, "/")
-					for pn, ps := range tmppaths {
-						if tmpl := len(tmppaths); pn < tmpl-1 {
-							if strings.HasPrefix(tmppath, "/") && strings.HasSuffix(rscngepnt.path, "/") {
-								tmppath = tmppath[1:]
-							}
-							if /*fi*/ _, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil /*&& fi.IsDir()*/ {
-								var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
-								if testpath != "" {
-									if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
-										for _, f := range r.File {
-											if f.Name == testpath {
-												if rc, rcerr := f.Open(); rcerr == nil {
-													rs = newRS(rscngepnt, path, rc)
-												} else if rcerr != nil {
-													err = rcerr
+					func() {
+						//rscngepnt.lck.Lock()
+						//defer rscngepnt.lck.Unlock()
+						var tmppath = ""
+						var tmppaths = strings.Split(path, "/")
+						for pn, ps := range tmppaths {
+							if tmpl := len(tmppaths); pn < tmpl-1 {
+								if strings.HasPrefix(tmppath, "/") && strings.HasSuffix(rscngepnt.path, "/") {
+									tmppath = tmppath[1:]
+								}
+								if /*fi*/ _, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil /*&& fi.IsDir()*/ {
+									var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
+									if testpath != "" {
+										if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
+											for _, f := range r.File {
+												if f.Name == testpath {
+													if rc, rcerr := f.Open(); rcerr == nil {
+														rs = newRS(rscngepnt, path, rc)
+													} else if rcerr != nil {
+														err = rcerr
+													}
+													return
 												}
-												return
 											}
 										}
 									}
+									break
+								} else {
+									tmppath = tmppath + ps + "/"
 								}
-								break
 							} else {
-								tmppath = tmppath + ps + "/"
+								break
 							}
-						} else {
-							break
 						}
-					}
-					if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
-						if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
-							rs = newRS(rscngepnt, path, f)
-						} else if ferr != nil {
-							err = ferr
+						if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
+							if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
+								rs = newRS(rscngepnt, path, f)
+							} else if ferr != nil {
+								err = ferr
+							}
 						}
-					}
+					}()
 				} else if rscngepnt.isRemote {
 					prms := map[string]interface{}{}
 					if rscngepnt.querystring != "" {
@@ -447,15 +448,17 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 							path = "/" + path
 						}
 					}
-					if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
-						rs = newRS(rscngepnt, path, r)
-					} else if rerr != nil {
-						err = rerr
-					}
-					if buf != nil {
-						buf.Close()
-						buf = nil
-					}
+					func() {
+						if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
+							rs = newRS(rscngepnt, path, r)
+						} else if rerr != nil {
+							err = rerr
+						}
+						if buf != nil {
+							buf.Close()
+							buf = nil
+						}
+					}()
 				}
 			}
 		}()
@@ -498,7 +501,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
 				}
 			}
 		} else {
@@ -507,12 +510,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{lck: &sync.Mutex{}, rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: ""}
+		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: ""}
 	}
 	return
 }
