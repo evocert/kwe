@@ -10,15 +10,6 @@ import (
 	h2c "golang.org/x/net/http2/h2c"
 )
 
-type basehandler struct {
-	cn net.Conn
-}
-
-func (bdshndlr basehandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	bdshndlr.cn, _ = r.Context().Value(ConnContextKey).(net.Conn)
-	bdshndlr.cn.RemoteAddr().Network()
-}
-
 type lstnrserver struct {
 	h2s  *http2.Server
 	srvr *http.Server
@@ -44,7 +35,10 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 	var h2s = &http2.Server{}
 	var srvr = &http.Server{Addr: addr, ConnState: func(cn net.Conn, cnstate http.ConnState) {
 		switch cnstate {
+		case http.StateNew:
 		case http.StateIdle:
+			cn.SetReadDeadline(time.Now())
+		case http.StateClosed, http.StateHijacked:
 			cn.SetReadDeadline(time.Now())
 		}
 	}, ConnContext: func(ctx context.Context, c net.Conn) context.Context {
@@ -111,7 +105,7 @@ func (lstnr *Listener) WaitOnShutdown() {
 //Listen - on addr and indicate if ish2c
 func (lstnr *Listener) Listen(addr string, ish2c ...bool) {
 	if _, lstok := lstnr.lstnrservers[addr]; !lstok {
-		var lstnrsrvr = newlstnrserver(lstnr.hndlr, addr, len(ish2c) == 1 && ish2c[0])
+		var lstnrsrvr = newlstnrserver(lstnr, addr, len(ish2c) == 1 && ish2c[0])
 		lstnr.lstnrservers[addr] = lstnrsrvr
 		lstnrsrvr.startListening(lstnr)
 	}
