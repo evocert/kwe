@@ -193,7 +193,7 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rsphea
 							wg.Wait()
 							io.Copy(w, pi)
 						} else if rspr == nil {
-							rspr = respbdy
+							rspr = iorw.NewEOFCloseSeekReader(respbdy)
 						}
 					}
 				}
