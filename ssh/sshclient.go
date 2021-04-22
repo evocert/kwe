@@ -11,13 +11,6 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-/*type SSHConnConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-}*/
-
 type SSHConnection struct {
 	host     string
 	user     string

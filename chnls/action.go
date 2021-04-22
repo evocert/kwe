@@ -63,14 +63,6 @@ func executeAction(actn *Action) (err error) {
 					}
 					schdlsaliases = nil
 				}
-				if actn != nil {
-					/*if rspth := actn.rsngpth.Path; rspth != "" {
-						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
-							actn.rqst.rsngpthsref[rspth] = nil
-							delete(actn.rqst.rsngpthsref, rspth)
-						}
-					}*/
-				}
 			}()
 			var dbmspath = rspath
 			var alias = "all"
@@ -251,14 +243,6 @@ func executeAction(actn *Action) (err error) {
 					}
 					dbmsaliases = nil
 				}
-				if actn != nil {
-					/*if rspth := actn.rsngpth.Path; rspth != "" {
-						if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
-							actn.rqst.rsngpthsref[rspth] = nil
-							delete(actn.rqst.rsngpthsref, rspth)
-						}
-					}*/
-				}
 			}()
 			var dbmspath = rspath
 			var alias = "all"
@@ -423,12 +407,6 @@ func executeAction(actn *Action) (err error) {
 		}()
 	} else {
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
-			/*if rspth := actn.rsngpth.Path; rspth != "" {
-				if _, ok := actn.rqst.rsngpthsref[rspth]; ok {
-					actn.rqst.rsngpthsref[rspth] = nil
-					delete(actn.rqst.rsngpthsref, rspth)
-				}
-			}*/
 			if actn.rqst.isFirstRequest {
 				actn.rqst.isFirstRequest = false
 				if actn.rqst.mimetype == "" {
@@ -457,7 +435,6 @@ func executeAction(actn *Action) (err error) {
 								} else {
 									actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
 								}
-
 							}()
 						}
 					}
@@ -479,13 +456,10 @@ func executeAction(actn *Action) (err error) {
 				} else {
 					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
 				}
-				/*actn.rqst.rsngpthsref[actn.rsngpth.Path] = actn.rsngpth
-				if isTextRequest && actn.rsngpth.Path != actn.rsngpth.LookupPath {
-					isTextRequest = false
-				}*/
 				if isTextRequest {
 					isTextRequest = false
 					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
+
 				} else {
 					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
 				}

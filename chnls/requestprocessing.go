@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
@@ -13,7 +12,8 @@ import (
 	"github.com/evocert/kwe/osprc"
 )
 
-func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, rqstsettings map[string]interface{}, a ...interface{}) (rqst *Request, interrupt func()) {
+func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
+	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	for ai < len(a) {
 		if da, daok := a[ai].([]interface{}); daok {
@@ -105,79 +105,63 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 }
 
 func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		isDone := false
-		defer func() {
-			if !isDone {
-				isDone = true
-				wg.Done()
-			}
-		}()
-		var rqstsettings map[string]interface{} = nil
-		var ai = 0
-		var excrqst *Request = nil
-		var interrupt func() = nil
-		if wtr == nil && httpw != nil {
-			wtr = httpw
-		}
+	//func() {
+	//var rqstsettings map[string]interface{} = nil
+	//var ai = 0
+	var excrqst *Request = nil
+	var interrupt func() = nil
+	if wtr == nil && httpw != nil {
+		wtr = httpw
+	}
 
-		if httpw != nil && httpflshr == nil {
-			if flshr, flshrok := httpw.(http.Flusher); flshrok {
-				httpflshr = flshr
-			}
+	if httpw != nil && httpflshr == nil {
+		if flshr, flshrok := httpw.(http.Flusher); flshrok {
+			httpflshr = flshr
 		}
+	}
 
-		for ai < len(a) {
-			if da, daok := a[ai].([]interface{}); daok {
-				if al := len(da); al > 0 {
-					a = append(da, a[1:]...)
-					ai = 0
+	/*for ai < len(a) {
+		if da, daok := a[ai].([]interface{}); daok {
+			if al := len(da); al > 0 {
+				a = append(da, a[1:]...)
+				ai = 0
+			} else {
+				a = a[1:]
+			}
+			continue
+		} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
+			if prntrqst == nil {
+				prntrqst = prnstrq
+			}
+			a = a[1:]
+			continue
+		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
+			if rstngs != nil {
+				if rqstsettings == nil {
+					rqstsettings = rstngs
 				} else {
-					a = a[1:]
-				}
-				continue
-			} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
-				if prntrqst == nil {
-					prntrqst = prnstrq
-				}
-				a = a[1:]
-				continue
-			} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
-				if rstngs != nil {
-					if rqstsettings == nil {
-						rqstsettings = rstngs
-					} else {
-						for k, v := range rstngs {
-							rqstsettings[k] = v
-						}
+					for k, v := range rstngs {
+						rqstsettings[k] = v
 					}
 				}
-				a = a[1:]
-				continue
 			}
-			ai++
+			a = a[1:]
+			continue
 		}
-		if prntrqst == nil {
-			excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, rqstsettings, a...)
-		} else {
-			excrqst = prntrqst
-		}
-		if excrqst != nil {
-			internalExecuteRequest(excrqst, func() {
-				defer func() {
-					if !isDone {
-						isDone = true
-						wg.Done()
-					}
-				}()
-				if interrupt != nil {
-					interrupt()
-				}
-			})
-			excrqst = nil
-		}
-	}()
-	wg.Wait()
+		ai++
+	}*/
+	if prntrqst == nil {
+		excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, a...)
+	} else {
+		excrqst = prntrqst
+	}
+	if excrqst != nil {
+		internalExecuteRequest(excrqst, func() {
+			if interrupt != nil {
+				interrupt()
+			}
+		})
+		excrqst = nil
+	}
+	//}()
 }

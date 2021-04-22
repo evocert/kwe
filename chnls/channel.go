@@ -54,7 +54,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 				ai++
 			}
 		}
-		if scdhlrqst, _ := internalNewRequest(chnl, prntrqst, nil, nil, nil, nil, nil, nil, a...); scdhlrqst != nil {
+		if scdhlrqst, _ := internalNewRequest(chnl, prntrqst, nil, nil, nil, nil, nil, a...); scdhlrqst != nil {
 			scdhlrqst.schdl = schdl
 			lclglbs := map[string]interface{}{}
 			if len(atvprntmap) > 0 {

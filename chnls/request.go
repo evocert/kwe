@@ -1060,56 +1060,56 @@ func (rqst *Request) detachAction(actn *Action) {
 func (rqst *Request) invokeAtv() {
 	if rqst.atv == nil {
 		rqst.atv = active.NewActive()
-	}
-	nmspce := ""
-	if rqst.atv != nil {
-		nmspce = rqst.atv.Namespace
-		if nmspce != "" {
-			nmspce = nmspce + "."
+		nmspce := ""
+		if rqst.atv != nil {
+			nmspce = rqst.atv.Namespace
+			if nmspce != "" {
+				nmspce = nmspce + "."
+			}
 		}
-	}
-	rqst.objmap[nmspce+"request"] = rqst
-	rqst.objmap[nmspce+"channel"] = rqst.chnl
-	rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
-	rqst.objmap[nmspce+"dbms"] = rqst.dbms
-	rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
-	rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
-		buff = iorw.NewBuffer()
-		buff.OnClose = rqst.removeBuffer
-		rqst.intrnbuffs[buff] = buff
-		return
-	}
-	rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
-		cmd, err = osprc.NewCommand(execpath, execargs...)
-		if err == nil && cmd != nil {
-			cmd.OnClose = rqst.removeCommand
-			rqst.cmnds[cmd.PrcID()] = cmd
+		rqst.objmap[nmspce+"request"] = rqst
+		rqst.objmap[nmspce+"channel"] = rqst.chnl
+		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
+		rqst.objmap[nmspce+"dbms"] = rqst.dbms
+		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
+		rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
+			buff = iorw.NewBuffer()
+			buff.OnClose = rqst.removeBuffer
+			rqst.intrnbuffs[buff] = buff
+			return
 		}
-		return
-	}
-	rqst.objmap[nmspce+"action"] = func() *Action {
-		return rqst.lstexctngactng
-	}
-	rqst.objmap[nmspce+"webing"] = rqst.WebClient()
-
-	fstls := fsutils.NewFSUtils()
-	rqst.objmap[nmspce+"_fsutils"] = fstls
-
-	for cobjk, cobj := range rqst.chnl.objmap {
-		rqst.objmap[cobjk] = cobj
-	}
-
-	if len(rqst.objmap) > 0 {
-		rqst.atv.ImportGlobals(rqst.objmap)
-	}
-	if rqst.atv.ObjectMapRef == nil {
-		rqst.atv.ObjectMapRef = func() map[string]interface{} {
-			return rqst.objmap
+		rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+			cmd, err = osprc.NewCommand(execpath, execargs...)
+			if err == nil && cmd != nil {
+				cmd.OnClose = rqst.removeCommand
+				rqst.cmnds[cmd.PrcID()] = cmd
+			}
+			return
 		}
-	}
-	if rqst.atv.LookupTemplate == nil {
-		rqst.atv.LookupTemplate = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
-			return rqst.templateLookup(rqst.lstexctngactng, tmpltpath, a...)
+		rqst.objmap[nmspce+"action"] = func() *Action {
+			return rqst.lstexctngactng
+		}
+		rqst.objmap[nmspce+"webing"] = rqst.WebClient()
+
+		fstls := fsutils.NewFSUtils()
+		rqst.objmap[nmspce+"_fsutils"] = fstls
+
+		for cobjk, cobj := range rqst.chnl.objmap {
+			rqst.objmap[cobjk] = cobj
+		}
+
+		if len(rqst.objmap) > 0 {
+			rqst.atv.ImportGlobals(rqst.objmap)
+		}
+		if rqst.atv.ObjectMapRef == nil {
+			rqst.atv.ObjectMapRef = func() map[string]interface{} {
+				return rqst.objmap
+			}
+		}
+		if rqst.atv.LookupTemplate == nil {
+			rqst.atv.LookupTemplate = func(tmpltpath string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+				return rqst.templateLookup(rqst.lstexctngactng, tmpltpath, a...)
+			}
 		}
 	}
 }
