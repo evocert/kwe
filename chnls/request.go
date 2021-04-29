@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/osprc"
@@ -29,9 +30,8 @@ import (
 
 //Request -
 type Request struct {
-	atv      *active.Active
-	actnslst *enumeration.List
-	//actns            []*Action
+	atv              *active.Active
+	actnslst         *enumeration.List
 	lstexctngactng   *Action
 	rqstrsngmngr     *resources.ResourcingManager
 	chnl             *Channel
@@ -63,6 +63,8 @@ type Request struct {
 	objmap           map[string]interface{}
 	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
 	isFirstRequest   bool
+	//caching
+	mphndlr *rqstmphndlr
 	//dbms
 	dbms      *rqstdbms
 	activecns map[string]*database.Connection
@@ -149,7 +151,7 @@ func (rqst *Request) AddPath(path ...string) {
 								rqst.actnslst.Add(newAction(rqst, rsngpth))
 								rqst.rsngpthsref[pth] = rsngpth
 							}*/
-						rqst.actnslst.Add(newAction(rqst, pth))
+						rqst.actnslst.Add(nil, nil, newAction(rqst, pth))
 					}
 				}
 			}
@@ -842,6 +844,11 @@ func (rqst *Request) executeRW(interrupt func()) (err error) {
 	return
 }
 
+type rqstmphndlr struct {
+	mphndlr *caching.MapHandler
+	rqst    *Request
+}
+
 type rqstdbms struct {
 	dbms *database.DBMS
 	rqst *Request
@@ -1069,6 +1076,8 @@ func (rqst *Request) invokeAtv() {
 		}
 		rqst.objmap[nmspce+"request"] = rqst
 		rqst.objmap[nmspce+"channel"] = rqst.chnl
+		rqst.mphndlr = &rqstmphndlr{rqst: rqst, mphndlr: caching.NewMapHandler(caching.GLOBALMAP().Map, rqst.atv)}
+		rqst.objmap[nmspce+"map"] = rqst.mphndlr
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
 		rqst.objmap[nmspce+"dbms"] = rqst.dbms
 		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()

@@ -6,7 +6,6 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -34,15 +33,19 @@ type JSONDataEntry interface {
 //Reader - struct
 type Reader struct {
 	*Executor
-	rws         *sql.Rows
-	rownr       int64
-	cls         []string
-	cltpes      []*ColumnType
-	data        []interface{}
-	datamap     map[string]interface{}
-	dispdata    []interface{}
-	dataref     []interface{}
-	wg          *sync.WaitGroup
+	rws       *sql.Rows
+	rownr     int64
+	strtrdng  bool
+	isfocused bool
+	islast    bool
+	isfirst   bool
+	cls       []string
+	cltpes    []*ColumnType
+	data      []interface{}
+	datamap   map[string]interface{}
+	dispdata  []interface{}
+	dataref   []interface{}
+	//wg          *sync.WaitGroup
 	OnColumns   interface{}
 	OnRow       interface{}
 	OnValidData interface{}
@@ -91,6 +94,106 @@ func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
 	return emptymap
 }
 
+func (rdr *Reader) DATAJSONFPrintln(w io.Writer) (err error) {
+	if w != nil {
+		if err = rdr.DATAJSONFPrint(w); err == nil {
+			iorw.Fprintln(w)
+		}
+	}
+	return
+}
+
+func (rdr *Reader) DATAJSONFPrint(w io.Writer) (err error) {
+	if w != nil {
+		jsnenc := json.NewEncoder(w)
+		if rdr != nil && len(rdr.data) > 0 && len(rdr.cls) == len(rdr.data) {
+			displdata := rdr.Data()
+			if rdr.datamap == nil {
+				rdr.datamap = map[string]interface{}{}
+			}
+			for cn, c := range rdr.cls {
+				rdr.datamap[c] = displdata[cn]
+			}
+			err = jsnenc.Encode(rdr.datamap)
+		} else {
+			err = jsnenc.Encode(emptymap)
+		}
+	}
+	return
+}
+
+//IsFocused - indicate if Reader focus is on a record
+func (rdr *Reader) IsFocused() bool {
+	if rdr != nil {
+		return rdr.isfocused
+	}
+	return false
+}
+
+//IsMore - indicate if Reader is able to more records
+func (rdr *Reader) IsMore() bool {
+	if rdr != nil {
+		return rdr.strtrdng && !rdr.islast
+	}
+	return false
+}
+
+//IsLast - indicate if Reader focus is on last record
+func (rdr *Reader) IsLast() bool {
+	if rdr != nil {
+		return rdr.islast
+	}
+	return false
+}
+
+//IsFirst - indicate if Reader focus is on first record
+func (rdr *Reader) IsFirst() bool {
+	if rdr != nil {
+		return rdr.isfirst
+	}
+	return false
+}
+
+func (rdr *Reader) internNext() (next bool, err error) {
+	if rdr != nil && rdr.rws != nil {
+		rdr.isfocused = false
+		if rdr.strtrdng && !rdr.islast {
+			rdr.isfirst = false
+			if err = rdr.rws.Err(); err == nil {
+				if err = populateRecordData(rdr); err != nil {
+					next = false
+				} else if err == nil {
+					next = true
+					rdr.islast = !rdr.rws.Next()
+					err = rdr.rws.Err()
+					next = err == nil
+				}
+			} else if next && err != nil {
+				next = false
+			}
+		} else {
+			rdr.strtrdng = true
+			if next = rdr.rws.Next(); next {
+				if err = rdr.rws.Err(); err == nil {
+					if err = populateRecordData(rdr); err != nil {
+						next = false
+					}
+				} else if next && err != nil {
+					next = false
+				}
+			}
+			if err == nil && next {
+				rdr.islast = !rdr.rws.Next()
+				err = rdr.rws.Err()
+				next = err == nil
+			}
+			rdr.isfirst = next
+		}
+		rdr.isfocused = err == nil && next
+	}
+	return
+}
+
 //Next return true if able to move focus of Reader to the next underlying record
 // or false if the end is reached
 func (rdr *Reader) Next() (next bool, err error) {
@@ -112,7 +215,6 @@ func (rdr *Reader) Next() (next bool, err error) {
 					}
 				} else {
 					next = false
-					//err = dcerr
 				}
 				break
 			}
@@ -146,7 +248,6 @@ func (rdr *Reader) Next() (next bool, err error) {
 							}
 						}
 					}
-
 				}
 			}
 		}
@@ -154,50 +255,48 @@ func (rdr *Reader) Next() (next bool, err error) {
 			rdr.Close()
 		}
 	} else {
-		if next = rdr.rws.Next(); next {
-			if rdr.wg == nil {
-				rdr.wg = &sync.WaitGroup{}
-			}
-			rdr.wg.Add(1)
-			if rdr.data == nil {
-				rdr.data = make([]interface{}, len(rdr.cls))
-				rdr.dataref = make([]interface{}, len(rdr.cls))
-				rdr.dispdata = make([]interface{}, len(rdr.cls))
-			}
-			wg := rdr.wg
-			go func(wg *sync.WaitGroup) {
-				defer wg.Done()
-				for n := range rdr.data {
-					rdr.dataref[n] = &rdr.data[n]
-				}
-				if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
-					rdr.Close()
-					err = scerr
-					next = false
-				}
-			}(wg)
-			wg.Wait()
+		if next, err = rdr.internNext(); next && err == nil {
+
 			if err == nil {
 				if validdata = invokeDataValid(rdr.script, rdr.OnValidData, rdr.rownr, rdr); validdata {
 					rdr.rownr++
 					next = invokeRow(rdr.script, rdr.OnRow, rdr.rownr, rdr)
 				}
 			}
-			//}(rset.dosomething)
-			//<-rset.dosomething
 			if !next {
 				rdr.Close()
 			}
-		} else {
-			if rseterr := rdr.rws.Err(); rseterr != nil {
-				err = rseterr
-				//rdr.lasterr=err
-				invokeError(rdr.script, err, rdr.OnError)
-			}
+		} else if err != nil {
+			invokeError(rdr.script, err, rdr.OnError)
 			rdr.Close()
 		}
 	}
 	return next, err
+}
+
+func populateRecordData(rdr *Reader) (err error) {
+	//if rdr.wg == nil {
+	//	rdr.wg = &sync.WaitGroup{}
+	//}
+	//rdr.wg.Add(1)
+	if rdr.data == nil {
+		rdr.data = make([]interface{}, len(rdr.cls))
+		rdr.dataref = make([]interface{}, len(rdr.cls))
+		rdr.dispdata = make([]interface{}, len(rdr.cls))
+	}
+	//wg := rdr.wg
+	//go func(wg *sync.WaitGroup) {
+	//	defer wg.Done()
+	for n := range rdr.data {
+		rdr.dataref[n] = &rdr.data[n]
+	}
+	if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
+		rdr.Close()
+		err = scerr
+	}
+	//}(wg)
+	//wg.Wait()
+	return
 }
 
 //ToJSON write *Reader out to json
@@ -249,9 +348,9 @@ func (rdr *Reader) Close() (err error) {
 		rdr.cltpes = nil
 		rdr.cls = nil
 	}
-	if rdr.wg != nil {
-		rdr.wg = nil
-	}
+	//if rdr.wg != nil {
+	//	rdr.wg = nil
+	//}
 	if rdr.OnColumns != nil {
 		rdr.OnColumns = nil
 	}
@@ -348,18 +447,16 @@ type ColumnTypeHandle interface {
 
 //ColumnType structure defining column definition
 type ColumnType struct {
-	name string
-
+	name              string
 	hasNullable       bool
 	hasLength         bool
 	hasPrecisionScale bool
-
-	nullable     bool
-	length       int64
-	databaseType string
-	precision    int64
-	scale        int64
-	scanType     reflect.Type
+	nullable          bool
+	length            int64
+	databaseType      string
+	precision         int64
+	scale             int64
+	scanType          reflect.Type
 }
 
 //Name ColumnType.Name()
@@ -483,6 +580,7 @@ func (rdr *Reader) execute() (err error) {
 				rdr.cltpes = cltpes
 				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
 				invokeColumns(rdr.script, rdr.OnColumns, rdr)
+				rdr.Next()
 			}
 		}
 	}

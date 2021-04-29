@@ -325,21 +325,21 @@ func (prsng *parsing) tmpltrdr(tmpltnme string) (rdr *iorw.BuffReader, mxlen int
 
 func (prsng *parsing) print(a ...interface{}) {
 	if prsng.atv != nil {
-		w := prsng.wout
 		if pl := len(prsng.prntrs); pl > 0 {
-			w = prsng.prntrs[pl-1]
+			prsng.atv.print(prsng.prntrs[pl-1], a...)
+		} else {
+			prsng.atv.print(prsng.wout, a...)
 		}
-		prsng.atv.print(w, a...)
 	}
 }
 
 func (prsng *parsing) println(a ...interface{}) {
 	if prsng.atv != nil {
-		w := prsng.wout
 		if pl := len(prsng.prntrs); pl > 0 {
-			w = prsng.prntrs[pl-1]
+			prsng.atv.println(prsng.prntrs[pl-1], a...)
+		} else {
+			prsng.atv.println(prsng.wout, a...)
 		}
-		prsng.atv.println(w, a...)
 	}
 }
 
@@ -849,6 +849,11 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 		prsng.prslbli[1] = 0
 		prsng.prslblprv[0] = 0
 		prsng.prslblprv[1] = 0
+	} else {
+		prsng.prslbli[0] = 0
+		prsng.prslbli[1] = 0
+		prsng.prslblprv[0] = 0
+		prsng.prslblprv[1] = 0
 	}
 	var cdecoords []int64 = nil
 	orgcdemapl := len(prsng.cdemap)
@@ -880,7 +885,6 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 			}
 		}()
 		canprcss := false
-		//parseprsngrunerdr(prsng, rnr, true)
 		for err == nil {
 			r, rsize, rerr := rnr.ReadRune()
 			if rsize > 0 {

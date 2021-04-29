@@ -1,5 +1,5 @@
 <@ 
-resourcing.RegisterEndpoint("/","D:/projects/system");
+/*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 resourcing.RegisterEndpoint("/etl","https://raw.githubusercontent.com/evocert/kwetl/main/src");
@@ -11,5 +11,10 @@ channel.Listener().Listen(":1030");
 resourcing.FS().MKDIR("/mem");
 resourcing.FS().SET("mem/test.html",`<div>mem <@ print("test"); @></div>`);
 resourcing.FS().SET("mem/index.html",`<html><body><#test/></body></html>`);
-resourcing.FS().SET("mem/index.ht",`<html><body></body></html>`);
+resourcing.FS().SET("mem/index.ht",`<html><body></body></html>`);*/
+resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
+resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
+resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
+resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
+channel.Listener().Listen(":1036");
  @>
