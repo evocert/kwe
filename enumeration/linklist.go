@@ -63,7 +63,7 @@ func (nde *Node) InsertBefore(val interface{}, a ...interface{}) {
 
 func (nde *Node) Set(val interface{}) {
 	if nde != nil {
-		if nde.val != val {
+		if (nde.val == nil && val != nil) || (val == nil && nde.val != nil) || (nde.val != val) {
 			if nde.lst.distinct {
 				delete(nde.lst.vnds, nde.val)
 				nde.lst.vnds[val] = nde

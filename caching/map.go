@@ -108,6 +108,13 @@ func (mphndlr *MapHandler) Size() (size int) {
 	return size
 }
 
+func (mphndlr *MapHandler) ValueByIndex(index int64) (v interface{}) {
+	if mphndlr != nil && mphndlr.Map != nil {
+		v = mapValueByIndex(mphndlr.Map, mphndlr, index)
+	}
+	return
+}
+
 func (mphndlr *MapHandler) Clear() {
 	if mphndlr != nil && mphndlr.Map != nil {
 		mapClear(mphndlr.Map, mphndlr)
@@ -133,6 +140,7 @@ const (
 	actnunknown mapAction = iota
 	actnnone
 	actnput
+	actnpush
 	actnremove
 	actnreplacekey
 	actnclear
@@ -458,6 +466,131 @@ func mapClose(mp *Map, mphndlr *MapHandler) {
 			}()
 		}
 		mp = nil
+	}
+}
+
+func (mp *Map) ValueByIndex(index int64) (v interface{}) {
+	if mp != nil {
+		v = mapValueByIndex(mp, nil, index)
+	}
+	return
+}
+
+func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.Map
+	}
+	if mp != nil {
+		if lstactn := mp.lastAction(actnfind); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnfind {
+			func() {
+				if mphndlr != nil {
+					mp.lck.RLock()
+					defer mp.lck.RUnlock()
+				}
+				if mp.keys != nil {
+					index++
+					stri := int64(0)
+					for _, vnde := range mp.kvndm {
+						stri++
+						if stri >= index {
+							v = vnde.Value()
+							break
+						}
+					}
+				}
+			}()
+		}
+	}
+	return
+}
+
+func (mp *Map) Push(a ...interface{}) {
+	mapPut(mp, nil, a...)
+}
+
+func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.Map
+	}
+	if mp != nil {
+		if lstactn := mp.lastAction(actnpush); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpush {
+			func() {
+				defer mp.lastAction(actnnone)
+				keys := mp.keys
+				values := mp.values
+				for {
+					if al := len(a); al > 0 {
+						if al%2 == 0 {
+							k := a[0]
+							if k != nil {
+								a = a[1:]
+								v := a[0]
+								func() {
+									var knde *enumeration.Node = nil
+									var kndecngd bool
+									var vldky bool
+									var vnde *enumeration.Node = nil
+									var vndecngd bool
+									var vldv bool
+									if mphndlr != nil {
+										mp.lck.Lock()
+										defer mp.lck.Unlock()
+									}
+									keys.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
+										kndecngd = cngd
+										knde = n
+										vldky = valvld
+									}, k)
+									if v != nil && vldky {
+										if vmp, vmpok := v.(map[interface{}]interface{}); vmpok {
+											vnmp := NewMap()
+											vnmp.Put(vmp)
+											v = vnmp
+										} else if vmp, vmpok := v.(map[string]interface{}); vmpok {
+											vnmp := NewMap()
+											vnmp.Put(vmp)
+											v = vnmp
+										}
+									}
+									if vldky && kndecngd {
+										values.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
+											if vndecngd = cngd; kndecngd {
+												vnde = n
+											}
+											vldv = valvld
+										}, v)
+										if kndecngd && vndecngd && vldky && vldv {
+											mp.kvndm[knde] = vnde
+											mp.vkndm[vnde] = knde
+										}
+									} else if vldky && !kndecngd {
+										vnde = mp.kvndm[knde]
+										vnde.Set(v)
+									}
+								}()
+								a = a[1:]
+							}
+						} else {
+							if m, mok := a[0].(map[string]interface{}); mok && len(m) > 0 {
+								a = a[1:]
+								for k, v := range m {
+									a = append(a, k, v)
+								}
+							} else if mi, miok := a[0].(map[interface{}]interface{}); miok && len(mi) > 0 {
+								a = a[1:]
+								for k, v := range mi {
+									a = append(a, k, v)
+								}
+							} else {
+								a = a[1:]
+							}
+						}
+					} else {
+						break
+					}
+				}
+			}()
+		}
 	}
 }
 
