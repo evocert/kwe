@@ -88,8 +88,13 @@ func (mphndlr *MapHandler) Remove(a ...interface{}) {
 	}
 }
 
-func (mphndlr *MapHandler) Put(a ...interface{}) {
+func (mphndlr *MapHandler) Put(k interface{}, a ...interface{}) {
 	if mphndlr != nil && mphndlr.Map != nil {
+		if len(a) == 0 {
+			a = []interface{}{k}
+		} else {
+			a = append([]interface{}{k}, a...)
+		}
 		mapPut(mphndlr.Map, mphndlr, a...)
 	}
 }
@@ -594,7 +599,12 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 	}
 }
 
-func (mp *Map) Put(a ...interface{}) {
+func (mp *Map) Put(k interface{}, a ...interface{}) {
+	if len(a) == 0 {
+		a = []interface{}{k}
+	} else {
+		a = append([]interface{}{k}, a...)
+	}
 	mapPut(mp, nil, a...)
 }
 
