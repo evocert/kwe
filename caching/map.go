@@ -88,14 +88,14 @@ func (mphndlr *MapHandler) Remove(a ...interface{}) {
 	}
 }
 
-func (mphndlr *MapHandler) Put(k interface{}, a ...interface{}) {
+func (mphndlr *MapHandler) Push(k interface{}, a ...interface{}) {
 	if mphndlr != nil && mphndlr.Map != nil {
 		if len(a) == 0 {
 			a = []interface{}{k}
 		} else {
 			a = append([]interface{}{k}, a...)
 		}
-		mapPut(mphndlr.Map, mphndlr, a...)
+		mapPush(mphndlr.Map, mphndlr, a...)
 	}
 }
 
@@ -509,8 +509,13 @@ func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) 
 	return
 }
 
-func (mp *Map) Push(a ...interface{}) {
-	mapPut(mp, nil, a...)
+func (mp *Map) Push(k interface{}, a ...interface{}) {
+	if len(a) == 0 {
+		a = []interface{}{k}
+	} else {
+		a = append([]interface{}{k}, a...)
+	}
+	mapPush(mp, nil, a...)
 }
 
 func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) {
@@ -573,20 +578,6 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 										vnde.Set(v)
 									}
 								}()
-								a = a[1:]
-							}
-						} else {
-							if m, mok := a[0].(map[string]interface{}); mok && len(m) > 0 {
-								a = a[1:]
-								for k, v := range m {
-									a = append(a, k, v)
-								}
-							} else if mi, miok := a[0].(map[interface{}]interface{}); miok && len(mi) > 0 {
-								a = a[1:]
-								for k, v := range mi {
-									a = append(a, k, v)
-								}
-							} else {
 								a = a[1:]
 							}
 						}

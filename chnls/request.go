@@ -1055,29 +1055,13 @@ func (rqst *Request) detachAction(actn *Action) {
 	}
 }
 
-func (rqst *Request) ExecutePath(path string, w ...io.Writer) (err error) {
+func (rqst *Request) ExecutePath(path string) (err error) {
 	actn := newAction(rqst, path)
 	defer func() {
 		actn.Close()
 		actn = nil
 	}()
-	err = executeAction(actn, w...)
-	return
-}
-
-func (rqst *Request) ExecutePathString(path string) (s string, err error) {
-	actn := newAction(rqst, path)
-	buff := iorw.NewBuffer()
-	defer func() {
-		actn.Close()
-		actn = nil
-		buff.Close()
-		buff = nil
-	}()
-
-	if err = executeAction(actn, buff); err == nil {
-		s = buff.String()
-	}
+	err = executeAction(actn)
 	return
 }
 

@@ -33,14 +33,7 @@ func (actn *Action) Path() string {
 	return ""
 }
 
-func executeAction(actn *Action, w ...io.Writer) (err error) {
-	altw := func() io.Writer {
-		if len(w) == 1 && w[0] != nil {
-			return w[0]
-		}
-		return nil
-	}
-
+func executeAction(actn *Action) (err error) {
 	defer func() {
 		if actn != nil {
 			actn.Close()
@@ -438,7 +431,7 @@ func executeAction(actn *Action, w ...io.Writer) (err error) {
 								}()
 								if isTextRequest {
 									isTextRequest = false
-									actn.rqst.copy(curactnhndlr, altw(), true, actn.rspath) // actn.rsngpth.Path)
+									actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
 								} else {
 									actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
 								}
@@ -465,7 +458,7 @@ func executeAction(actn *Action, w ...io.Writer) (err error) {
 				}
 				if isTextRequest {
 					isTextRequest = false
-					actn.rqst.copy(curactnhndlr, altw(), true, actn.rspath) // actn.rsngpth.Path)
+					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
 
 				} else {
 					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)

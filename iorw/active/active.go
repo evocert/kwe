@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -100,7 +99,7 @@ func NewActive(namespace ...string) (atv *Active) {
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}
-	runtime.SetFinalizer(atv, activeFinalize)
+	//runtime.SetFinalizer(atv, activeFinalize)
 	return
 }
 
@@ -821,9 +820,9 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 					}
 					if p, perr := goja.CompileAST(prsd, false); perr == nil {
 						_, err = atvrntme.vm.RunProgram(p)
-						if err != nil {
+						/*if err != nil {
 							fmt.Println(err.Error())
-						}
+						}*/
 					} else {
 						err = perr
 					}
@@ -832,18 +831,18 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 		}()
 		if err != nil {
 			if errs := err.Error(); errs != "" && !strings.HasPrefix(errs, "exit at <eval>:") {
-				fmt.Println(err.Error())
-				fmt.Println(code)
-				err = nil
+				//fmt.Println(err.Error())
+				//fmt.Println(code)
+				//err = nil
 			}
 
 		}
 	} else {
 		if err != nil {
 			if errs := err.Error(); errs != "" && !strings.HasPrefix(errs, "exit at <eval>:") {
-				fmt.Println(err.Error())
-				fmt.Println(code)
-				err = nil
+				//fmt.Println(err.Error())
+				//fmt.Println(code)
+				//err = nil
 			}
 		}
 	}
