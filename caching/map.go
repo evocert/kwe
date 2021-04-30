@@ -101,6 +101,13 @@ func (mphndlr *MapHandler) Find(ks ...interface{}) (vfound interface{}) {
 	return
 }
 
+func (mphndlr *MapHandler) Size() (size int) {
+	if mphndlr != nil && mphndlr.Map != nil {
+		size = mapSize(mphndlr.Map, mphndlr)
+	}
+	return size
+}
+
 func (mphndlr *MapHandler) Clear() {
 	if mphndlr != nil && mphndlr.Map != nil {
 		mapClear(mphndlr.Map, mphndlr)
@@ -186,6 +193,28 @@ func (mp *Map) lastAction(nxtactn ...mapAction) mapAction {
 
 func (mp *Map) Handler() (mphndlr *MapHandler) {
 	mphndlr = NewMapHandler(mp)
+	return
+}
+
+func (mp *Map) Size() (size int) {
+	if mp != nil {
+		size = mapSize(mp, nil)
+	}
+	return size
+}
+
+func mapSize(mp *Map, mphndlr *MapHandler) (size int) {
+	if mp != nil {
+		func() {
+			if mphndlr != nil {
+				mp.lck.RLock()
+				defer mp.lck.RUnlock()
+			}
+			if mp.keys != nil {
+				size = mp.keys.Length()
+			}
+		}()
+	}
 	return
 }
 
