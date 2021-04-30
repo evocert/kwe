@@ -64,7 +64,7 @@ type Request struct {
 	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
 	isFirstRequest   bool
 	//caching
-	mphndlr *rqstmphndlr
+	mphndlr *caching.MapHandler
 	//dbms
 	dbms      *rqstdbms
 	activecns map[string]*database.Connection
@@ -310,14 +310,6 @@ func (rqst *Request) Close() (err error) {
 		if rqst.rqstr != nil {
 			rqst.rqstr = nil
 		}
-		/*if rqst.actns != nil {
-			for len(rqst.actns) > 0 {
-				rqst.actns[0].Close()
-				rqst.actns[0] = nil
-				rqst.actns = rqst.actns[1:]
-			}
-			rqst.actns = nil
-		}*/
 		if rqst.actnslst != nil {
 			var actntodispose *Action
 			rqst.actnslst.Dispose(
@@ -444,6 +436,10 @@ func (rqst *Request) Close() (err error) {
 		if rqst.webclient != nil {
 			rqst.webclient.Close()
 			rqst.webclient = nil
+		}
+		if rqst.mphndlr != nil {
+			rqst.mphndlr.Close()
+			rqst.mphndlr = nil
 		}
 		rqst = nil
 	}
@@ -844,11 +840,6 @@ func (rqst *Request) executeRW(interrupt func()) (err error) {
 	return
 }
 
-type rqstmphndlr struct {
-	mphndlr *caching.MapHandler
-	rqst    *Request
-}
-
 type rqstdbms struct {
 	dbms *database.DBMS
 	rqst *Request
@@ -1000,7 +991,7 @@ func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (
 	if rqstsettings == nil {
 		rqstsettings = map[string]interface{}{}
 	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}}
+	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}, mphndlr: caching.GLOBALMAP().Map.Handler()}
 	rqst.invokeAtv()
 	nmspce := ""
 	if rqst.atv != nil {
@@ -1064,6 +1055,32 @@ func (rqst *Request) detachAction(actn *Action) {
 	}
 }
 
+func (rqst *Request) ExecutePath(path string, w ...io.Writer) (err error) {
+	actn := newAction(rqst, path)
+	defer func() {
+		actn.Close()
+		actn = nil
+	}()
+	err = executeAction(actn, w...)
+	return
+}
+
+func (rqst *Request) ExecutePathString(path string) (s string, err error) {
+	actn := newAction(rqst, path)
+	buff := iorw.NewBuffer()
+	defer func() {
+		actn.Close()
+		actn = nil
+		buff.Close()
+		buff = nil
+	}()
+
+	if err = executeAction(actn, buff); err == nil {
+		s = buff.String()
+	}
+	return
+}
+
 func (rqst *Request) invokeAtv() {
 	if rqst.atv == nil {
 		rqst.atv = active.NewActive()
@@ -1076,8 +1093,7 @@ func (rqst *Request) invokeAtv() {
 		}
 		rqst.objmap[nmspce+"request"] = rqst
 		rqst.objmap[nmspce+"channel"] = rqst.chnl
-		rqst.mphndlr = &rqstmphndlr{rqst: rqst, mphndlr: caching.NewMapHandler(caching.GLOBALMAP().Map, rqst.atv)}
-		rqst.objmap[nmspce+"map"] = rqst.mphndlr
+		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
 		rqst.objmap[nmspce+"dbms"] = rqst.dbms
 		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()

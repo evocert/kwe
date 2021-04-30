@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
@@ -38,6 +39,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 	}
 	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:      "",
+		mphndlr:       caching.GLOBALMAP().Map.Handler(),
 		mediarqst:     false,
 		rqstoffset:    -1,
 		rqstendoffset: -1,

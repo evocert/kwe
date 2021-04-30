@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -85,6 +86,13 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	}
 }
 
+func activeFinalize(atv *Active) {
+	if atv != nil {
+		atv.dispose()
+		atv = nil
+	}
+}
+
 //NewActive - instance
 func NewActive(namespace ...string) (atv *Active) {
 	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
@@ -92,6 +100,7 @@ func NewActive(namespace ...string) (atv *Active) {
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}
+	runtime.SetFinalizer(atv, activeFinalize)
 	return
 }
 
@@ -662,6 +671,13 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 	return
 }
 
+func parsingFinalize(prsng *parsing) {
+	if prsng != nil {
+		prsng.dispose()
+		prsng = nil
+	}
+}
+
 func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer, prsrstngs ...interface{}) (prsng *parsing) {
 	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
 		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
@@ -684,6 +700,7 @@ func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer, prsrstngs ...i
 			}
 		}
 	}
+	//runtime.SetFinalizer(prsng, parsingFinalize)
 	return
 }
 
@@ -1151,6 +1168,13 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 	return
 }
 
+func atvruntimeFinalize(atvrntme *atvruntime) {
+	if atvrntme != nil {
+		atvrntme.dispose()
+		atvrntme = nil
+	}
+}
+
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
 	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	atvrntme.atv.InterruptVM = func(v interface{}) {
@@ -1167,6 +1191,7 @@ func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err err
 	if requirejsprgm != nil {
 		_, err = atvrntme.vm.RunProgram(requirejsprgm)
 	}
+	//runtime.SetFinalizer(atvrntme, atvruntimeFinalize)
 	return
 }
 
