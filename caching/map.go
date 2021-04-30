@@ -3,6 +3,7 @@ package caching
 import (
 	"encoding/json"
 	"io"
+	"runtime"
 	"sync"
 
 	"github.com/evocert/kwe/enumeration"
@@ -15,6 +16,13 @@ type MapHandler struct {
 	intern bool
 	*Map
 	dspsng bool
+}
+
+func mapHandlerFinalize(mphndlr *MapHandler) {
+	if mphndlr != nil {
+		mphndlr.Close()
+		mphndlr = nil
+	}
 }
 
 func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
@@ -34,6 +42,7 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	} else {
 		mphndlr = &MapHandler{Map: NewMap(), intern: true, dspsng: false, rnble: rnble}
 	}
+	runtime.SetFinalizer(mphndlr, mapHandlerFinalize)
 	return
 }
 
@@ -134,6 +143,13 @@ type Map struct {
 	lstactn mapAction
 }
 
+func mapFinalize(mp *Map) {
+	if mp != nil {
+		mp.Close()
+		mp = nil
+	}
+}
+
 //NewMap return instance of *Map
 func NewMap() (mp *Map) {
 	mp = &Map{
@@ -143,6 +159,7 @@ func NewMap() (mp *Map) {
 		values:  enumeration.NewList(),
 		vkndm:   map[*enumeration.Node]*enumeration.Node{},
 		lstactn: actnnone}
+	runtime.SetFinalizer(mp, mapFinalize)
 	return
 }
 
@@ -283,24 +300,28 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 }
 
 func (mp *Map) Keys(k ...interface{}) (ks []interface{}) {
-	mp.keys.Do(func(knde *enumeration.Node, val interface{}) bool {
-		if ks == nil {
-			ks = []interface{}{}
-		}
-		ks = append(ks, val)
-		return false
-	}, nil, nil)
+	if mp != nil && mp.keys != nil {
+		mp.keys.Do(func(knde *enumeration.Node, val interface{}) bool {
+			if ks == nil {
+				ks = []interface{}{}
+			}
+			ks = append(ks, val)
+			return false
+		}, nil, nil)
+	}
 	return
 }
 
 func (mp *Map) Values(k ...interface{}) (vs []interface{}) {
-	mp.values.Do(func(knde *enumeration.Node, val interface{}) bool {
-		if vs == nil {
-			vs = []interface{}{}
-		}
-		vs = append(vs, val)
-		return false
-	}, nil, nil)
+	if mp != nil && mp.values != nil {
+		mp.values.Do(func(knde *enumeration.Node, val interface{}) bool {
+			if vs == nil {
+				vs = []interface{}{}
+			}
+			vs = append(vs, val)
+			return false
+		}, nil, nil)
+	}
 	return
 }
 
