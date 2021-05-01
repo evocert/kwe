@@ -21,6 +21,7 @@ type MapHandler struct {
 func mapHandlerFinalize(mphndlr *MapHandler) {
 	if mphndlr != nil {
 		mphndlr.Close()
+		runtime.SetFinalizer(mphndlr, nil)
 		mphndlr = nil
 	}
 }
@@ -166,6 +167,7 @@ type Map struct {
 func mapFinalize(mp *Map) {
 	if mp != nil {
 		mp.Close()
+		runtime.SetFinalizer(mp, nil)
 		mp = nil
 	}
 }
