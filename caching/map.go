@@ -417,7 +417,10 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 
 								}
 								if v != nil {
-
+									if vmp, _ := v.(*Map); vmp != nil {
+										vmp.Close()
+										vmp = nil
+									}
 								}
 							}
 						}()
@@ -435,6 +438,9 @@ func (mp *Map) Clear() {
 func (mp *Map) Close() {
 	if mp != nil {
 		mapClose(mp, nil)
+		if mp.lck != nil {
+			mp.lck = nil
+		}
 		mp = nil
 	}
 }
@@ -467,7 +473,14 @@ func mapClose(mp *Map, mphndlr *MapHandler) {
 					mp.keys = nil
 				}
 				if mp.values != nil {
-					mp.values.Dispose(func(n *enumeration.Node, i interface{}) {}, func(n *enumeration.Node, i interface{}) {})
+					mp.values.Dispose(func(n *enumeration.Node, i interface{}) {}, func(n *enumeration.Node, i interface{}) {
+						if i != nil {
+							if vmp, _ := i.(*Map); vmp != nil {
+								vmp.Close()
+								vmp = nil
+							}
+						}
+					})
 					mp.values = nil
 				}
 			}()
