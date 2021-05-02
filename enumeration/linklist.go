@@ -9,6 +9,20 @@ func (nde *Node) Value() interface{} {
 	return nde.val
 }
 
+func (nde *Node) Next() *Node {
+	if nde != nil && nde.lst != nil {
+		return nde.lst.forwardmap[nde]
+	}
+	return nil
+}
+
+func (nde *Node) Previous() *Node {
+	if nde != nil && nde.lst != nil {
+		return nde.lst.reversemap[nde]
+	}
+	return nil
+}
+
 type listaction int
 
 const (
@@ -61,9 +75,9 @@ func (nde *Node) InsertBefore(val interface{}, a ...interface{}) {
 	}
 }
 
-func (nde *Node) Set(val interface{}) {
+func (nde *Node) Set(val interface{}, forceset ...bool) {
 	if nde != nil {
-		if (nde.val == nil && val != nil) || (val == nil && nde.val != nil) || (nde.val != val) {
+		if (len(forceset) == 1 && forceset[0]) || ((nde.val == nil && val != nil) || (val == nil && nde.val != nil) || (nde.val != val)) {
 			if nde.lst.distinct {
 				delete(nde.lst.vnds, nde.val)
 				nde.lst.vnds[val] = nde
@@ -99,6 +113,14 @@ func NewList(distinct ...bool) (lst *List) {
 		lst.vnds = map[interface{}]*Node{}
 	}
 	return
+}
+
+func (lst *List) Head() *Node {
+	return lst.head
+}
+
+func (lst *List) Tail() *Node {
+	return lst.tail
 }
 
 func (lst *List) IsDistinct() bool {

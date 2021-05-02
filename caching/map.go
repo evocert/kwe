@@ -14,11 +14,13 @@ import (
 type MapHandler struct {
 	rnble  active.Runtime
 	intern bool
-	*Map
+	mp     *Map
 	dspsng bool
+	crntmp *Map
 }
 
 func mapHandlerFinalize(mphndlr *MapHandler) {
+	runtime.SetFinalizer(mphndlr, nil)
 	if mphndlr != nil {
 		mphndlr.Close()
 		runtime.SetFinalizer(mphndlr, nil)
@@ -39,31 +41,48 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	}
 
 	if mp != nil {
-		mphndlr = &MapHandler{Map: mp, intern: false, dspsng: false, rnble: rnble}
+		mphndlr = &MapHandler{mp: mp, intern: false, dspsng: false, rnble: rnble, crntmp: nil}
 	} else {
-		mphndlr = &MapHandler{Map: NewMap(), intern: true, dspsng: false, rnble: rnble}
+		mphndlr = &MapHandler{mp: NewMap(), intern: true, dspsng: false, rnble: rnble, crntmp: nil}
 	}
 	runtime.SetFinalizer(mphndlr, mapHandlerFinalize)
 	return
 }
 
+func (mphndlr *MapHandler) Reset() {
+	if mphndlr != nil && mphndlr.mp != nil {
+		mphndlr.crntmp = mphndlr.mp
+	}
+}
+
+func (mphndlr *MapHandler) currentmp() (crntmp *Map) {
+	if mphndlr != nil {
+		if mphndlr.crntmp != nil {
+			crntmp = mphndlr.crntmp
+		} else {
+			crntmp = mphndlr.mp
+		}
+	}
+	return
+}
+
 func (mphndlr *MapHandler) Keys(k ...interface{}) (ks []interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		ks = mphndlr.Map.Keys(k...)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		ks = mp.Keys(k...)
 	}
 	return
 }
 
 func (mphndlr *MapHandler) String() (s string) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		s = mapString(mphndlr.Map, mphndlr)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		s = mapString(mp, mphndlr)
 	}
 	return
 }
 
 func (mphndlr *MapHandler) Reader() (mprdr *iorw.EOFCloseSeekReader) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		mprdr = mapReader(mphndlr.Map, mphndlr)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		mprdr = mapReader(mp, mphndlr)
 	} else {
 		mprdr = iorw.NewEOFCloseSeekReader(nil)
 	}
@@ -71,70 +90,140 @@ func (mphndlr *MapHandler) Reader() (mprdr *iorw.EOFCloseSeekReader) {
 }
 
 func (mphndlr *MapHandler) Values(k ...interface{}) (vs []interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		vs = mphndlr.Map.Values(k...)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		vs = mp.Values(k...)
 	}
 	return
 }
 
 func (mphndlr *MapHandler) ReplaceKey(a ...interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		mapReplaceKey(mphndlr.Map, mphndlr, a...)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		mapReplaceKey(mp, mphndlr, a...)
 	}
 }
 
 func (mphndlr *MapHandler) Remove(a ...interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		mapRemove(false, mphndlr.Map, mphndlr, a...)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		mapRemove(false, mp, mphndlr, a...)
 	}
 }
 
-func (mphndlr *MapHandler) Push(k interface{}, a ...interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
+func (mphndlr *MapHandler) Push(k interface{}, a ...interface{}) (length int) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		if len(a) == 0 {
-			a = []interface{}{k}
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				length = mapPush(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			length = mapPush(mp, mphndlr, a...)
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) Shift(k interface{}, a ...interface{}) (length int) {
+	length = -1
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				length = mapShift(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			length = mapShift(mp, mphndlr, a...)
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) Pop(k interface{}, a ...interface{}) (pop interface{}) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				pop = mapPop(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			pop = mapPop(mp, mphndlr, a...)
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) Unshift(k interface{}, a ...interface{}) (unshift interface{}) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				unshift = mapUnshift(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			unshift = mapUnshift(mp, mphndlr, a...)
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) Put(k interface{}, a ...interface{}) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if _, mpsok := k.(map[string]interface{}); mpsok {
+				a = []interface{}{k}
+			} else if _, mpiok := k.(map[interface{}]interface{}); mpsok || mpiok {
+				a = []interface{}{k}
+			} else if a != nil {
+				a = append([]interface{}{k}, []interface{}{a})
+			}
 		} else {
 			a = append([]interface{}{k}, a...)
 		}
-		mapPush(mphndlr.Map, mphndlr, a...)
+		mapPut(mp, mphndlr, a...)
 	}
 }
 
 func (mphndlr *MapHandler) Find(ks ...interface{}) (vfound interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		vfound = mapFind(mphndlr.Map, mphndlr, ks...)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		vfound = mapFind(mp, mphndlr, ks...)
 	}
 	return
 }
 
 func (mphndlr *MapHandler) Size() (size int) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		size = mapSize(mphndlr.Map, mphndlr)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		size = mapSize(mp, mphndlr)
 	}
 	return size
 }
 
 func (mphndlr *MapHandler) ValueByIndex(index int64) (v interface{}) {
-	if mphndlr != nil && mphndlr.Map != nil {
-		v = mapValueByIndex(mphndlr.Map, mphndlr, index)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		v = mapValueByIndex(mp, mphndlr, index)
 	}
 	return
 }
 
 func (mphndlr *MapHandler) Clear() {
-	if mphndlr != nil && mphndlr.Map != nil {
-		mapClear(mphndlr.Map, mphndlr)
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		mapClear(mp, mphndlr)
 	}
 }
 
 func (mphndlr *MapHandler) Close() {
 	if mphndlr != nil {
-		if mphndlr.Map != nil {
+		if mphndlr.crntmp != nil {
+			mphndlr.crntmp = nil
+		}
+		if mphndlr.mp != nil {
 			if mphndlr.intern {
-				mapClose(mphndlr.Map, mphndlr)
-				mphndlr.Map.Close()
+				mapClose(mphndlr.mp, mphndlr)
+				mphndlr.mp.Close()
 			}
-			mphndlr.Map = nil
+			mphndlr.mp = nil
 		}
 		mphndlr = nil
 	}
@@ -148,6 +237,9 @@ const (
 	actnput
 	actnpush
 	actnremove
+	actnpop
+	atcnshift
+	actnunshift
 	actnreplacekey
 	actnclear
 	actnclose
@@ -188,20 +280,25 @@ func NewMap() (mp *Map) {
 func (mp *Map) lastAction(nxtactn ...mapAction) mapAction {
 	if mp != nil {
 		if len(nxtactn) == 1 {
-			mp.lck.Lock()
-			defer mp.lck.Unlock()
-			if lstactn, nxtctn := mp.lstactn, nxtactn[0]; nxtctn != lstactn {
-				if (lstactn == actnclear || lstactn == actnclose) && nxtctn == actnnone {
-					mp.lstactn = nxtactn[0]
-				} else if lstactn != actnclear && lstactn != actnclose {
-					mp.lstactn = nxtactn[0]
+			return func() mapAction {
+				mp.lck.Lock()
+				defer mp.lck.Unlock()
+				if lstactn, nxtctn := mp.lstactn, nxtactn[0]; nxtctn != lstactn {
+					if (lstactn == actnclear || lstactn == actnclose) && nxtctn == actnnone {
+						mp.lstactn = nxtactn[0]
+					} else if lstactn != actnclear && lstactn != actnclose {
+						mp.lstactn = nxtactn[0]
+					}
 				}
-			}
-			return mp.lstactn
+				return mp.lstactn
+			}()
+		} else {
+			return func() mapAction {
+				mp.lck.RLock()
+				defer mp.lck.RUnlock()
+				return mp.lstactn
+			}()
 		}
-		mp.lck.RLock()
-		defer mp.lck.RUnlock()
-		return mp.lstactn
 	}
 	return actnunknown
 }
@@ -279,6 +376,9 @@ func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
 							} else {
 								jsnencd.Encode(vs[kn])
 							}
+							if kn < ksl-1 {
+								iorw.Fprint(pw, ",")
+							}
 						}
 					}
 					iorw.Fprint(pw, "}")
@@ -299,7 +399,7 @@ func (mp *Map) Find(ks ...interface{}) (vfound interface{}) {
 
 func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{}) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnfind); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnfind {
@@ -319,6 +419,10 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 										if vmp, vmpok := vl.(*Map); vmpok {
 											if (kn + 1) == ksl {
 												vfound = vmp
+												if mphndlr != nil {
+													mphndlr.crntmp = vmp
+													vfound = mphndlr
+												}
 											} else {
 												lkpmp = vmp
 											}
@@ -375,7 +479,7 @@ func (mp *Map) Remove(a ...interface{}) {
 
 func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{}) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		if len(a) > 0 {
@@ -438,16 +542,13 @@ func (mp *Map) Clear() {
 func (mp *Map) Close() {
 	if mp != nil {
 		mapClose(mp, nil)
-		if mp.lck != nil {
-			mp.lck = nil
-		}
 		mp = nil
 	}
 }
 
 func mapClear(mp *Map, mphndlr *MapHandler) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnclear); lstactn == actnclear || lstactn == actnclose {
@@ -461,7 +562,7 @@ func mapClear(mp *Map, mphndlr *MapHandler) {
 
 func mapClose(mp *Map, mphndlr *MapHandler) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.mp
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnclose); lstactn == actnclose {
@@ -498,7 +599,7 @@ func (mp *Map) ValueByIndex(index int64) (v interface{}) {
 
 func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnfind); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnfind {
@@ -510,11 +611,13 @@ func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) 
 				if mp.keys != nil {
 					index++
 					stri := int64(0)
-					for _, vnde := range mp.kvndm {
-						stri++
-						if stri >= index {
-							v = vnde.Value()
-							break
+					if mp.values != nil && mp.values.Length() > 0 {
+						for vnxt := mp.values.Head(); vnxt != nil; vnxt = vnxt.Next() {
+							stri++
+							if stri >= index {
+								v = vnxt.Value()
+								break
+							}
 						}
 					}
 				}
@@ -524,99 +627,328 @@ func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) 
 	return
 }
 
-func (mp *Map) Push(k interface{}, a ...interface{}) {
-	if len(a) == 0 {
-		a = []interface{}{k}
-	} else {
-		a = append([]interface{}{k}, a...)
-	}
-	mapPush(mp, nil, a...)
-}
-
-func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) {
-	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
-	}
+func (mp *Map) Shift(k interface{}, a ...interface{}) (length int) {
+	length = -1
 	if mp != nil {
-		if lstactn := mp.lastAction(actnpush); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpush {
-			func() {
-				defer mp.lastAction(actnnone)
-				keys := mp.keys
-				values := mp.values
-				for {
-					if al := len(a); al > 0 {
-						if al%2 == 0 {
-							k := a[0]
-							if k != nil {
-								a = a[1:]
-								v := a[0]
-								func() {
-									var knde *enumeration.Node = nil
-									var kndecngd bool
-									var vldky bool
-									var vnde *enumeration.Node = nil
-									var vndecngd bool
-									var vldv bool
-									if mphndlr != nil {
-										mp.lck.Lock()
-										defer mp.lck.Unlock()
-									}
-									keys.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
-										kndecngd = cngd
-										knde = n
-										vldky = valvld
-									}, k)
-									if v != nil && vldky {
-										if vmp, vmpok := v.(map[interface{}]interface{}); vmpok {
-											vnmp := NewMap()
-											vnmp.Put(vmp)
-											v = vnmp
-										} else if vmp, vmpok := v.(map[string]interface{}); vmpok {
-											vnmp := NewMap()
-											vnmp.Put(vmp)
-											v = vnmp
-										}
-									}
-									if vldky && kndecngd {
-										values.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
-											if vndecngd = cngd; kndecngd {
-												vnde = n
-											}
-											vldv = valvld
-										}, v)
-										if kndecngd && vndecngd && vldky && vldv {
-											mp.kvndm[knde] = vnde
-											mp.vkndm[vnde] = knde
-										}
-									} else if vldky && !kndecngd {
-										vnde = mp.kvndm[knde]
-										vnde.Set(v)
-									}
-								}()
-								a = a[1:]
-							}
-						}
-					} else {
-						break
-					}
-				}
-			}()
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				length = mapShift(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			length = mapShift(mp, nil, a...)
 		}
 	}
+	return length
+}
+
+func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
+	length = -1
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a[:al-1]
+			arrv := a[al-1]
+			if lstactn := mp.lastAction(atcnshift); !(lstactn == actnclear || lstactn == actnclose) && lstactn == atcnshift {
+				func() {
+					defer mp.lastAction(actnnone)
+					var lkpmp *Map = mp
+					if ksl := len(ks); ksl > 0 {
+						for kn, k := range a {
+							func() {
+								if knde := lkpmp.keys.ValueNode(k); knde != nil {
+									if vnde := lkpmp.kvndm[knde]; vnde != nil {
+										if vl := vnde.Value(); vl != nil {
+											if (kn + 2) <= ksl {
+												if vmp, vmpok := vl.(*Map); vmpok {
+													lkpmp = vmp
+												} else {
+													return
+												}
+											} else if (kn+1) == ksl && lkpmp != nil {
+												func() {
+													if mphndlr != nil {
+														lkpmp.lck.Lock()
+														defer lkpmp.lck.Unlock()
+													}
+													if arv, arrvok := vl.([]interface{}); arrvok {
+														arv = append([]interface{}{arrv}, arv...)
+														vnde.Set(arv, true)
+														length = len(arv)
+													}
+												}()
+												return
+											}
+										} else {
+											return
+										}
+									} else {
+										return
+									}
+								} else {
+									return
+								}
+							}()
+						}
+					}
+				}()
+			}
+		}
+	}
+	return length
+}
+
+func (mp *Map) Push(k interface{}, a ...interface{}) (length int) {
+	length = -1
+	if mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				length = mapPush(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			length = mapPush(mp, nil, a...)
+		}
+	}
+	return length
+}
+
+func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
+	length = -1
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a[:al-1]
+			arrv := a[al-1]
+			if lstactn := mp.lastAction(actnpush); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpush {
+				func() {
+					defer mp.lastAction(actnnone)
+					var lkpmp *Map = mp
+					if ksl := len(ks); ksl > 0 {
+						for kn, k := range a {
+							func() {
+								if knde := lkpmp.keys.ValueNode(k); knde != nil {
+									if vnde := lkpmp.kvndm[knde]; vnde != nil {
+										if vl := vnde.Value(); vl != nil {
+											if (kn + 2) <= ksl {
+												if vmp, vmpok := vl.(*Map); vmpok {
+													lkpmp = vmp
+												} else {
+													return
+												}
+											} else if (kn+1) == ksl && lkpmp != nil {
+												func() {
+													if mphndlr != nil {
+														lkpmp.lck.Lock()
+														defer lkpmp.lck.Unlock()
+													}
+													if arv, arrvok := vl.([]interface{}); arrvok {
+														arv = append(arv, arrv)
+														vnde.Set(arv, true)
+														length = len(arv)
+													}
+												}()
+												return
+											}
+										} else {
+											return
+										}
+									} else {
+										return
+									}
+								} else {
+									return
+								}
+							}()
+						}
+					}
+				}()
+			}
+		}
+	}
+	return length
+}
+
+func (mp *Map) Pop(k interface{}, a ...interface{}) (pop interface{}) {
+	if mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				pop = mapPop(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			pop = mapPop(mp, nil, a...)
+		}
+	}
+	return
+}
+
+func mapPop(mp *Map, mphndlr *MapHandler, a ...interface{}) (pop interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a
+			if lstactn := mp.lastAction(actnpop); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpop {
+				func() {
+					defer mp.lastAction(actnnone)
+					var lkpmp *Map = mp
+					if ksl := len(ks); ksl > 0 {
+						for kn, k := range a {
+							func() {
+								if knde := lkpmp.keys.ValueNode(k); knde != nil {
+									if vnde := lkpmp.kvndm[knde]; vnde != nil {
+										if vl := vnde.Value(); vl != nil {
+											if (kn + 1) <= ksl {
+												if vmp, vmpok := vl.(*Map); vmpok {
+													lkpmp = vmp
+												} else {
+													return
+												}
+											}
+											if (kn+1) == ksl && lkpmp != nil {
+												func() {
+													if mphndlr != nil {
+														lkpmp.lck.Lock()
+														defer lkpmp.lck.Unlock()
+													}
+													if arv, arrvok := vl.([]interface{}); arrvok {
+														if len(arv) > 0 {
+															pop = arv[len(arv)-1]
+															arv = arv[:len(arv)-1]
+															if arv == nil {
+																arv = []interface{}{}
+															}
+															vnde.Set(arv, true)
+														}
+													}
+												}()
+												return
+											}
+										} else {
+											return
+										}
+									} else {
+										return
+									}
+								} else {
+									return
+								}
+							}()
+						}
+					}
+				}()
+			}
+		}
+	}
+	return
+}
+
+func (mp *Map) Unshift(k interface{}, a ...interface{}) (unshift interface{}) {
+	if mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				unshift = mapUnshift(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			unshift = mapUnshift(mp, nil, a...)
+		}
+	}
+	return
+}
+
+func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a
+			if lstactn := mp.lastAction(actnunshift); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnunshift {
+				func() {
+					defer mp.lastAction(actnnone)
+					var lkpmp *Map = mp
+					if ksl := len(ks); ksl > 0 {
+						for kn, k := range a {
+							func() {
+								if knde := lkpmp.keys.ValueNode(k); knde != nil {
+									if vnde := lkpmp.kvndm[knde]; vnde != nil {
+										if vl := vnde.Value(); vl != nil {
+											if (kn + 1) <= ksl {
+												if vmp, vmpok := vl.(*Map); vmpok {
+													lkpmp = vmp
+												} else {
+													return
+												}
+											}
+											if (kn+1) == ksl && lkpmp != nil {
+												func() {
+													if mphndlr != nil {
+														lkpmp.lck.Lock()
+														defer lkpmp.lck.Unlock()
+													}
+													if arv, arrvok := vl.([]interface{}); arrvok {
+														if len(arv) > 0 {
+															unshift = arv[0]
+															arv = arv[1:]
+															if arv == nil {
+																arv = []interface{}{}
+															}
+															vnde.Set(arv, true)
+														}
+													}
+												}()
+												return
+											}
+										} else {
+											return
+										}
+									} else {
+										return
+									}
+								} else {
+									return
+								}
+							}()
+						}
+					}
+				}()
+			}
+		}
+	}
+	return
 }
 
 func (mp *Map) Put(k interface{}, a ...interface{}) {
-	if len(a) == 0 {
-		a = []interface{}{k}
-	} else {
-		a = append([]interface{}{k}, a...)
+	if mp != nil {
+		if len(a) == 0 {
+			if _, mpsok := k.(map[string]interface{}); mpsok {
+				a = []interface{}{k}
+			} else if _, mpiok := k.(map[interface{}]interface{}); mpsok || mpiok {
+				a = []interface{}{k}
+			} else if a != nil {
+				a = append([]interface{}{k}, []interface{}{a})
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+		}
+		mapPut(mp, nil, a...)
 	}
-	mapPut(mp, nil, a...)
 }
 
 func mapPut(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnput); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnput {
@@ -706,7 +1038,7 @@ func (mp *Map) ReplaceKey(a ...interface{}) {
 
 func mapReplaceKey(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 	if mp == nil && mphndlr != nil {
-		mp = mphndlr.Map
+		mp = mphndlr.currentmp()
 	}
 	if mp != nil {
 		keys := mp.keys
@@ -745,12 +1077,19 @@ func mapReplaceKey(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 	}
 }
 
-func GLOBALMAP() *MapHandler {
+func GLOBALMAP() *Map {
+	return glbmp
+}
+
+func GLOBALMAPHANDLER() *MapHandler {
 	return glbmphndlr
 }
 
 var glbmphndlr *MapHandler = nil
 
+var glbmp *Map = nil
+
 func init() {
-	glbmphndlr = NewMapHandler(NewMap())
+	glbmp = NewMap()
+	glbmphndlr = NewMapHandler(glbmp)
 }
