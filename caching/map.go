@@ -89,6 +89,13 @@ func (mphndlr *MapHandler) Reader() (mprdr *iorw.EOFCloseSeekReader) {
 	return
 }
 
+func (mphndlr *MapHandler) Fprint(w io.Writer) (err error) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		err = mapFprint(mp, mphndlr, w)
+	}
+	return
+}
+
 func (mphndlr *MapHandler) Values(k ...interface{}) (vs []interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		vs = mp.Values(k...)
@@ -245,6 +252,7 @@ const (
 	actnclose
 	actnfind
 	actnread
+	actnwrite
 )
 
 type Map struct {
@@ -338,6 +346,48 @@ func (mp *Map) String() (s string) {
 func mapString(mp *Map, mphndlr *MapHandler) (s string) {
 	if mp != nil {
 		s, _ = iorw.ReaderToString(mapReader(mp, mphndlr))
+	}
+	return
+}
+
+func (mp *Map) Fprint(w io.Writer) (err error) {
+	if mp != nil {
+		err = mapFprint(mp, nil, w)
+	}
+	return
+}
+
+func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
+	if mp != nil && w != nil {
+		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
+			func() {
+				defer mp.lastAction(actnnone)
+				ks := mp.Keys()
+				vs := mp.Values()
+
+				jsnencd := json.NewEncoder(w)
+				iorw.Fprint(w, "{")
+				if ksl, vsl := len(ks), len(vs); ksl > 0 && ksl == vsl {
+					for kn, k := range ks {
+						jsnencd.Encode(k)
+						iorw.Fprint(w, ":")
+						if vmp, vmpok := vs[kn].(*Map); vmpok {
+							if mphndlr == nil {
+								iorw.Fprint(w, vmp)
+							} else {
+								iorw.Fprint(w, mapReader(vmp, mphndlr))
+							}
+						} else {
+							jsnencd.Encode(vs[kn])
+						}
+						if kn < ksl-1 {
+							iorw.Fprint(w, ",")
+						}
+					}
+				}
+				iorw.Fprint(w, "}")
+			}()
+		}
 	}
 	return
 }
