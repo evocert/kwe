@@ -814,11 +814,16 @@ func (rqst *Request) executeHTTP(interrupt func()) {
 		rqst.prms = parameters.NewParameters()
 		if httpr := rqst.httpr; httpr != nil {
 			parameters.LoadParametersFromHTTPRequest(rqst.prms, httpr)
-			httppath := httpr.URL.Path
-			rqst.initPath = httppath
-			rqst.AddPath(httppath)
-			rqst.processPaths(true)
+			rqst.executePath(httpr.URL.Path, interrupt)
 		}
+	}
+}
+
+func (rqst *Request) executePath(path string, interrupt func()) {
+	if rqst != nil {
+		rqst.initPath = path
+		rqst.AddPath(path)
+		rqst.processPaths(true)
 	}
 }
 

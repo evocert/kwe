@@ -125,6 +125,13 @@ func NewChannel() (chnl *Channel) {
 	return
 }
 
+func (chnl *Channel) internalServePath(path string, a ...interface{}) {
+	inirspath := path
+	a = append([]interface{}{inirspath}, a...)
+	processingRequestIO(chnl, nil, nil, nil, nil, nil, nil, a...)
+
+}
+
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
 	inirspath := r.URL.Path
 	wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
@@ -175,6 +182,16 @@ func (chnl *Channel) DefaultServeHTTP(w io.Writer, method string, url string, bo
 			chnl.internalServeHTTP(whttp, rhttp, a...)
 		}
 	}
+}
+
+func (chnl *Channel) DefaultServePath(path string, a ...interface{}) {
+	cntxt := context.Background()
+	go func() {
+		_, cncl := context.WithCancel(cntxt)
+		defer cncl()
+		chnl.internalServePath(path, a...)
+	}()
+	<-cntxt.Done()
 }
 
 //DefaultServeRW - helper to perform dummy ServeRW request on channel

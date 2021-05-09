@@ -102,6 +102,8 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 				if rwerr := rqst.executeRW(interrupt); rwerr != nil {
 					fmt.Println(rwerr)
 				}
+			} else {
+				rqst.executePath("", interrupt)
 			}
 		}()
 		<-ctx.Done()
