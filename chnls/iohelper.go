@@ -224,24 +224,28 @@ func (rqststdio *requeststdio) executeStdIO() (err error) {
 			if rdr == nil {
 				rdr = bufio.NewReader(rqstr)
 			}
-			for {
-				r, s, rerr := rdr.ReadRune()
-				if s > 0 && (rerr == nil || rerr == io.EOF) {
-					if rnserr = rqststdio.captureRunes(false, r); rnserr != nil {
-						if rerr == nil || rerr == io.EOF {
-							rerr = rnserr
+			if rqststdio.rqst.initPath != "" {
+
+			} else {
+				for {
+					r, s, rerr := rdr.ReadRune()
+					if s > 0 && (rerr == nil || rerr == io.EOF) {
+						if rnserr = rqststdio.captureRunes(false, r); rnserr != nil {
+							if rerr == nil || rerr == io.EOF {
+								rerr = rnserr
+							}
 						}
 					}
-				}
-				if rqststdio.isDone || rerr != nil {
-					if rerr == io.EOF {
-						if rqststdio.isDone {
+					if rqststdio.isDone || rerr != nil {
+						if rerr == io.EOF {
+							if rqststdio.isDone {
+								break
+							}
+							time.Sleep(time.Nanosecond * 10)
+						} else {
+							err = rerr
 							break
 						}
-						time.Sleep(time.Nanosecond * 10)
-					} else {
-						err = rerr
-						break
 					}
 				}
 			}

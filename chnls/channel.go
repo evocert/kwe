@@ -125,12 +125,8 @@ func NewChannel() (chnl *Channel) {
 	return
 }
 
-func (chnl *Channel) nextRequest() (rqst *Request, interrupt func()) {
-	rqst, interrupt = newRequest(chnl, nil, nil)
-	return
-}
-
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
+	inirspath := r.URL.Path
 	wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
 		// don't return errors to maintain backwards compatibility
 	}, CheckOrigin: func(r *http.Request) bool {
@@ -139,6 +135,7 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 	}}
 	defer func() { wsu = nil }()
 	if conn, err := wsu.Upgrade(w, r, w.Header()); err == nil {
+		a = append([]interface{}{inirspath}, a...)
 		chnl.ServeWS(conn, a...)
 	} else {
 		processingRequestIO(chnl, nil, r.Body, w, w, nil, r, a...)

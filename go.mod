@@ -4,13 +4,15 @@ go 1.15
 
 require (
 	github.com/denisenkom/go-mssqldb v0.10.0
-	github.com/dop251/goja v0.0.0-20210406175830-1b11a6af686d
+	github.com/dop251/goja v0.0.0-20210427212725-462d53687b0d
+	github.com/eclipse/paho.mqtt.golang v1.3.4 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/ibmdb/go_ibm_db v0.4.1 // direct
 	github.com/jackc/pgx/v4 v4.11.0
-	github.com/sijms/go-ora v0.0.0-20210409183318-9a2e22fa22b0
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/net v0.0.0-20210415231046-e915ea6b2b7d
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
+	github.com/rs/zerolog v1.21.0 // indirect
+	github.com/sijms/go-ora v0.0.0-20210420114532-930751532d56
+	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
+	golang.org/x/net v0.0.0-20210508051633-16afe75a6701
+	golang.org/x/sys v0.0.0-20210507161434-a76c4d0a0096
 )

@@ -16,8 +16,17 @@ import (
 func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
+	var initPath = ""
 	for ai < len(a) {
-		if da, daok := a[ai].([]interface{}); daok {
+		if ds, dsok := a[ai].(string); dsok {
+			if ai == 0 && ds != "" {
+				if initPath == "" {
+					initPath = ds
+				}
+			}
+			a = a[1:]
+			continue
+		} else if da, daok := a[ai].([]interface{}); daok {
 			if al := len(da); al > 0 {
 				a = append(da, a[1:]...)
 				ai = 0
@@ -38,7 +47,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 		rqstsettings = map[string]interface{}{}
 	}
 	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
-		initPath:      "",
+		initPath:      initPath,
 		mphndlr:       caching.GLOBALMAP().Handler(),
 		mediarqst:     false,
 		rqstoffset:    -1,
@@ -107,9 +116,6 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 }
 
 func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
-	//func() {
-	//var rqstsettings map[string]interface{} = nil
-	//var ai = 0
 	var excrqst *Request = nil
 	var interrupt func() = nil
 	if wtr == nil && httpw != nil {
@@ -121,37 +127,6 @@ func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io
 			httpflshr = flshr
 		}
 	}
-
-	/*for ai < len(a) {
-		if da, daok := a[ai].([]interface{}); daok {
-			if al := len(da); al > 0 {
-				a = append(da, a[1:]...)
-				ai = 0
-			} else {
-				a = a[1:]
-			}
-			continue
-		} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
-			if prntrqst == nil {
-				prntrqst = prnstrq
-			}
-			a = a[1:]
-			continue
-		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
-			if rstngs != nil {
-				if rqstsettings == nil {
-					rqstsettings = rstngs
-				} else {
-					for k, v := range rstngs {
-						rqstsettings[k] = v
-					}
-				}
-			}
-			a = a[1:]
-			continue
-		}
-		ai++
-	}*/
 	if prntrqst == nil {
 		excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, a...)
 	} else {
@@ -165,5 +140,4 @@ func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io
 		})
 		excrqst = nil
 	}
-	//}()
 }

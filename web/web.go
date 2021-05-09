@@ -46,6 +46,7 @@ func (clnt *Client) Close() {
 
 //ReaderWriter interface
 type ReaderWriter interface {
+	iorw.PrinterReader
 	io.ReadWriteCloser
 	Flush() error
 }

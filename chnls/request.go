@@ -15,6 +15,7 @@ import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/fsutils"
+	mqtt "github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
@@ -910,142 +911,6 @@ func (rqtdbms *rqstdbms) RegisterConnection(alias string, driver string, datasou
 	return
 }
 
-func newRequest(chnl *Channel, rdr io.Reader, wtr io.Writer, a ...interface{}) (rqst *Request, interrupt func()) {
-	var rqstsettings map[string]interface{} = nil
-	var ai = 0
-	var httpw http.ResponseWriter = nil
-	var httpflshr http.Flusher = nil
-	var httpr *http.Request = nil
-	var prntrqst *Request = nil
-	if wtr != nil {
-		if dhttpw, dhttpwok := wtr.(http.ResponseWriter); dhttpwok {
-			if httpw == nil {
-				httpw = dhttpw
-				if wtr == nil {
-					wtr = httpw
-				}
-				if flshr, flshrok := httpw.(http.Flusher); flshrok {
-					httpflshr = flshr
-				}
-			}
-		}
-	}
-
-	for ai < len(a) {
-		if da, daok := a[ai].([]interface{}); daok {
-			if al := len(da); al > 0 {
-				a = append(da, a[1:]...)
-				ai = 0
-			} else {
-				a = a[1:]
-			}
-			continue
-		} else if prnstrq, prntrqok := a[ai].(*Request); prntrqok {
-			if prntrqst == nil {
-				prntrqst = prnstrq
-			}
-			a = a[1:]
-			continue
-		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
-			if rqstsettings == nil {
-				rqstsettings = rstngs
-			}
-			a = a[1:]
-			continue
-		} else if dhttpr, dhttprok := a[ai].(*http.Request); dhttprok {
-			if httpr == nil {
-				httpr = dhttpr
-				if rdr == nil {
-					rdr = httpr.Body
-				}
-			}
-			a = a[1:]
-			continue
-		} else if dhttpw, dhttpwok := a[ai].(http.ResponseWriter); dhttpwok {
-			if httpw == nil {
-				httpw = dhttpw
-				if wtr == nil {
-					wtr = httpw
-				}
-				if flshr, flshrok := httpw.(http.Flusher); flshrok {
-					httpflshr = flshr
-				}
-			}
-			a = a[1:]
-			continue
-		} else if dr, drok := a[ai].(io.Reader); drok {
-			if rdr == nil {
-				rdr = dr
-			}
-			a = a[1:]
-			continue
-		} else if dw, dwok := a[ai].(io.Writer); dwok {
-			if wtr == nil {
-				wtr = dw
-			}
-			a = a[1:]
-			continue
-		}
-		ai++
-	}
-	if rqstsettings == nil {
-		rqstsettings = map[string]interface{}{}
-	}
-	rqst = &Request{prntrqst: prntrqst, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rdr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{} /*, embeddedResources: map[string]interface{}{}*/, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{}, mphndlr: caching.GLOBALMAP().Handler()}
-	rqst.invokeAtv()
-	nmspce := ""
-	if rqst.atv != nil {
-		nmspce = rqst.atv.Namespace
-		if nmspce != "" {
-			nmspce = nmspce + "."
-		}
-	}
-	rqst.objmap[nmspce+"request"] = rqst
-	rqst.objmap[nmspce+"channel"] = chnl
-	rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
-	rqst.objmap[nmspce+"dbms"] = rqst.dbms
-	rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
-	rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
-		buff = iorw.NewBuffer()
-		buff.OnClose = rqst.removeBuffer
-		rqst.intrnbuffs[buff] = buff
-		return
-	}
-	rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
-		cmd, err = osprc.NewCommand(execpath, execargs...)
-		if err == nil && cmd != nil {
-			cmd.OnClose = rqst.removeCommand
-			rqst.cmnds[cmd.PrcID()] = cmd
-		}
-		return
-	}
-	rqst.objmap[nmspce+"action"] = func() *Action {
-		return rqst.lstexctngactng
-	}
-	rqst.objmap[nmspce+"webing"] = web.NewClient()
-
-	fstls := fsutils.NewFSUtils()
-	rqst.objmap[nmspce+"_fsutils"] = fstls
-
-	for cobjk, cobj := range chnl.objmap {
-		rqst.objmap[cobjk] = cobj
-	}
-
-	if len(rqst.objmap) > 0 {
-		rqst.atv.ImportGlobals(rqst.objmap)
-	}
-
-	if len(rqst.args) > 0 {
-		copy(rqst.args[:], a[:])
-	}
-
-	interrupt = func() {
-		rqst.Interrupt()
-	}
-
-	return
-}
-
 func (rqst *Request) detachAction(actn *Action) {
 	if actn.prvactn != nil {
 		rqst.lstexctngactng = actn.prvactn
@@ -1078,6 +943,8 @@ func (rqst *Request) invokeAtv() {
 		rqst.objmap[nmspce+"request"] = rqst
 		rqst.objmap[nmspce+"channel"] = rqst.chnl
 		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
+		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
+		rqst.objmap[nmspce+"mqtting"] = mqtt.GLOBALMQTTMANAGER()
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
 		rqst.objmap[nmspce+"dbms"] = rqst.dbms
 		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()

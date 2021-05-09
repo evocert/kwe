@@ -15,7 +15,6 @@ import (
 type Action struct {
 	rqst    *Request
 	rspath  string
-	sttngs  map[string]interface{}
 	prvactn *Action
 }
 
