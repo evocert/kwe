@@ -53,6 +53,10 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 							if mk == "port" && port == 0 {
 								port = int(i)
 							}
+						} else if i, iok := mv.(int); iok && i > 0 {
+							if mk == "port" && port == 0 {
+								port = i
+							}
 						}
 					}
 				} else if mp, mpok := k.(map[string]string); mpok {
@@ -86,6 +90,10 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 							} else if i, iok := mv.(int64); iok && i > 0 {
 								if mk == "port" && port == 0 {
 									port = int(i)
+								}
+							} else if i, iok := mv.(int); iok && i > 0 {
+								if mk == "port" && port == 0 {
+									port = i
 								}
 							}
 						} else {
