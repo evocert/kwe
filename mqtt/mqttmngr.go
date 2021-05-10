@@ -3,6 +3,7 @@ package mqtt
 import (
 	"fmt"
 	"sync"
+	//"github.com/evocert/kwe/chnls"
 )
 
 type MQTTManager struct {
@@ -54,14 +55,17 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 }
 
 func (mqttmngr *MQTTManager) MessageReceived(alias string, msg Message) {
+	//chnls.GLOBALCHNL().DefaultServePath("")
 	fmt.Printf("%s:Received message: %s from topic: %s\n", alias, msg.Payload(), msg.Topic())
 }
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
+	//chnls.GLOBALCHNL().DefaultServePath("")
 	fmt.Println("Connected:" + alias)
 }
 
 func (mqttmngr *MQTTManager) Disconnected(alias string, err error) {
+	//chnls.GLOBALCHNL().DefaultServePath("")
 	if err != nil {
 		fmt.Println("Disconnected:" + alias + "=> " + err.Error())
 	} else {
