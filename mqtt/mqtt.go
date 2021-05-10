@@ -49,13 +49,15 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 							} else if mk == "password" && password == "" {
 								password = s
 							}
-						} else if i, iok := mv.(int64); iok && i > 0 {
+						} else {
 							if mk == "port" && port == 0 {
-								port = int(i)
-							}
-						} else if i, iok := mv.(int); iok && i > 0 {
-							if mk == "port" && port == 0 {
-								port = i
+								if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
+									port = int(prsint)
+								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 32); prsinterr == nil {
+									port = int(prsint)
+								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 16); prsinterr == nil {
+									port = int(prsint)
+								}
 							}
 						}
 					}
@@ -69,7 +71,11 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 						} else if mk == "password" && mv != "" && password == "" {
 							password = mv
 						} else if mk == "port" && mv != "" && port == 0 {
-							if prsint, prsinterr := strconv.ParseInt(mv, 0, 64); prsinterr == nil {
+							if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
+								port = int(prsint)
+							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 32); prsinterr == nil {
+								port = int(prsint)
+							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 16); prsinterr == nil {
 								port = int(prsint)
 							}
 						}
@@ -87,13 +93,15 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 								} else if (mk == "user" || mk == "username") && user == "" {
 									user = s
 								}
-							} else if i, iok := mv.(int64); iok && i > 0 {
+							} else {
 								if mk == "port" && port == 0 {
-									port = int(i)
-								}
-							} else if i, iok := mv.(int); iok && i > 0 {
-								if mk == "port" && port == 0 {
-									port = i
+									if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
+										port = int(prsint)
+									} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 32); prsinterr == nil {
+										port = int(prsint)
+									} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 16); prsinterr == nil {
+										port = int(prsint)
+									}
 								}
 							}
 						} else {
