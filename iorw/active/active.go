@@ -11,9 +11,6 @@ import (
 
 	"github.com/dop251/goja"
 
-	//"github.com/evocert/kwe/ecma/es51"
-	//"github.com/evocert/kwe/ecma/es51/parser"
-
 	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/requirejs"
 
@@ -85,13 +82,6 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	}
 }
 
-func activeFinalize(atv *Active) {
-	if atv != nil {
-		atv.dispose()
-		atv = nil
-	}
-}
-
 //NewActive - instance
 func NewActive(namespace ...string) (atv *Active) {
 	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
@@ -99,7 +89,6 @@ func NewActive(namespace ...string) (atv *Active) {
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
 	}
-	//runtime.SetFinalizer(atv, activeFinalize)
 	return
 }
 
@@ -116,9 +105,11 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 	} else {
 		if atv.Print != nil {
 			if len(a) > 0 {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
-				atv.Print(a...)
+				func() {
+					atv.lckprnt.Lock()
+					defer atv.lckprnt.Unlock()
+					atv.Print(a...)
+				}()
 			}
 		} else {
 			if atv.FPrint != nil && w != nil {
