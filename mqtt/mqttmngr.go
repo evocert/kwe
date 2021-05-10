@@ -15,6 +15,24 @@ func NewMQTTManager() (mqttmngr *MQTTManager) {
 	return
 }
 
+func (mqttmngr *MQTTManager) Connections() (aliases []string) {
+	if mqttmngr != nil {
+		if len(mqttmngr.cntns) > 0 {
+			func() {
+				mqttmngr.lck.RLock()
+				defer mqttmngr.lck.RUnlock()
+				aliases = make([]string, len(mqttmngr.cntns))
+				aliasi := 0
+				for alias := range mqttmngr.cntns {
+					aliases[aliasi] = alias
+					aliasi++
+				}
+			}()
+		}
+	}
+	return
+}
+
 func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) {
 	if alias != "" {
 		if !func() (exists bool) {
