@@ -5,7 +5,17 @@ resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 channel.Listener().Listen(":1037");
-console.Log("Setting up schedule...");
+for (var i = 0; i < 1; i++) {
+	var mqttclid = "mqtt"+(i+1);
+	mqtting.RegisterConnection(mqttclid, {"broker":"skullquake.dedicated.co.za", "port": 1883, "user": "emqx", "password":"public"})
+	try {
+	mqtting.Connect(mqttclid);
+	 }catch(e){
+		println("handling error;");
+		println(e.toString()+";");
+	}
+}
+/*console.Log("Setting up schedule...");
 var schid="mySchedule";
 sch0=channel
 .Schedules()
@@ -22,5 +32,5 @@ sch0.AddAction(
 	}).toString(),
 	[{schid:schid}]
 );    
-sch0.Start();
+sch0.Start();*/
 @>
