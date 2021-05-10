@@ -203,9 +203,6 @@ func (atv *Active) atvrun(prsng *parsing) {
 
 //Eval - parse rin io.Reader, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, evalstngs ...interface{}) {
-	lck := &sync.RWMutex{}
-	lck.RLock()
-	defer lck.RUnlock()
 	var parsing = nextparsing(atv, nil, wout, evalstngs...)
 	defer parsing.Close()
 	var rnr io.RuneReader = nil
