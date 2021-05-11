@@ -7,7 +7,7 @@ resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 channel.Listener().Listen(":1037");
 for (var i = 0; i < 1; i++) {
 	var mqttclid = "mqtt"+(i+1);
-	mqtting.RegisterConnection(mqttclid, {"broker":"skullquake.dedicated.co.za", "port": 1883, "user": "emqx", "password":"public"})
+	mqtting.RegisterConnection(mqttclid, {"broker":"ws://skullquake.dedicated.co.za", "port": 8080, "user": "emqx", "password":"public"})
 	try {
 	mqtting.Connect(mqttclid);
 	 }catch(e){

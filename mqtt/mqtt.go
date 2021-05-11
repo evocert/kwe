@@ -21,7 +21,12 @@ type MQTTConnection struct {
 
 func newMQTTOptions(clientid string, broker string, port int, user string, password string) (pahooptions *mqtt.ClientOptions) {
 	pahooptions = mqtt.NewClientOptions()
-	pahooptions.AddBroker(fmt.Sprintf("tcp://%s:%d", broker, port))
+	var schema = "tcp"
+	if broker != "" && strings.HasPrefix(broker, "ws://") {
+		schema = "ws"
+		broker = broker[len("ws://"):]
+	}
+	pahooptions.AddBroker(fmt.Sprintf("%s://%s:%d", schema, broker, port))
 	pahooptions.SetClientID(clientid)
 	pahooptions.SetUsername(user)
 	pahooptions.SetPassword(password)
