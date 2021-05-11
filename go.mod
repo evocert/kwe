@@ -13,6 +13,6 @@ require (
 	github.com/rs/zerolog v1.21.0
 	github.com/sijms/go-ora v0.0.0-20210420114532-930751532d56
 	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
-	golang.org/x/net v0.0.0-20210508051633-16afe75a6701
-	golang.org/x/sys v0.0.0-20210507161434-a76c4d0a0096
+	golang.org/x/net v0.0.0-20210510120150-4163338589ed
+	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
 )
