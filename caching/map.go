@@ -500,26 +500,30 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 
 func (mp *Map) Keys(k ...interface{}) (ks []interface{}) {
 	if mp != nil && mp.keys != nil {
-		mp.keys.Do(func(knde *enumeration.Node, val interface{}) bool {
-			if ks == nil {
-				ks = []interface{}{}
+		if kh := mp.keys.Head(); kh != nil {
+			for kh != nil {
+				if ks == nil {
+					ks = []interface{}{}
+				}
+				ks = append(ks, kh.Value())
+				kh = kh.Next()
 			}
-			ks = append(ks, val)
-			return false
-		}, nil, nil)
+		}
 	}
 	return
 }
 
 func (mp *Map) Values(k ...interface{}) (vs []interface{}) {
 	if mp != nil && mp.values != nil {
-		mp.values.Do(func(knde *enumeration.Node, val interface{}) bool {
-			if vs == nil {
-				vs = []interface{}{}
+		if kh := mp.keys.Head(); kh != nil {
+			for kh != nil {
+				if vs == nil {
+					vs = []interface{}{}
+				}
+				vs = append(vs, mp.kvndm[kh].Value())
+				kh = kh.Next()
 			}
-			vs = append(vs, val)
-			return false
-		}, nil, nil)
+		}
 	}
 	return
 }
