@@ -362,27 +362,27 @@ func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
 		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
 			func() {
 				defer mp.lastAction(actnnone)
-				ks := mp.Keys()
-				vs := mp.Values()
-
+				kh := mp.keys.Head()
 				jsnencd := json.NewEncoder(w)
 				iorw.Fprint(w, "{")
-				if ksl, vsl := len(ks), len(vs); ksl > 0 && ksl == vsl {
-					for kn, k := range ks {
-						jsnencd.Encode(k)
-						iorw.Fprint(w, ":")
-						if vmp, vmpok := vs[kn].(*Map); vmpok {
+				for kh != nil {
+					jsnencd.Encode(kh.Value())
+					iorw.Fprint(w, ":")
+					if vl := mp.kvndm[kh].Value(); vl == nil {
+						iorw.Fprint(w, "null")
+					} else {
+						if vmp, vmpok := vl.(*Map); vmpok {
 							if mphndlr == nil {
 								iorw.Fprint(w, vmp)
 							} else {
 								iorw.Fprint(w, mapReader(vmp, mphndlr))
 							}
 						} else {
-							jsnencd.Encode(vs[kn])
+							jsnencd.Encode(vl)
 						}
-						if kn < ksl-1 {
-							iorw.Fprint(w, ",")
-						}
+					}
+					if kh = kh.Next(); kh != nil {
+						iorw.Fprint(w, ",")
 					}
 				}
 				iorw.Fprint(w, "}")
@@ -408,27 +408,28 @@ func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
 				pi, pw := io.Pipe()
 				go func() {
 					defer pw.Close()
-					ks := mp.Keys()
-					vs := mp.Values()
+					kh := mp.keys.Head()
 					wg.Done()
 					jsnencd := json.NewEncoder(pw)
 					iorw.Fprint(pw, "{")
-					if ksl, vsl := len(ks), len(vs); ksl > 0 && ksl == vsl {
-						for kn, k := range ks {
-							jsnencd.Encode(k)
-							iorw.Fprint(pw, ":")
-							if vmp, vmpok := vs[kn].(*Map); vmpok {
+					for kh != nil {
+						jsnencd.Encode(kh.Value())
+						iorw.Fprint(pw, ":")
+						if vl := mp.kvndm[kh].Value(); vl != nil {
+							if vmp, vmpok := vl.(*Map); vmpok {
 								if mphndlr == nil {
 									iorw.Fprint(pw, vmp)
 								} else {
 									iorw.Fprint(pw, mapReader(vmp, mphndlr))
 								}
 							} else {
-								jsnencd.Encode(vs[kn])
+								jsnencd.Encode(vl)
 							}
-							if kn < ksl-1 {
-								iorw.Fprint(pw, ",")
-							}
+						} else {
+							iorw.Fprint(pw, "null")
+						}
+						if kh = kh.Next(); kh != nil {
+							iorw.Fprint(pw, ",")
 						}
 					}
 					iorw.Fprint(pw, "}")
