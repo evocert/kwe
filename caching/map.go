@@ -362,30 +362,7 @@ func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
 		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
 			func() {
 				defer mp.lastAction(actnnone)
-				kh := mp.keys.Head()
-				jsnencd := json.NewEncoder(w)
-				iorw.Fprint(w, "{")
-				for kh != nil {
-					jsnencd.Encode(kh.Value())
-					iorw.Fprint(w, ":")
-					if vl := mp.kvndm[kh].Value(); vl == nil {
-						iorw.Fprint(w, "null")
-					} else {
-						if vmp, vmpok := vl.(*Map); vmpok {
-							if mphndlr == nil {
-								iorw.Fprint(w, vmp)
-							} else {
-								iorw.Fprint(w, mapReader(vmp, mphndlr))
-							}
-						} else {
-							jsnencd.Encode(vl)
-						}
-					}
-					if kh = kh.Next(); kh != nil {
-						iorw.Fprint(w, ",")
-					}
-				}
-				iorw.Fprint(w, "}")
+				encodeMap(w, nil, mp, mphndlr)
 			}()
 		}
 	}
@@ -395,6 +372,52 @@ func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
 func (mp *Map) Reader() (mprdr *iorw.EOFCloseSeekReader) {
 	mprdr = mapReader(mp, nil)
 	return
+}
+
+func encodeMapAVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}) {
+	if val != nil {
+		if vmp, vmpok := val.(*Map); vmpok {
+			encodeMap(w, jsnenc, vmp, mphndlr)
+		} else {
+			if varr, varrok := val.([]interface{}); varrok {
+				iorw.Fprint(w, "[")
+				for vn, va := range varr {
+					encodeMapVal(w, jsnenc, mp, mphndlr, va, vn == len(varr)-1)
+				}
+				iorw.Fprint(w, "]")
+			} else {
+				jsnenc.Encode(val)
+			}
+		}
+	} else {
+		iorw.Fprint(w, "null")
+	}
+}
+
+func encodeMapVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}, isLastVal bool) {
+	encodeMapAVal(w, jsnenc, mp, mphndlr, val)
+	if !isLastVal {
+		iorw.Fprint(w, ",")
+	}
+}
+
+func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler) {
+	if jsnenc == nil {
+		jsnenc = json.NewEncoder(w)
+	}
+	iorw.Fprint(w, "{")
+	var nxtkh *enumeration.Node = nil
+	if kh := mp.keys.Head(); kh != nil {
+		nxtkh = kh
+		for nxtkh != nil {
+			jsnenc.Encode(kh.Value())
+			iorw.Fprint(w, ":")
+			nxtkh = kh.Next()
+			encodeMapVal(w, jsnenc, mp, mphndlr, mp.kvndm[kh].Value(), nxtkh == nil)
+			kh = nxtkh
+		}
+	}
+	iorw.Fprint(w, "}")
 }
 
 func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
@@ -408,31 +431,8 @@ func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
 				pi, pw := io.Pipe()
 				go func() {
 					defer pw.Close()
-					kh := mp.keys.Head()
 					wg.Done()
-					jsnencd := json.NewEncoder(pw)
-					iorw.Fprint(pw, "{")
-					for kh != nil {
-						jsnencd.Encode(kh.Value())
-						iorw.Fprint(pw, ":")
-						if vl := mp.kvndm[kh].Value(); vl != nil {
-							if vmp, vmpok := vl.(*Map); vmpok {
-								if mphndlr == nil {
-									iorw.Fprint(pw, vmp)
-								} else {
-									iorw.Fprint(pw, mapReader(vmp, mphndlr))
-								}
-							} else {
-								jsnencd.Encode(vl)
-							}
-						} else {
-							iorw.Fprint(pw, "null")
-						}
-						if kh = kh.Next(); kh != nil {
-							iorw.Fprint(pw, ",")
-						}
-					}
-					iorw.Fprint(pw, "}")
+					encodeMap(pw, nil, mp, mphndlr)
 				}()
 				wg.Wait()
 				rdr = pi
