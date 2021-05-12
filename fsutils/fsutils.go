@@ -445,7 +445,7 @@ func CAT(path string) (r io.Reader, err error) {
 					}
 				}()
 				wg.Done()
-				r = pr
+				r = iorw.NewEOFCloseSeekReader(pr)
 			} else {
 				err = ferr
 			}
