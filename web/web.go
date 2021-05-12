@@ -64,10 +64,10 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 }
 
 //SendRespondString - Client Send but return response as string
-func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string /* rspheaders map[string]string,*/, a ...interface{}) (rspstr string, err error) {
+func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error) {
 	var rspr io.Reader = nil
 	rspstr = ""
-	if rspr, err = clnt.Send(rqstpath, rqstheaders /* rspheaders,*/, a...); err == nil {
+	if rspr, err = clnt.Send(rqstpath, rqstheaders, a...); err == nil {
 		if rspr != nil {
 			rspstr, err = iorw.ReaderToString(rspr)
 		}
@@ -76,7 +76,7 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 }
 
 //Send - Client send
-func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string /*rspheaders map[string]string,*/, a ...interface{}) (rspr io.Reader, err error) {
+func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
 		var method string = ""
 		var r io.Reader = nil

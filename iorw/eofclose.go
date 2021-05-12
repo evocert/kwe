@@ -3,6 +3,7 @@ package iorw
 import (
 	"bufio"
 	"io"
+	"strings"
 )
 
 type EOFCloseSeekReader struct {
@@ -11,6 +12,10 @@ type EOFCloseSeekReader struct {
 	rs   io.Seeker
 	size int64
 	bfr  *bufio.Reader
+	//Reader Api
+	rns  []rune
+	rnsi int
+	ln   string
 }
 
 func NewEOFCloseSeekReader(r io.Reader) (eofclsr *EOFCloseSeekReader) {
@@ -42,6 +47,60 @@ func (eofclsr *EOFCloseSeekReader) ReadRune() (r rune, size int, err error) {
 		eofclsr.Close()
 	}
 	return
+}
+
+func (eofclsr *EOFCloseSeekReader) Readln() (s string, err error) {
+	rns := make([]rune, 1024)
+	rnsi := 0
+	for {
+		rn, size, rnerr := eofclsr.ReadRune()
+		if size > 0 {
+			if rn == '\n' {
+				if rnsi > 0 {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+				break
+			}
+			rns[rnsi] = rn
+			rnsi++
+			if rnsi == len(rns) {
+				s += string(rns[:rnsi])
+				rnsi = 0
+			}
+		}
+		if rnerr != nil {
+			err = rnerr
+			if rnsi > 0 && (err == nil || err == io.EOF) {
+				s += string(rns[:rnsi])
+				rnsi = 0
+			}
+			break
+		}
+	}
+	s = strings.TrimSpace(s)
+	return
+}
+
+func (eofclsr *EOFCloseSeekReader) Readlines() (lines []string, err error) {
+	for {
+		ln, lnerr := eofclsr.Readln()
+		if lnerr == nil {
+			if ln != "" {
+				if lines == nil {
+					lines = []string{}
+				}
+				lines = append(lines, ln)
+			}
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func (eofclsr *EOFCloseSeekReader) ReadAll() (string, error) {
+	return ReaderToString(eofclsr)
 }
 
 func (eofclsr *EOFCloseSeekReader) Size() int64 {

@@ -689,6 +689,36 @@ func (bufr *BuffReader) ReadRune() (r rune, size int, err error) {
 	return
 }
 
+func (bufr *BuffReader) Readln() (ln string, err error) {
+	ln, err = ReadLine(bufr)
+	return
+}
+
+func (bufr *BuffReader) Readlines() (lines []string, err error) {
+	for {
+		ln, lnerr := bufr.Readln()
+		if lnerr == nil {
+			if ln != "" {
+				if lines == nil {
+					lines = []string{}
+				}
+				lines = append(lines, ln)
+			}
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func (bufr *BuffReader) ReadAll() (string, error) {
+	return bufr.buffer.String(), nil
+}
+
+//	Readln() (string, error)
+//	Readlines() ([]string, error)
+//	ReadAll() (string, error)
+
 //Seek - refer to io.Seeker
 func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 	if bufr != nil && bufr.buffer != nil {

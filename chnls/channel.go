@@ -129,7 +129,6 @@ func (chnl *Channel) internalServePath(path string, a ...interface{}) {
 	inirspath := path
 	a = append([]interface{}{inirspath}, a...)
 	processingRequestIO(chnl, nil, nil, nil, nil, nil, nil, a...)
-
 }
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
