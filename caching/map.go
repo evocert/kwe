@@ -459,7 +459,7 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 				var lkpmp *Map = mp
 				if ksl := len(ks); ksl > 0 {
 					for kn, k := range ks {
-						func() {
+						if !func() bool {
 							if mphndlr != nil {
 								lkpmp.lck.RLock()
 								defer lkpmp.lck.RUnlock()
@@ -474,22 +474,27 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 													mphndlr.crntmp = vmp
 													vfound = mphndlr
 												}
+												return false
 											} else {
 												lkpmp = vmp
 											}
 										} else if (kn + 1) == ksl {
 											vfound = vl
+											return false
 										}
 									} else {
-										return
+										return false
 									}
 								} else {
-									return
+									return false
 								}
 							} else {
-								return
+								return false
 							}
-						}()
+							return true
+						}() {
+							break
+						}
 					}
 				}
 			}()
@@ -542,47 +547,49 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 				defer mp.lastAction(actnnone)
 				if keys := mp.keys; keys.Length() > 0 {
 					for _, d := range a {
-						func() {
-							if mphndlr != nil {
-								mp.lck.Lock()
-								defer mp.lck.Unlock()
-							}
-							if knde := keys.ValueNode(d); knde != nil {
-								k := knde.Value()
-								vnde := mp.kvndm[knde]
-								v := vnde.Value()
-								knde.Dispose(
-									//REMOVED KEY
-									func(nde *enumeration.Node, val interface{}) {
-										if nde == knde {
-											delete(mp.kvndm, knde)
-										}
-									},
-									//DISPOSED KEY
-									func(nde *enumeration.Node, val interface{}) {
-										vnde.Dispose(
-											//REMOVED VALUE
-											func(nde *enumeration.Node, val interface{}) {
-												if vnde == nde {
-													delete(mp.vkndm, vnde)
-												}
-											},
-											//DISPOSED VALUE
-											func(nde *enumeration.Node, val interface{}) {
-
-											})
-									})
-								if k != nil {
-
+						if d != nil {
+							func() {
+								if mphndlr != nil {
+									mp.lck.Lock()
+									defer mp.lck.Unlock()
 								}
-								if v != nil {
-									if vmp, _ := v.(*Map); vmp != nil {
-										vmp.Close()
-										vmp = nil
+								if knde := keys.ValueNode(d); knde != nil {
+									k := knde.Value()
+									vnde := mp.kvndm[knde]
+									v := vnde.Value()
+									knde.Dispose(
+										//REMOVED KEY
+										func(nde *enumeration.Node, val interface{}) {
+											if nde == knde {
+												delete(mp.kvndm, knde)
+											}
+										},
+										//DISPOSED KEY
+										func(nde *enumeration.Node, val interface{}) {
+											vnde.Dispose(
+												//REMOVED VALUE
+												func(nde *enumeration.Node, val interface{}) {
+													if vnde == nde {
+														delete(mp.vkndm, vnde)
+													}
+												},
+												//DISPOSED VALUE
+												func(nde *enumeration.Node, val interface{}) {
+
+												})
+										})
+									if k != nil {
+
+									}
+									if v != nil {
+										if vmp, _ := v.(*Map); vmp != nil {
+											vmp.Close()
+											vmp = nil
+										}
 									}
 								}
-							}
-						}()
+							}()
+						}
 					}
 				}
 			}
@@ -713,7 +720,7 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 					var lkpmp *Map = mp
 					if ksl := len(ks); ksl > 0 {
 						for kn, k := range a {
-							func() {
+							if !func() bool {
 								if knde := lkpmp.keys.ValueNode(k); knde != nil {
 									if vnde := lkpmp.kvndm[knde]; vnde != nil {
 										if vl := vnde.Value(); vl != nil {
@@ -721,7 +728,7 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 												if vmp, vmpok := vl.(*Map); vmpok {
 													lkpmp = vmp
 												} else {
-													return
+													return false
 												}
 											} else if (kn+1) == ksl && lkpmp != nil {
 												func() {
@@ -735,18 +742,21 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 														length = len(arv)
 													}
 												}()
-												return
+												return false
 											}
 										} else {
-											return
+											return false
 										}
 									} else {
-										return
+										return false
 									}
 								} else {
-									return
+									return false
 								}
-							}()
+								return true
+							}() {
+								break
+							}
 						}
 					}
 				}()
@@ -786,8 +796,8 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 					defer mp.lastAction(actnnone)
 					var lkpmp *Map = mp
 					if ksl := len(ks); ksl > 0 {
-						for kn, k := range a {
-							func() {
+						for kn, k := range ks {
+							if !func() bool {
 								if knde := lkpmp.keys.ValueNode(k); knde != nil {
 									if vnde := lkpmp.kvndm[knde]; vnde != nil {
 										if vl := vnde.Value(); vl != nil {
@@ -795,7 +805,7 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 												if vmp, vmpok := vl.(*Map); vmpok {
 													lkpmp = vmp
 												} else {
-													return
+													return false
 												}
 											} else if (kn+1) == ksl && lkpmp != nil {
 												func() {
@@ -809,18 +819,21 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 														length = len(arv)
 													}
 												}()
-												return
+												return false
 											}
 										} else {
-											return
+											return false
 										}
 									} else {
-										return
+										return false
 									}
 								} else {
-									return
+									return false
 								}
-							}()
+								return true
+							}() {
+								break
+							}
 						}
 					}
 				}()
@@ -857,8 +870,8 @@ func mapPop(mp *Map, mphndlr *MapHandler, a ...interface{}) (pop interface{}) {
 					defer mp.lastAction(actnnone)
 					var lkpmp *Map = mp
 					if ksl := len(ks); ksl > 0 {
-						for kn, k := range a {
-							func() {
+						for kn, k := range ks {
+							if !func() bool {
 								if knde := lkpmp.keys.ValueNode(k); knde != nil {
 									if vnde := lkpmp.kvndm[knde]; vnde != nil {
 										if vl := vnde.Value(); vl != nil {
@@ -866,7 +879,7 @@ func mapPop(mp *Map, mphndlr *MapHandler, a ...interface{}) (pop interface{}) {
 												if vmp, vmpok := vl.(*Map); vmpok {
 													lkpmp = vmp
 												} else {
-													return
+													return true
 												}
 											}
 											if (kn+1) == ksl && lkpmp != nil {
@@ -886,18 +899,21 @@ func mapPop(mp *Map, mphndlr *MapHandler, a ...interface{}) (pop interface{}) {
 														}
 													}
 												}()
-												return
+												return true
 											}
 										} else {
-											return
+											return false
 										}
 									} else {
-										return
+										return false
 									}
 								} else {
-									return
+									return false
 								}
-							}()
+								return true
+							}() {
+								break
+							}
 						}
 					}
 				}()
@@ -934,8 +950,8 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 					defer mp.lastAction(actnnone)
 					var lkpmp *Map = mp
 					if ksl := len(ks); ksl > 0 {
-						for kn, k := range a {
-							func() {
+						for kn, k := range ks {
+							if !func() bool {
 								if knde := lkpmp.keys.ValueNode(k); knde != nil {
 									if vnde := lkpmp.kvndm[knde]; vnde != nil {
 										if vl := vnde.Value(); vl != nil {
@@ -943,7 +959,7 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 												if vmp, vmpok := vl.(*Map); vmpok {
 													lkpmp = vmp
 												} else {
-													return
+													return false
 												}
 											}
 											if (kn+1) == ksl && lkpmp != nil {
@@ -963,18 +979,21 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 														}
 													}
 												}()
-												return
+												return false
 											}
 										} else {
-											return
+											return false
 										}
 									} else {
-										return
+										return false
 									}
 								} else {
-									return
+									return false
 								}
-							}()
+								return true
+							}() {
+								break
+							}
 						}
 					}
 				}()
