@@ -51,9 +51,16 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	return
 }
 
-func (mphndlr *MapHandler) Reset() {
+func (mphndlr *MapHandler) Reset(ks ...interface{}) {
 	if mphndlr != nil && mphndlr.mp != nil {
 		mphndlr.crntmp = mphndlr.mp
+		if len(ks) > 0 {
+			if vfound := mphndlr.crntmp.Find(ks...); vfound != nil {
+				if _, mpvfok := vfound.(*Map); !mpvfok {
+					mphndlr.crntmp = mphndlr.mp
+				}
+			}
+		}
 	}
 }
 
@@ -82,16 +89,16 @@ func (mphndlr *MapHandler) String(ks ...interface{}) (s string) {
 	return
 }
 
-func (mphndlr *MapHandler) Reader() (mprdr *iorw.EOFCloseSeekReader) {
+func (mphndlr *MapHandler) Reader(ks ...interface{}) (mprdr *iorw.EOFCloseSeekReader) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		mprdr = mapReader(mp, mphndlr)
+		mprdr = mapReader(mp, mphndlr, ks...)
 	} else {
 		mprdr = iorw.NewEOFCloseSeekReader(nil)
 	}
 	return
 }
 
-func (mphndlr *MapHandler) Fprint(w io.Writer) (err error) {
+func (mphndlr *MapHandler) Fprint(w io.Writer, ks ...interface{}) (err error) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		err = mapFprint(mp, mphndlr, w)
 	}
@@ -127,6 +134,21 @@ func (mphndlr *MapHandler) At(k interface{}, a ...interface{}) (arv interface{})
 		} else {
 			a = append([]interface{}{k}, a...)
 			arv = mapAt(mp, mphndlr, a...)
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) FindAt(k interface{}, a ...interface{}) (arv interface{}) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				arv = mapFindAt(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			arv = mapFindAt(mp, mphndlr, a...)
 		}
 	}
 	return
@@ -259,6 +281,7 @@ const (
 	actnunknown mapAction = iota
 	actnnone
 	actnput
+	actnat
 	actnpush
 	actnremove
 	actnpop
@@ -374,24 +397,24 @@ func (mp *Map) Fprint(w io.Writer) (err error) {
 	return
 }
 
-func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
+func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer, ks ...interface{}) (err error) {
 	if mp != nil && w != nil {
 		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
 			func() {
 				defer mp.lastAction(actnnone)
-				encodeMap(w, nil, mp, mphndlr)
+				encodeMap(w, nil, mp, mphndlr, ks...)
 			}()
 		}
 	}
 	return
 }
 
-func (mp *Map) Reader() (mprdr *iorw.EOFCloseSeekReader) {
-	mprdr = mapReader(mp, nil)
+func (mp *Map) Reader(ks ...interface{}) (mprdr *iorw.EOFCloseSeekReader) {
+	mprdr = mapReader(mp, nil, ks...)
 	return
 }
 
-func encodeMapAVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}) {
+func encodeMapAVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}, ks ...interface{}) {
 	if val != nil {
 		if vmp, vmpok := val.(*Map); vmpok {
 			encodeMap(w, jsnenc, vmp, mphndlr)
@@ -411,14 +434,14 @@ func encodeMapAVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandl
 	}
 }
 
-func encodeMapVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}, isLastVal bool) {
+func encodeMapVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, val interface{}, isLastVal bool, ks ...interface{}) {
 	encodeMapAVal(w, jsnenc, mp, mphndlr, val)
 	if !isLastVal {
 		iorw.Fprint(w, ",")
 	}
 }
 
-func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler) {
+func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, ks ...interface{}) {
 	if jsnenc == nil {
 		jsnenc = json.NewEncoder(w)
 	}
@@ -437,7 +460,7 @@ func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler) 
 	iorw.Fprint(w, "}")
 }
 
-func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
+func mapReader(mp *Map, mphndlr *MapHandler, ks ...interface{}) (mprdr *iorw.EOFCloseSeekReader) {
 	var rdr io.Reader = nil
 	if mp != nil {
 		if lstactn := mp.lastAction(actnread); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnread {
@@ -449,7 +472,7 @@ func mapReader(mp *Map, mphndlr *MapHandler) (mprdr *iorw.EOFCloseSeekReader) {
 				go func() {
 					defer pw.Close()
 					wg.Done()
-					encodeMap(pw, nil, mp, mphndlr)
+					encodeMap(pw, nil, mp, mphndlr, ks...)
 				}()
 				wg.Wait()
 				rdr = pi
@@ -783,6 +806,114 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 	return length
 }
 
+func (mp *Map) FindAt(k interface{}, a ...interface{}) (arv interface{}) {
+	if mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				arv = mapFindAt(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			arv = mapFindAt(mp, nil, a...)
+		}
+	}
+	return
+}
+
+func mapFindAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a[:al-1]
+			if a[al-1] != nil {
+				var arrv []interface{} = nil
+				if arrtv, arrtvok := a[al-1].([]interface{}); arrtvok && len(arrtv) > 0 {
+					arrv = arrtv[:]
+				} else {
+					arrv = []interface{}{a[al-1]}
+				}
+				if len(arrv) > 0 {
+					if lstactn := mp.lastAction(actnat); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnat {
+						func() {
+							defer mp.lastAction(actnnone)
+							var lkpmp *Map = mp
+							if ksl := len(ks); ksl > 0 {
+								for kn, k := range ks {
+									if !func() bool {
+										if knde := lkpmp.keys.ValueNode(k); knde != nil {
+											if vnde := lkpmp.kvndm[knde]; vnde != nil {
+												if vl := vnde.Value(); vl != nil {
+													if (kn + 2) <= ksl {
+														if vmp, vmpok := vl.(*Map); vmpok {
+															lkpmp = vmp
+														} else {
+															return false
+														}
+													} else if (kn+1) == ksl && lkpmp != nil {
+														func() {
+															if mphndlr != nil {
+																lkpmp.lck.Lock()
+																defer lkpmp.lck.Unlock()
+															}
+															if arv, arrvok := vl.([]interface{}); arrvok {
+																for an, ad := range arrv {
+																	if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+																		if ai := int(adi); ai > -1 && ai < len(arv) {
+																			if (an + 1) < len(arrv) {
+																				if arv, arrvok = arv[ai].([]interface{}); arrvok {
+																					continue
+																				} else {
+																					break
+																				}
+																			} else {
+																				if av = arv[ai]; av != nil {
+																					if mpv, mpvok := av.(*Map); mpvok {
+																						if mphndlr != nil {
+																							mphndlr.crntmp = mpv
+																						}
+																					}
+																				}
+																				break
+																			}
+																		} else {
+																			break
+																		}
+
+																	} else {
+																		break
+																	}
+																}
+															}
+														}()
+														return false
+													}
+												} else {
+													return false
+												}
+											} else {
+												return false
+											}
+										} else {
+											return false
+										}
+										return true
+									}() {
+										break
+									}
+								}
+							}
+						}()
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
 	if mp != nil {
 		if len(a) == 0 {
@@ -813,7 +944,7 @@ func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
 					arrv = []interface{}{a[al-1]}
 				}
 				if len(arrv) > 0 {
-					if lstactn := mp.lastAction(actnpush); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpush {
+					if lstactn := mp.lastAction(actnat); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnat {
 						func() {
 							defer mp.lastAction(actnnone)
 							var lkpmp *Map = mp
