@@ -30,6 +30,18 @@ func mapHandlerFinalize(mphndlr *MapHandler) {
 	}
 }
 
+//NewBuffer helper that returns instance of *iorw.Buffer
+func (mphndlr *MapHandler) NewBuffer() (buf *iorw.Buffer) {
+	buf = iorw.NewBuffer()
+	return
+}
+
+//NewList helper that returns instance of *enumeration.List
+func (mphndlr *MapHandler) NewList(distinct ...bool) (list *enumeration.List) {
+	list = enumeration.NewList(distinct...)
+	return
+}
+
 func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	var mp *Map = nil
 	var rnble active.Runtime = nil
@@ -100,7 +112,7 @@ func (mphndlr *MapHandler) Reader(ks ...interface{}) (mprdr *iorw.EOFCloseSeekRe
 
 func (mphndlr *MapHandler) Fprint(w io.Writer, ks ...interface{}) (err error) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		err = mapFprint(mp, mphndlr, w)
+		err = mapFprint(mp, mphndlr, w, ks...)
 	}
 	return
 }
@@ -246,7 +258,7 @@ func (mphndlr *MapHandler) Size(ks ...interface{}) (size int) {
 	return size
 }
 
-func (mphndlr *MapHandler) ValueAt(index int64) (v interface{}) {
+func (mphndlr *MapHandler) ValueAt(index int64, ks ...interface{}) (v interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		v = mapValueAt(mp, mphndlr, index)
 	}
@@ -281,6 +293,7 @@ const (
 	actnunknown mapAction = iota
 	actnnone
 	actnput
+	actnfindat
 	actnat
 	actnpush
 	actnremove
@@ -296,10 +309,10 @@ const (
 )
 
 type Map struct {
-	lck     *sync.RWMutex
-	keys    *enumeration.List
-	kvndm   map[*enumeration.Node]*enumeration.Node
-	vkndm   map[*enumeration.Node]*enumeration.Node
+	lck   *sync.RWMutex
+	keys  *enumeration.List
+	kvndm map[*enumeration.Node]*enumeration.Node
+	//vkndm   map[*enumeration.Node]*enumeration.Node
 	values  *enumeration.List
 	lstactn mapAction
 }
@@ -315,11 +328,11 @@ func mapFinalize(mp *Map) {
 //NewMap return instance of *Map
 func NewMap() (mp *Map) {
 	mp = &Map{
-		lck:     &sync.RWMutex{},
-		keys:    enumeration.NewList(true),
-		kvndm:   map[*enumeration.Node]*enumeration.Node{},
-		values:  enumeration.NewList(),
-		vkndm:   map[*enumeration.Node]*enumeration.Node{},
+		lck:    &sync.RWMutex{},
+		keys:   enumeration.NewList(true),
+		kvndm:  map[*enumeration.Node]*enumeration.Node{},
+		values: enumeration.NewList(),
+		//vkndm:   map[*enumeration.Node]*enumeration.Node{},
 		lstactn: actnnone}
 	runtime.SetFinalizer(mp, mapFinalize)
 	return
@@ -364,6 +377,17 @@ func (mp *Map) Size() (size int) {
 }
 
 func mapSize(mp *Map, mphndlr *MapHandler, ks ...interface{}) (size int) {
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
+	}
 	if mp != nil {
 		func() {
 			if mphndlr != nil {
@@ -390,14 +414,25 @@ func mapString(mp *Map, mphndlr *MapHandler, ks ...interface{}) (s string) {
 	return
 }
 
-func (mp *Map) Fprint(w io.Writer) (err error) {
+func (mp *Map) Fprint(w io.Writer, ks ...interface{}) (err error) {
 	if mp != nil {
-		err = mapFprint(mp, nil, w)
+		err = mapFprint(mp, nil, w, ks...)
 	}
 	return
 }
 
 func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer, ks ...interface{}) (err error) {
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
+	}
 	if mp != nil && w != nil {
 		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
 			func() {
@@ -425,6 +460,12 @@ func encodeMapAVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandl
 					encodeMapVal(w, jsnenc, mp, mphndlr, va, vn == len(varr)-1)
 				}
 				iorw.Fprint(w, "]")
+			} else if varr, varrok := val.(*enumeration.List); varrok {
+				iorw.Fprint(w, "[")
+				for vn := varr.Head(); vn != nil; vn = vn.Next() {
+					encodeMapVal(w, jsnenc, mp, mphndlr, vn.Value(), vn.Next() == nil)
+				}
+				iorw.Fprint(w, "]")
 			} else {
 				jsnenc.Encode(val)
 			}
@@ -444,24 +485,47 @@ func encodeMapVal(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandle
 func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, ks ...interface{}) {
 	if jsnenc == nil {
 		jsnenc = json.NewEncoder(w)
+		jsnenc.SetIndent("", "")
 	}
-	iorw.Fprint(w, "{")
-	var nxtkh *enumeration.Node = nil
-	if kh := mp.keys.Head(); kh != nil {
-		nxtkh = kh
-		for nxtkh != nil {
-			jsnenc.Encode(kh.Value())
-			iorw.Fprint(w, ":")
-			nxtkh = kh.Next()
-			encodeMapVal(w, jsnenc, mp, mphndlr, mp.kvndm[kh].Value(), nxtkh == nil)
-			kh = nxtkh
+
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound == nil {
+			encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
+		} else if vfmp, vfmok := vfound.(*Map); vfmok {
+			encodeMap(w, jsnenc, vfmp, mphndlr)
+		} else {
+			encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
 		}
+	} else {
+		iorw.Fprint(w, "{")
+		var nxtkh *enumeration.Node = nil
+		if kh := mp.keys.Head(); kh != nil {
+			nxtkh = kh
+			for nxtkh != nil {
+				jsnenc.Encode(kh.Value())
+				iorw.Fprint(w, ":")
+				nxtkh = kh.Next()
+				encodeMapVal(w, jsnenc, mp, mphndlr, mp.kvndm[kh].Value(), nxtkh == nil)
+				kh = nxtkh
+			}
+		}
+		iorw.Fprint(w, "}")
 	}
-	iorw.Fprint(w, "}")
 }
 
 func mapReader(mp *Map, mphndlr *MapHandler, ks ...interface{}) (mprdr *iorw.EOFCloseSeekReader) {
 	var rdr io.Reader = nil
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
+	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnread); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnread {
 			func() {
@@ -544,6 +608,17 @@ func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{
 }
 
 func (mp *Map) Keys(k ...interface{}) (ks []interface{}) {
+	if kl := len(k); kl > 0 {
+		if vfound := mp.Find(k...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
+	}
 	if mp != nil && mp.keys != nil {
 		if kh := mp.keys.Head(); kh != nil {
 			for kh != nil {
@@ -559,6 +634,17 @@ func (mp *Map) Keys(k ...interface{}) (ks []interface{}) {
 }
 
 func (mp *Map) Values(k ...interface{}) (vs []interface{}) {
+	if kl := len(k); kl > 0 {
+		if vfound := mp.Find(k...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
+	}
 	if mp != nil && mp.values != nil {
 		if kh := mp.keys.Head(); kh != nil {
 			for kh != nil {
@@ -610,7 +696,7 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 												//REMOVED VALUE
 												func(nde *enumeration.Node, val interface{}) {
 													if vnde == nde {
-														delete(mp.vkndm, vnde)
+														//delete(mp.vkndm, vnde)
 													}
 												},
 												//DISPOSED VALUE
@@ -637,8 +723,8 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 	}
 }
 
-func (mp *Map) Clear() {
-	mapClear(mp, nil)
+func (mp *Map) Clear(ks ...interface{}) {
+	mapClear(mp, nil, ks...)
 }
 
 func (mp *Map) Close() {
@@ -651,6 +737,17 @@ func (mp *Map) Close() {
 func mapClear(mp *Map, mphndlr *MapHandler, ks ...interface{}) {
 	if mp == nil && mphndlr != nil {
 		mp = mphndlr.currentmp()
+	}
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnclear); lstactn == actnclear || lstactn == actnclose {
@@ -692,16 +789,27 @@ func mapClose(mp *Map, mphndlr *MapHandler) {
 	}
 }
 
-func (mp *Map) ValueAt(index int64) (v interface{}) {
+func (mp *Map) ValueAt(index int64, ks ...interface{}) (v interface{}) {
 	if mp != nil {
-		v = mapValueAt(mp, nil, index)
+		v = mapValueAt(mp, nil, index, ks...)
 	}
 	return
 }
 
-func mapValueAt(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) {
+func mapValueAt(mp *Map, mphndlr *MapHandler, index int64, ks ...interface{}) (v interface{}) {
 	if mp == nil && mphndlr != nil {
 		mp = mphndlr.currentmp()
+	}
+	if kl := len(ks); kl > 0 {
+		if vfound := mp.Find(ks...); vfound != nil {
+			if vfmp, vfmpok := vfound.(*Map); vfmpok && vfmp != nil {
+				mp = vfmp
+			} else {
+				mp = nil
+			}
+		} else {
+			mp = nil
+		}
 	}
 	if mp != nil {
 		if lstactn := mp.lastAction(actnfind); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnfind {
@@ -836,7 +944,7 @@ func mapFindAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) 
 					arrv = []interface{}{a[al-1]}
 				}
 				if len(arrv) > 0 {
-					if lstactn := mp.lastAction(actnat); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnat {
+					if lstactn := mp.lastAction(actnfindat); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnfindat {
 						func() {
 							defer mp.lastAction(actnnone)
 							var lkpmp *Map = mp
@@ -1323,7 +1431,7 @@ func mapPut(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 										}, v)
 										if kndecngd && vndecngd && vldky && vldv {
 											mp.kvndm[knde] = vnde
-											mp.vkndm[vnde] = knde
+											//mp.vkndm[vnde] = knde
 										}
 									} else if vldky && !kndecngd {
 										vnde = mp.kvndm[knde]
