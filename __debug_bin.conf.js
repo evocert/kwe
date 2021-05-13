@@ -5,17 +5,11 @@ var arr1=[];
 caching.Clear();
 caching.Put(k,[arr1]);
 arr1=caching.Find(k);
-var arr2=[];
-arr2.push(8)
-caching.Push(k,arr2);
-var arr2=[];
-arr2.push(8)
-caching.Push(k,arr2);
-var arr2=[];
-arr2.push(18)
-caching.Shift(k,arr2);
+caching.Push(k,[[8]]);
+caching.Push(k,[8]);
+caching.Shift(k,18);
 caching.Fprint(request);
-print(caching.Reader());
+println(caching.At(k,[[1,0]]));
 //caching.Push(k,8)
 caching.Put("a4","hjkhjhkhj");
 caching.Put("a3",{"d1":89989,"d2":{"f1":6}});

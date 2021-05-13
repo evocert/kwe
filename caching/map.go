@@ -2,8 +2,10 @@ package caching
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/evocert/kwe/enumeration"
@@ -73,9 +75,9 @@ func (mphndlr *MapHandler) Keys(k ...interface{}) (ks []interface{}) {
 	return
 }
 
-func (mphndlr *MapHandler) String() (s string) {
+func (mphndlr *MapHandler) String(ks ...interface{}) (s string) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		s = mapString(mp, mphndlr)
+		s = mapString(mp, mphndlr, ks...)
 	}
 	return
 }
@@ -113,6 +115,21 @@ func (mphndlr *MapHandler) Remove(a ...interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		mapRemove(false, mp, mphndlr, a...)
 	}
+}
+
+func (mphndlr *MapHandler) At(k interface{}, a ...interface{}) (arv interface{}) {
+	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				arv = mapAt(mp, mphndlr, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			arv = mapAt(mp, mphndlr, a...)
+		}
+	}
+	return
 }
 
 func (mphndlr *MapHandler) Push(k interface{}, a ...interface{}) (length int) {
@@ -200,23 +217,23 @@ func (mphndlr *MapHandler) Find(ks ...interface{}) (vfound interface{}) {
 	return
 }
 
-func (mphndlr *MapHandler) Size() (size int) {
+func (mphndlr *MapHandler) Size(ks ...interface{}) (size int) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		size = mapSize(mp, mphndlr)
+		size = mapSize(mp, mphndlr, ks...)
 	}
 	return size
 }
 
-func (mphndlr *MapHandler) ValueByIndex(index int64) (v interface{}) {
+func (mphndlr *MapHandler) ValueAt(index int64) (v interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		v = mapValueByIndex(mp, mphndlr, index)
+		v = mapValueAt(mp, mphndlr, index)
 	}
 	return
 }
 
-func (mphndlr *MapHandler) Clear() {
+func (mphndlr *MapHandler) Clear(ks ...interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
-		mapClear(mp, mphndlr)
+		mapClear(mp, mphndlr, ks...)
 	}
 }
 
@@ -323,7 +340,7 @@ func (mp *Map) Size() (size int) {
 	return size
 }
 
-func mapSize(mp *Map, mphndlr *MapHandler) (size int) {
+func mapSize(mp *Map, mphndlr *MapHandler, ks ...interface{}) (size int) {
 	if mp != nil {
 		func() {
 			if mphndlr != nil {
@@ -338,12 +355,12 @@ func mapSize(mp *Map, mphndlr *MapHandler) (size int) {
 	return
 }
 
-func (mp *Map) String() (s string) {
-	s = mapString(mp, nil)
+func (mp *Map) String(ks ...interface{}) (s string) {
+	s = mapString(mp, nil, ks...)
 	return
 }
 
-func mapString(mp *Map, mphndlr *MapHandler) (s string) {
+func mapString(mp *Map, mphndlr *MapHandler, ks ...interface{}) (s string) {
 	if mp != nil {
 		s, _ = iorw.ReaderToString(mapReader(mp, mphndlr))
 	}
@@ -608,7 +625,7 @@ func (mp *Map) Close() {
 	}
 }
 
-func mapClear(mp *Map, mphndlr *MapHandler) {
+func mapClear(mp *Map, mphndlr *MapHandler, ks ...interface{}) {
 	if mp == nil && mphndlr != nil {
 		mp = mphndlr.currentmp()
 	}
@@ -652,14 +669,14 @@ func mapClose(mp *Map, mphndlr *MapHandler) {
 	}
 }
 
-func (mp *Map) ValueByIndex(index int64) (v interface{}) {
+func (mp *Map) ValueAt(index int64) (v interface{}) {
 	if mp != nil {
-		v = mapValueByIndex(mp, nil, index)
+		v = mapValueAt(mp, nil, index)
 	}
 	return
 }
 
-func mapValueByIndex(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) {
+func mapValueAt(mp *Map, mphndlr *MapHandler, index int64) (v interface{}) {
 	if mp == nil && mphndlr != nil {
 		mp = mphndlr.currentmp()
 	}
@@ -764,6 +781,108 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 		}
 	}
 	return length
+}
+
+func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
+	if mp != nil {
+		if len(a) == 0 {
+			if a != nil {
+				a = append([]interface{}{k}, a)
+				arv = mapAt(mp, nil, a...)
+			}
+		} else {
+			a = append([]interface{}{k}, a...)
+			arv = mapAt(mp, nil, a...)
+		}
+	}
+	return
+}
+
+func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
+	if mp == nil && mphndlr != nil {
+		mp = mphndlr.currentmp()
+	}
+	if mp != nil {
+		if al := len(a); al > 1 {
+			ks := a[:al-1]
+			if a[al-1] != nil {
+				var arrv []interface{} = nil
+				if arrtv, arrtvok := a[al-1].([]interface{}); arrtvok && len(arrtv) > 0 {
+					arrv = arrtv[:]
+				} else {
+					arrv = []interface{}{a[al-1]}
+				}
+				if len(arrv) > 0 {
+					if lstactn := mp.lastAction(actnpush); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnpush {
+						func() {
+							defer mp.lastAction(actnnone)
+							var lkpmp *Map = mp
+							if ksl := len(ks); ksl > 0 {
+								for kn, k := range ks {
+									if !func() bool {
+										if knde := lkpmp.keys.ValueNode(k); knde != nil {
+											if vnde := lkpmp.kvndm[knde]; vnde != nil {
+												if vl := vnde.Value(); vl != nil {
+													if (kn + 2) <= ksl {
+														if vmp, vmpok := vl.(*Map); vmpok {
+															lkpmp = vmp
+														} else {
+															return false
+														}
+													} else if (kn+1) == ksl && lkpmp != nil {
+														func() {
+															if mphndlr != nil {
+																lkpmp.lck.Lock()
+																defer lkpmp.lck.Unlock()
+															}
+															if arv, arrvok := vl.([]interface{}); arrvok {
+																for an, ad := range arrv {
+																	if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+																		if ai := int(adi); ai > -1 && ai < len(arv) {
+																			if (an + 1) < len(arrv) {
+																				if arv, arrvok = arv[ai].([]interface{}); arrvok {
+																					continue
+																				} else {
+																					break
+																				}
+																			} else {
+																				av = arv[ai]
+																				break
+																			}
+																		} else {
+																			break
+																		}
+
+																	} else {
+																		break
+																	}
+																}
+															}
+														}()
+														return false
+													}
+												} else {
+													return false
+												}
+											} else {
+												return false
+											}
+										} else {
+											return false
+										}
+										return true
+									}() {
+										break
+									}
+								}
+							}
+						}()
+					}
+				}
+			}
+		}
+	}
+	return
 }
 
 func (mp *Map) Push(k interface{}, a ...interface{}) (length int) {
