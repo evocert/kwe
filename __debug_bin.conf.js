@@ -8,6 +8,7 @@ arr1=caching.Find(k);
 caching.Push(k,[[8]]);
 caching.Push(k,[8]);
 caching.Shift(k,18);
+
 caching.Fprint(request);
 println(caching.At(k,[[1,0]]));
 caching.Put("a4","hjkhjhkhj");
