@@ -10,7 +10,6 @@ caching.Push(k,[8]);
 caching.Shift(k,18);
 caching.Fprint(request);
 println(caching.At(k,[[1,0]]));
-//caching.Push(k,8)
 caching.Put("a4","hjkhjhkhj");
 caching.Put("a3",{"d1":89989,"d2":{"f1":6}});
 var obj=(caching.ValueByIndex(0));
