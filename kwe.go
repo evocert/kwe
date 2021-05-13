@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	//_ "github.com/evocert/kwe/database/db2"
@@ -10,9 +9,7 @@ import (
 	_ "github.com/evocert/kwe/database/ora"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
-	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/service"
-	"github.com/evocert/kwe/web"
 )
 
 func main() {
@@ -23,7 +20,7 @@ func main() {
 			rw.ReadAll()
 		}
 	}()*/
-	web := web.NewClient()
+	/*web := web.NewClient()
 
 	soapsend := `<?xml version="1.0" encoding="utf-8"?>
 	<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -45,7 +42,7 @@ func main() {
 		iorw.Fprintln(os.Stdout, rdr)
 	} else {
 		fmt.Println(err.Error())
-	}
+	}*/
 
 	/*for i := 0; i < 20; i++ {
 		mqttclid := fmt.Sprintf("mqtt%d", (i + 1))
