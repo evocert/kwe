@@ -901,6 +901,8 @@ func mapShift(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 														arv = append([]interface{}{arrv}, arv...)
 														vnde.Set(arv, true)
 														length = len(arv)
+													} else if arv, arrvok := vl.(*enumeration.List); arrvok {
+														length = arv.Shift(nil, nil, arrv)
 													}
 												}()
 												return false
@@ -1188,6 +1190,8 @@ func mapPush(mp *Map, mphndlr *MapHandler, a ...interface{}) (length int) {
 														arv = append(arv, arrv)
 														vnde.Set(arv, true)
 														length = len(arv)
+													} else if arv, arrvok := vl.(*enumeration.List); arrvok {
+														length = arv.Push(nil, nil, arrv)
 													}
 												}()
 												return false
@@ -1268,6 +1272,8 @@ func mapPop(mp *Map, mphndlr *MapHandler, a ...interface{}) (pop interface{}) {
 															}
 															vnde.Set(arv, true)
 														}
+													} else if arv, arrvok := vl.(*enumeration.List); arrvok {
+														pop = arv.Pop()
 													}
 												}()
 												return true
@@ -1348,6 +1354,8 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 															}
 															vnde.Set(arv, true)
 														}
+													} else if arv, arrvok := vl.(*enumeration.List); arrvok {
+														unshift = arv.Unshift()
 													}
 												}()
 												return false
@@ -1419,7 +1427,7 @@ func mapPut(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 										mp.lck.Lock()
 										defer mp.lck.Unlock()
 									}
-									keys.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
+									keys.Push(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
 										kndecngd = cngd
 										knde = n
 										vldky = valvld
@@ -1436,7 +1444,7 @@ func mapPut(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 										}
 									}
 									if vldky && kndecngd {
-										values.Add(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
+										values.Push(nil, func(cngd bool, valvld bool, idx int, n *enumeration.Node, i interface{}) {
 											if vndecngd = cngd; kndecngd {
 												vnde = n
 											}
@@ -1444,7 +1452,6 @@ func mapPut(mp *Map, mphndlr *MapHandler, a ...interface{}) {
 										}, v)
 										if kndecngd && vndecngd && vldky && vldv {
 											mp.kvndm[knde] = vnde
-											//mp.vkndm[vnde] = knde
 										}
 									} else if vldky && !kndecngd {
 										vnde = mp.kvndm[knde]

@@ -53,7 +53,7 @@ func (nde *Node) InsertAfter(val interface{}, a ...interface{}) {
 				}
 			}
 		}
-		internalAdd(nde.lst, mdfying, mdfied, nde, insertAfter, val)
+		internalInput(nde.lst, mdfying, mdfied, nde, insertAfter, val)
 	}
 }
 
@@ -71,7 +71,7 @@ func (nde *Node) InsertBefore(val interface{}, a ...interface{}) {
 				}
 			}
 		}
-		internalAdd(nde.lst, mdfying, mdfied, nde, insertBefore, val)
+		internalInput(nde.lst, mdfying, mdfied, nde, insertBefore, val)
 	}
 }
 
@@ -90,7 +90,7 @@ func (nde *Node) Set(val interface{}, forceset ...bool) {
 func (nde *Node) Dispose(eventRemoved func(nde *Node, val interface{}), disposingRemoving func(nde *Node, val interface{})) {
 	if nde != nil {
 		if nde.lst != nil {
-			diposeNode(nde.lst, nde, eventRemoved, disposingRemoving)
+			disposeNode(nde.lst, nde, eventRemoved, disposingRemoving)
 			nde.lst = nil
 		}
 		nde.val = nil
@@ -166,16 +166,31 @@ func (lst *List) Do(RemovingNode func(*Node, interface{}) bool,
 	}
 }
 
-func (lst *List) DoReverse(RemovingNode func(*Node) bool,
-	RemovedNode func(*Node),
-	DisposingNode func(*Node)) {
+func (lst *List) DoReverse(RemovingNode func(*Node, interface{}) bool,
+	RemovedNode func(*Node, interface{}),
+	DisposingNode func(*Node, interface{})) {
+	if lst.head != nil && lst.tail != nil {
+		crntnde := lst.tail
+		prvnde := crntnde
+		for prvnde != nil {
+			if RemovingNode != nil && RemovingNode(prvnde, prvnde.val) {
+				crntnde = prvnde
+				prvnde = lst.reversemap[crntnde]
+				crntnde.Dispose(RemovedNode, DisposingNode)
+				crntnde = nil
+			} else {
+				prvnde = lst.reversemap[crntnde]
+				crntnde = prvnde
+			}
+		}
+	}
 }
 
 func (lst *List) Dispose(eventRemoving func(*Node, interface{}), eventDisposing func(*Node, interface{})) {
 	if lst != nil {
 		if lst.forwardmap != nil && lst.reversemap != nil {
 			for lst.head != nil {
-				diposeNode(lst, lst.head, eventRemoving, eventDisposing)
+				disposeNode(lst, lst.head, eventRemoving, eventDisposing)
 			}
 			lst.forwardmap = nil
 			lst.reversemap = nil
@@ -184,13 +199,35 @@ func (lst *List) Dispose(eventRemoving func(*Node, interface{}), eventDisposing 
 	}
 }
 
-//func (lst *List) DoAdd(Adding func())
-
-func (lst *List) Add(mdfying func(interface{}), mdfied func(bool, bool, int, *Node, interface{}), val ...interface{}) {
+func (lst *List) Push(mdfying func(interface{}), mdfied func(bool, bool, int, *Node, interface{}), val ...interface{}) int {
 	lst.InsertAfter(mdfying, mdfied, lst.tail, val...)
+	return lst.Length()
 }
 
-func diposeNode(lst *List, nde *Node, eventRemoved func(*Node, interface{}), eventDisposing func(*Node, interface{})) {
+func (lst *List) Shift(mdfying func(interface{}), mdfied func(bool, bool, int, *Node, interface{}), val ...interface{}) int {
+	lst.InsertBefore(mdfying, mdfied, lst.head, val...)
+	return lst.Length()
+}
+
+func (lst *List) Pop() (val interface{}) {
+	if lst.tail != nil {
+		lst.tail.Dispose(nil, func(nde *Node, v interface{}) {
+			val = v
+		})
+	}
+	return
+}
+
+func (lst *List) Unshift() (val interface{}) {
+	if lst.head != nil {
+		lst.head.Dispose(nil, func(nde *Node, v interface{}) {
+			val = v
+		})
+	}
+	return
+}
+
+func disposeNode(lst *List, nde *Node, eventRemoved func(*Node, interface{}), eventDisposing func(*Node, interface{})) {
 	if nde != nil && lst != nil {
 		if nde.lst == lst {
 			pvrnde := lst.reversemap[nde]
@@ -226,9 +263,9 @@ func diposeNode(lst *List, nde *Node, eventRemoved func(*Node, interface{}), eve
 	}
 }
 
-func internalAdd(lst *List, modifying func(value interface{}), modified func(changed bool, validval bool, vindex int, node *Node, value interface{}), ndefrm *Node, action listaction, val ...interface{}) {
+func internalInput(lst *List, modifying func(value interface{}), modified func(changed bool, validval bool, vindex int, node *Node, value interface{}), ndefrm *Node, action listaction, val ...interface{}) {
 	if len(val) > 0 {
-		var inbfadd = func(nde *Node, prvnde *Node, nxtNde *Node, nvali int, nval interface{}) {
+		var inbfinput = func(nde *Node, prvnde *Node, nxtNde *Node, nvali int, nval interface{}) {
 			if nwndo := lst.newNode(nval); nwndo != nil {
 				if nde == nil {
 					if lst.head == nil && lst.tail == nil {
@@ -236,11 +273,16 @@ func internalAdd(lst *List, modifying func(value interface{}), modified func(cha
 						lst.tail = nwndo
 						lst.forwardmap[nwndo] = nil
 						lst.reversemap[nwndo] = nil
-					} else if lst.head != nil && lst.tail != nil {
+					} else if action == insertAfter && lst.head != nil && lst.tail != nil {
 						lst.forwardmap[lst.tail] = nwndo
 						lst.reversemap[nwndo] = lst.tail
 						lst.forwardmap[nwndo] = nil
 						lst.tail = nwndo
+					} else if action == insertBefore && lst.head != nil && lst.tail != nil {
+						lst.reversemap[lst.head] = nwndo
+						lst.forwardmap[nwndo] = lst.head
+						lst.reversemap[nwndo] = nil
+						lst.head = nwndo
 					}
 				} else if action == insertAfter {
 					if nde == lst.tail {
@@ -249,12 +291,23 @@ func internalAdd(lst *List, modifying func(value interface{}), modified func(cha
 						lst.forwardmap[nwndo] = nil
 						lst.tail = nwndo
 					} else if prvnde != nil && nxtNde != nil {
-						lst.forwardmap[lst.tail] = nwndo
-						lst.reversemap[nwndo] = lst.tail
-						lst.forwardmap[nwndo] = nil
+						lst.forwardmap[nde] = nwndo
+						lst.reversemap[nwndo] = nde
+						lst.forwardmap[nwndo] = nxtNde
+						lst.reversemap[nxtNde] = nwndo
 					}
 				} else if action == insertBefore {
-
+					if nde == lst.head {
+						lst.reversemap[lst.head] = nwndo
+						lst.forwardmap[nwndo] = lst.head
+						lst.reversemap[nwndo] = nil
+						lst.head = nwndo
+					} else if prvnde != nil && nxtNde != nil {
+						lst.reversemap[nde] = nwndo
+						lst.forwardmap[nwndo] = nde
+						lst.reversemap[nwndo] = prvnde
+						lst.forwardmap[prvnde] = nwndo
+					}
 				}
 				if lst.distinct {
 					lst.vnds[nval] = nwndo
@@ -279,15 +332,15 @@ func internalAdd(lst *List, modifying func(value interface{}), modified func(cha
 					continue
 				}
 			}
-			inbfadd(ndefrm, lst.reversemap[ndefrm], lst.forwardmap[ndefrm], vli, vl)
+			inbfinput(ndefrm, lst.reversemap[ndefrm], lst.forwardmap[ndefrm], vli, vl)
 		}
 	}
 }
 
 func (lst *List) InsertBefore(mdfying func(interface{}), mdfied func(bool, bool, int, *Node, interface{}), ndefrm *Node, val ...interface{}) {
-	internalAdd(lst, mdfying, mdfied, ndefrm, insertBefore, val...)
+	internalInput(lst, mdfying, mdfied, ndefrm, insertBefore, val...)
 }
 
 func (lst *List) InsertAfter(mdfying func(interface{}), mdfied func(bool, bool, int, *Node, interface{}), ndefrm *Node, val ...interface{}) {
-	internalAdd(lst, mdfying, mdfied, ndefrm, insertAfter, val...)
+	internalInput(lst, mdfying, mdfied, ndefrm, insertAfter, val...)
 }

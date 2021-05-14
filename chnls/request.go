@@ -152,7 +152,7 @@ func (rqst *Request) AddPath(path ...string) {
 								rqst.actnslst.Add(newAction(rqst, rsngpth))
 								rqst.rsngpthsref[pth] = rsngpth
 							}*/
-						rqst.actnslst.Add(nil, nil, newAction(rqst, pth))
+						rqst.actnslst.Push(nil, nil, newAction(rqst, pth))
 					}
 				}
 			}
