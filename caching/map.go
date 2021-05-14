@@ -680,9 +680,7 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 									defer mp.lck.Unlock()
 								}
 								if knde := keys.ValueNode(d); knde != nil {
-									k := knde.Value()
 									vnde := mp.kvndm[knde]
-									v := vnde.Value()
 									knde.Dispose(
 										//REMOVED KEY
 										func(nde *enumeration.Node, val interface{}) {
@@ -692,27 +690,17 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 										},
 										//DISPOSED KEY
 										func(nde *enumeration.Node, val interface{}) {
-											vnde.Dispose(
-												//REMOVED VALUE
-												func(nde *enumeration.Node, val interface{}) {
-													if vnde == nde {
-														//delete(mp.vkndm, vnde)
-													}
-												},
-												//DISPOSED VALUE
-												func(nde *enumeration.Node, val interface{}) {
-
-												})
+											disposeValue(val)
 										})
-									if k != nil {
+									vnde.Dispose(
+										//REMOVED VALUE
+										func(nde *enumeration.Node, val interface{}) {
 
-									}
-									if v != nil {
-										if vmp, _ := v.(*Map); vmp != nil {
-											vmp.Close()
-											vmp = nil
-										}
-									}
+										},
+										//DISPOSED VALUE
+										func(nde *enumeration.Node, val interface{}) {
+											disposeValue(val)
+										})
 								}
 							}()
 						}
@@ -720,6 +708,31 @@ func mapRemove(forceRemove bool, mp *Map, mphndlr *MapHandler, a ...interface{})
 				}
 			}
 		}
+	}
+}
+
+func disposeValue(v interface{}) {
+	if v != nil {
+		if vmp, _ := v.(*Map); vmp != nil {
+			vmp.Close()
+			vmp = nil
+		} else if varr, _ := v.([]interface{}); varr != nil {
+			varr = nil
+		} else if varr, _ := v.(*enumeration.List); varr != nil {
+			varr.Dispose( //REMOVED VALUE
+				func(nde *enumeration.Node, val interface{}) {
+
+				},
+				//DISPOSED VALUE
+				func(nde *enumeration.Node, val interface{}) {
+					disposeValue(val)
+				})
+			varr = nil
+		} else if vbuf, _ := v.(*iorw.Buffer); vbuf != nil {
+			vbuf.Close()
+			vbuf = nil
+		}
+		v = nil
 	}
 }
 
