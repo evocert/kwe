@@ -5,7 +5,6 @@ www/
 kwe_ockert
 kwe_ockert.go
 *__debug_bin*.*
-__debug_bin.conf.js
 .vscode/launch.json
 run
 build
