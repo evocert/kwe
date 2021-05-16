@@ -715,7 +715,6 @@ func parseprsngrune(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (e
 			prslblprv[1] = pr
 		}
 	}
-	//}
 	return
 }
 
