@@ -29,9 +29,9 @@ func (rqst *Request) FS() *fsutils.FSUtils {
 			}, TOUCH: func(path string) bool {
 				return rqst.fstouch(rqst.rqstrsngmngr, path)
 			}, PIPE: func(path string) io.Reader {
-				return rqst.fscat(rqst.rscngmnger(), path)
+				return rqst.fspipe(rqst.rscngmnger(), path)
 			}, PIPES: func(path string) string {
-				return rqst.fscats(rqst.rscngmnger(), path)
+				return rqst.fspipes(rqst.rscngmnger(), path)
 			}, CAT: func(path string) io.Reader {
 				return rqst.fscat(rqst.rscngmnger(), path)
 			}, CATS: func(path string) string {
@@ -152,4 +152,12 @@ func (rsqt *Request) fscat(rsngmngr *resources.ResourcingManager, path string) i
 
 func (rsqt *Request) fscats(rsngmngr *resources.ResourcingManager, path string) string {
 	return rsngmngr.FS().CATS(path)
+}
+
+func (rsqt *Request) fspipe(rsngmngr *resources.ResourcingManager, path string) io.Reader {
+	return rsngmngr.FS().PIPE(path)
+}
+
+func (rsqt *Request) fspipes(rsngmngr *resources.ResourcingManager, path string) string {
+	return rsngmngr.FS().PIPES(path)
 }
