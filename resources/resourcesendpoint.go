@@ -182,6 +182,22 @@ func (rscngepnt *ResourcingEndpoint) fscats(path string) (s string) {
 	return s
 }
 
+func (rscngepnt *ResourcingEndpoint) fspipe(path string) (r io.Reader) {
+	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
+		if rs, _ := rscngepnt.findRS(path); rs != nil {
+			r = iorw.NewEOFCloseSeekReader(rs, false)
+		}
+	}
+	return r
+}
+
+func (rscngepnt *ResourcingEndpoint) fspipes(path string) (s string) {
+	if r := rscngepnt.fspipe(path); r != nil {
+		s, _ = iorw.ReaderToString(r)
+	}
+	return s
+}
+
 func (rscngepnt *ResourcingEndpoint) fstouch(path string) bool {
 	if rscngepnt.isLocal {
 		if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {

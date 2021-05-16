@@ -28,6 +28,10 @@ func (rqst *Request) FS() *fsutils.FSUtils {
 				return rqst.fsmv(rqst.rscngmnger(), path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rqst.fstouch(rqst.rqstrsngmngr, path)
+			}, PIPE: func(path string) io.Reader {
+				return rqst.fscat(rqst.rscngmnger(), path)
+			}, PIPES: func(path string) string {
+				return rqst.fscats(rqst.rscngmnger(), path)
 			}, CAT: func(path string) io.Reader {
 				return rqst.fscat(rqst.rscngmnger(), path)
 			}, CATS: func(path string) string {

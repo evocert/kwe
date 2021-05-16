@@ -477,6 +477,66 @@ func CATS(path string) (cntnt string, err error) {
 	return
 }
 
+//PIPE return file content if file exists else empty string
+func PIPE(path string) (r io.Reader, err error) {
+	if statf, staterr := os.Stat(path); staterr != nil {
+		err = staterr
+	} else if !statf.IsDir() {
+		if statf.Size() > 0 {
+			if f, ferr := os.Open(path); ferr == nil {
+				pr, pw := io.Pipe()
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				go func() {
+					var pwerr error = nil
+					defer func() {
+						f.Close()
+						if pwerr == nil {
+							pw.Close()
+						} else {
+							pw.CloseWithError(pwerr)
+						}
+					}()
+					wg.Done()
+					if _, pwerr = io.Copy(pw, f); pwerr != nil {
+						if pwerr == io.EOF {
+							pwerr = nil
+						}
+					}
+				}()
+				wg.Done()
+				r = iorw.NewEOFCloseSeekReader(pr, false)
+			} else {
+				err = ferr
+			}
+		}
+	}
+
+	return
+}
+
+//PIPES return file content if file exists else empty string
+func PIPES(path string) (cntnt string, err error) {
+	var r io.Reader = nil
+	if r, err = PIPE(path); err == nil {
+		if r != nil {
+			var rc io.Closer = nil
+			rc, _ = r.(io.Closer)
+			func() {
+				defer func() {
+					if rc != nil {
+						rc.Close()
+						rc = nil
+					}
+					r = nil
+				}()
+				cntnt, err = iorw.ReaderToString(r)
+			}()
+		}
+	}
+	return
+}
+
 //SET if file exists replace content else create file and append content
 func SET(path string, a ...interface{}) (err error) {
 	if f, ferr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); ferr == nil {
@@ -537,6 +597,8 @@ type FSUtils struct {
 	MV             func(path string, destpath string) bool                                                                      `json:"mv"`
 	TOUCH          func(path string) bool                                                                                       `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)                                                                               `json:"finfopathsjson"`
+	PIPE           func(path string) (r io.Reader)                                                                              `json:"pipe"`
+	PIPES          func(path string) (s string)                                                                                 `json:"pipes"`
 	CAT            func(path string) (r io.Reader)                                                                              `json:"cat"`
 	CATS           func(path string) (s string)                                                                                 `json:"cats"`
 	SET            func(path string, a ...interface{}) bool                                                                     `json:"set"`
@@ -600,6 +662,17 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 				return true
 			}
 			return false
+		},
+		PIPE: func(path string) (r io.Reader) {
+			if catr, err := PIPE(path); err == nil {
+				r = catr
+			}
+			return
+		}, PIPES: func(path string) (s string) {
+			if cats, err := PIPES(path); err == nil {
+				s = cats
+			}
+			return
 		},
 		CAT: func(path string) (r io.Reader) {
 			if catr, err := CAT(path); err == nil {

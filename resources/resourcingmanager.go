@@ -35,6 +35,11 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 				return rscngmngr.fsmv(path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rscngmngr.fstouch(path)
+			}, PIPE: func(path string) io.Reader {
+				return rscngmngr.fspipe(path)
+			},
+			PIPES: func(path string) string {
+				return rscngmngr.fspipes(path)
 			}, CAT: func(path string) io.Reader {
 				return rscngmngr.fscat(path)
 			},
@@ -162,6 +167,34 @@ func (rscngmngr *ResourcingManager) fscats(path string) (s string) {
 	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
 		if len(epnts) == 1 && len(paths) == 1 {
 			s = epnts[0].fscats(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return s
+}
+
+func (rscngmngr *ResourcingManager) fspipe(path string) (r io.Reader) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			r = epnts[0].fspipe(paths[0])
+		}
+		epnts = nil
+		paths = nil
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fspipes(path string) (s string) {
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if epnts, paths, _ := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) == 1 && len(paths) == 1 {
+			s = epnts[0].fspipes(paths[0])
 		}
 		epnts = nil
 		paths = nil
