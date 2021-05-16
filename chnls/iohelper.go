@@ -59,7 +59,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 				if sargs[0] == "#!commit" || sargs[0] == "#!close" || sargs[0] == "#!exit" {
 					if sargs[0] == "#!exit" {
 						if rqststdio.cmd != nil {
-							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false, "")
 							rqststdio.cmd.Close()
 							rqststdio.cmd = nil
 						}
@@ -70,7 +70,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 						if rqststdio.lsthshlnk == "#!js" {
 							if rqststdio.inbuf.Size() > 0 {
 								if bfr := rqststdio.inbuf.Reader(); bfr != nil {
-									rqststdio.rqst.copy(bfr, rqststdio.rqst, true)
+									rqststdio.rqst.copy(bfr, rqststdio.rqst, true, "")
 									bfr.Close()
 								}
 								rqststdio.inbuf.Clear()
@@ -86,7 +86,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 								rqststdio.inbuf.Clear()
 							}
 						} else if sargs[0] == "#!commit" && rqststdio.cmd != nil {
-							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false, "")
 						}
 						rqststdio.isDone = sargs[0] == "#!close"
 					}
@@ -106,7 +106,7 @@ func (rqststdio *requeststdio) captureRune(r rune) (err error) {
 								rqststdio.cmd = nil
 							}
 							rqststdio.cmd = cmd
-							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false)
+							rqststdio.rqst.copy(rqststdio.cmd, rqststdio.rqst, false, "")
 							/*go func() {
 								//cmdp := make([]byte, 1024)
 								//cmdpn := 0

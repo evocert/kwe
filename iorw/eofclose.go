@@ -13,14 +13,15 @@ type EOFCloseSeekReader struct {
 	size int64
 	bfr  *bufio.Reader
 	//Reader Api
-	rns  []rune
-	rnsi int
-	ln   string
+	rns      []rune
+	rnsi     int
+	ln       string
+	canclose bool
 }
 
-func NewEOFCloseSeekReader(r io.Reader) (eofclsr *EOFCloseSeekReader) {
+func NewEOFCloseSeekReader(r io.Reader, canclose ...bool) (eofclsr *EOFCloseSeekReader) {
 	if r != nil {
-		eofclsr = &EOFCloseSeekReader{r: r, size: -1}
+		eofclsr = &EOFCloseSeekReader{r: r, size: -1, canclose: len(canclose) == 0 || (len(canclose) > 0 && canclose[0])}
 		if rc, rck := r.(io.Closer); rck {
 			eofclsr.rc = rc
 		}
@@ -129,9 +130,11 @@ func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
 
 func (eofclsr *EOFCloseSeekReader) Close() (err error) {
 	if eofclsr != nil {
-		if eofclsr.rc != nil {
-			eofclsr.rc.Close()
-			eofclsr.rc = nil
+		if eofclsr.canclose {
+			if eofclsr.rc != nil {
+				eofclsr.rc.Close()
+				eofclsr.rc = nil
+			}
 		}
 		if eofclsr.rs != nil {
 			eofclsr.rs = nil

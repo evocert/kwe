@@ -61,7 +61,7 @@ func parsepsvphrase(prsng *parsing, psvsctn *psvsection, phrslbli []int, rn rune
 									}()
 									phrsrdr.Seek(phrscoord[0], io.SeekStart)
 									phrsrdr.MaxRead = phrscoord[1] - phrscoord[0]
-									err = parseprsngrunerdr(psvsctn.prsng, phrsrdr, false)
+									err = parseprsng(psvsctn.prsng, false, phrsrdr)
 								}()
 								return
 							}
@@ -585,26 +585,25 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 					psvsctn.chcdbf.Clear()
 				}
 			}
-			//if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
-			parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@(function(){@>")), false)
-			//}
+			parseprsng(prsng, false, "<@(function(){@>")
+
 			if rnrdr != nil {
 				psvsctn.canphrs = true
-				parseprsngrunerdr(prsng, rnrdr, false)
+				parseprsng(prsng, false, rnrdr)
 				psvsctn.canphrs = false
 			}
 			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
-				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")), false)
+				parseprsng(prsng, false, "<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")
 				psvsctn.tmpbuf.Clear()
 			} else {
-				parseprsngrunerdr(prsng, iorw.NewEOFCloseSeekReader(strings.NewReader("<@})();@>")), false)
+				parseprsng(prsng, false, "<@})();@>")
 			}
 
 			decpsvcsection(psvsctn)
 			if psvsctn.chcdbf != nil && psvsctn.chcdbf.Size() > 0 {
 				rnrdr = psvsctn.chcdbf.Reader()
 				psvsctn.canphrs = true
-				parseprsngrunerdr(prsng, rnrdr, false)
+				parseprsng(prsng, false, rnrdr)
 				psvsctn.canphrs = false
 				rnrdr = nil
 			}

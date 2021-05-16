@@ -736,14 +736,14 @@ func (rqst *Request) Println(a ...interface{}) {
 	iorw.Fprintln(rqst, a...)
 }
 
-func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, cpystngs ...interface{}) {
+func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, initpath string) {
 	if rqst != nil {
 		if istext {
 			rqst.invokeAtv()
 			if altw == nil {
-				rqst.atv.Eval(rqst, r, cpystngs...)
+				rqst.atv.Eval(rqst, nil, initpath, r)
 			} else {
-				rqst.atv.Eval(altw, r, cpystngs...)
+				rqst.atv.Eval(altw, nil, initpath, r)
 			}
 		} else {
 			if altw == nil {

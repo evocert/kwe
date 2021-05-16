@@ -5,7 +5,6 @@ resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
 channel.Listener().Listen(":1038");
-
 /*for (var i = 0; i < 1; i++) {
 	var mqttclid = "mqtt"+(i+1);
 	mqtting.RegisterConnection(mqttclid, {"broker":"ws://skullquake.dedicated.co.za", "port": 8080, "user": "emqx", "password":"public"})

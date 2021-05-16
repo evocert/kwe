@@ -12,6 +12,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/evocert/kwe/ecma/jsext"
+	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/requirejs"
 
 	"github.com/evocert/kwe/iorw"
@@ -193,18 +194,10 @@ func (atv *Active) atvrun(prsng *parsing) {
 }
 
 //Eval - parse rin io.Reader, execute if neaded and output to wou io.Writer
-func (atv *Active) Eval(wout io.Writer, rin io.Reader, evalstngs ...interface{}) {
-	var parsing = nextparsing(atv, nil, wout, evalstngs...)
-	defer parsing.Close()
-	var rnr io.RuneReader = nil
-	var bfr *bufio.Reader = nil
-	if rr, rrok := rin.(io.RuneReader); rrok {
-		rnr = rr
-	} else {
-		bfr = bufio.NewReader(rin)
-		rnr = bfr
-	}
-	parseprsngrunerdr(parsing, rnr, true)
+func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...interface{}) {
+	var parsing = nextparsing(atv, nil, rin, wout, initpath)
+	defer parsing.dispose()
+	parseprsng(parsing, true, a...)
 }
 
 //Close - refer to  io.Closer
@@ -231,11 +224,14 @@ var elmlbl = [][]rune{[]rune("<#"), []rune(">"), []rune("</#"), []rune(">"), []r
 var phrslbl = [][]rune{[]rune("{#"), []rune("#}")}
 
 type parsing struct {
+	rnrdrsbeingparsed    *enumeration.List
+	crntrnrdrbeingparsed io.RuneReader
 	*iorw.Buffer
 	tmpltbuf       *iorw.Buffer
 	tmpltmap       map[string][]int64
 	atv            *Active
 	wout           io.Writer
+	rin            io.Reader
 	prntrs         []io.Writer
 	prslbli        []int
 	prslblprv      []rune
@@ -384,6 +380,21 @@ func (prsng *parsing) dispose() {
 		if prsng.cdebuf != nil {
 			prsng.cdebuf.Close()
 			prsng.cdebuf = nil
+		}
+		if prsng.crntrnrdrbeingparsed != nil {
+			prsng.crntrnrdrbeingparsed = nil
+		}
+		if prsng.rnrdrsbeingparsed != nil {
+			prsng.rnrdrsbeingparsed.Dispose(
+				func(n *enumeration.Node, i interface{}) {
+
+				},
+				func(n *enumeration.Node, i interface{}) {
+					if rc, _ := i.(io.Closer); rc != nil {
+						rc.Close()
+					}
+				})
+			prsng.rnrdrsbeingparsed = nil
 		}
 		if prsng.prntrs != nil {
 			for len(prsng.prntrs) > 0 {
@@ -556,11 +567,61 @@ func (prsng *parsing) flushCde() (err error) {
 	return
 }
 
-func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err error) {
+func loadRuneReaders(prsng *parsing, a ...interface{}) {
+	if al := len(a); al > 0 {
+		var tmpa []interface{}
+
+		tampardr := func() {
+			if len(tmpa) > 0 {
+				pr, pw := io.Pipe()
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				go func(ga ...interface{}) {
+					defer pw.Close()
+					wg.Done()
+					iorw.Fprint(pw, ga...)
+				}(tmpa...)
+				tmpa = nil
+				wg.Wait()
+				prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(pr))
+			}
+			return
+		}
+		for ai := 0; ai < al; ai++ {
+			if d := a[0]; d != nil {
+				ai++
+				a = a[1:]
+				if r, rok := d.(io.Reader); rok {
+					tampardr()
+					if rnr, rnrok := r.(io.RuneReader); rnrok {
+						prsng.rnrdrsbeingparsed.Push(nil, nil, rnr)
+					} else {
+						prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(r, false))
+					}
+				} else if buf, bufok := d.(*iorw.Buffer); bufok {
+					tampardr()
+					prsng.rnrdrsbeingparsed.Push(nil, nil, buf.Reader())
+				} else {
+					if tmpa == nil {
+						tmpa = []interface{}{}
+					}
+					tmpa = append(tmpa, d)
+				}
+			} else {
+				ai++
+				a = a[1:]
+			}
+		}
+		tampardr()
+	}
+}
+
+func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
+	loadRuneReaders(prsng, a...)
 	for err == nil {
-		r, rsize, rerr := rnr.ReadRune()
+		r, rsize, rerr := prsng.ReadRune()
 		if rsize > 0 {
-			if err = parseprsng(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
+			if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
 				break
 			}
 		}
@@ -586,7 +647,7 @@ func parseprsngrunerdr(prsng *parsing, rnr io.RuneReader, canexec bool) (err err
 	return
 }
 
-func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err error) {
+func parseprsngrune(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err error) {
 	if prsng.cdetxt == rune(0) && prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
 		if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
 			if psvl := prslbli[0]; psvl > 0 {
@@ -658,35 +719,33 @@ func parseprsng(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err e
 	return
 }
 
-func parsingFinalize(prsng *parsing) {
+func (prsng *parsing) ReadRune() (r rune, size int, err error) {
 	if prsng != nil {
-		prsng.dispose()
-		prsng = nil
-	}
-}
-
-func nextparsing(atv *Active, prntprsng *parsing, wout io.Writer, prsrstngs ...interface{}) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
-		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
-	if len(prsrstngs) > 0 {
-		for _, d := range prsrstngs {
-			if mp, mpok := d.(map[string]interface{}); mpok && len(mp) > 0 {
-				for k, v := range mp {
-					if k == "init-path" {
-						if s, _ := v.(string); s != "" {
-							if prsng.prsvpth == "" {
-								prsng.prsvpth = s
-							}
-						}
-					}
-				}
-			} else if s, sok := d.(string); sok && s != "" {
-				if prsng.prsvpth == "" {
-					prsng.prsvpth = s
-				}
+		if prsng.crntrnrdrbeingparsed == nil {
+			if prsng.rnrdrsbeingparsed != nil && prsng.rnrdrsbeingparsed.Length() > 0 {
+				prsng.rnrdrsbeingparsed.Tail().Dispose(nil, func(nde *enumeration.Node, val interface{}) {
+					prsng.crntrnrdrbeingparsed, _ = val.(io.RuneReader)
+				})
+			}
+			if prsng.crntrnrdrbeingparsed == nil {
+				err = io.EOF
+				return
 			}
 		}
+		r, size, err = prsng.crntrnrdrbeingparsed.ReadRune()
+		if err == io.EOF {
+			prsng.crntrnrdrbeingparsed = nil
+		}
+	} else {
+		err = io.EOF
 	}
+	return
+}
+
+func nextparsing(atv *Active, prntprsng *parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *parsing) {
+	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rnrdrsbeingparsed: enumeration.NewList(), crntrnrdrbeingparsed: nil, wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
+
 	//runtime.SetFinalizer(prsng, parsingFinalize)
 	return
 }
@@ -902,7 +961,7 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 					crunesi = 0
 					cdetestbuf.Print(string(crunes[:cl]))
 					for _, cr := range crunes[:cl] {
-						parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+						parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, cr)
 					}
 				}
 			}
@@ -919,7 +978,7 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 				crunesi = 0
 				cdetestbuf.Print(string(crunes[:cl]))
 				for _, cr := range crunes[:cl] {
-					parseprsng(prsng, prsng.prslbli, prsng.prslblprv, cr)
+					parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, cr)
 				}
 			}
 			prsng.flushPsv()

@@ -10,6 +10,7 @@ import (
 type ActionHandler struct {
 	actn        *Action
 	actnrdr     io.Reader
+	actnrnrdr   io.RuneReader
 	hndlMaxSize int64
 }
 
@@ -23,16 +24,28 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 		hndlMaxSize := int64(-1)
 		if rqstrs := actn.rqst.Resource(path); rqstrs != nil {
 			if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
-				actnhndl = &ActionHandler{actn: actn, actnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofclsr, actnrnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
 			} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
 				hndlMaxSize = bf.Size()
-				actnhndl = &ActionHandler{actn: actn, actnrdr: bf.Reader(), hndlMaxSize: hndlMaxSize}
+				rdr := bf.Reader()
+				actnhndl = &ActionHandler{actn: actn, actnrdr: rdr, actnrnrdr: rdr, hndlMaxSize: hndlMaxSize}
 			} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
-				actnhndl = &ActionHandler{actn: actn, actnrdr: iorw.NewEOFCloseSeekReader(fncr())}
+				eofrdr := iorw.NewEOFCloseSeekReader(fncr())
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr}
 			} else if rd, rdok := rqstrs.(io.Reader); rdok {
-				actnhndl = &ActionHandler{actn: actn, actnrdr: iorw.NewEOFCloseSeekReader(rd), hndlMaxSize: hndlMaxSize}
+				eofrdr := iorw.NewEOFCloseSeekReader(rd)
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr, hndlMaxSize: hndlMaxSize}
 			}
 		}
+	}
+	return
+}
+
+func (actnhndlr *ActionHandler) ReadRune() (r rune, size int, err error) {
+	if actnhndlr.actnrnrdr != nil {
+		r, size, err = actnhndlr.actnrnrdr.ReadRune()
+	} else {
+		err = io.EOF
 	}
 	return
 }
