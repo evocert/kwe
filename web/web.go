@@ -76,7 +76,7 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 }
 
 //Send - Client send
-func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
+func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspr iorw.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
 		var method string = ""
 		var r io.Reader = nil
