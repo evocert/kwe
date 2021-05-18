@@ -45,6 +45,7 @@ type Request struct {
 	settings         map[string]interface{}
 	args             []interface{}
 	startedWriting   bool
+	startedReading   bool
 	mimetype         string
 	httpw            http.ResponseWriter
 	flshr            http.Flusher
@@ -528,20 +529,18 @@ func (rqst *Request) internWrite(p []byte) (n int, err error) {
 			n, err = rqst.zpw.Write(p)
 		} else if httpw != nil {
 			n, err = httpw.Write(p)
-			/*if rqst.flshr != nil && n > 0 && err == nil {
-				rqst.flshr.Flush()
-			}*/
 		} else if rqstw := rqst.rqstw; rqstw != nil {
 			n, err = rqstw.Write(p)
-			/*if rqst.flshr != nil && n > 0 && err == nil {
-				rqst.flshr.Flush()
-			}*/
 		}
 	} else if rqstw := rqst.rqstw; rqstw != nil {
 		n, err = rqstw.Write(p)
-		/*if rqst.flshr != nil && n > 0 && err == nil {
-			rqst.flshr.Flush()
-		}*/
+	}
+	return
+}
+
+func (rqst *Request) internRead(p []byte) (n int, err error) {
+	if rqstr := rqst.rqstr; rqstr != nil {
+		n, err = rqstr.Read(p)
 	}
 	return
 }
@@ -555,6 +554,29 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 				}
 			}
 			n, err = rqst.internWrite(p)
+		}
+	}
+	return
+}
+
+func (rqst *Request) startReading() (err error) {
+	defer func() {
+		if rv := recover(); rv != nil {
+			err = fmt.Errorf("%v", rv)
+		}
+	}()
+	return
+}
+
+func (rqst *Request) Read(p []byte) (n int, err error) {
+	if rqst != nil {
+		if pl := len(p); pl > 0 {
+			if !rqst.startedReading {
+				if err = rqst.startReading(); err != nil {
+					return
+				}
+			}
+			n, err = rqst.internRead(p)
 		}
 	}
 	return
@@ -734,6 +756,24 @@ func (rqst *Request) Print(a ...interface{}) {
 //Println helper Println(...interface) over *Request
 func (rqst *Request) Println(a ...interface{}) {
 	iorw.Fprintln(rqst, a...)
+}
+
+//Readln helper Readln() over *Request
+func (rqst *Request) Readln() (ln string, err error) {
+	ln, err = iorw.ReadLine(rqst)
+	return
+}
+
+//ReadLines helper ReadLines() over *Request
+func (rqst *Request) ReadLines() (lines []string, err error) {
+	lines, err = iorw.ReadLines(rqst)
+	return
+}
+
+//ReadAll helper ReadAll() over *Request
+func (rqst *Request) ReadAll() (s string, err error) {
+	s, err = iorw.ReaderToString(rqst)
+	return
 }
 
 func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, initpath string) {

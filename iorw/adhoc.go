@@ -57,6 +57,64 @@ func Fprintln(w io.Writer, a ...interface{}) {
 	Fprint(w, "\r\n")
 }
 
+//ReadLines from r io.Reader as lines []string
+func ReadLines(r io.Reader) (lines []string, err error) {
+	if r != nil {
+		var rnrd io.RuneReader = nil
+		if rnr, rnrok := r.(io.RuneReader); rnrok {
+			rnrd = rnr
+		} else {
+			rnrd = bufio.NewReader(r)
+		}
+		rns := make([]rune, 1024)
+		rnsi := 0
+		s := ""
+		for {
+			rn, size, rnerr := rnrd.ReadRune()
+			if size > 0 {
+				if rn == '\n' {
+					if rnsi > 0 {
+						s += string(rns[:rnsi])
+						rnsi = 0
+					}
+					if s != "" {
+						s = strings.TrimSpace(s)
+						if lines == nil {
+							lines = []string{}
+						}
+						lines = append(lines, s)
+						s = ""
+					}
+					continue
+				}
+				rns[rnsi] = rn
+				rnsi++
+				if rnsi == len(rns) {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+			}
+			if rnerr != nil {
+				err = rnerr
+				if rnsi > 0 && (err == nil || err == io.EOF) {
+					s += string(rns[:rnsi])
+					rnsi = 0
+				}
+				if s != "" {
+					s = strings.TrimSpace(s)
+					if lines == nil {
+						lines = []string{}
+					}
+					lines = append(lines, s)
+					s = ""
+				}
+				break
+			}
+		}
+	}
+	return
+}
+
 //ReadLine from r io.Reader as s string
 func ReadLine(r io.Reader) (s string, err error) {
 	if r != nil {

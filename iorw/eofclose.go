@@ -13,9 +13,6 @@ type EOFCloseSeekReader struct {
 	size int64
 	bfr  *bufio.Reader
 	//Reader Api
-	rns      []rune
-	rnsi     int
-	ln       string
 	canclose bool
 }
 

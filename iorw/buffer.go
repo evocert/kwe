@@ -16,13 +16,6 @@ type Buffer struct {
 	OnClose func(*Buffer)
 }
 
-func bufferFinalize(buff *Buffer) {
-	if buff != nil {
-		buff.Close()
-		buff = nil
-	}
-}
-
 //NewBuffer -
 func NewBuffer() (buff *Buffer) {
 	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192), bufrs: map[*BuffReader]*BuffReader{}}
@@ -227,13 +220,6 @@ func (buff *Buffer) Write(p []byte) (n int, err error) {
 		}()
 	}
 	return
-}
-
-func buffReaderFinalize(bufr *BuffReader) {
-	if bufr != nil {
-		bufr.Close()
-		bufr = nil
-	}
 }
 
 //Reader -

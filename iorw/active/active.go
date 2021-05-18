@@ -25,6 +25,12 @@ type Active struct {
 	Println        func(a ...interface{})
 	FPrint         func(w io.Writer, a ...interface{})
 	FPrintLn       func(w io.Writer, a ...interface{})
+	Readln         func() (string, error)
+	ReadLines      func() ([]string, error)
+	ReadAll        func() (string, error)
+	FReadln        func(r io.Reader) (string, error)
+	FReadLines     func(r io.Reader) ([]string, error)
+	FReadAll       func(r io.Reader) (string, error)
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
@@ -160,6 +166,75 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 	}
 }
 
+func (atv *Active) readln(r io.Reader) (ln string, err error) {
+	if rdr, rdrok := r.(iorw.Reader); rdrok {
+		ln, err = rdr.Readln()
+	} else {
+		if atv.Readln != nil {
+			ln, err = atv.Readln()
+		} else if atv.FReadln != nil && r != nil {
+			func() {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				ln, err = atv.FReadln(r)
+			}()
+		} else if r != nil {
+			if rdr, rdrok := r.(iorw.Reader); rdrok {
+				ln, err = rdr.Readln()
+			} else {
+				ln, err = iorw.ReadLine(r)
+			}
+		}
+	}
+	return
+}
+
+func (atv *Active) readlines(r io.Reader) (lines []string, err error) {
+	if rdr, rdrok := r.(iorw.Reader); rdrok {
+		lines, err = rdr.Readlines()
+	} else {
+		if atv.ReadLines != nil {
+			lines, err = atv.ReadLines()
+		} else if atv.FReadLines != nil && r != nil {
+			func() {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				lines, err = atv.FReadLines(r)
+			}()
+		} else if r != nil {
+			if rdr, rdrok := r.(iorw.Reader); rdrok {
+				lines, err = rdr.Readlines()
+			} else {
+				lines, err = iorw.ReadLines(r)
+			}
+		}
+	}
+	return
+}
+
+func (atv *Active) readAll(r io.Reader) (s string, err error) {
+	if rdr, rdrok := r.(iorw.Reader); rdrok {
+		s, err = rdr.ReadAll()
+	} else {
+		if atv.ReadAll != nil {
+			s, err = atv.ReadAll()
+		} else if atv.FReadAll != nil && r != nil {
+			func() {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				s, err = atv.FReadAll(r)
+			}()
+		} else if r != nil {
+			if rdr, rdrok := r.(iorw.Reader); rdrok {
+				s, err = rdr.ReadAll()
+			} else {
+				s, err = iorw.ReaderToString(r)
+			}
+		}
+	}
+	return
+}
+
 //InvokeVM invoke vm
 func (atv *Active) InvokeVM(callback func(vm *goja.Runtime) error) {
 	if callback != nil {
@@ -193,7 +268,7 @@ func (atv *Active) atvrun(prsng *parsing) {
 	}
 }
 
-//Eval - parse rin io.Reader, execute if neaded and output to wou io.Writer
+//Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...interface{}) {
 	var parsing = nextparsing(atv, nil, rin, wout, initpath)
 	defer parsing.dispose()
@@ -233,6 +308,7 @@ type parsing struct {
 	wout           io.Writer
 	rin            io.Reader
 	prntrs         []io.Writer
+	rdrs           []io.Reader
 	prslbli        []int
 	prslblprv      []rune
 	prntprsng      *parsing
@@ -355,6 +431,63 @@ func (prsng *parsing) decprint() {
 		if len(prsng.prntrs) > 0 {
 			prsng.prntrs[len(prsng.prntrs)-1] = nil
 			prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
+		}
+	}
+}
+
+func (prsng *parsing) readLn() (ln string, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.rdrs); pl > 0 {
+			ln, err = prsng.atv.readln(prsng.rdrs[pl-1])
+		} else {
+			ln, err = prsng.atv.readln(prsng.rin)
+		}
+	}
+	return
+}
+
+func (prsng *parsing) readLines() (lines []string, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.rdrs); pl > 0 {
+			lines, err = prsng.atv.readlines(prsng.rdrs[pl-1])
+		} else {
+			lines, err = prsng.atv.readlines(prsng.rin)
+		}
+	}
+	return
+}
+
+func (prsng *parsing) readAll() (s string, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.rdrs); pl > 0 {
+			s, err = prsng.atv.readAll(prsng.rdrs[pl-1])
+		} else {
+			s, err = prsng.atv.readAll(prsng.rin)
+		}
+	}
+	return
+}
+
+func (prsng *parsing) incread(r io.Reader) {
+	if prsng != nil {
+		prsng.rdrs = append(prsng.rdrs, r)
+	}
+}
+
+func (prsng *parsing) resetread() {
+	if prsng.rdrs != nil {
+		for len(prsng.rdrs) > 0 {
+			prsng.rdrs[len(prsng.rdrs)-1] = nil
+			prsng.rdrs = prsng.rdrs[:len(prsng.rdrs)-1]
+		}
+	}
+}
+
+func (prsng *parsing) decread() {
+	if prsng.rdrs != nil {
+		if len(prsng.rdrs) > 0 {
+			prsng.rdrs[len(prsng.rdrs)-1] = nil
+			prsng.rdrs = prsng.rdrs[:len(prsng.rdrs)-1]
 		}
 	}
 }
@@ -1157,6 +1290,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(false, a...)
 		},
+		//WRITER
 		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.incprint(w)
@@ -1186,12 +1320,51 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 				atvrntme.atv.println(nil, a...)
 			}
 		},
-		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				atvrntme.prsng.println(a...)
-			} else if atvrntme.atv != nil {
-				atvrntme.atv.println(nil, a...)
+		//READER
+		atvrntme.atv.namespace() + "incread": func(r io.Reader) {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.incread(r)
 			}
+		},
+		atvrntme.atv.namespace() + "resetread": func() {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.resetread()
+			}
+		},
+		atvrntme.atv.namespace() + "decread": func() {
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.decread()
+			}
+		},
+		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				atvrntme.prsng.print(a...)
+			} else if atvrntme.atv != nil {
+				atvrntme.atv.print(nil, a...)
+			}
+		},
+		atvrntme.atv.namespace() + "readln": func() (ln string, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				ln, err = atvrntme.prsng.readLn()
+			} else if atvrntme.atv != nil {
+				ln, err = atvrntme.atv.readln(nil)
+			}
+			return
+		},
+		atvrntme.atv.namespace() + "readLines": func() (lines []string, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				lines, err = atvrntme.prsng.readLines()
+			} else if atvrntme.atv != nil {
+				lines, err = atvrntme.atv.readlines(nil)
+			}
+			return
+		}, atvrntme.atv.namespace() + "readAll": func() (s string, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				s, err = atvrntme.prsng.readAll()
+			} else if atvrntme.atv != nil {
+				s, err = atvrntme.atv.readAll(nil)
+			}
+			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {

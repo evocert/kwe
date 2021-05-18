@@ -14,11 +14,13 @@ import (
 )
 
 type MapHandler struct {
-	rnble  active.Runtime
-	intern bool
-	mp     *Map
-	dspsng bool
-	crntmp *Map
+	rnble     active.Runtime
+	intern    bool
+	mp        *Map
+	dspsng    bool
+	crntmp    *Map
+	hndlrs    map[*MapHandler]*MapHandler
+	prnthndlr *MapHandler
 }
 
 func mapHandlerFinalize(mphndlr *MapHandler) {
@@ -44,6 +46,7 @@ func (mphndlr *MapHandler) NewList(distinct ...bool) (list *enumeration.List) {
 
 func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	var mp *Map = nil
+	var prnthndlr *MapHandler = nil
 	var rnble active.Runtime = nil
 	for _, d := range a {
 		if mp == nil {
@@ -55,9 +58,12 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 	}
 
 	if mp != nil {
-		mphndlr = &MapHandler{mp: mp, intern: false, dspsng: false, rnble: rnble, crntmp: nil}
+		mphndlr = &MapHandler{mp: mp, intern: false, dspsng: false, rnble: rnble, crntmp: nil, prnthndlr: prnthndlr, hndlrs: map[*MapHandler]*MapHandler{}}
 	} else {
-		mphndlr = &MapHandler{mp: NewMap(), intern: true, dspsng: false, rnble: rnble, crntmp: nil}
+		mphndlr = &MapHandler{mp: NewMap(), intern: true, dspsng: false, rnble: rnble, crntmp: nil, prnthndlr: prnthndlr, hndlrs: map[*MapHandler]*MapHandler{}}
+	}
+	if mphndlr != nil && prnthndlr != nil {
+		prnthndlr.hndlrs[mphndlr] = mphndlr
 	}
 	runtime.SetFinalizer(mphndlr, mapHandlerFinalize)
 	return
@@ -265,6 +271,13 @@ func (mphndlr *MapHandler) ValueAt(index int64, ks ...interface{}) (v interface{
 	return
 }
 
+func (mphndlr *MapHandler) NewHandler() (hndlr *MapHandler) {
+	if mphndlr != nil {
+		hndlr = NewMapHandler(mphndlr, mphndlr.crntmp)
+	}
+	return
+}
+
 func (mphndlr *MapHandler) Clear(ks ...interface{}) {
 	if mp := mphndlr.currentmp(); mphndlr != nil && mp != nil {
 		mapClear(mp, mphndlr, ks...)
@@ -282,6 +295,16 @@ func (mphndlr *MapHandler) Close() {
 				mphndlr.mp.Close()
 			}
 			mphndlr.mp = nil
+		}
+		if mphndlr.hndlrs != nil {
+			for hndlrk := range mphndlr.hndlrs {
+				hndlrk.Close()
+				hndlrk = nil
+			}
+		}
+		if mphndlr.prnthndlr != nil {
+			mphndlr.prnthndlr.hndlrs[mphndlr] = nil
+			delete(mphndlr.prnthndlr.hndlrs, mphndlr)
 		}
 		mphndlr = nil
 	}
