@@ -178,15 +178,15 @@ func (wsrw *ReaderWriter) ReadAll() (s string, err error) {
 			}
 		}
 		if rnerr != nil {
+			if rnsi > 0 {
+				s += string(rns[:rnsi])
+				rnsi = 0
+			}
 			if rnerr != io.EOF {
 				err = rnerr
 			}
 			break
 		}
-	}
-	if rnsi > 0 {
-		s += string(rns[:rnsi])
-		rnsi = 0
 	}
 	return
 }

@@ -59,7 +59,7 @@ type Request struct {
 	prtclmethod      string
 	prtcl            string
 	zpw              *gzip.Writer
-	rqstr            io.Reader
+	rqstr            iorw.Reader
 	Interrupted      bool
 	wgtxt            *sync.WaitGroup
 	objmap           map[string]interface{}
@@ -772,7 +772,11 @@ func (rqst *Request) ReadLines() (lines []string, err error) {
 
 //ReadAll helper ReadAll() over *Request
 func (rqst *Request) ReadAll() (s string, err error) {
-	s, err = iorw.ReaderToString(rqst)
+	if rqst.rqstr != nil {
+
+	} else {
+		s, err = iorw.ReaderToString(rqst)
+	}
 	return
 }
 
@@ -781,9 +785,9 @@ func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, initpath str
 		if istext {
 			rqst.invokeAtv()
 			if altw == nil {
-				rqst.atv.Eval(rqst, nil, initpath, r)
+				rqst.atv.Eval(rqst, rqst, initpath, r)
 			} else {
-				rqst.atv.Eval(altw, nil, initpath, r)
+				rqst.atv.Eval(altw, rqst, initpath, r)
 			}
 		} else {
 			if altw == nil {
@@ -875,13 +879,16 @@ func (rqst *Request) ismediaExt(ext string) bool {
 func (rqst *Request) executeRW(interrupt func()) (err error) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
-		if rqststdio := newrequeststdio(rqst); rqststdio != nil {
-			func() {
-				defer rqststdio.dispose()
-				err = rqststdio.executeStdIO()
-			}()
-			rqst.wrapup()
-		}
+		//if rqststdio := newrequeststdio(rqst); rqststdio != nil {
+		//	func() {
+		//		defer rqststdio.dispose()
+		//		err = rqststdio.executeStdIO()
+		//	}()
+		//	rqst.wrapup()
+		//}
+		//rqst.wrapup()
+		rqst.AddPath(rqst.initPath)
+		rqst.processPaths(true)
 	}
 	return
 }

@@ -117,7 +117,7 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...in
 						break
 					}
 				} else if mp, mpok := d.(map[string]interface{}); mpok {
-					if mp != nil && len(mp) > 0 {
+					if len(mp) > 0 {
 						for k, v := range mp {
 							if k == "sucess" {
 								if onsucess == nil {

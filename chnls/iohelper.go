@@ -196,7 +196,8 @@ func (rqststdio *requeststdio) executeStdIO() (err error) {
 		var rnserr error = nil
 		var rdr io.RuneReader = nil
 		if rqstr := rqststdio.rqst.rqstr; rqstr != nil {
-			if stdio, stdiook := rqstr.(*os.File); stdiook {
+			rd, _ := rqstr.(io.Reader)
+			if stdio, stdiook := rd.(*os.File); stdiook {
 				pr, pw := io.Pipe()
 				wg := &sync.WaitGroup{}
 				wg.Add(1)

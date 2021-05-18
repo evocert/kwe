@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -18,8 +19,12 @@ func main() {
 	go func() {
 		time.Sleep(10 * time.Second)
 		web := web.NewClient()
-		if rw, _ := web.SendReceive("ws://127.0.0.1:1038"); rw != nil {
-			rw.ReadAll()
+		for i := 0; i < 5; i++ {
+			if rw, _ := web.SendReceive("ws://127.0.0.1:1038/caching.html"); rw != nil {
+				if s, _ := rw.ReadAll(); s != "" {
+					fmt.Println(s)
+				}
+			}
 		}
 	}()
 	/*web := web.NewClient()
