@@ -273,7 +273,7 @@ func (mphndlr *MapHandler) ValueAt(index int64, ks ...interface{}) (v interface{
 
 func (mphndlr *MapHandler) NewHandler() (hndlr *MapHandler) {
 	if mphndlr != nil {
-		hndlr = NewMapHandler(mphndlr, mphndlr.crntmp)
+		hndlr = NewMapHandler(mphndlr, mphndlr.currentmp())
 	}
 	return
 }
