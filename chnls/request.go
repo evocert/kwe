@@ -564,6 +564,7 @@ func (rqst *Request) startReading() (err error) {
 		if rv := recover(); rv != nil {
 			err = fmt.Errorf("%v", rv)
 		}
+		rqst.startedReading = true
 	}()
 	return
 }
@@ -898,43 +899,23 @@ type rqstdbms struct {
 	rqst *Request
 }
 
-func (rstdbms *rqstdbms) QuerySettings(a interface{}, qryargs ...interface{}) (reader *database.Reader) {
+func (rstdbms *rqstdbms) Query(a interface{}, qryargs ...interface{}) (reader *database.Reader) {
 	if len(qryargs) == 0 {
 		qryargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
 	} else {
 		qryargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, qryargs...)
 	}
-	reader = rstdbms.dbms.QuerySettings(a, qryargs...)
+	reader = rstdbms.dbms.Query(a, qryargs...)
 	return
 }
 
-func (rstdbms *rqstdbms) Query(alias string, query interface{}, prms ...interface{}) (reader *database.Reader) {
-	if len(prms) == 0 {
-		prms = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
-	} else {
-		prms = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, prms...)
-	}
-	reader = rstdbms.dbms.Query(alias, query, prms...)
-	return
-}
-
-func (rstdbms *rqstdbms) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr *database.Executor) {
+func (rstdbms *rqstdbms) Execute(a interface{}, excargs ...interface{}) (exctr *database.Executor) {
 	if len(excargs) == 0 {
 		excargs = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
 	} else {
 		excargs = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, excargs...)
 	}
-	exctr = rstdbms.dbms.ExecuteSettings(a, excargs...)
-	return
-}
-
-func (rstdbms *rqstdbms) Execute(alias string, query interface{}, prms ...interface{}) (exctr *database.Executor) {
-	if len(prms) == 0 {
-		prms = []interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}
-	} else {
-		prms = append([]interface{}{rstdbms.rqst.atv, rstdbms.rqst.prms}, prms...)
-	}
-	exctr = rstdbms.dbms.Execute(alias, query, prms...)
+	exctr = rstdbms.dbms.Execute(a, excargs...)
 	return
 }
 

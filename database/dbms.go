@@ -70,7 +70,7 @@ func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...inte
 	return
 }
 
-//QuerySettings - map[string]interface{} settings wrapper for Query
+//Query - map[string]interface{} settings wrapper for Query
 // settings :
 // alias -  cn alias
 // query -  statement
@@ -80,7 +80,7 @@ func (dbms *DBMS) driverDbInvoker(driver string) (dbinvoker func(string, ...inte
 // finalize - func() final wrapup event
 // repeatable - true keep underlying stmnt open and allows for repeating query
 // script - script handle
-func (dbms *DBMS) QuerySettings(a interface{}, qryargs ...interface{}) (reader *Reader) {
+func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) {
 	if a != nil {
 		if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
 			var alias = ""
@@ -147,7 +147,7 @@ func (dbms *DBMS) QueryJSON(query interface{}, prms ...interface{}) (reader *Rea
 	return
 }
 
-//Query - query database by alias - return Reader for underlying dataset
+/*//Query - query database by alias - return Reader for underlying dataset
 func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
 	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
@@ -157,7 +157,7 @@ func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (r
 		}
 	}
 	return
-}
+}*/
 
 func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if ri != nil {
@@ -351,7 +351,7 @@ func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (e
 // finalize - func() final wrapup event
 // repeatable - true keep underlying stmnt open and allows for repeating query
 // script - script handle
-func (dbms *DBMS) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr *Executor) {
+func (dbms *DBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executor) {
 	if sttngs, sttngsok := a.(map[string]interface{}); sttngsok {
 		var alias = ""
 		var query interface{} = nil
@@ -406,7 +406,7 @@ func (dbms *DBMS) ExecuteSettings(a interface{}, excargs ...interface{}) (exctr 
 	return
 }
 
-//Execute - query database by alias - no result actions
+/*//Execute - query database by alias - no result actions
 func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) (exctr *Executor) {
 	if exists, dbcn := dbms.AliasExists(alias); exists {
 		var err error = nil
@@ -415,7 +415,7 @@ func (dbms *DBMS) Execute(alias string, query interface{}, prms ...interface{}) 
 		}
 	}
 	return
-}
+}*/
 
 //NewDBMS - instance
 func NewDBMS() (dbms *DBMS) {
