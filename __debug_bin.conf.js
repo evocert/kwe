@@ -1,10 +1,12 @@
 <@
-dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
+resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
+channel.Listener().Listen(":1038");
+/*dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
 resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
-channel.Listener().Listen(":1038");
+channel.Listener().Listen(":1038");*/
 /*for (var i = 0; i < 1; i++) {
 	var mqttclid = "mqtt"+(i+1);
 	mqtting.RegisterConnection(mqttclid, {"broker":"ws://skullquake.dedicated.co.za", "port": 8080, "user": "emqx", "password":"public"})
