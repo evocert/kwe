@@ -588,7 +588,7 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 		webclient = &web.ClientHandle{
 			Client: web.NewClient(),
 		}
-		webclient.Send = func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error) {
+		webclient.Send = func(rqstpath string, a ...interface{}) (rspr io.Reader, err error) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
@@ -596,9 +596,9 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 			} else {
 				a = append([]interface{}{rqst.atv}, a...)
 			}
-			return rqst.webclient.Client.Send(rqstpath, rqstheaders, a...)
+			return rqst.webclient.Client.Send(rqstpath, a...)
 		}
-		webclient.SendRespondString = func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error) {
+		webclient.SendRespondString = func(rqstpath string, a ...interface{}) (rspstr string, err error) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
@@ -606,7 +606,7 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 			} else {
 				a = append([]interface{}{rqst.atv}, a...)
 			}
-			return rqst.webclient.Client.SendRespondString(rqstpath, rqstheaders, a...)
+			return rqst.webclient.Client.SendRespondString(rqstpath, a...)
 		}
 		webclient.SendReceive = func(rqstpath string, a ...interface{}) (rw web.ReaderWriter, err error) {
 			if len(a) == 0 {

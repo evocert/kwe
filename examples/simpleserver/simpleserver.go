@@ -65,7 +65,7 @@ func main() {
 	buff := iorw.NewBuffer()
 	cnlt := web.NewClient()
 	fmt.Println(web.DefaultClient.SendRespondString("http://skullquake.dedicated.co.za/", nil))
-	if rw, rwerr := cnlt.SendReceive("ws://127.0.0.1:1002"); rwerr == nil {
+	if rw, rwerr := cnlt.SendReceive("ws://127.0.0.1:1002", nil); rwerr == nil {
 		if rw != nil {
 			if wsrw, wsrwok := rw.(*ws.ReaderWriter); wsrwok {
 				wsrw.Println("#!dbms")

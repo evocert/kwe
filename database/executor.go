@@ -345,9 +345,11 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 				/*var rspheaders = map[string]string{}*/
 				var rqstheaders = map[string]string{}
 				rqstheaders["Content-Type"] = "application/json"
+				args := []interface{}{rqstheaders}
 				if len(exctr.cn.args) > 0 {
 					exctr.cn.args = append(exctr.cn.args, pi)
-					if rspr, rsprerr := web.DefaultClient.Send(datasource, rqstheaders /* rspheaders,*/, exctr.cn.args...); rsprerr == nil {
+					args := append(args, exctr.cn.args...)
+					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
 							io.Copy(out, rspr)
 						}
@@ -355,7 +357,8 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 						err = rsprerr
 					}
 				} else {
-					if rspr, rsprerr := web.DefaultClient.Send(datasource, rqstheaders /* rspheaders,*/, pi); rsprerr == nil {
+					args = append(args, pi)
+					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
 							io.Copy(out, rspr)
 						}
@@ -364,7 +367,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					}
 				}
 				rqstheaders = nil
-				//rspheaders = nil
+				args = nil
 			}()
 		}
 	}()
@@ -377,7 +380,7 @@ func (exctr *Executor) Repeat(args ...interface{}) (err error) {
 		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs {
 			for _, skey := range pargs.StandardKeys() {
 				for _, argnme := range exctr.argNames {
-					if strings.ToLower(skey) == strings.ToLower(argnme) {
+					if strings.EqualFold(skey, argnme) {
 						exctr.mappedArgs[argnme] = strings.Join(pargs.Parameter(skey), "")
 						break
 					}

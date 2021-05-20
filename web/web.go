@@ -17,8 +17,8 @@ import (
 type ClientHandle struct {
 	*Client
 	SendReceive       func(rqstpath string, a ...interface{}) (rw ReaderWriter, err error)
-	SendRespondString func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error)
-	Send              func(rqstpath string, method string, rqstheaders map[string]string, a ...interface{}) (rspr io.Reader, err error)
+	SendRespondString func(rqstpath string, a ...interface{}) (rspstr string, err error)
+	Send              func(rqstpath string, a ...interface{}) (rspr io.Reader, err error)
 	Close             func()
 }
 
@@ -54,20 +54,70 @@ type ReaderWriter interface {
 //SendReceive return ReaderWriter that implement io.Reader,io.Writer
 func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWriter, err error) {
 	if strings.HasPrefix(rqstpath, "ws:") || strings.HasPrefix(rqstpath, "wss://") {
-		if c, _, cerr := websocket.DefaultDialer.Dial(rqstpath, nil); cerr == nil {
+		var aok = false
+		var ai = 0
+		var rntme active.Runtime = nil
+		var onsucess interface{} = nil
+		var onerror interface{} = nil
+		var headers http.Header
+		for ai < len(a) {
+			d := a[ai]
+			if rntme, aok = d.(active.Runtime); aok {
+				if ai < len(a)-1 {
+					a = append(a[:ai], a[ai+1:]...)
+					continue
+				} else {
+					a = append(a[:ai], a[ai+1:]...)
+					break
+				}
+			} else if mp, mpok := d.(map[string]interface{}); mpok {
+				if len(mp) > 0 {
+					for k, v := range mp {
+						if k == "success" {
+							if onsucess == nil {
+								onsucess = v
+							}
+						} else if k == "error" {
+							if onerror == nil {
+								onerror = v
+							}
+						} else {
+							if s, sok := v.(string); sok && s != "" {
+								headers.Set(k, s)
+							}
+						}
+					}
+				}
+				if ai < len(a)-1 {
+					a = append(a[:ai], a[ai+1:]...)
+					continue
+				} else {
+					a = append(a[:ai], a[ai+1:]...)
+					break
+				}
+			}
+			ai++
+		}
+		if c, resp, cerr := websocket.DefaultDialer.Dial(rqstpath, headers); cerr == nil {
+			if rntme != nil && onsucess != nil {
+				rntme.InvokeFunction(onsucess, resp)
+			}
 			rw = ws.NewReaderWriter(c)
 		} else {
 			err = cerr
+			if rntme != nil && onsucess != nil {
+
+			}
 		}
 	}
 	return
 }
 
 //SendRespondString - Client Send but return response as string
-func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspstr string, err error) {
+func (clnt *Client) SendRespondString(rqstpath string, a ...interface{}) (rspstr string, err error) {
 	var rspr io.Reader = nil
 	rspstr = ""
-	if rspr, err = clnt.Send(rqstpath, rqstheaders, a...); err == nil {
+	if rspr, err = clnt.Send(rqstpath, a...); err == nil {
 		if rspr != nil {
 			rspstr, err = iorw.ReaderToString(rspr)
 		}
@@ -76,7 +126,7 @@ func (clnt *Client) SendRespondString(rqstpath string, rqstheaders map[string]st
 }
 
 //Send - Client send
-func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...interface{}) (rspr iorw.Reader, err error) {
+func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
 		var method string = ""
 		var r io.Reader = nil
@@ -86,6 +136,9 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...in
 		var rntme active.Runtime = nil
 		var onsucess interface{} = nil
 		var onerror interface{} = nil
+
+		var rqstheaders map[string]string = nil
+
 		for ai < len(a) {
 			d := a[ai]
 			if r == nil {
@@ -119,7 +172,7 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...in
 				} else if mp, mpok := d.(map[string]interface{}); mpok {
 					if len(mp) > 0 {
 						for k, v := range mp {
-							if k == "sucess" {
+							if k == "success" {
 								if onsucess == nil {
 									onsucess = v
 								}
@@ -127,9 +180,16 @@ func (clnt *Client) Send(rqstpath string, rqstheaders map[string]string, a ...in
 								if onerror == nil {
 									onerror = v
 								}
-							} else if k == "method" {
-								if mthd, _ := v.(string); mthd != "" && method == "" {
-									method = strings.ToUpper(mthd)
+							} else {
+								if s, sok := v.(string); sok && s != "" {
+									if k == "method" && method == "" {
+										method = strings.ToUpper(s)
+									} else {
+										if rqstheaders == nil {
+											rqstheaders = map[string]string{}
+										}
+										rqstheaders[k] = s
+									}
 								}
 							}
 						}
