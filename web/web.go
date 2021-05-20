@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
@@ -25,11 +26,15 @@ type ClientHandle struct {
 //Client - struct
 type Client struct {
 	httpclient *http.Client
+	wsdialer   *websocket.Dialer
 }
 
 //NewClient - instance
 func NewClient() (clnt *Client) {
-	clnt = &Client{httpclient: &http.Client{}}
+	clnt = &Client{httpclient: &http.Client{}, wsdialer: &websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 45 * time.Second,
+	}}
 	return
 }
 
@@ -39,6 +44,9 @@ func (clnt *Client) Close() {
 		if clnt.httpclient != nil {
 			clnt.httpclient.CloseIdleConnections()
 			clnt = nil
+		}
+		if clnt.wsdialer != nil {
+			clnt.wsdialer = nil
 		}
 		clnt = nil
 	}
@@ -98,17 +106,41 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 			}
 			ai++
 		}
-		if c, resp, cerr := websocket.DefaultDialer.Dial(rqstpath, headers); cerr == nil {
-			if rntme != nil && onsucess != nil {
-				rntme.InvokeFunction(onsucess, resp)
-			}
-			rw = ws.NewReaderWriter(c)
-		} else {
-			err = cerr
-			if rntme != nil && onsucess != nil {
+		func() {
 
+			var c *websocket.Conn = nil
+			var resp *http.Response = nil
+			wsdialer := &websocket.Dialer{
+				Proxy:            http.ProxyFromEnvironment,
+				HandshakeTimeout: 45 * time.Second,
 			}
-		}
+			defer func() {
+				if err != nil {
+					if c != nil {
+						c.Close()
+						c = nil
+					}
+				}
+				if resp != nil {
+					resp = nil
+				}
+				if c != nil {
+					c = nil
+				}
+				wsdialer = nil
+			}()
+
+			if c, resp, err = wsdialer.Dial(rqstpath, headers); err == nil {
+				if rntme != nil && onsucess != nil {
+					rntme.InvokeFunction(onsucess, resp)
+				}
+				rw = ws.NewReaderWriter(c)
+			} else {
+				if rntme != nil && onerror != nil {
+					rntme.InvokeFunction(onerror, err, onerror)
+				}
+			}
+		}()
 	}
 	return
 }

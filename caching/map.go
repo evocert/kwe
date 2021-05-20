@@ -460,7 +460,9 @@ func mapFprint(mp *Map, mphndlr *MapHandler, w io.Writer, ks ...interface{}) (er
 		if lstactn := mp.lastAction(actnwrite); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnwrite {
 			func() {
 				defer mp.lastAction(actnnone)
-				encodeMap(w, nil, mp, mphndlr, ks...)
+				func() {
+					encodeMap(w, nil, mp, mphndlr, ks...)
+				}()
 			}()
 		}
 	}
@@ -510,30 +512,33 @@ func encodeMap(w io.Writer, jsnenc *json.Encoder, mp *Map, mphndlr *MapHandler, 
 		jsnenc = json.NewEncoder(w)
 		jsnenc.SetIndent("", "")
 	}
-
-	if kl := len(ks); kl > 0 {
-		if vfound := mp.Find(ks...); vfound == nil {
-			encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
-		} else if vfmp, vfmok := vfound.(*Map); vfmok {
-			encodeMap(w, jsnenc, vfmp, mphndlr)
-		} else {
-			encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
-		}
-	} else {
-		iorw.Fprint(w, "{")
-		var nxtkh *enumeration.Node = nil
-		if kh := mp.keys.Head(); kh != nil {
-			nxtkh = kh
-			for nxtkh != nil {
-				jsnenc.Encode(kh.Value())
-				iorw.Fprint(w, ":")
-				nxtkh = kh.Next()
-				encodeMapVal(w, jsnenc, mp, mphndlr, mp.kvndm[kh].Value(), nxtkh == nil)
-				kh = nxtkh
+	func() {
+		if kl := len(ks); kl > 0 {
+			if vfound := mp.Find(ks...); vfound == nil {
+				encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
+			} else if vfmp, vfmok := vfound.(*Map); vfmok {
+				encodeMap(w, jsnenc, vfmp, mphndlr)
+			} else {
+				encodeMapVal(w, jsnenc, mp, mphndlr, vfound, true)
 			}
+		} else {
+			iorw.Fprint(w, "{")
+			var nxtkh *enumeration.Node = nil
+			if kh := mp.keys.Head(); kh != nil {
+				nxtkh = kh
+				for nxtkh != nil {
+					jsnenc.Encode(kh.Value())
+					iorw.Fprint(w, ":")
+					nxtkh = kh.Next()
+					if vdn := mp.kvndm[kh]; vdn != nil {
+						encodeMapVal(w, jsnenc, mp, mphndlr, vdn.Value(), nxtkh == nil)
+					}
+					kh = nxtkh
+				}
+			}
+			iorw.Fprint(w, "}")
 		}
-		iorw.Fprint(w, "}")
-	}
+	}()
 }
 
 func mapReader(mp *Map, mphndlr *MapHandler, ks ...interface{}) (mprdr *iorw.EOFCloseSeekReader) {
@@ -559,7 +564,9 @@ func mapReader(mp *Map, mphndlr *MapHandler, ks ...interface{}) (mprdr *iorw.EOF
 				go func() {
 					defer pw.Close()
 					wg.Done()
-					encodeMap(pw, nil, mp, mphndlr, ks...)
+					func() {
+						encodeMap(pw, nil, mp, mphndlr, ks...)
+					}()
 				}()
 				wg.Wait()
 				rdr = pi

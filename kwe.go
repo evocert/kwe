@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	//_ "github.com/evocert/kwe/database/db2"
 
@@ -10,20 +11,23 @@ import (
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
 	"github.com/evocert/kwe/service"
+	"github.com/evocert/kwe/web"
 )
 
 func main() {
-	/*go func() {
-		time.Sleep(10 * time.Second)
-		web := web.NewClient()
-		for i := 0; i < 1; i++ {
-			if rw, _ := web.SendReceive("ws://127.0.0.1:1038/caching.html"); rw != nil {
-				if s, _ := rw.ReadAll(); s != "" {
-					fmt.Println(s)
+	for j := 0; j < 1; j++ {
+		go func() {
+			time.Sleep(3 * time.Second)
+			web := web.NewClient()
+			for i := 0; i < 1; i++ {
+				if rw, _ := web.SendReceive("ws://127.0.0.1:1038/caching.html"); rw != nil {
+					if s, _ := rw.ReadAll(); s != "" {
+						//fmt.Println(s)
+					}
 				}
 			}
-		}
-	}()*/
+		}()
+	}
 	/*web := web.NewClient()
 
 	soapsend := `<?xml version="1.0" encoding="utf-8"?>

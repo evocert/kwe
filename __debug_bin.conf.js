@@ -1,5 +1,6 @@
 <@
-resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
+//resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
+resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
 channel.Listener().Listen(":1038");
 /*dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
