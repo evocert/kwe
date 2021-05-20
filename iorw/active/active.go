@@ -876,7 +876,7 @@ func (prsng *parsing) ReadRune() (r rune, size int, err error) {
 }
 
 func nextparsing(atv *Active, prntprsng *parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rnrdrsbeingparsed: enumeration.NewList(), crntrnrdrbeingparsed: nil, wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rnrdrsbeingparsed: enumeration.NewList(), crntrnrdrbeingparsed: nil, rin: rin, wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
 		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
 
 	//runtime.SetFinalizer(prsng, parsingFinalize)

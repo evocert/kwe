@@ -96,7 +96,7 @@ func ReadLines(r io.Reader) (lines []string, err error) {
 			}
 			if rnerr != nil {
 				err = rnerr
-				if rnsi > 0 && (err == nil || err == io.EOF) {
+				if rnsi > 0 {
 					s += string(rns[:rnsi])
 					rnsi = 0
 				}
@@ -107,6 +107,9 @@ func ReadLines(r io.Reader) (lines []string, err error) {
 					}
 					lines = append(lines, s)
 					s = ""
+				}
+				if err == io.EOF {
+					err = nil
 				}
 				break
 			}
@@ -146,6 +149,9 @@ func ReadLine(r io.Reader) (s string, err error) {
 			if rnerr != nil {
 				err = rnerr
 				if rnsi > 0 && (err == nil || err == io.EOF) {
+					if err == io.EOF {
+						err = nil
+					}
 					s += string(rns[:rnsi])
 					rnsi = 0
 				}
