@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dop251/goja/parser"
 
@@ -1271,6 +1272,9 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			buff.OnClose = atvrntme.removeBuffer
 			atvrntme.intrnbuffs[buff] = buff
 			return
+		},
+		"sleep": func(mils int64) {
+			time.Sleep(time.Millisecond * time.Duration(mils))
 		},
 		"_passiveout": func(i int) {
 			atvrntme.passiveout(i)
