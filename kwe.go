@@ -13,19 +13,6 @@ import (
 )
 
 func main() {
-	/*for j := 0; j < 1; j++ {
-		go func() {
-			time.Sleep(3 * time.Second)
-			web := web.NewClient()
-			for i := 0; i < 1; i++ {
-				if rw, _ := web.SendReceive("ws://127.0.0.1:1038/caching.html"); rw != nil {
-					if s, _ := rw.ReadAll(); s != "" {
-						//fmt.Println(s)
-					}
-				}
-			}
-		}()
-	}*/
 	/*web := web.NewClient()
 
 	soapsend := `<?xml version="1.0" encoding="utf-8"?>
