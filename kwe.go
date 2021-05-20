@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	//_ "github.com/evocert/kwe/database/db2"
 
@@ -11,11 +10,10 @@ import (
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
 	"github.com/evocert/kwe/service"
-	"github.com/evocert/kwe/web"
 )
 
 func main() {
-	for j := 0; j < 1; j++ {
+	/*for j := 0; j < 1; j++ {
 		go func() {
 			time.Sleep(3 * time.Second)
 			web := web.NewClient()
@@ -27,7 +25,7 @@ func main() {
 				}
 			}
 		}()
-	}
+	}*/
 	/*web := web.NewClient()
 
 	soapsend := `<?xml version="1.0" encoding="utf-8"?>
