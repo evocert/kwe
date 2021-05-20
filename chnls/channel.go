@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
@@ -135,10 +134,10 @@ func (chnl *Channel) internalServePath(path string, a ...interface{}) {
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
 	inirspath := r.URL.Path
 	var wsrw *ws.ReaderWriter = nil
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	//wg := &sync.WaitGroup{}
+	//wg.Add(1)
+	func() {
+		//	defer wg.Done()
 		wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
 			// don't return errors to maintain backwards compatibility
 		}, CheckOrigin: func(r *http.Request) bool {
@@ -150,7 +149,7 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 			wsrw = ws.NewReaderWriter(conn)
 		}
 	}()
-	wg.Wait()
+	//wg.Wait()
 	if wsrw != nil {
 		func() {
 			defer wsrw.Close()

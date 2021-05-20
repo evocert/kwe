@@ -95,7 +95,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 			}
 		}()
 
-		go func() {
+		func() {
 			defer func() {
 				if r := recover(); r != nil {
 
