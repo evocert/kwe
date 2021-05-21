@@ -2,6 +2,7 @@ package listen
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -17,12 +18,29 @@ type lstnrserver struct {
 }
 
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
-	go func() {
-		if err := lstnrsrvr.srvr.ListenAndServe(); err != nil {
-			lstnr.lstnrservers[lstnrsrvr.addr] = nil
-			delete(lstnr.lstnrservers, lstnrsrvr.addr)
-		}
-	}()
+	//go func() {
+	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
+		go func() {
+			if err := lstnrsrvr.srvr.Serve(ln); err != nil && err != http.ErrServerClosed {
+				fmt.Println("error: Failed to serve HTTP: %v", err.Error())
+			}
+		}()
+	} else {
+		fmt.Println("error:", err.Error())
+	}
+	/*if err := lstnrsrvr.srvr.ListenAndServe(); err != nil {
+		lstnr.lstnrservers[lstnrsrvr.addr] = nil
+		delete(lstnr.lstnrservers, lstnrsrvr.addr)
+	}*/
+	//}()
+}
+
+func (lstnrsrvr *lstnrserver) stopListening(lstnr *Listener) {
+	ctx := context.Background()
+	if err := lstnrsrvr.srvr.Shutdown(ctx); err != nil {
+		fmt.Println("Error closing server at ", lstnrsrvr.srvr.Addr, " ", err.Error())
+	}
+	fmt.Println("Closed server at :%d", lstnrsrvr.srvr.Addr)
 }
 
 type contextKey struct {
