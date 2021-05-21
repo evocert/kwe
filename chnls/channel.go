@@ -151,7 +151,7 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 	}()
 	//wg.Wait()
 	if wsrw != nil {
-		func() {
+		go func() {
 			defer wsrw.Close()
 			processingRequestIO(chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
 		}()
