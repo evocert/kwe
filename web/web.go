@@ -118,11 +118,10 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 				}
 			}()
 
-			if c, resp, err = websocket.DefaultDialer.Dial(rqstpath, headers); err == nil {
+			if rw, resp, err = ws.NewClientReaderWriter(rqstpath, headers); err == nil {
 				if rntme != nil && onsucess != nil {
 					rntme.InvokeFunction(onsucess, resp)
 				}
-				rw = ws.NewReaderWriter(c)
 			} else {
 				if rntme != nil && onerror != nil {
 					rntme.InvokeFunction(onerror, err, onerror)

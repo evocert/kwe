@@ -9,7 +9,6 @@ import (
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/ws"
-	websocket "github.com/gorilla/websocket"
 )
 
 /*Channel -
@@ -133,26 +132,10 @@ func (chnl *Channel) internalServePath(path string, a ...interface{}) {
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
 	inirspath := r.URL.Path
-	var wsrw *ws.ReaderWriter = nil
-	//wg := &sync.WaitGroup{}
-	//wg.Add(1)
-	func() {
-		//	defer wg.Done()
-		wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
-			// don't return errors to maintain backwards compatibility
-		}, CheckOrigin: func(r *http.Request) bool {
-			// allow all connections by default
-			return true
-		}}
-		if conn, err := wsu.Upgrade(w, r, nil); err == nil {
-			a = append([]interface{}{inirspath}, a...)
-			wsrw = ws.NewReaderWriter(conn)
-		}
-	}()
-	//wg.Wait()
-	if wsrw != nil {
+	if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
 		go func() {
 			defer wsrw.Close()
+			a = append([]interface{}{inirspath}, a...)
 			processingRequestIO(chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
 		}()
 	} else {
@@ -163,16 +146,6 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 //ServeHTTP - refer http.Handler
 func (chnl *Channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	chnl.internalServeHTTP(w, r)
-}
-
-//ServeWS - server websocket Connection
-func (chnl *Channel) ServeWS(wscon *websocket.Conn, a ...interface{}) {
-	func() {
-		if wsrw := ws.NewReaderWriter(wscon); wsrw != nil {
-			defer wsrw.Close()
-			processingRequestIO(chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
-		}
-	}()
 }
 
 //ServeRW - serve Reader Writer

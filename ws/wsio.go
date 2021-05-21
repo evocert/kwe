@@ -3,6 +3,7 @@ package ws
 import (
 	"bufio"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/evocert/kwe/iorw"
@@ -22,9 +23,32 @@ type ReaderWriter struct {
 	isBinary bool
 }
 
-//NewReaderWriter - instance
-func NewReaderWriter(ws *websocket.Conn) (wsrw *ReaderWriter) {
-	wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+//NewServerReaderWriter - instance
+func NewServerReaderWriter(w http.ResponseWriter, r *http.Request) (wsrw *ReaderWriter, err error) {
+	if w != nil && r != nil {
+		wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
+			// don't return errors to maintain backwards compatibility
+		}, CheckOrigin: func(r *http.Request) bool {
+			// allow all connections by default
+			return true
+		}}
+		if ws, wserr := wsu.Upgrade(w, r, nil); wserr == nil {
+			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+		} else {
+			err = wserr
+		}
+		wsu = nil
+	}
+	return
+}
+
+func NewClientReaderWriter(rqstpath string, headers http.Header) (wsrw *ReaderWriter, resp *http.Response, err error) {
+	if rqstpath != "" {
+		var ws *websocket.Conn = nil
+		if ws, resp, err = websocket.DefaultDialer.Dial(rqstpath, headers); err == nil {
+			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+		}
+	}
 	return
 }
 
