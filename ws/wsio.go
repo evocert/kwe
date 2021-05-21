@@ -107,7 +107,6 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 			n += m
 			if err != nil {
 				if err == io.EOF {
-					// done
 					wsrw.r = nil
 					break
 				} else {
