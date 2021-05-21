@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/gorilla/websocket"
@@ -87,7 +88,9 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 			if err = wsrw.Flush(); err == nil {
 				if wsrw.CanRead() {
 					var messageType int
-					messageType, wsrw.r, wsrw.rerr = wsrw.ws.NextReader()
+					var rdr io.Reader = nil
+
+					messageType, rdr, wsrw.rerr = wsrw.ws.NextReader()
 					wsrw.isText = messageType == websocket.TextMessage
 					wsrw.isBinary = messageType == websocket.BinaryMessage
 					if wsrw.rerr != nil {
@@ -96,7 +99,27 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 						}
 						return 0, io.EOF
 					}
+					if rdr != nil {
+						wg := &sync.WaitGroup{}
+						wg.Add(1)
+						pr, pw := io.Pipe()
+						go func() {
+							var pwerr error = nil
+							defer func() {
+								if pwerr != io.EOF {
+									pw.CloseWithError(pwerr)
+								} else {
+									pw.Close()
+								}
+							}()
+							wg.Done()
+							_, pwerr = io.Copy(pw, rdr)
+						}()
+						wg.Wait()
+						wsrw.r = pr
+					}
 				}
+
 			} else {
 				return 0, io.EOF
 			}
