@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/evocert/kwe/iorw"
 	http2 "golang.org/x/net/http2"
 	h2c "golang.org/x/net/http2/h2c"
 )
@@ -17,11 +18,116 @@ type lstnrserver struct {
 	addr string
 }
 
+type ListnerHandler struct {
+	ln net.Listener
+}
+
+type ConnHandler struct {
+	con      *net.TCPConn
+	maxread  int64
+	maxwrite int64
+}
+
+func newConnHandler(con net.Conn) (cnhdnlr *ConnHandler) {
+	if tcpcn, tcpcnok := con.(*net.TCPConn); tcpcnok {
+		tcpcn.SetLinger(-1)
+		tcpcn.SetReadBuffer(65536)
+		tcpcn.SetWriteBuffer(65536)
+		cnhdnlr = &ConnHandler{con: tcpcn, maxread: 0, maxwrite: 0}
+	}
+	return cnhdnlr
+}
+
+func (cnhdnlr *ConnHandler) Read(b []byte) (n int, err error) {
+	n, err = cnhdnlr.con.Read(b)
+	return
+}
+
+func (cnhdnlr *ConnHandler) Write(b []byte) (n int, err error) {
+	n, err = cnhdnlr.con.Write(b)
+	return
+}
+
+func (cnhdnlr *ConnHandler) Readln() (ln string, err error) {
+	ln, err = iorw.ReadLine(cnhdnlr)
+	return
+}
+
+func (cnhdnlr *ConnHandler) Readlines() (lines []string, err error) {
+	lines, err = iorw.ReadLines(cnhdnlr)
+	return
+}
+
+func (cnhdnlr *ConnHandler) ReadAll() (s string, err error) {
+	s, err = iorw.ReaderToString(cnhdnlr)
+	return
+}
+
+func (cnhdnlr *ConnHandler) Print(a ...interface{}) {
+	iorw.Fprint(cnhdnlr)
+}
+
+func (cnhdnlr *ConnHandler) Println(a ...interface{}) {
+	iorw.Fprintln(cnhdnlr)
+}
+
+func (cnhndlr *ConnHandler) Close() (err error) {
+	err = cnhndlr.con.Close()
+	return
+}
+
+func (cnhdnlr *ConnHandler) LocalAddr() (addr net.Addr) {
+	addr = cnhdnlr.con.LocalAddr()
+	return
+}
+
+func (cnhdnlr *ConnHandler) RemoteAddr() (addr net.Addr) {
+	addr = cnhdnlr.con.RemoteAddr()
+	return
+}
+
+func (cnhdnlr *ConnHandler) SetDeadline(t time.Time) (err error) {
+	err = cnhdnlr.con.SetDeadline(t)
+	return
+}
+
+func (cnhdnlr *ConnHandler) SetReadDeadline(t time.Time) (err error) {
+	err = cnhdnlr.con.SetReadDeadline(t)
+	return
+}
+
+func (cnhdnlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
+	err = cnhdnlr.con.SetWriteDeadline(t)
+	return
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
+	if con, err = lstnhndlr.ln.Accept(); err == nil {
+		con = newConnHandler(con)
+	}
+	return
+}
+
+// Close closes the listener.
+// Any blocked Accept operations will be unblocked and return errors.
+func (lstnhndlr *ListnerHandler) Close() (err error) {
+	err = lstnhndlr.ln.Close()
+	return
+}
+
+// Addr returns the listener's network address.
+func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
+	addr = lstnhndlr.ln.Addr()
+	return
+}
+
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
 	//go func() {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
+		nxtln := &ListnerHandler{ln: ln}
 		go func() {
-			if err := lstnrsrvr.srvr.Serve(ln); err != nil && err != http.ErrServerClosed {
+			if err := lstnrsrvr.srvr.Serve(nxtln); err != nil && err != http.ErrServerClosed {
 				fmt.Println("error: Failed to serve HTTP: %v", err.Error())
 			}
 		}()
@@ -60,7 +166,6 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 			cn.SetReadDeadline(time.Now())
 		}
 	}, ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-		time.Sleep(500 * time.Nanosecond)
 		return context.WithValue(ctx, ConnContextKey, c)
 	}, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 2000}
 
