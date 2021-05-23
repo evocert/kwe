@@ -407,7 +407,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 											for _, f := range r.File {
 												if f.Name == testpath {
 													if rc, rcerr := f.Open(); rcerr == nil {
-														rs = newRS(rscngepnt, path, rc)
+														rs = rc //newRS(rscngepnt, path, rc)
 													} else if rcerr != nil {
 														err = rcerr
 													}

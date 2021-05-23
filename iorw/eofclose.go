@@ -36,13 +36,18 @@ func NewEOFCloseSeekReader(r io.Reader, canclose ...bool) (eofclsr *EOFCloseSeek
 func (eofclsr *EOFCloseSeekReader) ReadRune() (r rune, size int, err error) {
 	if eofclsr == nil {
 		err = io.EOF
-	}
-	if eofclsr.bfr == nil {
-		eofclsr.bfr = bufio.NewReader(eofclsr)
-	}
-	r, size, err = eofclsr.bfr.ReadRune()
-	if err == io.EOF {
-		eofclsr.Close()
+	} else {
+		if eofclsr.bfr == nil && eofclsr.r != nil {
+			eofclsr.bfr = bufio.NewReader(eofclsr)
+			r, size, err = eofclsr.bfr.ReadRune()
+		} else if eofclsr.bfr != nil {
+			r, size, err = eofclsr.bfr.ReadRune()
+			if err == io.EOF {
+				eofclsr.Close()
+			}
+		} else {
+			r, size, err = 0, 0, io.EOF
+		}
 	}
 	return
 }
@@ -118,14 +123,25 @@ func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
 	if eofclsr == nil {
 		err = io.EOF
 		return
+	} else if eofclsr.r != nil {
+		if n, err = eofclsr.r.Read(p); err != nil {
+			if eofclsr.bfr == nil {
+				eofclsr.Close()
+			} else {
+				eofclsr.disposeReader()
+			}
+			if n > 0 && err == io.EOF {
+				err = nil
+			}
+		}
 	}
-	if n, err = eofclsr.r.Read(p); err != nil {
-		eofclsr.Close()
+	if n == 0 && err == nil {
+		err = io.EOF
 	}
 	return
 }
 
-func (eofclsr *EOFCloseSeekReader) Close() (err error) {
+func (eofclsr *EOFCloseSeekReader) disposeReader() (err error) {
 	if eofclsr != nil {
 		if eofclsr.canclose {
 			if eofclsr.rc != nil {
@@ -139,6 +155,13 @@ func (eofclsr *EOFCloseSeekReader) Close() (err error) {
 		if eofclsr.r != nil {
 			eofclsr.r = nil
 		}
+	}
+	return
+}
+
+func (eofclsr *EOFCloseSeekReader) Close() (err error) {
+	if eofclsr != nil {
+		eofclsr.disposeReader()
 		if eofclsr.bfr != nil {
 			eofclsr.bfr = nil
 		}

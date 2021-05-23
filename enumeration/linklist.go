@@ -1,7 +1,5 @@
 package enumeration
 
-import "sync"
-
 type Node struct {
 	lst *List
 	val interface{}
@@ -13,14 +11,14 @@ func (nde *Node) Value() interface{} {
 
 func (nde *Node) Next() *Node {
 	if nde != nil && nde.lst != nil {
-		return nde.lst.forwardmap[nde]
+		return nextNode(nde.lst, nde)
 	}
 	return nil
 }
 
 func (nde *Node) Previous() *Node {
 	if nde != nil && nde.lst != nil {
-		return nde.lst.reversemap[nde]
+		return previousNode(nde.lst, nde)
 	}
 	return nil
 }
@@ -101,7 +99,6 @@ func (nde *Node) Dispose(eventRemoved func(nde *Node, val interface{}), disposin
 }
 
 type List struct {
-	lck        *sync.RWMutex
 	head       *Node
 	tail       *Node
 	vnds       map[interface{}]*Node
@@ -111,29 +108,37 @@ type List struct {
 }
 
 func NewList(distinct ...bool) (lst *List) {
-	lst = &List{lck: &sync.RWMutex{}, head: nil, tail: nil, reversemap: map[*Node]*Node{}, forwardmap: map[*Node]*Node{}, distinct: len(distinct) == 1 && distinct[0]}
+	lst = &List{head: nil, tail: nil, reversemap: map[*Node]*Node{}, forwardmap: map[*Node]*Node{}, distinct: len(distinct) == 1 && distinct[0]}
 	if lst.distinct {
 		lst.vnds = map[interface{}]*Node{}
 	}
 	return
 }
 
-func (lst *List) Head() (nde *Node) {
-	if lst != nil {
-		func() {
-			nde = lst.head
-		}()
-	}
+func previousNode(lst *List, nde *Node) (prvnde *Node) {
+	func() {
+		if lst != nil && len(lst.reversemap) > 0 {
+			prvnde = lst.reversemap[nde]
+		}
+	}()
 	return
 }
 
-func (lst *List) Tail() (nde *Node) {
-	if lst != nil {
-		func() {
-			nde = lst.tail
-		}()
-	}
+func nextNode(lst *List, nde *Node) (nxtnde *Node) {
+	func() {
+		if lst != nil && len(lst.forwardmap) > 0 {
+			nxtnde = lst.forwardmap[nde]
+		}
+	}()
 	return
+}
+
+func (lst *List) Head() *Node {
+	return lst.head
+}
+
+func (lst *List) Tail() *Node {
+	return lst.tail
 }
 
 func (lst *List) IsDistinct() bool {
@@ -207,9 +212,6 @@ func (lst *List) Dispose(eventRemoving func(*Node, interface{}), eventDisposing 
 			}
 			lst.forwardmap = nil
 			lst.reversemap = nil
-		}
-		if lst.lck != nil {
-			lst.lck = nil
 		}
 		lst = nil
 	}
