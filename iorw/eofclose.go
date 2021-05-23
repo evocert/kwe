@@ -111,8 +111,11 @@ func (eofclsr *EOFCloseSeekReader) Size() int64 {
 }
 
 func (eofclsr *EOFCloseSeekReader) Seek(offset int64, whence int) (n int64, err error) {
-	if eofclsr != nil && eofclsr.rs != nil {
+	if eofclsr != nil && eofclsr.r != nil && eofclsr.rs != nil {
 		n, err = eofclsr.rs.Seek(offset, whence)
+		if eofclsr.bfr != nil {
+			eofclsr.bfr.Reset(eofclsr.r)
+		}
 	} else {
 		n = -1
 	}
