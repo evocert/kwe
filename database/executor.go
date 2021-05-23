@@ -351,7 +351,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args := append(args, exctr.cn.args...)
 					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
-							io.Copy(out, rspr)
+							iorw.Fprint(out, rspr)
 						}
 					} else {
 						err = rsprerr
@@ -360,7 +360,41 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args = append(args, pi)
 					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
-							io.Copy(out, rspr)
+							iorw.Fprint(out, rspr)
+						}
+					} else if rsprerr != nil {
+						err = rsprerr
+					}
+				}
+				rqstheaders = nil
+				args = nil
+			}()
+		} else if strings.HasPrefix(datasource, "ws://") || strings.HasPrefix(datasource, "wss://") {
+			func() {
+				var rqstheaders = map[string]string{}
+				//rqstheaders["Content-Type"] = "application/json"
+				args := []interface{}{rqstheaders}
+				if len(exctr.cn.args) > 0 {
+					//exctr.cn.args = append(exctr.cn.args, pi)
+					args := append(args, exctr.cn.args...)
+					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
+						if pi != nil {
+							rsprw.Print(io.Pipe())
+						}
+						if rsprw != nil {
+							iorw.Fprint(out, rsprw)
+						}
+					} else {
+						err = rsprerr
+					}
+				} else {
+					//args = append(args, pi)
+					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
+						if pi != nil {
+							rsprw.Print(io.Pipe())
+						}
+						if rsprw != nil {
+							iorw.Fprint(out, rsprw)
 						}
 					} else if rsprerr != nil {
 						err = rsprerr

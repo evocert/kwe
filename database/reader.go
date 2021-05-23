@@ -580,7 +580,6 @@ func (rdr *Reader) execute() (err error) {
 				rdr.cltpes = cltpes
 				invokeSuccess(rdr.script, rdr.OnSuccess, rdr)
 				invokeColumns(rdr.script, rdr.OnColumns, rdr)
-				rdr.Next()
 			}
 		}
 	}

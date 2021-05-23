@@ -396,8 +396,13 @@ func executeAction(actn *Action) (err error) {
 								rspathext = ".json"
 							}
 							if rspathext == ".json" {
-								actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-								dbcn.InOut(actn.rqst.RequestBody(), actn.rqst, actn.rqst.Parameters())
+								if actn.rqst.httpr != nil && actn.rqst.httpw != nil {
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									dbcn.InOut(actn.rqst.RequestBody(), actn.rqst, actn.rqst.Parameters())
+								} else {
+									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
+									dbcn.InOut(actn.rqst, actn.rqst, actn.rqst.Parameters())
+								}
 							}
 						}
 					}

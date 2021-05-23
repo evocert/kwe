@@ -365,26 +365,27 @@ func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interf
 		func() {
 			var buff = iorw.NewBuffer()
 			defer buff.Close()
-			buffl, bufferr := io.Copy(buff, rin)
-			if bufferr == nil || bufferr == io.EOF {
-				if buffl > 0 {
-					func() {
-						var buffr = buff.Reader()
-						defer func() {
-							buffr.Close()
-						}()
-						d := json.NewDecoder(buffr)
-						rqstmp := map[string]interface{}{}
-						if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
-							if len(rqstmp) > 0 {
-								hasoutput, err = cn.inMapOut(rqstmp, out, ioargs...)
-							}
-						} else {
-							err = jsnerr
-						}
+			buff.Print(rin)
+			buffl := buff.Size() //bufferr := io.Copy(buff, rin)
+			//if bufferr == nil || bufferr == io.EOF {
+			if buffl > 0 {
+				func() {
+					var buffr = buff.Reader()
+					defer func() {
+						buffr.Close()
 					}()
-				}
+					d := json.NewDecoder(buffr)
+					rqstmp := map[string]interface{}{}
+					if jsnerr := d.Decode(&rqstmp); jsnerr == nil {
+						if len(rqstmp) > 0 {
+							hasoutput, err = cn.inMapOut(rqstmp, out, ioargs...)
+						}
+					} else {
+						err = jsnerr
+					}
+				}()
 			}
+			//}
 		}()
 	}
 	return
@@ -528,7 +529,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, onsuccess, on
 		}
 	}
 
-	if cn.db == nil {
+	if cn.db == nil && !cn.isRemote() {
 		if cn.dbinvoker == nil {
 			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
 				cn.dbinvoker = dbinvoker
