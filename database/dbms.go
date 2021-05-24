@@ -17,6 +17,14 @@ type DBMS struct {
 	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
 }
 
+//Connection return registered connections
+func (dbms *DBMS) Connection(alias string) (cn *Connection) {
+	if alias = strings.TrimSpace(alias); alias != "" {
+		cn, _ = dbms.cnctns[alias]
+	}
+	return
+}
+
 //Connections return list of registered connection aliases
 func (dbms *DBMS) Connections() (cns []string) {
 	if cnsl := len(dbms.cnctns); cnsl > 0 {
