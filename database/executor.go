@@ -379,7 +379,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args := append(args, exctr.cn.args...)
 					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
 						if pi != nil {
-							rsprw.Print(io.Pipe())
+							rsprw.Print(pi)
 						}
 						if rsprw != nil {
 							iorw.Fprint(out, rsprw)
@@ -391,7 +391,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					//args = append(args, pi)
 					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
 						if pi != nil {
-							rsprw.Print(io.Pipe())
+							rsprw.Print(pi)
 						}
 						if rsprw != nil {
 							iorw.Fprint(out, rsprw)
