@@ -939,6 +939,16 @@ func (rstdbms *rqstdbms) InOut(in interface{}, out io.Writer, ioargs ...interfac
 	return
 }
 
+func (rqtdbms *rqstdbms) Connection(alias string) (cn *Connection) {
+	cn = rqtdbms.dbms.Connection(alias)
+	return
+}
+
+func (rqtdbms *rqstdbms) Connections() (cns []string) {
+	cns = rqtdbms.dbms.Connections()
+	return
+}
+
 func (rqtdbms *rqstdbms) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	registered = rqtdbms.dbms.RegisterConnection(alias, driver, datasource, a...)
 	return
