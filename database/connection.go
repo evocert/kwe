@@ -24,11 +24,47 @@ type Connection struct {
 	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
 }
 
-func (cn *Connection) isRemote() bool {
+func (cn *Connection) IsRemote() bool {
 	return (strings.HasPrefix(cn.dataSourceName, "http://") || strings.HasPrefix(cn.dataSourceName, "https://") || strings.HasPrefix(cn.dataSourceName, "ws://") || strings.HasPrefix(cn.dataSourceName, "wss://"))
 }
 
 func runeReaderToString(rnr io.RuneReader) (s string) {
+	return
+}
+
+func (cn *Connection) Ping() (status map[string]interface{}) {
+	status = map[string]interface{}{}
+	if cn.db != nil {
+		pngerr := cn.db.Ping()
+		if pngerr == nil {
+			status["status"] = "Ok"
+		} else {
+			status["status"] = "Failed"
+			status["error"] = pngerr.Error()
+		}
+	}
+	return
+}
+
+func (cn *Connection) DataSource() (datasource string) {
+	if cn != nil {
+		datasource = cn.dataSourceName
+	}
+	return
+}
+
+func (cn *Connection) Driver() (driver string) {
+	if cn != nil {
+		driver = cn.driverName
+	}
+	return
+}
+
+func (cn *Connection) IsConnected() (connected bool) {
+	if cn.db != nil {
+		pngerr := cn.db.Ping()
+		connected = pngerr == nil
+	}
 	return
 }
 
@@ -529,7 +565,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, onsuccess, on
 		}
 	}
 
-	if cn.db == nil && !cn.isRemote() {
+	if cn.db == nil && !cn.IsRemote() {
 		if cn.dbinvoker == nil {
 			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
 				cn.dbinvoker = dbinvoker
@@ -592,7 +628,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, onsuccess, on
 				}
 			}
 		}
-	} else if cn.isRemote() {
+	} else if cn.IsRemote() {
 		if query != nil {
 			exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 			if noreader {

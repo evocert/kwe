@@ -111,7 +111,7 @@ func getTypeByName(tpmn string) (t reflect.Type) {
 }
 
 func (exctr *Executor) isRemote() bool {
-	return exctr.cn != nil && exctr.cn.isRemote()
+	return exctr.cn != nil && exctr.cn.IsRemote()
 }
 
 //ExecError - struct

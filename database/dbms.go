@@ -17,6 +17,22 @@ type DBMS struct {
 	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
 }
 
+//Connections return list of registered connection aliases
+func (dbms *DBMS) Connections() (cns []string) {
+	if cnsl := len(dbms.cnctns); cnsl > 0 {
+		cns = make([]string, cnsl)
+		cnsi := 0
+		for cnsk := range dbms.cnctns {
+			cns[cnsi] = cnsk
+			cnsi++
+			if cnsi == cnsl {
+				break
+			}
+		}
+	}
+	return
+}
+
 //RegisterConnection - alias, driverName, dataSourceName
 func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if alias != "" && driver != "" && datasource != "" {
