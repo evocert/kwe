@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -19,7 +20,11 @@ type lstnrserver struct {
 }
 
 type ListnerHandler struct {
-	ln net.Listener
+	ln             net.Listener
+	backlog        int
+	backcon        chan *ConnHandler
+	backLogStarted bool
+	lck            *sync.Mutex
 }
 
 type ConnHandler struct {
@@ -103,8 +108,41 @@ func (cnhdnlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	if con, err = lstnhndlr.ln.Accept(); err == nil {
-		con = newConnHandler(con)
+	if lstnhndlr.backlog > 0 {
+		if !lstnhndlr.backLogStarted {
+			func() {
+				lstnhndlr.lck.Lock()
+				defer lstnhndlr.lck.Unlock()
+				if !lstnhndlr.backLogStarted {
+					lstnhndlr.backLogStarted = true
+					go func() {
+						for {
+							if con, err = lstnhndlr.ln.Accept(); err == nil {
+								lstnhndlr.backcon <- newConnHandler(con)
+								continue
+							} else {
+								time.Sleep(10 * time.Millisecond)
+							}
+						}
+					}()
+				}
+			}()
+		}
+
+		doneChecking := false
+		for !doneChecking {
+			select {
+			case con = <-lstnhndlr.backcon:
+				doneChecking = true
+			default:
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+
+	} else {
+		if con, err = lstnhndlr.ln.Accept(); err == nil {
+			con = newConnHandler(con)
+		}
 	}
 	return
 }
@@ -122,10 +160,17 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 	return
 }
 
-func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
+func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
 	//go func() {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
-		nxtln := &ListnerHandler{ln: ln}
+		bcklg := 0
+		if len(backlog) == 1 && backlog[0] > 0 {
+			bcklg = backlog[0]
+		}
+		nxtln := &ListnerHandler{ln: ln, lck: &sync.Mutex{}, backlog: bcklg, backLogStarted: false}
+		if bcklg > 0 {
+			nxtln.backcon = make(chan *ConnHandler, bcklg)
+		}
 		go func() {
 			if err := lstnrsrvr.srvr.Serve(nxtln); err != nil && err != http.ErrServerClosed {
 				fmt.Println("error: Failed to serve HTTP: %v", err.Error())
@@ -230,7 +275,7 @@ func (lstnr *Listener) Listen(addr string, ish2c ...bool) {
 	if _, lstok := lstnr.lstnrservers[addr]; !lstok {
 		var lstnrsrvr = newlstnrserver(lstnr, addr, len(ish2c) == 1 && ish2c[0])
 		lstnr.lstnrservers[addr] = lstnrsrvr
-		lstnrsrvr.startListening(lstnr)
+		lstnrsrvr.startListening(lstnr, 50)
 	}
 }
 
