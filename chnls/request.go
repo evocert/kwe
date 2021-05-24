@@ -939,7 +939,7 @@ func (rstdbms *rqstdbms) InOut(in interface{}, out io.Writer, ioargs ...interfac
 	return
 }
 
-func (rqtdbms *rqstdbms) Connection(alias string) (cn *Connection) {
+func (rqtdbms *rqstdbms) Connection(alias string) (cn *database.Connection) {
 	cn = rqtdbms.dbms.Connection(alias)
 	return
 }
