@@ -1045,7 +1045,11 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 		}
 	}
 	if err != nil {
-		cdeerr := codeException(code, err)
+		cde := ""
+		for cdn, cd := range strings.Split(code, "\n") {
+			cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
+		}
+		cdeerr := codeException(cde, err)
 		err = cdeerr
 	}
 	return
