@@ -119,7 +119,6 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 						for {
 							if con, err = lstnhndlr.ln.Accept(); err == nil {
 								lstnhndlr.backcon <- newConnHandler(con)
-								continue
 							} else {
 								time.Sleep(10 * time.Millisecond)
 							}
@@ -275,7 +274,7 @@ func (lstnr *Listener) Listen(addr string, ish2c ...bool) {
 	if _, lstok := lstnr.lstnrservers[addr]; !lstok {
 		var lstnrsrvr = newlstnrserver(lstnr, addr, len(ish2c) == 1 && ish2c[0])
 		lstnr.lstnrservers[addr] = lstnrsrvr
-		lstnrsrvr.startListening(lstnr, 50)
+		lstnrsrvr.startListening(lstnr, 0)
 	}
 }
 
