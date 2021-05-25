@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 
@@ -58,51 +59,77 @@ func (cnhdnlr *ConnHandler) Readln() (ln string, err error) {
 	return
 }
 
-func (cnhdnlr *ConnHandler) Readlines() (lines []string, err error) {
-	lines, err = iorw.ReadLines(cnhdnlr)
+func (cnhndlr *ConnHandler) Readlines() (lines []string, err error) {
+	lines, err = iorw.ReadLines(cnhndlr)
 	return
 }
 
-func (cnhdnlr *ConnHandler) ReadAll() (s string, err error) {
-	s, err = iorw.ReaderToString(cnhdnlr)
+func (cnhndlr *ConnHandler) ReadAll() (s string, err error) {
+	s, err = iorw.ReaderToString(cnhndlr)
 	return
 }
 
-func (cnhdnlr *ConnHandler) Print(a ...interface{}) {
-	iorw.Fprint(cnhdnlr)
+func (cnhndlr *ConnHandler) Print(a ...interface{}) {
+	iorw.Fprint(cnhndlr)
 }
 
-func (cnhdnlr *ConnHandler) Println(a ...interface{}) {
-	iorw.Fprintln(cnhdnlr)
+func (cnhndlr *ConnHandler) Println(a ...interface{}) {
+	iorw.Fprintln(cnhndlr)
 }
 
 func (cnhndlr *ConnHandler) Close() (err error) {
-	err = cnhndlr.con.Close()
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			err = cnhndlr.con.Close()
+			cnhndlr.con = nil
+		}
+		cnhndlr = nil
+	}
 	return
 }
 
-func (cnhdnlr *ConnHandler) LocalAddr() (addr net.Addr) {
-	addr = cnhdnlr.con.LocalAddr()
+func (cnhndlr *ConnHandler) LocalAddr() (addr net.Addr) {
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			addr = cnhndlr.con.LocalAddr()
+		}
+	}
 	return
 }
 
-func (cnhdnlr *ConnHandler) RemoteAddr() (addr net.Addr) {
-	addr = cnhdnlr.con.RemoteAddr()
+func (cnhndlr *ConnHandler) RemoteAddr() (addr net.Addr) {
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			addr = cnhndlr.con.RemoteAddr()
+		}
+	}
 	return
 }
 
-func (cnhdnlr *ConnHandler) SetDeadline(t time.Time) (err error) {
-	err = cnhdnlr.con.SetDeadline(t)
+func (cnhndlr *ConnHandler) SetDeadline(t time.Time) (err error) {
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			err = cnhndlr.con.SetDeadline(t)
+		}
+	}
 	return
 }
 
-func (cnhdnlr *ConnHandler) SetReadDeadline(t time.Time) (err error) {
-	err = cnhdnlr.con.SetReadDeadline(t)
+func (cnhndlr *ConnHandler) SetReadDeadline(t time.Time) (err error) {
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			err = cnhndlr.con.SetReadDeadline(t)
+		}
+	}
 	return
 }
 
-func (cnhdnlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
-	err = cnhdnlr.con.SetWriteDeadline(t)
+func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
+	if cnhndlr != nil {
+		if cnhndlr.con != nil {
+			err = cnhndlr.con.SetWriteDeadline(t)
+		}
+	}
 	return
 }
 
@@ -274,7 +301,7 @@ func (lstnr *Listener) Listen(addr string, ish2c ...bool) {
 	if _, lstok := lstnr.lstnrservers[addr]; !lstok {
 		var lstnrsrvr = newlstnrserver(lstnr, addr, len(ish2c) == 1 && ish2c[0])
 		lstnr.lstnrservers[addr] = lstnrsrvr
-		lstnrsrvr.startListening(lstnr, 0)
+		lstnrsrvr.startListening(lstnr, runtime.NumCPU()*15)
 	}
 }
 
