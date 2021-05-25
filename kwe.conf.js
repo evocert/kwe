@@ -15,8 +15,9 @@ resourcing.FS().SET("mem/index.ht",`<html><body></body></html>`);*/
 dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
 dbms.RegisterConnection("avononeremote","remote","ws://127.0.0.1:1037/dbms-avonone/.json");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
+resourcing.RegisterEndpoint("/controls","D:/projects/system/controls");
 resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
-channel.Listener().Listen(":1037");
+channel.Listener().Listen(":1043");
  @>

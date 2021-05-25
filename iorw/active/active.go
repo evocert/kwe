@@ -250,10 +250,26 @@ func (atv *Active) vm() (vm *goja.Runtime) {
 	return
 }
 
-func (atv *Active) atvrun(prsng *parsing) {
+type CodeException struct {
+	cde string
+	err error
+}
+
+func codeException(cde string, err error) (cdeerr *CodeException) {
+	cdeerr = &CodeException{err: err, cde: cde}
+	return
+}
+
+func (cdeerr *CodeException) Error() (s string) {
+	s = "err:" + cdeerr.err.Error() + "\r\n"
+	s += "code:" + cdeerr.cde
+	return
+}
+
+func (atv *Active) atvrun(prsng *parsing) (err error) {
 	if prsng != nil {
 		if atv.atvruntime == nil {
-			atv.atvruntime, _ = newatvruntime(atv, prsng)
+			atv.atvruntime, err = newatvruntime(atv, prsng)
 		} else {
 			if atv.prsng == nil || atv.prsng != prsng {
 				if atv.prsng != nil {
@@ -264,16 +280,18 @@ func (atv *Active) atvrun(prsng *parsing) {
 			}
 		}
 		if atv.atvruntime != nil {
-			atv.atvruntime.run()
+			_, err = atv.atvruntime.run()
 		}
 	}
+	return
 }
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
-func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...interface{}) {
+func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...interface{}) (err error) {
 	var parsing = nextparsing(atv, nil, rin, wout, initpath)
 	defer parsing.dispose()
-	parseprsng(parsing, true, a...)
+	err = parseprsng(parsing, true, a...)
+	return
 }
 
 //Close - refer to  io.Closer
@@ -768,7 +786,7 @@ func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
 		if canexec {
 			prsng.flushCde()
 			if prsng.foundCode() {
-				prsng.atv.atvrun(prsng)
+				err = prsng.atv.atvrun(prsng)
 			} else {
 				if rdr := prsng.Reader(); rdr != nil {
 					io.Copy(prsng.wout, rdr)
@@ -1025,6 +1043,10 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 				//err = nil
 			}
 		}
+	}
+	if err != nil {
+		cdeerr := codeException(code, err)
+		err = cdeerr
 	}
 	return
 }
