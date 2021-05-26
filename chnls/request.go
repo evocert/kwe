@@ -58,6 +58,8 @@ type Request struct {
 	cchdrqstcntntrdr *iorw.BuffReader
 	prtclmethod      string
 	prtcl            string
+	rmtHost          string
+	lclHost          string
 	zpw              *gzip.Writer
 	rqstr            iorw.Reader
 	Interrupted      bool
@@ -79,6 +81,16 @@ type Request struct {
 	fsutils *fsutils.FSUtils
 	//webing
 	webclient *web.ClientHandle
+}
+
+//RemoteAddr return remote Address of any network request
+func (rqst *Request) RemoteAddr() string {
+	return rqst.rmtHost
+}
+
+//LocalAddr return local Address of any network request
+func (rqst *Request) LocalAddr() string {
+	return rqst.lclHost
 }
 
 //Resource - return mapped resource interface{} by path

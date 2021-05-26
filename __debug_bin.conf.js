@@ -4,7 +4,7 @@ resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
 
 dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
 dbms.RegisterConnection("avononeremote","remote","ws://127.0.0.1:1038/dbms-avonone/.json");
-resourcing.RegisterEndPoint("/controls","D:/projects/system/controls");
+resourcing.RegisterEndpoint("/controls","D:/projects/system/controls");
 console.Log("Start Service");
 channel.Listener().Listen(":1043");
 console.Log("Started Service");

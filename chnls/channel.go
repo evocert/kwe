@@ -132,13 +132,21 @@ func (chnl *Channel) internalServePath(path string, a ...interface{}) {
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
 	inirspath := r.URL.Path
+	cnctn := r.Context().Value(listen.ConnContextKey)
 	if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
 		go func() {
 			defer wsrw.Close()
-			a = append([]interface{}{inirspath}, a...)
+			if cnctn == nil {
+				a = append([]interface{}{inirspath}, a...)
+			} else {
+				a = append([]interface{}{inirspath, cnctn}, a...)
+			}
 			processingRequestIO(chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
 		}()
 	} else {
+		if cnctn != nil {
+			a = append([]interface{}{cnctn}, a...)
+		}
 		processingRequestIO(chnl, nil, r.Body, w, w, nil, r, a...)
 	}
 }

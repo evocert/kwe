@@ -10,6 +10,7 @@ import (
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/osprc"
 )
 
@@ -18,6 +19,8 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 	var ai = 0
 	var initPath = ""
 	var rqstr iorw.Reader = nil
+	var remoteHost = ""
+	var localHost = ""
 	if rdr != nil {
 		if rqstr, _ = rdr.(iorw.Reader); rqstr == nil {
 			rqstr = iorw.NewEOFCloseSeekReader(rdr)
@@ -40,6 +43,13 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 				a = a[1:]
 			}
 			continue
+		} else if cnctn, cnctnok := a[ai].(*listen.ConnHandler); cnctnok {
+			if cnctn != nil {
+				remoteHost = cnctn.RemoteAddr().String()
+				localHost = cnctn.LocalAddr().String()
+			}
+			a = a[1:]
+			continue
 		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
 			if rqstsettings == nil {
 				rqstsettings = rstngs
@@ -53,7 +63,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 		rqstsettings = map[string]interface{}{}
 	}
 
-	rqst = &Request{prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+	rqst = &Request{prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:      initPath,
 		mphndlr:       caching.GLOBALMAP().Handler(),
 		mediarqst:     false,
