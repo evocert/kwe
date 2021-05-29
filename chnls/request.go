@@ -96,11 +96,7 @@ func (rqst *Request) LocalAddr() string {
 //Resource - return mapped resource interface{} by path
 func (rqst *Request) Resource(path string) (rs interface{}) {
 	if path != "" {
-		if strings.HasSuffix(path, "webactions.js") {
-			rs = webactions.WebactionsJS()
-		} else if strings.HasSuffix(path, "webactions.bundle.js") {
-			rs = webactions.WebactionsBundleJS()
-		} else if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
+		if rs = rqst.FS().CAT(path); rs == nil && (strings.HasSuffix(path, "require.js") || strings.HasSuffix(path, "require.min.js")) {
 			if strings.HasSuffix(path, "require.js") {
 				path = "require.js"
 			} else if strings.HasSuffix(path, "require.min.js") {
@@ -114,7 +110,13 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			}
 			rs = rqst.FS().CAT("require/" + path)
 		} else if rs == nil {
-			rs = resources.GLOBALRSNG().FS().CAT(path)
+			if strings.HasSuffix(path, "webactions.js") {
+				rs = webactions.WebactionsJS()
+			} else if strings.HasSuffix(path, "webactions.bundle.js") {
+				rs = webactions.WebactionsBundleJS()
+			} else {
+				rs = resources.GLOBALRSNG().FS().CAT(path)
+			}
 		}
 	}
 	return
