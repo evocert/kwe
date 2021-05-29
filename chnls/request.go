@@ -110,12 +110,12 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			}
 			rs = rqst.FS().CAT("require/" + path)
 		} else if rs == nil {
-			if strings.HasSuffix(path, "webactions.js") {
-				rs = webactions.WebactionsJS()
-			} else if strings.HasSuffix(path, "webactions.bundle.js") {
-				rs = webactions.WebactionsBundleJS()
-			} else {
-				rs = resources.GLOBALRSNG().FS().CAT(path)
+			if rs = resources.GLOBALRSNG().FS().CAT(path); rs == nil {
+				if strings.HasSuffix(path, "webactions.js") {
+					rs = webactions.WebactionsJS()
+				} else if strings.HasSuffix(path, "webactions.bundle.js") {
+					rs = webactions.WebactionsBundleJS()
+				}
 			}
 		}
 	}
