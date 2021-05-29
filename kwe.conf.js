@@ -18,6 +18,6 @@ resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");
 resourcing.RegisterEndpoint("/controls","D:/projects/system/controls");
 resourcing.RegisterEndpoint("/inovoone","D:/projects/inovo/inovoone/one");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
-resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");
+resourcing.RegisterEndpoint("/webactions","https://raw.githubusercontent.com/evocert/webactions/main/src");
 channel.Listener().Listen(":1043");
  @>

@@ -11,7 +11,7 @@ require (
 	github.com/ibmdb/go_ibm_db v0.4.1
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/rs/zerolog v1.22.0
-	github.com/sijms/go-ora v0.0.0-20210420114532-930751532d56
+	github.com/sijms/go-ora/v2 v2.1.19
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
 	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015
