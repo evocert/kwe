@@ -114,7 +114,7 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 				if strings.HasSuffix(path, "webactions.js") {
 					rs = webactions.WebactionsJS()
 				} else if strings.HasSuffix(path, "webactions.bundle.js") {
-					rs = webactions.WebactionsBundleJS()
+					rs = webactions.AllBundleJS()
 				}
 			}
 		}
