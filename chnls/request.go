@@ -805,7 +805,9 @@ func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, initpath str
 			rqst.invokeAtv()
 			if altw == nil {
 				if err := rqst.atv.Eval(rqst, rqst, initpath, r); err != nil {
-					fmt.Println(err)
+					if err != io.EOF {
+						fmt.Println(err)
+					}
 				}
 			} else {
 				rqst.atv.Eval(altw, rqst, initpath, r)
