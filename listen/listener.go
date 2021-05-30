@@ -3,6 +3,7 @@ package listen
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"runtime"
@@ -45,7 +46,12 @@ func newConnHandler(con net.Conn) (cnhdnlr *ConnHandler) {
 }
 
 func (cnhdnlr *ConnHandler) Read(b []byte) (n int, err error) {
-	n, err = cnhdnlr.con.Read(b)
+	if cnhdnlr.con != nil {
+		n, err = cnhdnlr.con.Read(b)
+	}
+	if n == 0 && err == nil {
+		err = io.EOF
+	}
 	return
 }
 
