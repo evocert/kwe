@@ -11,6 +11,7 @@ import (
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
+	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 )
 
@@ -21,6 +22,11 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 	var rqstr iorw.Reader = nil
 	var remoteHost = ""
 	var localHost = ""
+	var mqttcn *mqtt.MQTTConnection = nil
+	var mqttmngr *mqtt.MQTTManager = nil
+	var mqtttopic mqtt.Topic = nil
+	var mqttmsg mqtt.Message = nil
+	var aok = false
 	if rdr != nil {
 		if rqstr, _ = rdr.(iorw.Reader); rqstr == nil {
 			rqstr = iorw.NewEOFCloseSeekReader(rdr)
@@ -50,6 +56,18 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 			}
 			a = a[1:]
 			continue
+		} else if mqttcn, aok = a[ai].(*mqtt.MQTTConnection); aok {
+			a = a[1:]
+			continue
+		} else if mqttmngr, aok = a[ai].(*mqtt.MQTTManager); aok {
+			a = a[1:]
+			continue
+		} else if mqtttopic, aok = a[ai].(mqtt.Topic); aok {
+			a = a[1:]
+			continue
+		} else if mqttmsg, aok = a[ai].(mqtt.Message); aok {
+			a = a[1:]
+			continue
 		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
 			if rqstsettings == nil {
 				rqstsettings = rstngs
@@ -70,8 +88,11 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 		rqstoffset:    -1,
 		rqstendoffset: -1,
 		rqstoffsetmax: -1,
-		rqstmaxsize:   -1}
-	//rqst.invokeAtv()
+		rqstmaxsize:   -1,
+		mqttcn:        mqttcn,
+		mqttmngr:      mqttmngr,
+		mqtttopic:     mqtttopic,
+		mqttmsg:       mqttmsg}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}

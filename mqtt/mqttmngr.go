@@ -3,16 +3,60 @@ package mqtt
 import (
 	"fmt"
 	"sync"
-	//"github.com/evocert/kwe/chnls"
 )
 
-type MQTTManager struct {
-	lck   *sync.RWMutex
-	cntns map[string]*MQTTConnection
+type Topic interface {
+	Topic() string
+	TopicPath() string
 }
 
-func NewMQTTManager() (mqttmngr *MQTTManager) {
-	mqttmngr = &MQTTManager{lck: &sync.RWMutex{}, cntns: map[string]*MQTTConnection{}}
+type activeTopic struct {
+	topic     string
+	topicpath string
+}
+
+func (atvtpc *activeTopic) Topic() string {
+	return atvtpc.topic
+}
+
+func (atvtpc *activeTopic) TopicPath() string {
+	return atvtpc.topicpath
+}
+
+type MqttMessaging func(topic Topic, message Message, mqttcn *MQTTConnection, mqttmngr *MQTTManager)
+
+func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message, mqttcn *MQTTConnection, mqttmngr *MQTTManager) (err error) {
+	if mqttmsng != nil {
+		mqttmsng(atvpc, message, mqttcn, mqttmngr)
+	}
+	return
+}
+
+type MQTTManager struct {
+	lck           *sync.RWMutex
+	cntns         map[string]*MQTTConnection
+	activeTopics  map[string]*activeTopic
+	MqttMessaging MqttMessaging
+	lcktpcs       *sync.RWMutex
+}
+
+func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
+	var mqttmsng MqttMessaging = nil
+	if al := len(a); al > 0 {
+		for al > 0 {
+			d := a[0]
+			if mqttmsng == nil {
+				if mqttmsng, _ = d.(MqttMessaging); mqttmsng != nil {
+					al--
+					continue
+				}
+			}
+			al--
+		}
+	}
+
+	mqttmngr = &MQTTManager{lck: &sync.RWMutex{}, cntns: map[string]*MQTTConnection{},
+		activeTopics: map[string]*activeTopic{}, lcktpcs: &sync.RWMutex{}, MqttMessaging: mqttmsng}
 	return
 }
 
@@ -54,9 +98,18 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 	}
 }
 
-func (mqttmngr *MQTTManager) MessageReceived(alias string, msg Message) {
-	//chnls.GLOBALCHNL().DefaultServePath("")
-	fmt.Printf("%s:Received message: %s from topic: %s\n", alias, msg.Payload(), msg.Topic())
+func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias string, msg Message) {
+	if mqttmngr.MqttMessaging != nil && len(mqttmngr.activeTopics) > 0 {
+		var atvtpc *activeTopic = nil
+		func() {
+			mqttmngr.lcktpcs.RLock()
+			defer mqttmngr.lcktpcs.RUnlock()
+			atvtpc = mqttmngr.activeTopics[msg.Topic()]
+		}()
+		if atvtpc != nil {
+			atvtpc.processMessage(mqttmngr.MqttMessaging, msg, mqttcn, mqttmngr)
+		}
+	}
 }
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
@@ -151,6 +204,38 @@ func (mqttmngr *MQTTManager) Publish(alias string, topic string, qos byte, retai
 		}
 	}
 	return
+}
+
+func (mqttmngr *MQTTManager) ActivateTopic(topic string, topicpath ...string) {
+	if topic != "" {
+		func() {
+			var atvtpc *activeTopic = nil
+			mqttmngr.lcktpcs.Lock()
+			defer mqttmngr.lcktpcs.Unlock()
+			if atvtpc = mqttmngr.activeTopics[topic]; atvtpc == nil {
+				var topicpth = topic
+
+				if len(topicpath) == 1 && topicpath[0] != "" {
+					topicpth = topicpath[0]
+				}
+				atvtpc = &activeTopic{topic: topic, topicpath: topicpth}
+			}
+		}()
+	}
+}
+
+func (mqttmngr *MQTTManager) DeactivateTopic(topic string) {
+	if topic != "" {
+		func() {
+			mqttmngr.lcktpcs.Lock()
+			defer mqttmngr.lcktpcs.Unlock()
+			if atvtpc := mqttmngr.activeTopics[topic]; atvtpc != nil {
+				mqttmngr.activeTopics[topic] = nil
+				delete(mqttmngr.activeTopics, topic)
+				atvtpc = nil
+			}
+		}()
+	}
 }
 
 var gblmqttmngr *MQTTManager

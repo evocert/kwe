@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/evocert/kwe/listen"
+	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/scheduling"
 	"github.com/evocert/kwe/ws"
 )
@@ -14,9 +15,10 @@ import (
 /*Channel -
  */
 type Channel struct {
-	objmap map[string]interface{}
-	lstnr  *listen.Listener
-	schdls *scheduling.Schedules
+	objmap   map[string]interface{}
+	lstnr    *listen.Listener
+	schdls   *scheduling.Schedules
+	mqttmngr *mqtt.MQTTManager
 }
 
 //Listener - *listen.Listener listener for Channel
@@ -25,6 +27,15 @@ func (chnl *Channel) Listener() *listen.Listener {
 		chnl.lstnr = listen.NewListener(chnl)
 	}
 	return chnl.lstnr
+}
+
+func (chnl *Channel) MQTT() *mqtt.MQTTManager {
+	if chnl.mqttmngr == nil {
+		chnl.mqttmngr = mqtt.NewMQTTManager(func(topic mqtt.Topic, message mqtt.Message, mqttcn *mqtt.MQTTConnection, mqttmngr *mqtt.MQTTManager) {
+			processingRequestIO(chnl, nil, nil, nil, nil, nil, nil, []interface{}{topic.TopicPath(), message, mqttcn, mqttmngr}...)
+		})
+	}
+	return chnl.mqttmngr
 }
 
 //Schedules - *scheduling.Schedules schedules for Channel
@@ -214,6 +225,8 @@ var gblchnl *Channel
 func GLOBALCHNL() *Channel {
 	if gblchnl == nil {
 		gblchnl = NewChannel()
+		gblchnl.MQTT()
+		gblchnl.Listener()
 	}
 	return gblchnl
 }

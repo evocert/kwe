@@ -9,14 +9,13 @@ import (
 )
 
 type MQTTConnection struct {
-	mqttmngr    *MQTTManager
-	pahomqtt    mqtt.Client
-	pahooptions *mqtt.ClientOptions
-	ClientId    string
-	broker      string
-	port        int
-	user        string
-	password    string
+	mqttmngr *MQTTManager
+	pahomqtt mqtt.Client
+	ClientId string
+	broker   string
+	port     int
+	user     string
+	password string
 }
 
 func newMQTTOptions(clientid string, broker string, port int, user string, password string) (pahooptions *mqtt.ClientOptions) {
@@ -131,13 +130,12 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 				if mqttcn != nil && mqttcn.mqttmngr != nil {
 					mqttcn.mqttmngr.Disconnected(clientid, err)
 				}
-				//fmt.Printf("Connect lost:"+clientid+"%v", err)
 			}
 
 			var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 				if mqttcn != nil && mqttcn.mqttmngr != nil {
 					var mqttmsg Message = msg
-					mqttcn.mqttmngr.MessageReceived(clientid, mqttmsg)
+					mqttcn.mqttmngr.messageReceived(mqttcn, clientid, mqttmsg)
 					mqttmsg = nil
 				}
 			}
@@ -203,7 +201,7 @@ func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 		var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			if mqttcn != nil && mqttcn.mqttmngr != nil {
 				var mqttmsg Message = msg
-				mqttcn.mqttmngr.MessageReceived(mqttcn.ClientId, mqttmsg)
+				mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
 				mqttmsg = nil
 			}
 		}

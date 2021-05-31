@@ -15,7 +15,7 @@ import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/fsutils"
-	mqtt "github.com/evocert/kwe/mqtt"
+	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/scheduling"
@@ -81,6 +81,11 @@ type Request struct {
 	fsutils *fsutils.FSUtils
 	//webing
 	webclient *web.ClientHandle
+	//mqtt
+	mqttcn    *mqtt.MQTTConnection
+	mqttmngr  *mqtt.MQTTManager
+	mqtttopic mqtt.Topic
+	mqttmsg   mqtt.Message
 }
 
 //RemoteAddr return remote Address of any network request
@@ -460,6 +465,18 @@ func (rqst *Request) Close() (err error) {
 		if rqst.mphndlr != nil {
 			rqst.mphndlr.Close()
 			rqst.mphndlr = nil
+		}
+		if rqst.mqttcn != nil {
+			rqst.mqttcn = nil
+		}
+		if rqst.mqttmngr != nil {
+			rqst.mqttmngr = nil
+		}
+		if rqst.mqtttopic != nil {
+			rqst.mqtttopic = nil
+		}
+		if rqst.mqttmsg != nil {
+			rqst.mqttmsg = nil
 		}
 		rqst = nil
 	}
@@ -1009,7 +1026,21 @@ func (rqst *Request) invokeAtv() {
 		rqst.objmap[nmspce+"channel"] = rqst.chnl
 		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
 		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
-		rqst.objmap[nmspce+"mqtting"] = mqtt.GLOBALMQTTMANAGER()
+
+		if rqst.mqttmngr == nil {
+			rqst.objmap[nmspce+"mqtting"] = rqst.chnl.MQTT()
+		} else {
+			rqst.objmap[nmspce+"mqtting"] = rqst.mqttmngr
+		}
+		if rqst.mqttcn != nil {
+			rqst.objmap[nmspce+"mqtt_cn"] = rqst.mqttcn
+		}
+		if rqst.mqttmsg != nil {
+			rqst.objmap[nmspce+"mqtt_msg"] = rqst.mqttmsg
+		}
+		if rqst.mqtttopic != nil {
+			rqst.objmap[nmspce+"mqtt_topic"] = rqst.mqtttopic
+		}
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
 		rqst.objmap[nmspce+"dbms"] = rqst.dbms
 		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
