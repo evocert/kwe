@@ -410,7 +410,7 @@ func executeAction(actn *Action) (err error) {
 			}
 		}()
 	} else {
-		if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
+		/*if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
 			if actn.rqst.isFirstRequest {
 				actn.rqst.isFirstRequest = false
 				if actn.rqst.mimetype == "" {
@@ -466,6 +466,31 @@ func executeAction(actn *Action) (err error) {
 
 				} else {
 					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
+				}
+			}()
+		}*/
+		if curactnhndlr := actn.ActionHandler(); curactnhndlr != nil {
+			func() {
+				defer func() {
+					curactnhndlr.Close()
+					curactnhndlr = nil
+				}()
+				if actn.rqst.isFirstRequest {
+					if actn.rqst.mimetype == "" {
+						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
+					} else {
+						_, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
+					}
+					actn.rqst.isFirstRequest = false
+				} else {
+					_, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
+				}
+				if isTextRequest {
+					isTextRequest = false
+					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath)
+
+				} else {
+					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath)
 				}
 			}()
 		}
