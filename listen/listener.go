@@ -141,7 +141,7 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	if lstnhndlr.backlog > 0 {
+	/*if lstnhndlr.backlog > 0 {
 		if !lstnhndlr.backLogStarted {
 			func() {
 				lstnhndlr.lck.Lock()
@@ -175,6 +175,9 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 		if con, err = lstnhndlr.ln.Accept(); err == nil {
 			con = newConnHandler(con)
 		}
+	}*/
+	if con, err = lstnhndlr.ln.Accept(); err == nil {
+		con = newConnHandler(con)
 	}
 	return
 }
@@ -195,17 +198,9 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
 	//go func() {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
-		bcklg := 0
-		if len(backlog) == 1 && backlog[0] > 0 {
-			bcklg = backlog[0]
-		}
-		nxtln := &ListnerHandler{ln: ln, lck: &sync.Mutex{}, backlog: bcklg, backLogStarted: false}
-		if bcklg > 0 {
-			nxtln.backcon = make(chan *ConnHandler, bcklg)
-		}
 		go func() {
-			if err := lstnrsrvr.srvr.Serve(nxtln); err != nil && err != http.ErrServerClosed {
-				fmt.Println("error: Failed to serve HTTP: %v", err.Error())
+			if err := lstnrsrvr.srvr.Serve(&ListnerHandler{ln: ln, lck: &sync.Mutex{}}); err != nil && err != http.ErrServerClosed {
+				fmt.Printf("error: Failed to serve HTTP: %v", err.Error())
 			}
 		}()
 	} else {
