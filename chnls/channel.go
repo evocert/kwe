@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
@@ -196,17 +195,16 @@ func (chnl *Channel) Stdio(out *os.File, in *os.File, err *os.File, a ...interfa
 //Send inline request
 func (chnl *Channel) Send(path string, a ...interface{}) (rspr iorw.Reader, err error) {
 	if chnl != nil {
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
+		ctx, cancel := context.WithCancel(context.Background())
 		pi, pw := io.Pipe()
 		go func() {
 			defer func() {
 				pw.Close()
 			}()
-			wg.Done()
+			cancel()
 			processingRequestIO(path, chnl, nil, nil, pw, nil, nil, nil)
 		}()
-		wg.Wait()
+		ctx.Done()
 		rspr = iorw.NewEOFCloseSeekReader(pi, true)
 	}
 	return
