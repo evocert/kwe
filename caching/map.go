@@ -1,6 +1,7 @@
 package caching
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -558,17 +559,17 @@ func mapReader(mp *Map, mphndlr *MapHandler, ks ...interface{}) (mprdr *iorw.EOF
 		if lstactn := mp.lastAction(actnread); !(lstactn == actnclear || lstactn == actnclose) && lstactn == actnread {
 			func() {
 				defer mp.lastAction(actnnone)
-				wg := &sync.WaitGroup{}
-				wg.Add(1)
+				ctx, ctxcancel := context.WithCancel(context.Background())
 				pi, pw := io.Pipe()
 				go func() {
 					defer pw.Close()
-					wg.Done()
+					ctxcancel()
 					func() {
 						encodeMap(pw, nil, mp, mphndlr, ks...)
 					}()
 				}()
-				wg.Wait()
+				<-ctx.Done()
+				ctx = nil
 				rdr = pi
 			}()
 		}

@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
-	"sync"
+
+	"context"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -29,14 +30,13 @@ func NewJSONReader(rdr *Reader, exctr *Executor, err error) (jsnr *JSONReader) {
 func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 	if jsnr.pr == nil && jsnr.pw == nil {
 		jsnr.pr, jsnr.pw = io.Pipe()
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
+		ctx, ctxcancel := context.WithCancel(context.Background())
 		go func(rdr *Reader, exctr *Executor) {
 			defer func() {
 				jsnr.pw.Close()
 			}()
 			enc := json.NewEncoder(jsnr.pw)
-			wg.Done()
+			ctxcancel()
 			if rdr != nil {
 				iorw.Fprint(jsnr.pw, "{\"columns\":[")
 				for cn, c := range rdr.cls {
@@ -106,7 +106,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 				iorw.Fprint(jsnr.pw, "}")
 			}
 		}(jsnr.rdr, jsnr.exctr)
-		wg.Wait()
+		<-ctx.Done()
+		ctx = nil
 	}
 	if jsnr.pr != nil {
 		n, err = jsnr.pr.Read(p)

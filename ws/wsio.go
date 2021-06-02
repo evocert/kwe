@@ -2,10 +2,10 @@ package ws
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/gorilla/websocket"
@@ -100,8 +100,7 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 						return 0, io.EOF
 					}
 					if rdr != nil {
-						wg := &sync.WaitGroup{}
-						wg.Add(1)
+						ctx, ctxcancel := context.WithCancel(context.Background())
 						pr, pw := io.Pipe()
 						go func() {
 							var pwerr error = nil
@@ -112,10 +111,11 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 									pw.Close()
 								}
 							}()
-							wg.Done()
+							ctxcancel()
 							_, pwerr = io.Copy(pw, rdr)
 						}()
-						wg.Wait()
+						<-ctx.Done()
+						ctx = nil
 						wsrw.r = pr
 					}
 				}

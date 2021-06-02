@@ -2,11 +2,11 @@ package database
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -65,14 +65,13 @@ func NewCSVReader(rdr *Reader, err error, a ...interface{}) (csvr *CSVReader) {
 func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 	if csvr.pr == nil && csvr.pw == nil {
 		csvr.pr, csvr.pw = io.Pipe()
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
+		ctx, ctxcancel := context.WithCancel(context.Background())
 		go func(rdr *Reader) {
 			defer func() {
 				csvr.pw.Close()
 			}()
 			//enc := json.NewEncoder(jsnr.pw)
-			wg.Done()
+			ctxcancel()
 			if csvr.err == nil {
 				if rdr != nil {
 					var sval = func(v string) (s string) {
@@ -170,7 +169,8 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 				}
 			}
 		}(csvr.rdr)
-		wg.Wait()
+		<-ctx.Done()
+		ctx = nil
 	}
 	if csvr.pr != nil {
 		n, err = csvr.pr.Read(p)

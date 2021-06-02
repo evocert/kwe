@@ -1,10 +1,10 @@
 package web
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
@@ -258,19 +258,19 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 				if scde := resp.StatusCode; scde >= 200 && scde < 300 {
 					if respbdy := resp.Body; respbdy != nil {
 						if w != nil {
-							wg := &sync.WaitGroup{}
-							wg.Add(1)
+							ctx, ctxcancel := context.WithCancel(context.Background())
 							pi, pw := io.Pipe()
 							go func() {
 								defer func() {
 									pw.Close()
 								}()
-								wg.Done()
+								ctxcancel()
 								if w != nil {
 									io.Copy(pw, respbdy)
 								}
 							}()
-							wg.Wait()
+							<-ctx.Done()
+							ctx = nil
 							io.Copy(w, pi)
 						} else if rspr == nil {
 							rspr = iorw.NewEOFCloseSeekReader(respbdy)

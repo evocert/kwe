@@ -2,6 +2,7 @@ package active
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -726,15 +727,15 @@ func loadRuneReaders(prsng *parsing, a ...interface{}) {
 		tampardr := func() {
 			if len(tmpa) > 0 {
 				pr, pw := io.Pipe()
-				wg := &sync.WaitGroup{}
-				wg.Add(1)
+				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func(ga ...interface{}) {
 					defer pw.Close()
-					wg.Done()
+					ctxcancel()
 					iorw.Fprint(pw, ga...)
 				}(tmpa...)
 				tmpa = nil
-				wg.Wait()
+				<-ctx.Done()
+				ctx = nil
 				prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(pr))
 			}
 			return
@@ -1080,19 +1081,19 @@ func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val int
 	var cdecoords []int64 = nil
 	orgcdemapl := len(prsng.cdemap)
 	pr, pw := io.Pipe()
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	ctx, ctxcancel := context.WithCancel(context.Background())
 	go func(args ...interface{}) {
 		defer func() {
 			pw.Close()
 		}()
-		wg.Done()
+		ctxcancel()
 		if len(args) > 0 {
 			iorw.Fprint(pw, args...)
 		}
 	}(a...)
 	rnr := bufio.NewReader(pr)
-	wg.Wait()
+	<-ctx.Done()
+	ctx = nil
 	var crunes = make([]rune, 4096)
 	var crunesi = 0
 	var cdetestbuf = iorw.NewBuffer()

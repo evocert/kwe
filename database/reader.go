@@ -33,19 +33,18 @@ type JSONDataEntry interface {
 //Reader - struct
 type Reader struct {
 	*Executor
-	rws       *sql.Rows
-	rownr     int64
-	strtrdng  bool
-	isfocused bool
-	islast    bool
-	isfirst   bool
-	cls       []string
-	cltpes    []*ColumnType
-	data      []interface{}
-	datamap   map[string]interface{}
-	dispdata  []interface{}
-	dataref   []interface{}
-	//wg          *sync.WaitGroup
+	rws         *sql.Rows
+	rownr       int64
+	strtrdng    bool
+	isfocused   bool
+	islast      bool
+	isfirst     bool
+	cls         []string
+	cltpes      []*ColumnType
+	data        []interface{}
+	datamap     map[string]interface{}
+	dispdata    []interface{}
+	dataref     []interface{}
 	OnColumns   interface{}
 	OnRow       interface{}
 	OnValidData interface{}
@@ -275,18 +274,12 @@ func (rdr *Reader) Next() (next bool, err error) {
 }
 
 func populateRecordData(rdr *Reader) (err error) {
-	//if rdr.wg == nil {
-	//	rdr.wg = &sync.WaitGroup{}
-	//}
-	//rdr.wg.Add(1)
 	if rdr.data == nil {
 		rdr.data = make([]interface{}, len(rdr.cls))
 		rdr.dataref = make([]interface{}, len(rdr.cls))
 		rdr.dispdata = make([]interface{}, len(rdr.cls))
 	}
-	//wg := rdr.wg
-	//go func(wg *sync.WaitGroup) {
-	//	defer wg.Done()
+
 	for n := range rdr.data {
 		rdr.dataref[n] = &rdr.data[n]
 	}
@@ -294,8 +287,6 @@ func populateRecordData(rdr *Reader) (err error) {
 		rdr.Close()
 		err = scerr
 	}
-	//}(wg)
-	//wg.Wait()
 	return
 }
 

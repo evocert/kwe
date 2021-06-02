@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/caching"
@@ -63,7 +62,6 @@ type Request struct {
 	zpw              *gzip.Writer
 	rqstr            iorw.Reader
 	Interrupted      bool
-	wgtxt            *sync.WaitGroup
 	objmap           map[string]interface{}
 	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
 	isFirstRequest   bool
@@ -347,9 +345,6 @@ func (rqst *Request) Close() (err error) {
 				})
 			actntodispose = nil
 			rqst.actnslst = nil
-		}
-		if rqst.wgtxt != nil {
-			rqst.wgtxt = nil
 		}
 		if rqst.prms != nil {
 			rqst.prms.CleanupParameters()

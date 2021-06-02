@@ -1,13 +1,13 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -143,16 +143,16 @@ func newExecErr(err error, stmnt string) (execerr *ExecError) {
 func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
 	if exctr.isRemote() {
 		pi, po := io.Pipe()
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
+		ctx, ctxcancel := context.WithCancel(context.Background())
 		go func() {
 			defer func() {
 				po.Close()
 			}()
-			wg.Done()
+			ctxcancel()
 			exctr.webquery(len(forrows) == 1 && forrows[0], po)
 		}()
-		wg.Wait()
+		<-ctx.Done()
+		ctx = nil
 		exctr.jsndcdr = json.NewDecoder(pi)
 		exctr.tknlvl = 0
 		for {
@@ -309,8 +309,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 
 func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface{}) (err error) {
 	pi, pw := io.Pipe()
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	ctx, ctxcancel := context.WithCancel(context.Background())
 	func() {
 		defer func() {
 			pi.Close()
@@ -320,7 +319,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 			defer func() {
 				pw.Close()
 			}()
-			wg.Done()
+			ctxcancel()
 			encw := json.NewEncoder(pw)
 			rqstmpstngs := map[string]interface{}{}
 			if len(exctr.mappedArgs) > 0 {
@@ -339,6 +338,8 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 			encw = nil
 			rqstmp = nil
 		}()
+		<-ctx.Done()
+		ctx = nil
 		datasource := exctr.cn.dataSourceName
 		if strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") {
 			func() {

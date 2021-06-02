@@ -2,12 +2,12 @@ package fsutils
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/evocert/kwe/iorw"
@@ -425,8 +425,7 @@ func CAT(path string) (r io.Reader, err error) {
 		if statf.Size() > 0 {
 			if f, ferr := os.Open(path); ferr == nil {
 				pr, pw := io.Pipe()
-				wg := &sync.WaitGroup{}
-				wg.Add(1)
+				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					var pwerr error = nil
 					defer func() {
@@ -437,14 +436,15 @@ func CAT(path string) (r io.Reader, err error) {
 							pw.CloseWithError(pwerr)
 						}
 					}()
-					wg.Done()
+					ctxcancel()
 					if _, pwerr = io.Copy(pw, f); pwerr != nil {
 						if pwerr == io.EOF {
 							pwerr = nil
 						}
 					}
 				}()
-				wg.Done()
+				<-ctx.Done()
+				ctx = nil
 				r = iorw.NewEOFCloseSeekReader(pr)
 			} else {
 				err = ferr
@@ -485,8 +485,7 @@ func PIPE(path string) (r io.Reader, err error) {
 		if statf.Size() > 0 {
 			if f, ferr := os.Open(path); ferr == nil {
 				pr, pw := io.Pipe()
-				wg := &sync.WaitGroup{}
-				wg.Add(1)
+				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					var pwerr error = nil
 					defer func() {
@@ -497,14 +496,15 @@ func PIPE(path string) (r io.Reader, err error) {
 							pw.CloseWithError(pwerr)
 						}
 					}()
-					wg.Done()
+					ctxcancel()
 					if _, pwerr = io.Copy(pw, f); pwerr != nil {
 						if pwerr == io.EOF {
 							pwerr = nil
 						}
 					}
 				}()
-				wg.Done()
+				<-ctx.Done()
+				ctx = nil
 				r = iorw.NewEOFCloseSeekReader(pr, false)
 			} else {
 				err = ferr
