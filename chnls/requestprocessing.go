@@ -15,10 +15,9 @@ import (
 	"github.com/evocert/kwe/osprc"
 )
 
-func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
+func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
-	var initPath = ""
 	var rqstr iorw.Reader = nil
 	var remoteHost = ""
 	var localHost = ""
@@ -33,15 +32,7 @@ func internalNewRequest(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.
 		}
 	}
 	for ai < len(a) {
-		if ds, dsok := a[ai].(string); dsok {
-			if ai == 0 && ds != "" {
-				if initPath == "" {
-					initPath = ds
-				}
-			}
-			a = a[1:]
-			continue
-		} else if da, daok := a[ai].([]interface{}); daok {
+		if da, daok := a[ai].([]interface{}); daok {
 			if al := len(da); al > 0 {
 				a = append(da, a[1:]...)
 				ai = 0
@@ -110,7 +101,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 		rqst.prtcl = httpr.Proto
 		rqst.prtclmethod = httpr.Method
 		bgrndctnx = httpr.Context()
-	} else if rqstw != nil && rqstr != nil {
+	} else {
 		bgrndctnx = context.Background()
 	}
 	func() {
@@ -136,7 +127,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 			}()
 			if httpr != nil && httpw != nil {
 				rqst.executeHTTP(interrupt)
-			} else if rqstr != nil && rqstw != nil {
+			} else if rqstr == nil || rqstw == nil {
 				if rwerr := rqst.executeRW(interrupt); rwerr != nil {
 					fmt.Println(rwerr)
 				}
@@ -155,7 +146,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 	}()
 }
 
-func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
+func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
 	var excrqst *Request = nil
 	var interrupt func() = nil
 	if wtr == nil && httpw != nil {
@@ -168,7 +159,7 @@ func processingRequestIO(chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io
 		}
 	}
 	if prntrqst == nil {
-		excrqst, interrupt = internalNewRequest(chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, a...)
+		excrqst, interrupt = internalNewRequest(initpath, chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, a...)
 	} else {
 		excrqst = prntrqst
 	}

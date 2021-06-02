@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/scheduling"
@@ -32,7 +34,7 @@ func (chnl *Channel) Listener() *listen.Listener {
 func (chnl *Channel) MQTT() *mqtt.MQTTManager {
 	if chnl.mqttmngr == nil {
 		chnl.mqttmngr = mqtt.NewMQTTManager(func(topic mqtt.Topic, message mqtt.Message, mqttcn *mqtt.MQTTConnection, mqttmngr *mqtt.MQTTManager) {
-			processingRequestIO(chnl, nil, nil, nil, nil, nil, nil, []interface{}{topic.TopicPath(), message, mqttcn, mqttmngr}...)
+			processingRequestIO(topic.TopicPath(), chnl, nil, nil, nil, nil, nil, nil, []interface{}{message, mqttcn, mqttmngr}...)
 		})
 	}
 	return chnl.mqttmngr
@@ -52,6 +54,7 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 		ai := 0
 		var prntrqst *Request = nil
 		atvprntmap := map[string]interface{}{}
+		inipath := "/"
 		for ai < al {
 			d := a[ai]
 			if rqst, rqstok := d.(*Request); rqstok {
@@ -60,11 +63,16 @@ func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (
 					rqst.atv.ExtractGlobals(atvprntmap)
 				}
 				ai++
+			} else if ipth, ipthok := d.(string); ipthok {
+				if ipth != "" {
+					inipath = ipth
+				}
+				ai++
 			} else {
 				ai++
 			}
 		}
-		if scdhlrqst, _ := internalNewRequest(chnl, prntrqst, nil, nil, nil, nil, nil, a...); scdhlrqst != nil {
+		if scdhlrqst, _ := internalNewRequest(inipath, chnl, prntrqst, nil, nil, nil, nil, nil, a...); scdhlrqst != nil {
 			scdhlrqst.schdl = schdl
 			lclglbs := map[string]interface{}{}
 			if len(atvprntmap) > 0 {
@@ -136,9 +144,7 @@ func NewChannel() (chnl *Channel) {
 }
 
 func (chnl *Channel) internalServePath(path string, a ...interface{}) {
-	inirspath := path
-	a = append([]interface{}{inirspath}, a...)
-	processingRequestIO(chnl, nil, nil, nil, nil, nil, nil, a...)
+	processingRequestIO(path, chnl, nil, nil, nil, nil, nil, nil, a...)
 }
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
@@ -147,18 +153,16 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 	if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
 		go func() {
 			defer wsrw.Close()
-			if cnctn == nil {
-				a = append([]interface{}{inirspath}, a...)
-			} else {
-				a = append([]interface{}{inirspath, cnctn}, a...)
+			if cnctn != nil {
+				a = append([]interface{}{cnctn}, a...)
 			}
-			processingRequestIO(chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
+			processingRequestIO(inirspath, chnl, nil, wsrw, wsrw, nil, nil, nil, a...)
 		}()
 	} else {
 		if cnctn != nil {
 			a = append([]interface{}{cnctn}, a...)
 		}
-		processingRequestIO(chnl, nil, r.Body, w, w, nil, r, a...)
+		processingRequestIO(inirspath, chnl, nil, r.Body, w, w, nil, r, a...)
 	}
 }
 
@@ -169,12 +173,43 @@ func (chnl *Channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 //ServeRW - serve Reader Writer
 func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
-	processingRequestIO(chnl, nil, r, w, nil, nil, nil, a...)
+	initpath := "/"
+	if al := len(a); al > 0 {
+		for an, d := range a {
+			if pthi, pthiok := d.(string); pthiok {
+				if pthi != "" {
+					initpath = pthi
+				}
+				a = append(a[:an], a[an+1:]...)
+				break
+			}
+		}
+	}
+	processingRequestIO(initpath, chnl, nil, r, w, nil, nil, nil, a...)
 }
 
 //Stdio - os.Stdout, os.Stdin
 func (chnl *Channel) Stdio(out *os.File, in *os.File, err *os.File, a ...interface{}) {
 	chnl.ServeRW(in, out, a...)
+}
+
+//Send inline request
+func (chnl *Channel) Send(path string, a ...interface{}) (rspr iorw.Reader, err error) {
+	if chnl != nil {
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		pi, pw := io.Pipe()
+		go func() {
+			defer func() {
+				pw.Close()
+			}()
+			wg.Done()
+			processingRequestIO(path, chnl, nil, nil, pw, nil, nil, nil)
+		}()
+		wg.Wait()
+		rspr = iorw.NewEOFCloseSeekReader(pi, true)
+	}
+	return
 }
 
 //DefaultServeHTTP - helper to perform dummy ServeHttp request on channel

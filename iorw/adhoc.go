@@ -175,11 +175,14 @@ func ReaderToString(r interface{}) (s string, err error) {
 			runesi = 0
 		}
 		return nil
-	}); err == nil {
+	}); err == nil || err == io.EOF {
 		if runesi > 0 {
 			s += string(runes[:runesi])
 			runesi = 0
 		}
+	}
+	if err == io.EOF {
+		err = nil
 	}
 	return
 }
