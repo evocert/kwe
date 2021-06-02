@@ -19,42 +19,48 @@ type ActionHandler struct {
 //NewActionHandler - for Action io
 func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 	path := actn.rspath
+	pathext := filepath.Ext(path)
+	path = path[:len(path)-len(pathext)]
 	if path != "" && path[0] == '/' {
 		path = path[1:]
 	}
-	if path != "" {
-		hndlMaxSize := int64(-1)
+	hndlMaxSize := int64(-1)
 
-		var lookuprs = func(lkppath string) bool {
-			if rqstrs := actn.rqst.Resource(lkppath); rqstrs != nil {
-				if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
-					actnhndl = &ActionHandler{actn: actn, actnrdr: eofclsr, actnrnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
-				} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
-					hndlMaxSize = bf.Size()
-					rdr := bf.Reader()
-					actnhndl = &ActionHandler{actn: actn, actnrdr: rdr, actnrnrdr: rdr, hndlMaxSize: hndlMaxSize}
-				} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
-					eofrdr := iorw.NewEOFCloseSeekReader(fncr())
-					actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr}
-				} else if rd, rdok := rqstrs.(io.Reader); rdok {
-					eofrdr := iorw.NewEOFCloseSeekReader(rd)
-					actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr, hndlMaxSize: hndlMaxSize}
-				}
+	var lookuprs = func(lkppath string) bool {
+		if rqstrs := actn.rqst.Resource(lkppath); rqstrs != nil {
+			if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofclsr, actnrnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
+			} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
+				hndlMaxSize = bf.Size()
+				rdr := bf.Reader()
+				actnhndl = &ActionHandler{actn: actn, actnrdr: rdr, actnrnrdr: rdr, hndlMaxSize: hndlMaxSize}
+			} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
+				eofrdr := iorw.NewEOFCloseSeekReader(fncr())
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr}
+			} else if rd, rdok := rqstrs.(io.Reader); rdok {
+				eofrdr := iorw.NewEOFCloseSeekReader(rd)
+				actnhndl = &ActionHandler{actn: actn, actnrdr: eofrdr, actnrnrdr: eofrdr, hndlMaxSize: hndlMaxSize}
 			}
-			return actnhndl != nil
 		}
+		return actnhndl != nil
+	}
 
-		if filepath.Ext(path) != "" {
-			lookuprs(path)
+	if pathext != "" && path != "" && !strings.HasSuffix(path, "/") {
+		lookuprs(path + pathext)
+	} else {
+		if !strings.HasSuffix(path, "/") {
+			path = path + "/"
+		}
+		var extrange []string = nil
+		if pathext == "" {
+			extrange = []string{".js", ".json", ".html", ".xml", ".svg"}
 		} else {
-			if !strings.HasSuffix(path, "/") {
-				path = path + "/"
-			}
-			for _, pthext := range []string{".js", ".json", ".html", ".xml", ".svg"} {
-				if lookuprs(path + "index" + pthext) {
-					actn.rspath = path + "index" + pthext
-					break
-				}
+			extrange = []string{pathext}
+		}
+		for _, pthext := range extrange {
+			if lookuprs(path + "index" + pthext) {
+				actn.rspath = path + "index" + pthext
+				break
 			}
 		}
 	}
