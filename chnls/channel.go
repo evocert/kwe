@@ -232,24 +232,17 @@ func (chnl *Channel) DefaultServePath(path string, a ...interface{}) {
 
 //DefaultServeRW - helper to perform dummy ServeRW request on channel
 func (chnl *Channel) DefaultServeRW(w io.Writer, url string, r io.Reader, a ...interface{}) {
-	cntxt := context.Background()
-	go func() {
-		_, cncl := context.WithCancel(cntxt)
-		defer cncl()
-
-		var method = "GET"
-		if r != nil {
-			method = "POST"
+	var method = "GET"
+	if r != nil {
+		method = "POST"
+	}
+	if rhttp, rhttperr := http.NewRequest(method, url, r); rhttperr == nil {
+		if rhttp != nil {
+			var whttp = NewResponse(w, rhttp)
+			whttp.canWriteHeader = false
+			chnl.internalServeHTTP(whttp, rhttp, a...)
 		}
-		if rhttp, rhttperr := http.NewRequest(method, url, r); rhttperr == nil {
-			if rhttp != nil {
-				var whttp = NewResponse(w, rhttp)
-				whttp.canWriteHeader = false
-				chnl.internalServeHTTP(whttp, rhttp, a...)
-			}
-		}
-	}()
-	<-cntxt.Done()
+	}
 }
 
 var gblchnl *Channel
