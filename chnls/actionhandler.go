@@ -53,7 +53,7 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 		}
 		var extrange []string = nil
 		if pathext == "" {
-			extrange = []string{".js", ".json", ".html", ".xml", ".svg"}
+			extrange = []string{".html", ".js", ".json", ".xml", ".svg"}
 		} else {
 			extrange = []string{pathext}
 		}
