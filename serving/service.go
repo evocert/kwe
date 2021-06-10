@@ -196,12 +196,12 @@ func (svr *Service) Execute(args ...string) (err error) {
 			if svccmd == "" {
 				go func() {
 					b := false
-					lck := &sync.Mutex{}
+					//lck := &sync.Mutex{}
 					for {
 						time.Sleep(time.Second * 5)
 						func() {
-							lck.Lock()
-							defer lck.Unlock()
+							//lck.Lock()
+							//defer lck.Unlock()
 							if !b {
 								b = true
 								go func() {

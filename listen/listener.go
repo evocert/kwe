@@ -177,7 +177,15 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 		}
 	}*/
 	if con, err = lstnhndlr.ln.Accept(); err == nil {
-		con = newConnHandler(con)
+		if tcpcn, tcpcnok := con.(*net.TCPConn); tcpcnok {
+			tcpcn.SetLinger(-1)
+			tcpcn.SetReadBuffer(8192)
+			tcpcn.SetWriteBuffer(8192)
+			//tcpcn.SetNoDelay(false)
+			tcpcn.SetKeepAlive(true)
+			con = tcpcn
+		}
+		//con = newConnHandler(con)
 	}
 	return
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"runtime"
 
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
@@ -16,6 +18,7 @@ import (
 )
 
 func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
+	defer runtime.GC()
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 	var rqstr iorw.Reader = nil
@@ -41,6 +44,13 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 			}
 			continue
 		} else if cnctn, cnctnok := a[ai].(*listen.ConnHandler); cnctnok {
+			if cnctn != nil {
+				remoteHost = cnctn.RemoteAddr().String()
+				localHost = cnctn.LocalAddr().String()
+			}
+			a = a[1:]
+			continue
+		} else if cnctn, cnctnok := a[ai].(net.Conn); cnctnok {
 			if cnctn != nil {
 				remoteHost = cnctn.RemoteAddr().String()
 				localHost = cnctn.LocalAddr().String()
