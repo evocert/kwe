@@ -32,8 +32,8 @@ func (chnl *Channel) Listener() *listen.Listener {
 
 func (chnl *Channel) MQTT() *mqtt.MQTTManager {
 	if chnl.mqttmngr == nil {
-		chnl.mqttmngr = mqtt.NewMQTTManager(func(topic mqtt.Topic, message mqtt.Message, mqttcn *mqtt.MQTTConnection, mqttmngr *mqtt.MQTTManager) {
-			processingRequestIO(topic.TopicPath(), chnl, nil, nil, nil, nil, nil, nil, []interface{}{message, mqttcn, mqttmngr}...)
+		chnl.mqttmngr = mqtt.NewMQTTManager(func(message mqtt.Message) {
+			processingRequestIO(message.TopicPath(), chnl, nil, nil, nil, nil, nil, nil, []interface{}{message}...)
 		})
 	}
 	return chnl.mqttmngr

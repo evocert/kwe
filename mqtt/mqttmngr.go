@@ -23,11 +23,11 @@ func (atvtpc *activeTopic) TopicPath() string {
 	return atvtpc.topicpath
 }
 
-type MqttMessaging func(topic Topic, message Message, mqttcn *MQTTConnection, mqttmngr *MQTTManager)
+type MqttMessaging func(message Message)
 
-func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message, mqttcn *MQTTConnection, mqttmngr *MQTTManager) (err error) {
+func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message) (err error) {
 	if mqttmsng != nil {
-		mqttmsng(atvpc, message, mqttcn, mqttmngr)
+		mqttmsng(message)
 	}
 	return
 }
@@ -98,7 +98,7 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 	}
 }
 
-func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias string, msg Message) {
+func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias string, msg *mqttMessage) {
 	if mqttmngr.MqttMessaging != nil && len(mqttmngr.activeTopics) > 0 {
 		var atvtpc *activeTopic = nil
 		func() {
@@ -107,7 +107,8 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 			atvtpc = mqttmngr.activeTopics[msg.Topic()]
 		}()
 		if atvtpc != nil {
-			atvtpc.processMessage(mqttmngr.MqttMessaging, msg, mqttcn, mqttmngr)
+			msg.tokenpath = atvtpc.topicpath
+			atvtpc.processMessage(mqttmngr.MqttMessaging, msg)
 		}
 	}
 }

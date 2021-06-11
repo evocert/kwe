@@ -134,9 +134,17 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 
 			var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 				if mqttcn != nil && mqttcn.mqttmngr != nil {
-					var mqttmsg Message = msg
-					mqttcn.mqttmngr.messageReceived(mqttcn, clientid, mqttmsg)
-					mqttmsg = nil
+					func() {
+						var mqttmsg *mqttMessage = &mqttMessage{msg: msg, mqttcn: mqttcn, mqttmmng: mqttcn.mqttmngr}
+						defer func() {
+							mqttmsg.mqttcn = nil
+							mqttmsg.msg = nil
+							mqttmsg.tokenpath = ""
+							mqttmsg = nil
+							mqttmsg.mqttmmng = nil
+						}()
+						mqttcn.mqttmngr.messageReceived(mqttcn, clientid, mqttmsg)
+					}()
 				}
 			}
 			pahooptions.SetDefaultPublishHandler(messagePubHandler)
@@ -157,7 +165,60 @@ type Message interface {
 	Topic() string
 	MessageID() uint16
 	Payload() []byte
+	Connection() *MQTTConnection
+	TopicPath() string
+	Manager() *MQTTManager
 	Ack()
+}
+
+type mqttMessage struct {
+	mqttcn    *MQTTConnection
+	mqttmmng  *MQTTManager
+	msg       mqtt.Message
+	tokenpath string
+}
+
+func (mqttmsg *mqttMessage) TopicPath() (topicpath string) {
+	if mqttmsg != nil {
+		topicpath = mqttmsg.tokenpath
+	}
+	return
+}
+
+func (mqttmsg *mqttMessage) Duplicate() bool {
+	return mqttmsg.msg.Duplicate()
+}
+
+func (mqttmsg *mqttMessage) Qos() byte {
+	return mqttmsg.msg.Qos()
+}
+
+func (mqttmsg *mqttMessage) Retained() bool {
+	return mqttmsg.msg.Retained()
+}
+
+func (mqttmsg *mqttMessage) Topic() string {
+	return mqttmsg.msg.Topic()
+}
+
+func (mqttmsg *mqttMessage) MessageID() uint16 {
+	return mqttmsg.msg.MessageID()
+}
+
+func (mqttmsg *mqttMessage) Payload() []byte {
+	return mqttmsg.msg.Payload()
+}
+
+func (mqttmsg *mqttMessage) Connection() *MQTTConnection {
+	return mqttmsg.mqttcn
+}
+
+func (mqttmsg *mqttMessage) Manager() *MQTTManager {
+	return mqttmsg.mqttmmng
+}
+
+func (mqttmsg *mqttMessage) Ack() {
+	mqttmsg.msg.Ack()
 }
 
 func (mqttcn *MQTTConnection) IsConnected() (connected bool) {
@@ -200,9 +261,17 @@ func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 	if mqttcn != nil && mqttcn.pahomqtt != nil {
 		var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			if mqttcn != nil && mqttcn.mqttmngr != nil {
-				var mqttmsg Message = msg
-				mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
-				mqttmsg = nil
+				func() {
+					var mqttmsg *mqttMessage = &mqttMessage{msg: msg, mqttcn: mqttcn, mqttmmng: mqttcn.mqttmngr}
+					defer func() {
+						mqttmsg.mqttcn = nil
+						mqttmsg.msg = nil
+						mqttmsg.tokenpath = ""
+						mqttmsg = nil
+						mqttmsg.mqttmmng = nil
+					}()
+					mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
+				}()
 			}
 		}
 		tkn := mqttcn.pahomqtt.Subscribe(topic, qos, messagePubHandler)

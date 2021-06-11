@@ -24,9 +24,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 	var rqstr iorw.Reader = nil
 	var remoteHost = ""
 	var localHost = ""
-	var mqttcn *mqtt.MQTTConnection = nil
-	var mqttmngr *mqtt.MQTTManager = nil
-	var mqtttopic mqtt.Topic = nil
 	var mqttmsg mqtt.Message = nil
 	var aok = false
 	if rdr != nil {
@@ -57,15 +54,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 			}
 			a = a[1:]
 			continue
-		} else if mqttcn, aok = a[ai].(*mqtt.MQTTConnection); aok {
-			a = a[1:]
-			continue
-		} else if mqttmngr, aok = a[ai].(*mqtt.MQTTManager); aok {
-			a = a[1:]
-			continue
-		} else if mqtttopic, aok = a[ai].(mqtt.Topic); aok {
-			a = a[1:]
-			continue
 		} else if mqttmsg, aok = a[ai].(mqtt.Message); aok {
 			a = a[1:]
 			continue
@@ -90,9 +78,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		rqstendoffset: -1,
 		rqstoffsetmax: -1,
 		rqstmaxsize:   -1,
-		mqttcn:        mqttcn,
-		mqttmngr:      mqttmngr,
-		mqtttopic:     mqtttopic,
 		mqttmsg:       mqttmsg}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
