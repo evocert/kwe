@@ -137,7 +137,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 			}()
 			if httpr != nil && httpw != nil {
 				rqst.executeHTTP(interrupt)
-			} else if rqstr == nil || rqstw == nil {
+			} else if (rqstr == nil || rqstw == nil) || (rqstr != nil && rqstw != nil) {
 				if rwerr := rqst.executeRW(interrupt); rwerr != nil {
 					fmt.Println(rwerr)
 				}

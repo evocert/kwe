@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	//_ "github.com/evocert/kwe/database/db2"
@@ -9,6 +10,7 @@ import (
 	_ "github.com/evocert/kwe/database/ora"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
+	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/service"
 )
 
@@ -37,7 +39,7 @@ func main() {
 		fmt.Println(err.Error())
 	}*/
 
-	/*for i := 0; i < 20; i++ {
+	for i := 0; i < 1; i++ {
 		mqttclid := fmt.Sprintf("mqtt%d", (i + 1))
 		mqtt.GLOBALMQTTMANAGER().RegisterConnection(mqttclid, "broker", "skullquake.dedicated.co.za", "port", 1883, "user", "emqx", "password", "public")
 
@@ -46,7 +48,7 @@ func main() {
 		}
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 1; i++ {
 		mqttclid := fmt.Sprintf("mqtt%d", (i + 1))
 
 		if err := mqtt.GLOBALMQTTMANAGER().Subscribe(mqttclid, "topic/test", 0); err != nil {
@@ -54,13 +56,12 @@ func main() {
 		}
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 1; i++ {
 		mqttclid := fmt.Sprintf("mqtt%d", (i + 1))
-
 		if err := mqtt.GLOBALMQTTMANAGER().Publish(mqttclid, "topic/test", 0, false, "hello there"); err != nil {
 			fmt.Println(err.Error())
 		}
-	}*/
+	}
 
 	service.RunService(os.Args...)
 
