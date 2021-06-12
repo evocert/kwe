@@ -251,7 +251,14 @@ var gblchnl *Channel
 func GLOBALCHNL() *Channel {
 	if gblchnl == nil {
 		gblchnl = NewChannel()
-		gblchnl.MQTT()
+		if gblchnl.mqttmngr == nil {
+			gblchnl.mqttmngr = mqtt.GLOBALMQTTMANAGER()
+			if gblchnl.mqttmngr.MqttMessaging == nil {
+				gblchnl.mqttmngr.MqttMessaging = func(message mqtt.Message) {
+					processingRequestIO(message.TopicPath(), gblchnl, nil, nil, nil, nil, nil, nil, []interface{}{message}...)
+				}
+			}
+		}
 		gblchnl.Listener()
 	}
 	return gblchnl

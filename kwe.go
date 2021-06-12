@@ -56,13 +56,15 @@ func main() {
 		}
 	}
 
-	//for i := 0; i < 1; i++ {
-	mqttclid := fmt.Sprintf("mqtt%d", (2))
-	if err := mqtt.GLOBALMQTTMANAGER().Publish(mqttclid, "controls/test", 0, false, "hello there"); err != nil {
-		fmt.Println(err.Error())
-	}
-	//}*/
-
+	go func() {
+		time.Sleep(10 * time.Second)
+		//for i := 0; i < 1; i++ {
+		mqttclid := fmt.Sprintf("mqtt%d", (2))
+		if err := mqtt.GLOBALMQTTMANAGER().Publish(mqttclid, "controls/test", 0, false, "hello there"); err != nil {
+			fmt.Println(err.Error())
+		}
+		//}
+	}()*/
 	service.RunService(os.Args...)
 
 }

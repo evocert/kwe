@@ -223,6 +223,7 @@ func (mqttmngr *MQTTManager) ActivateTopic(topic string, topicpath ...string) {
 					topicpth = topicpath[0]
 				}
 				atvtpc = &activeTopic{topic: topic, topicpath: topicpth}
+				mqttmngr.activeTopics[topic] = atvtpc
 			}
 		}()
 	}
