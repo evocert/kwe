@@ -114,7 +114,6 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 			atvtpc.processMessage(mqttmngr.MqttMessaging, msg)
 		}
 	}
-	fmt.Println(msg)
 }
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
