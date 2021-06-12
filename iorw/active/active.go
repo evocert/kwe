@@ -252,18 +252,20 @@ func (atv *Active) vm() (vm *goja.Runtime) {
 }
 
 type CodeException struct {
-	cde string
-	err error
+	cde      string
+	err      error
+	execpath string
 }
 
-func codeException(cde string, err error) (cdeerr *CodeException) {
-	cdeerr = &CodeException{err: err, cde: cde}
+func codeException(cde string, execpath string, err error) (cdeerr *CodeException) {
+	cdeerr = &CodeException{err: err, execpath: execpath, cde: cde}
 	return
 }
 
 func (cdeerr *CodeException) Error() (s string) {
 	s = "err:" + cdeerr.err.Error() + "\r\n"
-	s += "code:" + cdeerr.cde
+	s += "path:" + cdeerr.execpath + "\r\n"
+	s += cdeerr.cde
 	return
 }
 
@@ -680,7 +682,7 @@ func (prsng *parsing) flushPsv() (err error) {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
 			prsng.psvoffsetstart = -1
 			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
-			err = parseatvrunes(prsng, []rune(fmt.Sprintf("_passiveout(%d);", pos)))
+			err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
 		}
 	}
 	return
@@ -1047,10 +1049,14 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	}
 	if err != nil {
 		cde := ""
+		excpath := ""
+		if atvrntme.prsng != nil {
+			excpath = atvrntme.prsng.prsvpth
+		}
 		for cdn, cd := range strings.Split(code, "\n") {
 			cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
 		}
-		cdeerr := codeException(cde, err)
+		cdeerr := codeException(cde, excpath, err)
 		err = cdeerr
 	}
 	return
@@ -1303,7 +1309,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		"sleep": func(mils int64) {
 			time.Sleep(time.Millisecond * time.Duration(mils))
 		},
-		"_passiveout": func(i int) {
+		"_psvout": func(i int) {
 			atvrntme.passiveout(i)
 		},
 		"_cache": func() map[string]interface{} {

@@ -1,11 +1,15 @@
 package mqtt
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/evocert/kwe/iorw"
 )
 
 type MQTTConnection struct {
@@ -16,6 +20,7 @@ type MQTTConnection struct {
 	port     int
 	user     string
 	password string
+	autoack  bool
 }
 
 func newMQTTOptions(clientid string, broker string, port int, user string, password string) (pahooptions *mqtt.ClientOptions) {
@@ -38,6 +43,7 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 		var port int = 0
 		var user string = ""
 		var password string = ""
+		var autoack bool = false
 		for {
 			if al := len(a); al > 0 {
 				k := a[0]
@@ -97,6 +103,10 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 								} else if (mk == "user" || mk == "username") && user == "" {
 									user = s
 								}
+							} else if b, bok := mv.(bool); bok && b {
+								if mk == "autoack" && b {
+									autoack = b
+								}
 							} else {
 								if mk == "port" && port == 0 {
 									if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
@@ -151,7 +161,7 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 			pahooptions.OnConnect = connectHandler
 			pahooptions.OnConnectionLost = connectLostHandler
 			pahomqtt := mqtt.NewClient(pahooptions)
-			mqttcn = &MQTTConnection{mqttmngr: nil, pahomqtt: pahomqtt, broker: broker, port: port, user: user, password: password, ClientId: clientid}
+			mqttcn = &MQTTConnection{mqttmngr: nil, pahomqtt: pahomqtt, broker: broker, port: port, user: user, password: password, ClientId: clientid, autoack: autoack}
 
 		}
 	}
@@ -176,6 +186,75 @@ type mqttMessage struct {
 	mqttmmng  *MQTTManager
 	msg       mqtt.Message
 	tokenpath string
+}
+
+func (mqttmsg *mqttMessage) FPrint(w io.Writer) {
+	if mqttmsg != nil && w != nil {
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "")
+		iorw.Fprint(w, "{")
+		enc.Encode("msgid")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.msg.MessageID())
+		iorw.Fprint(w, ",")
+		enc.Encode("duplicate")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.msg.Duplicate())
+		iorw.Fprint(w, ",")
+		payload := mqttmsg.msg.Payload()
+		//if len(payload) > 0 {
+		enc.Encode("payload")
+		iorw.Fprint(w, ":")
+		enc.Encode(string(payload))
+		iorw.Fprint(w, ",")
+		enc.Encode("bin-payload")
+		iorw.Fprint(w, ":")
+		arrpayload := make([]interface{}, len(payload))
+		for pn, p := range payload {
+			arrpayload[pn] = p
+		}
+		enc.Encode(arrpayload)
+		arrpayload = nil
+		//} else {
+		//	enc.Encode("payload")
+		//	iorw.Fprint(w, ":\"\"")
+		//	iorw.Fprint(w, ",")
+		//	enc.Encode("bin-payload")
+		//	iorw.Fprint(w, ":[]")
+		//}
+		iorw.Fprint(w, ",")
+		enc.Encode("topic")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.msg.Topic())
+		iorw.Fprint(w, ",")
+		enc.Encode("qos")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.msg.Qos())
+		iorw.Fprint(w, ",")
+		enc.Encode("retained")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.msg.Retained())
+		iorw.Fprint(w, ",")
+		enc.Encode("topicpath")
+		iorw.Fprint(w, ":")
+		enc.Encode(mqttmsg.tokenpath)
+		iorw.Fprint(w, "}")
+	}
+}
+
+func (mqttmsg *mqttMessage) String() (s string) {
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	ctx, ctxcancel := context.WithCancel(context.Background())
+	go func() {
+		defer pw.Close()
+		ctxcancel()
+		mqttmsg.FPrint(pw)
+	}()
+	<-ctx.Done()
+	s, _ = iorw.ReaderToString(pr)
+	s = strings.Replace(s, "\n", "", -1)
+	return
 }
 
 func (mqttmsg *mqttMessage) TopicPath() (topicpath string) {
@@ -267,8 +346,8 @@ func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 						mqttmsg.mqttcn = nil
 						mqttmsg.msg = nil
 						mqttmsg.tokenpath = ""
-						mqttmsg = nil
 						mqttmsg.mqttmmng = nil
+						mqttmsg = nil
 					}()
 					mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
 				}()

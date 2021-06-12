@@ -99,6 +99,9 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 }
 
 func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias string, msg *mqttMessage) {
+	if mqttcn.autoack && msg != nil {
+		msg.Ack()
+	}
 	if mqttmngr.MqttMessaging != nil && len(mqttmngr.activeTopics) > 0 {
 		var atvtpc *activeTopic = nil
 		func() {
@@ -111,6 +114,7 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 			atvtpc.processMessage(mqttmngr.MqttMessaging, msg)
 		}
 	}
+	fmt.Println(msg)
 }
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
