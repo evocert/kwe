@@ -364,6 +364,16 @@ func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 	return err
 }
 
+func (mqttcn *MQTTConnection) Unsubscribe(topic ...string) (err error) {
+	if mqttcn != nil && mqttcn.pahomqtt != nil {
+
+		tkn := mqttcn.pahomqtt.Unsubscribe(topic...)
+		tkn.Wait()
+		err = tkn.Error()
+	}
+	return err
+}
+
 func init() {
 
 }

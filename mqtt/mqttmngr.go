@@ -194,6 +194,22 @@ func (mqttmngr *MQTTManager) Subscribe(alias string, topic string, qos byte) (er
 	return
 }
 
+func (mqttmngr *MQTTManager) Unsubscribe(alias string, topic string) (err error) {
+	if alias != "" {
+		if exsist, mqttnc := func() (exists bool, mqttcn *MQTTConnection) {
+			mqttmngr.lck.RLock()
+			defer mqttmngr.lck.RUnlock()
+			mqttcn, exists = mqttmngr.cntns[alias]
+			return
+		}(); exsist {
+			func() {
+				err = mqttnc.Unsubscribe(topic)
+			}()
+		}
+	}
+	return
+}
+
 func (mqttmngr *MQTTManager) Publish(alias string, topic string, qos byte, retained bool, message string) (err error) {
 	if alias != "" {
 		if exsist, mqttnc := func() (exists bool, mqttcn *MQTTConnection) {
