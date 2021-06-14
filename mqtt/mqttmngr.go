@@ -109,10 +109,12 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 			defer mqttmngr.lcktpcs.RUnlock()
 			atvtpc = mqttmngr.activeTopics[msg.Topic()]
 		}()
-		if atvtpc != nil {
-			msg.tokenpath = atvtpc.topicpath
-			atvtpc.processMessage(mqttmngr.MqttMessaging, msg)
-		}
+		go func() {
+			if atvtpc != nil {
+				msg.tokenpath = atvtpc.topicpath
+				atvtpc.processMessage(mqttmngr.MqttMessaging, msg)
+			}
+		}()
 	}
 }
 
