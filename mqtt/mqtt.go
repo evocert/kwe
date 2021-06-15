@@ -349,7 +349,7 @@ func (mqttcn *MQTTConnection) String() (s string) {
 		pr, pw := io.Pipe()
 		ctx, ctxcancel := context.WithCancel(context.Background())
 		go func() {
-			pw.Close()
+			defer pw.Close()
 			ctxcancel()
 			mqttcn.Fprint(pw)
 		}()
