@@ -60,6 +60,21 @@ func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
 	return
 }
 
+func (mqttmngr *MQTTManager) ActiveTopics() (atvtpcs map[string]string) {
+	if mqttmngr != nil {
+		func() {
+			mqttmngr.lcktpcs.RLock()
+			defer mqttmngr.lcktpcs.RUnlock()
+			for tpck, tpc := range mqttmngr.activeTopics {
+				if tpc != nil {
+					atvtpcs[tpck] = tpc.topicpath
+				}
+			}
+		}()
+	}
+	return
+}
+
 func (mqttmngr *MQTTManager) Connections() (aliases []string) {
 	if mqttmngr != nil {
 		if len(mqttmngr.cntns) > 0 {
