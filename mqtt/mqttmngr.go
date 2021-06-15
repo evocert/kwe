@@ -78,6 +78,49 @@ func (mqttmngr *MQTTManager) Connections() (aliases []string) {
 	return
 }
 
+func (mqttmngr *MQTTManager) Connection(alias string) (mqttcn *MQTTConnection) {
+	if mqttmngr != nil {
+		if mqttmngr.ConnectionExist(alias) {
+			if mqttmngr != nil && alias != "" {
+				func() {
+					mqttmngr.lck.RLock()
+					defer mqttmngr.lck.RUnlock()
+					mqttcn = mqttmngr.cntns[alias]
+				}()
+			}
+		}
+	}
+	return
+}
+
+func (mqttmngr *MQTTManager) ConnectionInfo(alias string) (mqttcninfo string) {
+	if mqttmngr != nil {
+		if mqttmngr.ConnectionExist(alias) {
+			if mqttmngr != nil && alias != "" {
+				func() {
+					mqttmngr.lck.RLock()
+					defer mqttmngr.lck.RUnlock()
+					mqttcninfo = mqttmngr.cntns[alias].String()
+				}()
+			}
+		}
+	}
+	return
+}
+
+func (mqttmngr *MQTTManager) ConnectionExist(alias string) (exists bool) {
+	if mqttmngr != nil && alias != "" {
+		func() {
+			mqttmngr.lck.RLock()
+			defer mqttmngr.lck.RUnlock()
+			if len(mqttmngr.cntns) > 0 {
+				_, exists = mqttmngr.cntns[alias]
+			}
+		}()
+	}
+	return
+}
+
 func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) {
 	if alias != "" {
 		if !func() (exists bool) {

@@ -304,6 +304,61 @@ func (mqttmsg *mqttMessage) Ack() {
 	mqttmsg.msg.Ack()
 }
 
+func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
+	if mqttcn != nil && w != nil {
+		enc := json.NewEncoder(w)
+		iorw.Fprint(w, "{")
+		iorw.Fprint(w, "\"ClientID\":")
+		enc.Encode(mqttcn.ClientId)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"broker\":")
+		enc.Encode(mqttcn.broker)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"port\":")
+		enc.Encode(mqttcn.port)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"user\":")
+		enc.Encode(mqttcn.user)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"password\":")
+		enc.Encode(mqttcn.password)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"autoack\":")
+		enc.Encode(mqttcn.autoack)
+		iorw.Fprint(w, ",")
+
+		iorw.Fprint(w, "\"status\":")
+		if mqttcn.IsConnected() {
+			iorw.Fprint(w, "\"connected\"")
+		} else {
+			if mqttcn.IsConnected() {
+				iorw.Fprint(w, "\"disconnected\"")
+			}
+		}
+		iorw.Fprint(w, "}")
+	}
+}
+
+func (mqttcn *MQTTConnection) String() (s string) {
+	if mqttcn != nil {
+		pr, pw := io.Pipe()
+		ctx, ctxcancel := context.WithCancel(context.Background())
+		go func() {
+			pw.Close()
+			ctxcancel()
+			mqttcn.Fprint(pw)
+		}()
+		<-ctx.Done()
+		s, _ = iorw.ReaderToString(pr)
+	}
+	return
+}
+
 func (mqttcn *MQTTConnection) IsConnected() (connected bool) {
 	if mqttcn != nil && mqttcn.pahomqtt != nil {
 		connected = mqttcn.pahomqtt.IsConnected()
