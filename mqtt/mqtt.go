@@ -336,9 +336,7 @@ func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
 		if mqttcn.IsConnected() {
 			iorw.Fprint(w, "\"connected\"")
 		} else {
-			if mqttcn.IsConnected() {
-				iorw.Fprint(w, "\"disconnected\"")
-			}
+			iorw.Fprint(w, "\"disconnected\"")
 		}
 		iorw.Fprint(w, "}")
 	}
@@ -354,7 +352,9 @@ func (mqttcn *MQTTConnection) String() (s string) {
 			mqttcn.Fprint(pw)
 		}()
 		<-ctx.Done()
-		s, _ = iorw.ReaderToString(pr)
+		if s, _ = iorw.ReaderToString(pr); s != "" {
+			s = strings.Replace(s, "\n", "", -1)
+		}
 	}
 	return
 }
