@@ -7,20 +7,57 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/evocert/kwe/iorw"
 )
 
+type mqttsubscription struct {
+	topic string
+	qos   byte
+}
+
+func (mqttsubscrptn *mqttsubscription) String() (s string) {
+	if mqttsubscrptn != nil {
+		pr, pw := io.Pipe()
+		ctx, ctxcanncel := context.WithCancel(context.Background())
+		go func() {
+			defer pw.Close()
+			ctxcanncel()
+			mqttsubscrptn.Fprint(pw)
+		}()
+		<-ctx.Done()
+		if s, _ = iorw.ReaderToString(pr); s != "" {
+			s = strings.Replace(s, "\n", "", -1)
+		}
+	}
+	return
+}
+
+func (mqttsubscrptn *mqttsubscription) Fprint(w io.Writer) {
+	if mqttsubscrptn != nil && w != nil {
+		enc := json.NewEncoder(w)
+		iorw.Fprint(w, "{")
+		iorw.Fprint(w, "\"topic\":")
+		enc.Encode(mqttsubscrptn.topic)
+		iorw.Fprint(w, ",\"qos\":")
+		enc.Encode(mqttsubscrptn.qos)
+		iorw.Fprint(w, "}")
+	}
+}
+
 type MQTTConnection struct {
-	mqttmngr *MQTTManager
-	pahomqtt mqtt.Client
-	ClientId string
-	broker   string
-	port     int
-	user     string
-	password string
-	autoack  bool
+	mqttmngr      *MQTTManager
+	pahomqtt      mqtt.Client
+	ClientId      string
+	broker        string
+	port          int
+	user          string
+	password      string
+	autoack       bool
+	subscrptns    map[string]*mqttsubscription
+	lcksubscrptns *sync.RWMutex
 }
 
 func newMQTTOptions(clientid string, broker string, port int, user string, password string) (pahooptions *mqtt.ClientOptions) {
@@ -161,7 +198,8 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 			pahooptions.OnConnect = connectHandler
 			pahooptions.OnConnectionLost = connectLostHandler
 			pahomqtt := mqtt.NewClient(pahooptions)
-			mqttcn = &MQTTConnection{mqttmngr: nil, pahomqtt: pahomqtt, broker: broker, port: port, user: user, password: password, ClientId: clientid, autoack: autoack}
+			mqttcn = &MQTTConnection{mqttmngr: nil, pahomqtt: pahomqtt, broker: broker, port: port, user: user, password: password, ClientId: clientid, autoack: autoack,
+				subscrptns: map[string]*mqttsubscription{}, lcksubscrptns: &sync.RWMutex{}}
 
 		}
 	}
@@ -338,6 +376,25 @@ func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
 		} else {
 			iorw.Fprint(w, "\"disconnected\"")
 		}
+		iorw.Fprint(w, ",")
+		iorw.Fprint(w, "\"subscriptions\":")
+		iorw.Fprint(w, "[")
+		func() {
+			mqttcn.lcksubscrptns.RLock()
+			defer mqttcn.lcksubscrptns.RUnlock()
+			if subscrptns := mqttcn.Subscriptions(true); len(subscrptns) > 0 {
+				if subscrbl := len(subscrptns); subscrbl > 0 {
+					for nsubscrb, subscrptn := range subscrptns {
+						subscrptn.Fprint(w)
+						if nsubscrb < subscrbl-1 {
+							iorw.Fprint(w, ",")
+						}
+					}
+				}
+			}
+		}()
+
+		iorw.Fprint(w, "]")
 		iorw.Fprint(w, "}")
 	}
 }
@@ -395,36 +452,97 @@ func (mqttcn *MQTTConnection) Publish(topic string, qos byte, retained bool, mes
 	return err
 }
 
+func (mqttcn *MQTTConnection) IsSubscribed(topic string) (issbscrbed bool) {
+	if mqttcn != nil && topic != "" {
+		func() {
+			mqttcn.lcksubscrptns.RLock()
+			defer mqttcn.lcksubscrptns.RUnlock()
+			_, issbscrbed = mqttcn.subscrptns[topic]
+		}()
+	}
+	return
+}
+
+func (mqttcn *MQTTConnection) Subscriptions(alreadylck ...bool) (subscrptns []*mqttsubscription) {
+	if mqttcn != nil {
+		func() {
+			if len(alreadylck) == 0 || len(alreadylck) > 0 && !alreadylck[0] {
+				mqttcn.lcksubscrptns.RLock()
+				defer mqttcn.lcksubscrptns.RUnlock()
+			}
+			if subscrpl := len(mqttcn.subscrptns); subscrpl > 0 {
+				subscrptns = make([]*mqttsubscription, subscrpl)
+				subscrpi := 0
+				for _, mqttsubscrptn := range mqttcn.subscrptns {
+					subscrptns[subscrpi] = mqttsubscrptn
+					subscrpi++
+				}
+			}
+		}()
+	}
+	return
+}
+
 func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
-	if mqttcn != nil && mqttcn.pahomqtt != nil {
-		var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-			if mqttcn != nil && mqttcn.mqttmngr != nil {
-				func() {
-					var mqttmsg *mqttMessage = &mqttMessage{msg: msg, mqttcn: mqttcn, mqttmmng: mqttcn.mqttmngr}
-					defer func() {
-						mqttmsg.mqttcn = nil
-						mqttmsg.msg = nil
-						mqttmsg.tokenpath = ""
-						mqttmsg.mqttmmng = nil
-						mqttmsg = nil
+	if mqttcn != nil && mqttcn.pahomqtt != nil && topic != "" {
+		if !func() bool {
+			mqttcn.lcksubscrptns.RLock()
+			defer mqttcn.lcksubscrptns.RUnlock()
+			if sbcptn, subscrbed := mqttcn.subscrptns[topic]; subscrbed && sbcptn.topic == topic && sbcptn.qos == qos {
+				return true
+			}
+			return false
+		}() {
+			var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+				if mqttcn != nil && mqttcn.mqttmngr != nil {
+					func() {
+						var mqttmsg *mqttMessage = &mqttMessage{msg: msg, mqttcn: mqttcn, mqttmmng: mqttcn.mqttmngr}
+						defer func() {
+							mqttmsg.mqttcn = nil
+							mqttmsg.msg = nil
+							mqttmsg.tokenpath = ""
+							mqttmsg.mqttmmng = nil
+							mqttmsg = nil
+						}()
+						mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
 					}()
-					mqttcn.mqttmngr.messageReceived(mqttcn, mqttcn.ClientId, mqttmsg)
+				}
+			}
+			tkn := mqttcn.pahomqtt.Subscribe(topic, qos, messagePubHandler)
+			tkn.Wait()
+			if err = tkn.Error(); err == nil {
+				func() {
+					mqttcn.lcksubscrptns.Lock()
+					defer mqttcn.lcksubscrptns.Unlock()
+					mqttcn.subscrptns[topic] = &mqttsubscription{topic: topic, qos: qos}
 				}()
 			}
 		}
-		tkn := mqttcn.pahomqtt.Subscribe(topic, qos, messagePubHandler)
-		tkn.Wait()
-		err = tkn.Error()
 	}
 	return err
 }
 
 func (mqttcn *MQTTConnection) Unsubscribe(topic ...string) (err error) {
-	if mqttcn != nil && mqttcn.pahomqtt != nil {
+	if mqttcn != nil && mqttcn.pahomqtt != nil && len(topic) > 0 {
 
 		tkn := mqttcn.pahomqtt.Unsubscribe(topic...)
 		tkn.Wait()
-		err = tkn.Error()
+		if err = tkn.Error(); err == nil {
+			func() {
+				mqttcn.lcksubscrptns.Lock()
+				defer mqttcn.lcksubscrptns.Unlock()
+				for _, tpc := range topic {
+					if mqttsubscptn, mqttsubscptnok := mqttcn.subscrptns[tpc]; mqttsubscptnok {
+						mqttcn.subscrptns[tpc] = nil
+						if mqttsubscptn != nil {
+							mqttsubscptn = nil
+						}
+						delete(mqttcn.subscrptns, tpc)
+					}
+				}
+
+			}()
+		}
 	}
 	return err
 }
