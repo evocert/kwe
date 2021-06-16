@@ -524,24 +524,37 @@ func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 
 func (mqttcn *MQTTConnection) Unsubscribe(topic ...string) (err error) {
 	if mqttcn != nil && mqttcn.pahomqtt != nil && len(topic) > 0 {
-
-		tkn := mqttcn.pahomqtt.Unsubscribe(topic...)
-		tkn.Wait()
-		if err = tkn.Error(); err == nil {
-			func() {
-				mqttcn.lcksubscrptns.Lock()
-				defer mqttcn.lcksubscrptns.Unlock()
-				for _, tpc := range topic {
-					if mqttsubscptn, mqttsubscptnok := mqttcn.subscrptns[tpc]; mqttsubscptnok {
-						mqttcn.subscrptns[tpc] = nil
-						if mqttsubscptn != nil {
-							mqttsubscptn = nil
-						}
-						delete(mqttcn.subscrptns, tpc)
-					}
+		if func() bool {
+			mqttcn.lcksubscrptns.RLock()
+			defer mqttcn.lcksubscrptns.RUnlock()
+			tpci := 0
+			for tpci < len(topic) {
+				if _, issbscrbed := mqttcn.subscrptns[topic[tpci]]; issbscrbed {
+					tpci++
+				} else {
+					topic = append(topic[:tpci], topic[tpci+1:]...)
 				}
+			}
+			return len(tpoic) > 0
+		}() {
+			tkn := mqttcn.pahomqtt.Unsubscribe(topic...)
+			tkn.Wait()
+			if err = tkn.Error(); err == nil {
+				func() {
+					mqttcn.lcksubscrptns.Lock()
+					defer mqttcn.lcksubscrptns.Unlock()
+					for _, tpc := range topic {
+						if mqttsubscptn, mqttsubscptnok := mqttcn.subscrptns[tpc]; mqttsubscptnok {
+							mqttcn.subscrptns[tpc] = nil
+							if mqttsubscptn != nil {
+								mqttsubscptn = nil
+							}
+							delete(mqttcn.subscrptns, tpc)
+						}
+					}
 
-			}()
+				}()
+			}
 		}
 	}
 	return err
