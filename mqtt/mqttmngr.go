@@ -47,6 +47,32 @@ type mqttEvent struct {
 	args      map[string]interface{}
 }
 
+func (mqttevnt *mqttEvent) Event() string {
+	return mqttevnt.event
+}
+
+func (mqttevnt *mqttEvent) EventPath() string {
+	return mqttevnt.eventpath
+}
+
+func (mqttevnt *mqttEvent) MqttConnection() *MQTTConnection {
+	return mqttevnt.mqttcn
+}
+
+func (mqttevnt *mqttEvent) MqttManager() *MQTTManager {
+	return mqttevnt.mqttmngr
+}
+
+func (mqttevnt *mqttEvent) Args() map[string]interface{} {
+	return mqttevnt.args
+}
+
+type mqttEventContainer struct {
+	event     string
+	eventpath string
+	args      map[string]interface{}
+}
+
 type MqttEventing func(event MqttEvent)
 
 func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message) (err error) {
@@ -61,7 +87,7 @@ type MQTTManager struct {
 	cntns         map[string]*MQTTConnection
 	activeTopics  map[string]*activeTopic
 	MqttMessaging MqttMessaging
-	mqttevents    map[string]string
+	mqttevents    map[string]*mqttEventContainer
 	lckevents     *sync.RWMutex
 	MqttEventing  MqttEventing
 	lcktpcs       *sync.RWMutex
@@ -69,11 +95,17 @@ type MQTTManager struct {
 
 func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
 	var mqttmsng MqttMessaging = nil
+	var mqttevntng MqttEventing = nil
 	if al := len(a); al > 0 {
 		for al > 0 {
 			d := a[0]
 			if mqttmsng == nil {
 				if mqttmsng, _ = d.(MqttMessaging); mqttmsng != nil {
+					al--
+					continue
+				}
+			} else if mqttevntng == nil {
+				if mqttevntng, _ = d.(MqttEventing); mqttevntng != nil {
 					al--
 					continue
 				}
@@ -84,7 +116,7 @@ func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
 
 	mqttmngr = &MQTTManager{lck: &sync.RWMutex{}, cntns: map[string]*MQTTConnection{},
 		activeTopics: map[string]*activeTopic{}, lcktpcs: &sync.RWMutex{}, MqttMessaging: mqttmsng,
-		mqttevents: map[string]string{}, lckevents: &sync.RWMutex{}}
+		mqttevents: map[string]*mqttEventContainer{}, lckevents: &sync.RWMutex{}, MqttEventing: mqttevntng}
 	return
 }
 
@@ -203,21 +235,25 @@ func (mqttmngr *MQTTManager) Fprint(w io.Writer) {
 		iorw.Fprint(w, "],")
 		iorw.Fprint(w, "\"activetopics\":")
 		iorw.Fprint(w, "[")
-		if tpcsl := len(mqttmngr.activeTopics); tpcsl > 0 {
-			tpcsi := 0
-			for _, tpc := range mqttmngr.activeTopics {
-				iorw.Fprint(w, "{")
-				iorw.Fprint(w, "\"topic\":")
-				enc.Encode(tpc.topic)
-				iorw.Fprint(w, ",\"topicpath\":")
-				enc.Encode(tpc.topicpath)
-				iorw.Fprint(w, "}")
-				tpcsi++
-				if tpcsi < tpcsl {
-					iorw.Fprint(w, ",")
+		func() {
+			mqttmngr.lcktpcs.RLock()
+			defer mqttmngr.lcktpcs.RUnlock()
+			if tpcsl := len(mqttmngr.activeTopics); tpcsl > 0 {
+				tpcsi := 0
+				for _, tpc := range mqttmngr.activeTopics {
+					iorw.Fprint(w, "{")
+					iorw.Fprint(w, "\"topic\":")
+					enc.Encode(tpc.topic)
+					iorw.Fprint(w, ",\"topicpath\":")
+					enc.Encode(tpc.topicpath)
+					iorw.Fprint(w, "}")
+					tpcsi++
+					if tpcsi < tpcsl {
+						iorw.Fprint(w, ",")
+					}
 				}
 			}
-		}
+		}()
 		iorw.Fprint(w, "]")
 		iorw.Fprint(w, "}")
 	}
@@ -286,8 +322,32 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 }
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
-	//chnls.GLOBALCHNL().DefaultServePath("")
-	fmt.Println("Connected:" + alias)
+	if mqttmngr != nil {
+		mqttmngr.fireAliasEvent(alias, "Connected")
+	}
+}
+
+func (mqttmngr *MQTTManager) fireAliasEvent(alias string, event string) {
+	if mqttmngr != nil && alias != "" && event != "" && mqttmngr.MqttEventing != nil {
+
+		if mqttevntcnr := func() *mqttEventContainer {
+			mqttmngr.lckevents.RLock()
+			defer mqttmngr.lckevents.RUnlock()
+
+			return mqttmngr.mqttevents[event]
+		}(); mqttevntcnr != nil {
+			func() {
+				mqttevnt := &mqttEvent{mqttcn: mqttmngr.Connection(alias), mqttmngr: mqttmngr, event: event, eventpath: mqttevntcnr.eventpath, args: mqttevntcnr.args}
+				defer func() {
+					mqttevnt.args = nil
+					mqttevnt.mqttcn = nil
+					mqttevnt.mqttmngr = nil
+					mqttevnt = nil
+				}()
+				mqttmngr.MqttEventing(mqttevnt)
+			}()
+		}
+	}
 }
 
 func (mqttmngr *MQTTManager) Disconnected(alias string, err error) {
@@ -342,6 +402,9 @@ func (mqttmngr *MQTTManager) Disconnect(alias string, quiesce uint) (err error) 
 			func() {
 				err = mqttnc.Disconnect(quiesce)
 			}()
+		}
+		if mqttmngr != nil {
+			mqttmngr.fireAliasEvent(alias, "Disconnected")
 		}
 	}
 	return
@@ -455,6 +518,57 @@ func (mqttmngr *MQTTManager) DeactivateTopic(topic string) {
 				mqttmngr.activeTopics[topic] = nil
 				delete(mqttmngr.activeTopics, topic)
 				atvtpc = nil
+			}
+		}()
+	}
+}
+
+var validEvents []string = []string{"Connected", "Disconnected", "Registered", "Unregistered"}
+
+func (mqttmngr *MQTTManager) ValidEvents() (events []string) {
+	if mqttmngr != nil {
+		events = validEvents[:]
+	}
+	return
+}
+
+func (mqttmngr *MQTTManager) ActivateEvent(event string, eventpath string, args ...map[string]interface{}) {
+	if event != "" {
+		func() {
+			var atvevnt *mqttEventContainer = nil
+			mqttmngr.lckevents.Lock()
+			defer mqttmngr.lckevents.Unlock()
+			if atvevnt = mqttmngr.mqttevents[event]; atvevnt == nil {
+				if eventpath == "" {
+					eventpath = event
+				}
+				atvevnt = &mqttEventContainer{event: event, eventpath: eventpath, args: map[string]interface{}{}}
+				if len(args) == 1 && len(args[0]) > 0 {
+					for argk, argv := range args[0] {
+						atvevnt.args[argk] = argv
+					}
+				}
+				mqttmngr.mqttevents[event] = atvevnt
+			}
+		}()
+	}
+}
+
+func (mqttmngr *MQTTManager) DeactivateEvent(event string) {
+	if event != "" {
+		func() {
+			mqttmngr.lckevents.Lock()
+			defer mqttmngr.lckevents.Unlock()
+			if atvevnt := mqttmngr.mqttevents[event]; atvevnt != nil {
+				mqttmngr.mqttevents[event] = nil
+				delete(mqttmngr.mqttevents, event)
+				if argsl := len(atvevnt.args); argsl > 0 {
+					for atvarg := range atvevnt.args {
+						atvevnt.args[atvarg] = nil
+						delete(atvevnt.args, atvarg)
+					}
+				}
+				atvevnt.args = nil
 			}
 		}()
 	}
