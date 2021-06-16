@@ -535,7 +535,7 @@ func (mqttcn *MQTTConnection) Unsubscribe(topic ...string) (err error) {
 					topic = append(topic[:tpci], topic[tpci+1:]...)
 				}
 			}
-			return len(tpoic) > 0
+			return len(topic) > 0
 		}() {
 			tkn := mqttcn.pahomqtt.Unsubscribe(topic...)
 			tkn.Wait()
