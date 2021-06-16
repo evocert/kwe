@@ -1,8 +1,14 @@
 package mqtt
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
+
+	"github.com/evocert/kwe/iorw"
 )
 
 type Topic interface {
@@ -176,6 +182,62 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 			}()
 		}
 	}
+}
+
+func (mqttmngr *MQTTManager) Fprint(w io.Writer) {
+	if mqttmngr != nil && w != nil {
+		enc := json.NewEncoder(w)
+		iorw.Fprint(w, "{")
+
+		iorw.Fprint(w, "\"connections\":")
+		iorw.Fprint(w, "[")
+		if cntns := mqttmngr.Connections(); len(cntns) > 0 {
+			cntnsl := len(cntns)
+			for cntn, cnt := range cntns {
+				if cntn < cntnsl-1 {
+					iorw.Fprint(w, mqttmngr.ConnectionInfo(cnt))
+					iorw.Fprint(w, ",")
+				}
+			}
+		}
+		iorw.Fprint(w, "],")
+		iorw.Fprint(w, "\"activetopics\":")
+		iorw.Fprint(w, "[")
+		if tpcsl := len(mqttmngr.activeTopics); tpcsl > 0 {
+			tpcsi := 0
+			for _, tpc := range mqttmngr.activeTopics {
+				iorw.Fprint(w, "{")
+				iorw.Fprint(w, "\"topic\":")
+				enc.Encode(tpc.topic)
+				iorw.Fprint(w, ",\"topicpath\":")
+				enc.Encode(tpc.topicpath)
+				iorw.Fprint(w, "}")
+				tpcsi++
+				if tpcsi < tpcsl {
+					iorw.Fprint(w, ",")
+				}
+			}
+		}
+		iorw.Fprint(w, "]")
+		iorw.Fprint(w, "}")
+	}
+}
+
+func (mqttmngr *MQTTManager) String() (s string) {
+	if mqttmngr != nil {
+		pr, pw := io.Pipe()
+		ctx, ctxcancel := context.WithCancel(context.Background())
+		go func() {
+			defer pw.Close()
+			ctxcancel()
+			mqttmngr.Fprint(pw)
+		}()
+		<-ctx.Done()
+		if s, _ = iorw.ReaderToString(pr); s != "" {
+			s = strings.Replace(s, "\n", "", -1)
+		}
+	}
+	return
 }
 
 func (mqttmngr *MQTTManager) UnregisterConnection(alias ...string) {
