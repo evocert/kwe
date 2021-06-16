@@ -238,6 +238,38 @@ func (mqttmngr *MQTTManager) Disconnect(alias string, quiesce uint) (err error) 
 	return
 }
 
+func (mqttmngr *MQTTManager) IsSubscribed(alias string, topic string) (issbscrbed bool) {
+	if alias != "" && topic != "" {
+		if exsist, mqttnc := func() (exists bool, mqttcn *MQTTConnection) {
+			mqttmngr.lck.RLock()
+			defer mqttmngr.lck.RUnlock()
+			mqttcn, exists = mqttmngr.cntns[alias]
+			return
+		}(); exsist {
+			func() {
+				issbscrbed = mqttnc.IsSubscribed(topic)
+			}()
+		}
+	}
+	return
+}
+
+func (mqttmngr *MQTTManager) Subscriptions(alias string) (subscrptns []*mqttsubscription) {
+	if alias != "" {
+		if exsist, mqttnc := func() (exists bool, mqttcn *MQTTConnection) {
+			mqttmngr.lck.RLock()
+			defer mqttmngr.lck.RUnlock()
+			mqttcn, exists = mqttmngr.cntns[alias]
+			return
+		}(); exsist {
+			func() {
+				subscrptns = mqttnc.Subscriptions()
+			}()
+		}
+	}
+	return
+}
+
 func (mqttmngr *MQTTManager) Subscribe(alias string, topic string, qos byte) (err error) {
 	if alias != "" {
 		if exsist, mqttnc := func() (exists bool, mqttcn *MQTTConnection) {
