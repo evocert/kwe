@@ -533,7 +533,7 @@ func (mqttmngr *MQTTManager) ValidEvents() (events []string) {
 }
 
 func (mqttmngr *MQTTManager) ActivateEvent(event string, eventpath string, args ...map[string]interface{}) {
-	if event != "" {
+	if event != "" && strings.Contains(strings.Join(validEvents, "|"), event) {
 		func() {
 			var atvevnt *mqttEventContainer = nil
 			mqttmngr.lckevents.Lock()
