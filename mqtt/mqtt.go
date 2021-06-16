@@ -483,6 +483,26 @@ func (mqttcn *MQTTConnection) Subscriptions(alreadylck ...bool) (subscrptns []*m
 	return
 }
 
+func (mqttcn *MQTTConnection) SubscribedTopics(alreadylck ...bool) (subscrbdtpcs []string) {
+	if mqttcn != nil {
+		func() {
+			if len(alreadylck) == 0 || len(alreadylck) > 0 && !alreadylck[0] {
+				mqttcn.lcksubscrptns.RLock()
+				defer mqttcn.lcksubscrptns.RUnlock()
+			}
+			if subscrpl := len(mqttcn.subscrptns); subscrpl > 0 {
+				subscrbdtpcs = make([]string, subscrpl)
+				subscrpi := 0
+				for _, mqttsubscrptn := range mqttcn.subscrptns {
+					subscrbdtpcs[subscrpi] = mqttsubscrptn.topic
+					subscrpi++
+				}
+			}
+		}()
+	}
+	return
+}
+
 func (mqttcn *MQTTConnection) Subscribe(topic string, qos byte) (err error) {
 	if mqttcn != nil && mqttcn.pahomqtt != nil && topic != "" {
 		if !func() bool {

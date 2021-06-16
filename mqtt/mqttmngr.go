@@ -25,6 +25,24 @@ func (atvtpc *activeTopic) TopicPath() string {
 
 type MqttMessaging func(message Message)
 
+type MqttEvent interface {
+	Event() string
+	EventPath() string
+	MqttConnection() *MQTTConnection
+	MqttManager() *MQTTManager
+	Args() map[string]interface{}
+}
+
+type mqttEvent struct {
+	event     string
+	eventpath string
+	mqttcn    *MQTTConnection
+	mqttmngr  *MQTTManager
+	args      map[string]interface{}
+}
+
+type MqttEventing func(event MqttEvent)
+
 func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message) (err error) {
 	if mqttmsng != nil {
 		mqttmsng(message)
@@ -37,6 +55,9 @@ type MQTTManager struct {
 	cntns         map[string]*MQTTConnection
 	activeTopics  map[string]*activeTopic
 	MqttMessaging MqttMessaging
+	mqttevents    map[string]string
+	lckevents     *sync.RWMutex
+	MqttEventing  MqttEventing
 	lcktpcs       *sync.RWMutex
 }
 
@@ -56,7 +77,8 @@ func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
 	}
 
 	mqttmngr = &MQTTManager{lck: &sync.RWMutex{}, cntns: map[string]*MQTTConnection{},
-		activeTopics: map[string]*activeTopic{}, lcktpcs: &sync.RWMutex{}, MqttMessaging: mqttmsng}
+		activeTopics: map[string]*activeTopic{}, lcktpcs: &sync.RWMutex{}, MqttMessaging: mqttmsng,
+		mqttevents: map[string]string{}, lckevents: &sync.RWMutex{}}
 	return
 }
 
@@ -152,6 +174,31 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 					mqttcn.mqttmngr = mqttmngr
 				}
 			}()
+		}
+	}
+}
+
+func (mqttmngr *MQTTManager) UnregisterConnection(alias ...string) {
+	if mqttmngr != nil && len(alias) > 0 {
+		for _, als := range alias {
+			if als != "" {
+				if func() (exists bool) {
+					mqttmngr.lck.RLock()
+					defer mqttmngr.lck.RUnlock()
+					_, exists = mqttmngr.cntns[als]
+					return
+				}() {
+					func() {
+						mqttmngr.lck.Lock()
+						defer mqttmngr.lck.Unlock()
+						if mqttcn := mqttmngr.cntns[als]; mqttcn != nil {
+							mqttcn.Unsubscribe(mqttcn.SubscribedTopics()...)
+							mqttmngr.cntns[als] = nil
+							delete(mqttmngr.cntns, als)
+						}
+					}()
+				}
+			}
 		}
 	}
 }
