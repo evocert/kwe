@@ -25,6 +25,7 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 	var remoteHost = ""
 	var localHost = ""
 	var mqttmsg mqtt.Message = nil
+	var mqttevent mqtt.MqttEvent = nil
 	var aok = false
 	if rdr != nil {
 		if rqstr, _ = rdr.(iorw.Reader); rqstr == nil {
@@ -57,6 +58,9 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		} else if mqttmsg, aok = a[ai].(mqtt.Message); aok {
 			a = a[1:]
 			continue
+		} else if mqttevent, aok = a[ai].(mqtt.MqttEvent); aok {
+			a = a[1:]
+			continue
 		} else if rstngs, rstngsok := a[ai].(map[string]interface{}); rstngsok {
 			if rqstsettings == nil {
 				rqstsettings = rstngs
@@ -78,7 +82,8 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		rqstendoffset: -1,
 		rqstoffsetmax: -1,
 		rqstmaxsize:   -1,
-		mqttmsg:       mqttmsg}
+		mqttmsg:       mqttmsg,
+		mqttevent:     mqttevent}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}

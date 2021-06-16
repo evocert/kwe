@@ -258,6 +258,11 @@ func GLOBALCHNL() *Channel {
 					processingRequestIO(message.TopicPath(), gblchnl, nil, nil, nil, nil, nil, nil, []interface{}{message}...)
 				}
 			}
+			if gblchnl.mqttmngr.MqttEventing == nil {
+				gblchnl.mqttmngr.MqttEventing = func(event mqtt.MqttEvent) {
+					processingRequestIO(event.EventPath(), gblchnl, nil, nil, nil, nil, nil, nil, []interface{}{event}...)
+				}
+			}
 		}
 		gblchnl.Listener()
 	}

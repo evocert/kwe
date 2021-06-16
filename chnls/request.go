@@ -82,7 +82,8 @@ type Request struct {
 	//mqtt
 	//mqttmngr  *mqtt.MQTTManager
 	//mqtttopic mqtt.Topic
-	mqttmsg mqtt.Message
+	mqttmsg   mqtt.Message
+	mqttevent mqtt.MqttEvent
 }
 
 //RemoteAddr return remote Address of any network request
@@ -462,6 +463,9 @@ func (rqst *Request) Close() (err error) {
 		}
 		if rqst.mqttmsg != nil {
 			rqst.mqttmsg = nil
+		}
+		if rqst.mqttevent != nil {
+			rqst.mqttevent = nil
 		}
 		rqst = nil
 	}
@@ -1016,6 +1020,9 @@ func (rqst *Request) invokeAtv() {
 
 		if rqst.mqttmsg != nil {
 			rqst.objmap[nmspce+"mqttmsg"] = rqst.mqttmsg
+		}
+		if rqst.mqttevent != nil {
+			rqst.objmap[nmspce+"mqttevent"] = rqst.mqttmsg
 		}
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
 		rqst.objmap[nmspce+"dbms"] = rqst.dbms
