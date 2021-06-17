@@ -425,8 +425,10 @@ func (mqttcn *MQTTConnection) IsConnected() (connected bool) {
 
 func (mqttcn *MQTTConnection) Disconnect(quiesce uint) (err error) {
 	if mqttcn != nil {
-		if client := mqttcn.pahomqtt; client != nil {
-			client.Disconnect(quiesce)
+		if mqttcn.IsConnected() {
+			if client := mqttcn.pahomqtt; client != nil {
+				client.Disconnect(quiesce)
+			}
 		}
 	}
 	return
@@ -434,9 +436,11 @@ func (mqttcn *MQTTConnection) Disconnect(quiesce uint) (err error) {
 
 func (mqttcn *MQTTConnection) Connect() (err error) {
 	if mqttcn != nil {
-		if client := mqttcn.pahomqtt; client != nil {
-			if token := client.Connect(); token.Wait() && token.Error() != nil {
-				err = token.Error()
+		if !mqttcn.IsConnected() {
+			if client := mqttcn.pahomqtt; client != nil {
+				if token := client.Connect(); token.Wait() && token.Error() != nil {
+					err = token.Error()
+				}
 			}
 		}
 	}
