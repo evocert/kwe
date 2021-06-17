@@ -3,7 +3,6 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -83,14 +82,16 @@ func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message
 }
 
 type MQTTManager struct {
-	lck           *sync.RWMutex
-	cntns         map[string]*MQTTConnection
-	activeTopics  map[string]*activeTopic
-	MqttMessaging MqttMessaging
-	mqttevents    map[string]*mqttEventContainer
-	lckevents     *sync.RWMutex
-	MqttEventing  MqttEventing
-	lcktpcs       *sync.RWMutex
+	lck              *sync.RWMutex
+	cntns            map[string]*MQTTConnection
+	activeTopics     map[string]*activeTopic
+	defaulttopicpath string
+	lcktpcs          *sync.RWMutex
+	MqttMessaging    MqttMessaging
+	mqttevents       map[string]*mqttEventContainer
+	lckevents        *sync.RWMutex
+	MqttEventing     MqttEventing
+	defaulteventpath string
 }
 
 func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
@@ -323,11 +324,11 @@ func (mqttmngr *MQTTManager) messageReceived(mqttcn *MQTTConnection, alias strin
 
 func (mqttmngr *MQTTManager) Connected(alias string) {
 	if mqttmngr != nil {
-		mqttmngr.fireAliasEvent(alias, "Connected")
+		mqttmngr.fireAliasEvent(alias, "Connected", nil)
 	}
 }
 
-func (mqttmngr *MQTTManager) fireAliasEvent(alias string, event string) {
+func (mqttmngr *MQTTManager) fireAliasEvent(alias string, event string, err error) {
 	if mqttmngr != nil && alias != "" && event != "" && mqttmngr.MqttEventing != nil {
 
 		if mqttevntcnr := func() *mqttEventContainer {
@@ -351,11 +352,15 @@ func (mqttmngr *MQTTManager) fireAliasEvent(alias string, event string) {
 }
 
 func (mqttmngr *MQTTManager) Disconnected(alias string, err error) {
-	//chnls.GLOBALCHNL().DefaultServePath("")
-	if err != nil {
-		fmt.Println("Disconnected:" + alias + "=> " + err.Error())
-	} else {
-		fmt.Println("Disconnected:" + alias)
+	if mqttmngr != nil {
+		mqttmngr.fireAliasEvent(alias, "Disconnected", err)
+		/*if err != nil {
+			gblmqttmngr.fireAliasEvent(alias, "Disconnected", err)
+			fmt.Println("Disconnected:" + alias + "=> " + err.Error())
+		} else {
+			fmt.Println("Disconnected:" + alias)
+			gblmqttmngr.fireAliasEvent(alias, "Disconnected", err)
+		}*/
 	}
 }
 
@@ -404,7 +409,7 @@ func (mqttmngr *MQTTManager) Disconnect(alias string, quiesce uint) (err error) 
 			}()
 		}
 		if mqttmngr != nil {
-			mqttmngr.fireAliasEvent(alias, "Disconnected")
+			mqttmngr.fireAliasEvent(alias, "Disconnected", err)
 		}
 	}
 	return
