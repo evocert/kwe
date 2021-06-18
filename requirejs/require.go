@@ -1999,10 +1999,8 @@ var requirejs, require, define;
        else{
            //console.Log(url);
            canLoadMod=false;    
-           if (typeof _scriptinclude === "function") { 
-       console.Log("Loading "+url);
+           if (typeof _scriptinclude === "function") {        
                fsutilcode=_scriptinclude(url);
-       console.Log(config.useParseEval);
                if (fsutilcode!=='undefined' && fsutilcode!=='') {
                    if(typeof _parseEval==="function"&&config.useParseEval==true){//verstel maar die vir jou default null config option
                        try{_parseEval.call(fsutilcode);}catch(e){console.Error(e.toString());};
@@ -2014,7 +2012,6 @@ var requirejs, require, define;
                }
            }
            if (canLoadMod===false) {
-           //println("_1");
                try {
                    fsutilcode=fsutils.File2String(url);
                    if (fsutilcode!=='undefined' && fsutilcode!=='') {
@@ -2026,7 +2023,6 @@ var requirejs, require, define;
                }
            }
            if (canLoadMod) {
-           //println("_2");
                var data={node:{},id:moduleName};
                context.completeLoad(data.id);
            }
