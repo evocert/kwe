@@ -410,65 +410,6 @@ func executeAction(actn *Action) (err error) {
 			}
 		}()
 	} else {
-		/*if curactnhndlr := actn.ActionHandler(); curactnhndlr == nil {
-			if actn.rqst.isFirstRequest {
-				actn.rqst.isFirstRequest = false
-				if actn.rqst.mimetype == "" {
-					actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-				}
-				if rspath != "" {
-					if strings.LastIndex(rspath, ".") == -1 {
-						if !strings.HasSuffix(rspath, "/") {
-							rspath = rspath + "/"
-						}
-						rspath = rspath + "index.html"
-						actn.rspath = rspath
-						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-						if curactnhndlr = actn.ActionHandler(); curactnhndlr == nil {
-							actn.rqst.mimetype = "text/plain"
-							isTextRequest = false
-						} else {
-							func() {
-								defer func() {
-									curactnhndlr.Close()
-									curactnhndlr = nil
-								}()
-								if isTextRequest {
-									isTextRequest = false
-									actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
-								} else {
-									actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
-								}
-							}()
-						}
-					}
-				}
-			}
-		} else if curactnhndlr != nil {
-			func() {
-				defer func() {
-					curactnhndlr.Close()
-					curactnhndlr = nil
-				}()
-				if actn.rqst.isFirstRequest {
-					if actn.rqst.mimetype == "" {
-						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					} else {
-						_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-					}
-					actn.rqst.isFirstRequest = false
-				} else {
-					_, isTextRequest = mimes.FindMimeType(rspath, "text/plain")
-				}
-				if isTextRequest {
-					isTextRequest = false
-					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath) // actn.rsngpth.Path)
-
-				} else {
-					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath) // actn.rsngpth.Path)
-				}
-			}()
-		}*/
 		if curactnhndlr := actn.ActionHandler(); curactnhndlr != nil {
 			func() {
 				defer func() {
@@ -477,7 +418,11 @@ func executeAction(actn *Action) (err error) {
 				}()
 				if actn.rqst.isFirstRequest {
 					if actn.rqst.mimetype == "" {
-						actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
+						if curactnhndlr.raw {
+							actn.rqst.mimetype = "text/plain"
+						} else {
+							actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
+						}
 					} else {
 						_, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
 					}
@@ -485,10 +430,9 @@ func executeAction(actn *Action) (err error) {
 				} else {
 					_, isTextRequest = mimes.FindMimeType(actn.rspath, "text/plain")
 				}
-				if isTextRequest {
+				if isTextRequest && !curactnhndlr.raw {
 					isTextRequest = false
 					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath)
-
 				} else {
 					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath)
 				}
