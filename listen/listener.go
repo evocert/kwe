@@ -204,7 +204,6 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 }
 
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
-	//go func() {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
 		go func() {
 			if err := lstnrsrvr.srvr.Serve(&ListnerHandler{ln: ln, lck: &sync.Mutex{}}); err != nil && err != http.ErrServerClosed {
@@ -214,19 +213,15 @@ func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
 	} else {
 		fmt.Println("error:", err.Error())
 	}
-	/*if err := lstnrsrvr.srvr.ListenAndServe(); err != nil {
-		lstnr.lstnrservers[lstnrsrvr.addr] = nil
-		delete(lstnr.lstnrservers, lstnrsrvr.addr)
-	}*/
-	//}()
 }
 
 func (lstnrsrvr *lstnrserver) stopListening(lstnr *Listener) {
 	ctx := context.Background()
 	if err := lstnrsrvr.srvr.Shutdown(ctx); err != nil {
 		fmt.Println("Error closing server at ", lstnrsrvr.srvr.Addr, " ", err.Error())
+	} else {
+		fmt.Println("Closed server at ", lstnrsrvr.srvr.Addr)
 	}
-	fmt.Println("Closed server at :%d", lstnrsrvr.srvr.Addr)
 }
 
 type contextKey struct {
