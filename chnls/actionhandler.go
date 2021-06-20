@@ -15,15 +15,22 @@ type ActionHandler struct {
 	actnrnrdr   io.RuneReader
 	hndlMaxSize int64
 	raw         bool
+	active      bool
 }
 
 //NewActionHandler - for Action io
 func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 	path := actn.rspath
 	israw := false
+	isactive := false
 	if path != "" && strings.Contains(path, "raw:") {
 		israw = true
 		path = strings.Replace(path, "raw:", "", 1)
+		actn.rspath = path
+	}
+	if path != "" && strings.Contains(path, "active:") {
+		isactive = true
+		path = strings.Replace(path, "active:", "", 1)
 		actn.rspath = path
 	}
 	pathext := filepath.Ext(path)
@@ -36,17 +43,17 @@ func NewActionHandler(actn *Action) (actnhndl *ActionHandler) {
 	var lookuprs = func(lkppath string) bool {
 		if rqstrs := actn.rqst.Resource(lkppath); rqstrs != nil {
 			if eofclsr, eofclsrok := rqstrs.(*iorw.EOFCloseSeekReader); eofclsrok && eofclsr != nil {
-				actnhndl = &ActionHandler{actn: actn, raw: israw, actnrdr: eofclsr, actnrnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
+				actnhndl = &ActionHandler{actn: actn, active: isactive, raw: israw, actnrdr: eofclsr, actnrnrdr: eofclsr, hndlMaxSize: hndlMaxSize}
 			} else if bf, bfok := rqstrs.(*iorw.Buffer); bfok && bf != nil && bf.Size() > 0 {
 				hndlMaxSize = bf.Size()
 				rdr := bf.Reader()
-				actnhndl = &ActionHandler{actn: actn, raw: israw, actnrdr: rdr, actnrnrdr: rdr, hndlMaxSize: hndlMaxSize}
+				actnhndl = &ActionHandler{actn: actn, active: isactive, raw: israw, actnrdr: rdr, actnrnrdr: rdr, hndlMaxSize: hndlMaxSize}
 			} else if fncr, fncrok := rqstrs.(func() io.Reader); fncrok && fncr != nil {
 				eofrdr := iorw.NewEOFCloseSeekReader(fncr())
-				actnhndl = &ActionHandler{actn: actn, raw: israw, actnrdr: eofrdr, actnrnrdr: eofrdr}
+				actnhndl = &ActionHandler{actn: actn, active: isactive, raw: israw, actnrdr: eofrdr, actnrnrdr: eofrdr}
 			} else if rd, rdok := rqstrs.(io.Reader); rdok {
 				eofrdr := iorw.NewEOFCloseSeekReader(rd)
-				actnhndl = &ActionHandler{actn: actn, raw: israw, actnrdr: eofrdr, actnrnrdr: eofrdr, hndlMaxSize: hndlMaxSize}
+				actnhndl = &ActionHandler{actn: actn, active: isactive, raw: israw, actnrdr: eofrdr, actnrnrdr: eofrdr, hndlMaxSize: hndlMaxSize}
 			}
 		}
 		return actnhndl != nil

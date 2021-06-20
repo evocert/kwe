@@ -724,8 +724,8 @@ func (prsng *parsing) flushCde() (err error) {
 
 func loadRuneReaders(prsng *parsing, a ...interface{}) {
 	if al := len(a); al > 0 {
+		rdrs := []io.Reader{}
 		var tmpa []interface{}
-
 		tampardr := func() {
 			if len(tmpa) > 0 {
 				pr, pw := io.Pipe()
@@ -738,24 +738,33 @@ func loadRuneReaders(prsng *parsing, a ...interface{}) {
 				tmpa = nil
 				<-ctx.Done()
 				ctx = nil
-				prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(pr))
+				if s, _ := iorw.ReaderToString(pr); s != "" {
+					//prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(strings.NewReader(s)))
+					rdrs = append(rdrs, strings.NewReader(s))
+				}
 			}
-			return
 		}
+
 		for ai := 0; ai < al; ai++ {
 			if d := a[0]; d != nil {
-				ai++
 				a = a[1:]
 				if r, rok := d.(io.Reader); rok {
 					tampardr()
 					if rnr, rnrok := r.(io.RuneReader); rnrok {
+						if len(rdrs) > 0 {
+							prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(io.MultiReader(rdrs...)))
+							rdrs = nil
+							rdrs = []io.Reader{}
+						}
 						prsng.rnrdrsbeingparsed.Push(nil, nil, rnr)
 					} else {
-						prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(r, false))
+						rdrs = append(rdrs, r)
+						//prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(r, false))
 					}
 				} else if buf, bufok := d.(*iorw.Buffer); bufok {
 					tampardr()
-					prsng.rnrdrsbeingparsed.Push(nil, nil, buf.Reader())
+					rdrs = append(rdrs, buf.Reader())
+					//prsng.rnrdrsbeingparsed.Push(nil, nil, buf.Reader())
 				} else {
 					if tmpa == nil {
 						tmpa = []interface{}{}
@@ -763,11 +772,15 @@ func loadRuneReaders(prsng *parsing, a ...interface{}) {
 					tmpa = append(tmpa, d)
 				}
 			} else {
-				ai++
 				a = a[1:]
 			}
 		}
 		tampardr()
+		if len(rdrs) > 0 {
+			prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(io.MultiReader(rdrs...)))
+			rdrs = nil
+			rdrs = []io.Reader{}
+		}
 	}
 }
 
@@ -785,6 +798,9 @@ func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
 		}
 	}
 	if err == io.EOF || err == nil {
+		if err == io.EOF {
+			err = nil
+		}
 		prsng.flushPsv()
 		if canexec {
 			prsng.flushCde()
@@ -877,7 +893,7 @@ func (prsng *parsing) ReadRune() (r rune, size int, err error) {
 	if prsng != nil {
 		if prsng.crntrnrdrbeingparsed == nil {
 			if prsng.rnrdrsbeingparsed != nil && prsng.rnrdrsbeingparsed.Length() > 0 {
-				prsng.rnrdrsbeingparsed.Tail().Dispose(nil, func(nde *enumeration.Node, val interface{}) {
+				prsng.rnrdrsbeingparsed.Head().Dispose(nil, func(nde *enumeration.Node, val interface{}) {
 					prsng.crntrnrdrbeingparsed, _ = val.(io.RuneReader)
 				})
 			}
@@ -889,6 +905,13 @@ func (prsng *parsing) ReadRune() (r rune, size int, err error) {
 		r, size, err = prsng.crntrnrdrbeingparsed.ReadRune()
 		if err == io.EOF {
 			prsng.crntrnrdrbeingparsed = nil
+			if prsng.rnrdrsbeingparsed != nil && prsng.rnrdrsbeingparsed.Length() > 0 {
+				if size == 0 {
+					r, size, err = prsng.ReadRune()
+				} else {
+					err = nil
+				}
+			}
 		}
 	} else {
 		err = io.EOF

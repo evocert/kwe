@@ -805,14 +805,22 @@ func (rqst *Request) ReadAll() (s string, err error) {
 	return
 }
 
-func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, initpath string) {
+func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, isactive bool, initpath string) {
 	if rqst != nil {
 		if istext {
 			rqst.invokeAtv()
 			if altw == nil {
-				if err := rqst.atv.Eval(rqst, rqst, initpath, r); err != nil {
-					if err != io.EOF {
-						fmt.Println(err)
+				if isactive {
+					if err := rqst.atv.Eval(rqst, rqst, initpath, "<@", r, "@>"); err != nil {
+						if err != io.EOF {
+							fmt.Println(err)
+						}
+					}
+				} else {
+					if err := rqst.atv.Eval(rqst, rqst, initpath, r); err != nil {
+						if err != io.EOF {
+							fmt.Println(err)
+						}
 					}
 				}
 			} else {

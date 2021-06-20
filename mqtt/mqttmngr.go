@@ -207,11 +207,12 @@ func (mqttmngr *MQTTManager) RegisterConnection(alias string, a ...interface{}) 
 		}() {
 			func() {
 				mqttmngr.lck.Lock()
-				defer mqttmngr.lck.Unlock()
 				if mqttcn := NewMQTTConnections(alias, a...); mqttcn != nil {
 					mqttmngr.cntns[alias] = mqttcn
 					mqttcn.mqttmngr = mqttmngr
 				}
+				mqttmngr.lck.Unlock()
+				mqttmngr.fireAliasEvent(alias, "Registered", nil)
 			}()
 		}
 	}
@@ -296,6 +297,7 @@ func (mqttmngr *MQTTManager) UnregisterConnection(alias ...string) {
 							delete(mqttmngr.cntns, als)
 						}
 					}()
+					mqttmngr.fireAliasEvent(als, "Unregistered", nil)
 				}
 			}
 		}
@@ -354,13 +356,6 @@ func (mqttmngr *MQTTManager) fireAliasEvent(alias string, event string, err erro
 func (mqttmngr *MQTTManager) Disconnected(alias string, err error) {
 	if mqttmngr != nil {
 		mqttmngr.fireAliasEvent(alias, "Disconnected", err)
-		/*if err != nil {
-			gblmqttmngr.fireAliasEvent(alias, "Disconnected", err)
-			fmt.Println("Disconnected:" + alias + "=> " + err.Error())
-		} else {
-			fmt.Println("Disconnected:" + alias)
-			gblmqttmngr.fireAliasEvent(alias, "Disconnected", err)
-		}*/
 	}
 }
 
@@ -392,6 +387,9 @@ func (mqttmngr *MQTTManager) Connect(alias string) (err error) {
 				err = mqttnc.Connect()
 			}()
 		}
+		if mqttmngr != nil {
+			mqttmngr.fireAliasEvent(alias, "Connected", err)
+		}
 	}
 	return
 }
@@ -407,9 +405,6 @@ func (mqttmngr *MQTTManager) Disconnect(alias string, quiesce uint) (err error) 
 			func() {
 				err = mqttnc.Disconnect(quiesce)
 			}()
-		}
-		if mqttmngr != nil {
-			mqttmngr.fireAliasEvent(alias, "Disconnected", err)
 		}
 	}
 	return

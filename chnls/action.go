@@ -300,7 +300,7 @@ func executeAction(actn *Action) (err error) {
 							if rspathext != "" {
 								if rspathext == ".json" {
 									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false, "")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(dbrdr, nil, dbrdrerr)), nil, false, false, "")
 								} else if rspathext == ".js" {
 									var script = true
 									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
@@ -312,9 +312,9 @@ func executeAction(actn *Action) (err error) {
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false, false, "")
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(");")), nil, false, false, "")
 											}
 										}
 									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
@@ -323,9 +323,9 @@ func executeAction(actn *Action) (err error) {
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false, false, "")
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(dbrdr, nil, dbrdrerr), strings.NewReader(";")), nil, false, false, "")
 											}
 										}
 									}
@@ -339,7 +339,7 @@ func executeAction(actn *Action) (err error) {
 
 										}
 									}
-									actn.rqst.copy(io.MultiReader(database.NewCSVReader(dbrdr, dbrdrerr, csvsttngs)), nil, false, "")
+									actn.rqst.copy(io.MultiReader(database.NewCSVReader(dbrdr, dbrdrerr, csvsttngs)), nil, false, false, "")
 								}
 							} else {
 
@@ -355,7 +355,7 @@ func executeAction(actn *Action) (err error) {
 							if rspathext != "" {
 								if rspathext == ".json" {
 									actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
-									actn.rqst.copy(io.MultiReader(database.NewJSONReader(nil, exctr, exctrerr)), nil, false, "")
+									actn.rqst.copy(io.MultiReader(database.NewJSONReader(nil, exctr, exctrerr)), nil, false, false, "")
 								} else if rspathext == ".js" {
 									var script = true
 									if actn.rqst.Parameters().ContainsParameter(kalias+":script") && strings.Join(actn.rqst.Parameters().Parameter(kalias+":script"), "") == "false" {
@@ -367,9 +367,9 @@ func executeAction(actn *Action) (err error) {
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");"), strings.NewReader("||script")), nil, false, false, "")
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jscall+"("), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(");")), nil, false, false, "")
 											}
 										}
 									} else if actn.rqst.Parameters().ContainsParameter(kalias + ":jsvar") {
@@ -378,9 +378,9 @@ func executeAction(actn *Action) (err error) {
 												actn.rqst.mimetype, isTextRequest = mimes.FindMimeType(rspathext, "text/plain")
 											}
 											if script {
-												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader("script||"), strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";"), strings.NewReader("||script")), nil, false, false, "")
 											} else {
-												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";")), nil, false, "")
+												actn.rqst.copy(io.MultiReader(strings.NewReader(jsvar+"="), database.NewJSONReader(nil, exctr, exctrerr), strings.NewReader(";")), nil, false, false, "")
 											}
 										}
 									}
@@ -432,9 +432,9 @@ func executeAction(actn *Action) (err error) {
 				}
 				if isTextRequest && !curactnhndlr.raw {
 					isTextRequest = false
-					actn.rqst.copy(curactnhndlr, nil, true, actn.rspath)
+					actn.rqst.copy(curactnhndlr, nil, true, curactnhndlr.active && !curactnhndlr.raw, actn.rspath)
 				} else {
-					actn.rqst.copy(curactnhndlr, nil, false, actn.rspath)
+					actn.rqst.copy(curactnhndlr, nil, false, false, actn.rspath)
 				}
 			}()
 		}
