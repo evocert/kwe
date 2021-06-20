@@ -539,16 +539,10 @@ func PIPES(path string) (cntnt string, err error) {
 
 //SET if file exists replace content else create file and append content
 func SET(path string, a ...interface{}) (err error) {
-	if f, ferr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); ferr == nil {
+	if f, ferr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644); ferr == nil {
 		func() {
 			defer f.Close()
-			if ferr = f.Truncate(0); ferr == nil {
-
-				iorw.Fprint(f, a...)
-
-			} else {
-				err = ferr
-			}
+			iorw.Fprint(f, a...)
 		}()
 	} else {
 		err = ferr
