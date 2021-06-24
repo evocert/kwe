@@ -47,6 +47,7 @@ type Request struct {
 	startedReading   bool
 	mimetype         string
 	httpw            http.ResponseWriter
+	httpstatus       int
 	flshr            http.Flusher
 	prms             *parameters.Parameters
 	wbytes           []byte
@@ -197,6 +198,14 @@ func (rqst *Request) ResponseHeaders() (hdrs []string) {
 func (rqst *Request) ResponseHeader() (hdr http.Header) {
 	if httpw := rqst.httpw; httpw != nil {
 		hdr = httpw.Header()
+	}
+	return
+}
+
+//SetResponseStatus  set Response Status
+func (rqst *Request) SetResponseHeader(status int) (hdr http.Header) {
+	if httpw := rqst.httpw; httpw != nil {
+		rqst.httpstatus = status
 	}
 	return
 }
@@ -884,7 +893,7 @@ func (rqst *Request) startWriting() (err error) {
 	//httpw.Header().Set("Transfer-Encoding", "chunked")
 	//rqst.zpw = gzip.NewWriter(httpw)
 	if httpw := rqst.httpw; httpw != nil {
-		httpw.WriteHeader(200)
+		httpw.WriteHeader(rqst.httpstatus)
 	}
 	//}
 	return

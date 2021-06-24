@@ -74,7 +74,7 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		rqstsettings = map[string]interface{}{}
 	}
 
-	rqst = &Request{prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+	rqst = &Request{prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpstatus: 200, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:      initPath,
 		mphndlr:       caching.GLOBALMAP().Handler(),
 		mediarqst:     false,
