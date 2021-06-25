@@ -1,4 +1,4 @@
-package fonts
+package robotov27latin
 
 import (
 	"io"

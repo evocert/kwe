@@ -1,4 +1,4 @@
-package fonts
+package material
 
 import (
 	"encoding/base64"
