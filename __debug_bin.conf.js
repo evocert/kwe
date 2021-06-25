@@ -1,4 +1,6 @@
 <@
+resourcing.RegisterEndpoint("/gendocs","./gendocs");
+//println(channel.Send("/active:gendocs/gendocs.js"));
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
 resourcing.RegisterEndpoint("/mqtt","C:/Users/User/Downloads/mqtt");
 
