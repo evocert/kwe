@@ -605,6 +605,10 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(path string, rootpath strin
 	if path != "" {
 		if _, rsngepntok := rscngmngr.rsngpaths[path]; !rsngepntok {
 			if newrsngepnt, newrsngepntpath := nextResourcingEndpoint(rscngmngr, rootpath, prms...); newrsngepnt != nil {
+				if newrsngepntpath == "" && newrsngepnt.isEmbedded && (!newrsngepnt.isLocal && !newrsngepnt.isRemote) {
+					newrsngepntpath = path
+					newrsngepnt.path = path
+				}
 				rsngepnt, rsngepntok := rscngmngr.rsngrootpaths[newrsngepntpath]
 				if rsngepntok {
 					if rsngepnt != newrsngepnt {
