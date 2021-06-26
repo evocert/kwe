@@ -157,13 +157,17 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 		var onerror interface{} = nil
 
 		var rqstheaders map[string]string = nil
-
+		var rspnselts []interface{} = nil
 		for ai < len(a) {
 			d := a[ai]
 			if r == nil {
 				if rs, rsok := d.(string); rsok {
 					if rs != "" {
-						r = strings.NewReader(rs)
+						if rspnselts == nil {
+							rspnselts = []interface{}{}
+						}
+						rspnselts = append(rspnselts, rs)
+						//r = strings.NewReader(rs)
 					}
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
@@ -173,6 +177,10 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 						break
 					}
 				} else if r, aok = d.(io.Reader); aok {
+					if rspnselts == nil {
+						rspnselts = []interface{}{}
+					}
+					rspnselts = append(rspnselts, r)
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue
@@ -191,7 +199,14 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 				} else if mp, mpok := d.(map[string]interface{}); mpok {
 					if len(mp) > 0 {
 						for k, v := range mp {
-							if k == "success" {
+							if k == "body" {
+								if v != nil {
+									if rspnselts == nil {
+										rspnselts = []interface{}{}
+									}
+									rspnselts = append(rspnselts, v)
+								}
+							} else if k == "success" {
 								if onsucess == nil {
 									onsucess = v
 								}
@@ -235,6 +250,21 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 			}
 			ai++
 		}
+
+		if len(rspnselts) > 0 {
+			pr, pw := io.Pipe()
+			ctx, ctxcancel := context.WithCancel(context.Background())
+			go func() {
+				pw.Close()
+				ctxcancel()
+				iorw.Fprint(pw, rspnselts...)
+			}()
+			<-ctx.Done()
+			r = pr
+		} else {
+			r = nil
+		}
+
 		if r != nil {
 			if method == "" || method == "GET" {
 				method = "POST"
@@ -242,6 +272,7 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 		} else if method == "" {
 			method = "GET"
 		}
+
 		var rqst, rqsterr = http.NewRequest(method, rqstpath, r)
 		if rqsterr == nil {
 			if len(rqstheaders) > 0 {
