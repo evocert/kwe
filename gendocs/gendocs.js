@@ -264,25 +264,36 @@ _fsutils.FIND(root).filter(function(e){
                                 while(typelni<lni) {
                                     if((ln=lns[typelni].trim())!==""){
                                         if(!ln.startsWith("//")) {
-                                            if(ln.indexOf(" ")>0) {
-                                                var memnme=ln.substring(0,ln.indexOf(" ")).trim();
-                                                ln=ln.substring(ln.indexOf(" ")+1).trim();
-                                                if(memnme!==""&&ln!==""){
-                                                    while(ln.indexOf("  ")>0) {
-                                                        ln=ln.replace("  "," ");
-                                                    }
-                                                    if(ln.indexOf("//")>-1){
-                                                        ln=ln.substring(0,ln.indexOf("//")).trim();
-                                                    }
-                                                    
+                                            if(typebase=="interface"){
+                                                if (ln.indexOf("(")>0) {
+                                                    var memnme=ln.substring(0,ln.indexOf("(")).trim();
+                                                    ln=ln.substring(ln.indexOf("(")).trim();
                                                     if ((memnme.charAt(0)+"").toLowerCase()===(memnme.charAt(0)+"")) {
                                                         members[lgntscopelocal][memnme]=ln;
                                                     } else {
                                                         members[lgntscopeglobal][memnme]=ln;
                                                     }
+                                                }                                                
+                                            } else {
+                                                if(ln.indexOf(" ")>0) {
+                                                    var memnme=ln.substring(0,ln.indexOf(" ")).trim();
+                                                    ln=ln.substring(ln.indexOf(" ")+1).trim();
+                                                    if(memnme!==""&&ln!==""){
+                                                        while(ln.indexOf("  ")>0) {
+                                                            ln=ln.replace("  "," ");
+                                                        }
+                                                        if(ln.indexOf("//")>-1){
+                                                            ln=ln.substring(0,ln.indexOf("//")).trim();
+                                                        }                                                    
+                                                        if ((memnme.charAt(0)+"").toLowerCase()===(memnme.charAt(0)+"")) {
+                                                            members[lgntscopelocal][memnme]=ln;
+                                                        } else {
+                                                            members[lgntscopeglobal][memnme]=ln;
+                                                        }
+                                                    }
+                                                }else{
+                                                    inherits.push(ln);
                                                 }
-                                            }else{
-                                                inherits.push(ln);
                                             }
                                         }
                                     }
