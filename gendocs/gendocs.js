@@ -101,7 +101,6 @@ _fsutils.FIND(root).filter(function(e){
                     }
                 });
                 prep[lgntpackagepaths].push(pckgthsfound.join("."));
-                //pkgobj=pathspckgs[lastpreppath];
             } else if (package!=="" && pkgobj!==null && typeof pkgobj==="object") {
                 if(typedeflni==-1) {
                     if ((ln.startsWith("type ") && ln.endsWith("{"))||(ln.startsWith("func ") && ln.endsWith("{"))) {
@@ -113,6 +112,8 @@ _fsutils.FIND(root).filter(function(e){
                 } else if(typedeflni>-1&&ln==="}"){
                     if (pkgobj[lgntdatapaths]===undefined) {
                         pkgobj[lgntdatapaths]={};
+                        pkgobj[lgntdatapaths][lgntscopeglobal]={}
+                        pkgobj[lgntdatapaths][lgntscopelocal]={}
                     }
                     data=pkgobj[lgntdatapaths];
                     var cmnti=typedeflni;
@@ -213,43 +214,48 @@ _fsutils.FIND(root).filter(function(e){
                         }
                     }
                     if(type=="func") {
-                        if (typeof data[typename+""] !=="object") {
-                            var objfnc={"type":type,"owner":typeowner,"parameters":args};
-                            objfnc[lgntcomments]=typecmnts.slice(0)
-                            objfnc[lgntreturns]=returntypes.slice(0);
+                        var datascpobj;
+                        if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
+                            datascpobj=data[lgntscopelocal];
+                        } else {
+                            datascpobj=data[lgntscopeglobal];
+                        }
+                        var objfnc={"type":type,"owner":typeowner,"parameters":args};
+                        objfnc[lgntcomments]=typecmnts.slice(0)
+                        objfnc[lgntreturns]=returntypes.slice(0);
 
-                            if (typeowner!=="") {
-                                var ownerref=typeowner;
-                                if((ownerref=ownerref.startsWith("*")?ownerref.substring(1).trim():ownerref.trim())!==""){
-                                    if(data[ownerref+""]!==undefined && typeof data[ownerref+""]==="object") {
-                                        if(data[ownerref+""][lgntmethods]===undefined){
-                                            data[ownerref+""][lgntmethods]={};
-                                            data[ownerref+""][lgntmethods][lgntscopeglobal]={};
-                                            data[ownerref+""][lgntmethods][lgntscopelocal]={};
-                                        }
-                                        if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
-                                            data[ownerref+""][lgntmethods][lgntscopelocal][typename+""]=objfnc;
-                                        } else {
-                                            data[ownerref+""][lgntmethods][lgntscopeglobal][typename+""]=objfnc;
-                                        }
+                        if (typeowner!=="") {
+                            var ownerref=typeowner;
+                            if((ownerref=ownerref.startsWith("*")?ownerref.substring(1).trim():ownerref.trim())!==""){
+                                if ((ownerref.charAt(0)+"").toLowerCase()===(ownerref.charAt(0)+"")) {
+                                    datascpobj=data[lgntscopelocal];
+                                } else {
+                                    datascpobj=data[lgntscopeglobal];
+                                }
+                                if(datascpobj[ownerref+""]!==undefined && typeof datascpobj[ownerref+""]==="object") {
+                                    if(datascpobj[ownerref+""][lgntmethods]===undefined){
+                                        datascpobj[ownerref+""][lgntmethods]={};
+                                        datascpobj[ownerref+""][lgntmethods][lgntscopeglobal]={};
+                                        datascpobj[ownerref+""][lgntmethods][lgntscopelocal]={};
+                                    }
+                                    if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
+                                        datascpobj[ownerref+""][lgntmethods][lgntscopelocal][typename+""]=objfnc;
+                                    } else {
+                                        datascpobj[ownerref+""][lgntmethods][lgntscopeglobal][typename+""]=objfnc;
                                     }
                                 }
-                            } else {
-                                if(data[lgntmethods]===undefined){
-                                    data[lgntmethods]={};
-                                    data[lgntmethods][lgntscopeglobal]={};
-                                    data[lgntmethods][lgntscopelocal]={};
-                                    
-                                }
-                                if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
-                                    data[lgntmethods][lgntscopelocal][typename+""]=objfnc;
-                                } else {
-                                    data[lgntmethods][lgntscopeglobal][typename+""]=objfnc;
-                                }
                             }
+                        } else {
+                            datascpobj[typename+""]=objfnc;
                         }
                     } else if (type!="") {
-                        if (typeof data[typename+""] !=="object") {
+                        var datascpobj;
+                        if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
+                            datascpobj=data[lgntscopelocal];
+                        } else {
+                            datascpobj=data[lgntscopeglobal];
+                        }
+                        if (typeof datascpobj[typename+""] !=="object") {
                             var members={};
                             members[lgntscopeglobal]={};
                             members[lgntscopelocal]={};
@@ -288,7 +294,7 @@ _fsutils.FIND(root).filter(function(e){
                             objtpe[lgntfields]=members;
                             objtpe[lgntinherits]=inherits.slice(0);
                             objtpe[lgntcomments]=typecmnts.slice(0);
-                            data[typename+""]=objtpe;               
+                            datascpobj[typename+""]=objtpe;               
                         }
                     }
                 }
