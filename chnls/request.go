@@ -159,22 +159,6 @@ func (rqst *Request) AddPath(path ...string) {
 						path = append(strings.Split(pth, "|"), path...)
 						continue
 					} else {
-						if strings.Index(pth, ":raw/") > -1 {
-							pth = strings.Replace(pth, ":raw/", "/", -1)
-							if !(strings.Index(pth, "@") > -1 && strings.Index(pth, "@") < strings.LastIndex(pth, "@")) {
-								pth += "@@"
-							}
-						}
-						/*
-							if rsngpth, rsngpthok := rqst.rsngpthsref[pth]; rsngpthok {
-								rqst.actnslst.Add(newAction(rqst,pth rsngpth))
-								//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
-
-							} else if rsngpth := resources.NewResourcingPath(pth, nil); rsngpth != nil {
-								//rqst.actns = append(rqst.actns, newAction(rqst, rsngpth))
-								rqst.actnslst.Add(newAction(rqst, rsngpth))
-								rqst.rsngpthsref[pth] = rsngpth
-							}*/
 						rqst.actnslst.Push(nil, nil, newAction(rqst, pth))
 					}
 				}
