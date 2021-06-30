@@ -114,6 +114,11 @@ func (cmd *Command) Println(a ...interface{}) {
 	iorw.Fprint(cmd, "\n")
 }
 
+//Seek - refer tio iorw.Reader empty implementation
+func (cmd *Command) Seek(offset int64, whence int) (n int64, err error) {
+	return
+}
+
 //Readln - read line from cmd and return s string or err error
 func (cmd *Command) Readln() (s string, err error) {
 	if cmd.bfr == nil {

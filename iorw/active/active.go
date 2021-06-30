@@ -27,12 +27,14 @@ type Active struct {
 	Println        func(a ...interface{})
 	FPrint         func(w io.Writer, a ...interface{})
 	FPrintLn       func(w io.Writer, a ...interface{})
+	Seek           func(offset int64, whence int) (n int64, err error)
 	Readln         func() (string, error)
 	ReadLines      func() ([]string, error)
 	ReadAll        func() (string, error)
-	FReadln        func(r io.Reader) (string, error)
-	FReadLines     func(r io.Reader) ([]string, error)
-	FReadAll       func(r io.Reader) (string, error)
+	FSeek          func(io.Reader, int64, int) (int64, error)
+	FReadln        func(io.Reader) (string, error)
+	FReadLines     func(io.Reader) ([]string, error)
+	FReadAll       func(io.Reader) (string, error)
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
@@ -166,6 +168,27 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 			}
 		}
 	}
+}
+
+func (atv *Active) seek(r io.Reader, offset int64, whence int) (n int64, err error) {
+	if rds, rdsok := r.(io.Seeker); rdsok {
+		n, err = rds.Seek(offset, whence)
+	} else {
+		if atv.Seek != nil {
+			n, err = atv.Seek(offset, whence)
+		} else if atv.FSeek != nil && r != nil {
+			func() {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				n, err = atv.FSeek(r, offset, whence)
+			}()
+		} else if r != nil {
+			if rds, rdsok := r.(io.Seeker); rdsok {
+				n, err = rds.Seek(offset, whence)
+			}
+		}
+	}
+	return
 }
 
 func (atv *Active) readln(r io.Reader) (ln string, err error) {
@@ -463,6 +486,17 @@ func (prsng *parsing) readLn() (ln string, err error) {
 			ln, err = prsng.atv.readln(prsng.rdrs[pl-1])
 		} else {
 			ln, err = prsng.atv.readln(prsng.rin)
+		}
+	}
+	return
+}
+
+func (prsng *parsing) seek(offset int64, whence int) (n int64, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.rdrs); pl > 0 {
+			n, err = prsng.atv.seek(prsng.rdrs[pl-1], offset, whence)
+		} else {
+			n, err = prsng.atv.seek(prsng.rin, offset, whence)
 		}
 	}
 	return
@@ -1402,6 +1436,14 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.print(nil, a...)
 			}
+		},
+		atvrntme.atv.namespace() + "seek": func(offset int64, whence int) (n int64, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				n, err = atvrntme.prsng.seek(offset, whence)
+			} else if atvrntme.atv != nil {
+				n, err = atvrntme.atv.seek(nil, offset, whence)
+			}
+			return
 		},
 		atvrntme.atv.namespace() + "readln": func() (ln string, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {

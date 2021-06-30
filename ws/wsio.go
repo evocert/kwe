@@ -148,6 +148,11 @@ func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
 	return
 }
 
+//Seek - empty implementation refer to iorw.Reader
+func (wsrw *ReaderWriter) Seek(offset int64, whence int) (n int64, err error) {
+	return
+}
+
 //Readln - read single line
 func (wsrw *ReaderWriter) Readln() (s string, err error) {
 	s = ""
