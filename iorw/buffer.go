@@ -701,10 +701,6 @@ func (bufr *BuffReader) ReadAll() (string, error) {
 	return bufr.buffer.String(), nil
 }
 
-//	Readln() (string, error)
-//	Readlines() ([]string, error)
-//	ReadAll() (string, error)
-
 //Seek - refer to io.Seeker
 func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 	if bufr != nil && bufr.buffer != nil {
@@ -735,9 +731,7 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 						if bflen > 0 {
 							if n < int64(bflen) {
 								rnbufi = 0
-							} /* else {
-								rnbufi = int(n / int64(bflen))
-							}*/
+							}
 							if n == (int64(bufl) * int64(bflen)) {
 								bufr.rbytesi = 0
 							} else {
