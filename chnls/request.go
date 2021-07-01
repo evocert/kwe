@@ -14,6 +14,7 @@ import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/fsutils"
+	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
@@ -140,6 +141,12 @@ func (rqst *Request) Proto() string {
 	return rqst.prtcl
 }
 
+//MimeType - mimetype of extension - defaultext
+func (rqst *Request) MimeType(ext string, defaultext string) (mimetype string) {
+	mimetype, _ = mimes.FindMimeType(ext, defaultext)
+	return
+}
+
 //Interrupt - Request execution
 func (rqst *Request) Interrupt() {
 	if rqst.atv != nil {
@@ -187,7 +194,7 @@ func (rqst *Request) ResponseHeader() (hdr http.Header) {
 }
 
 //SetResponseStatus  set Response Status
-func (rqst *Request) SetResponseHeader(status int) (hdr http.Header) {
+func (rqst *Request) SetResponseStatus(status int) {
 	if httpw := rqst.httpw; httpw != nil {
 		rqst.httpstatus = status
 	}
