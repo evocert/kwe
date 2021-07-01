@@ -1,30 +1,32 @@
 var base="C:/GitHub/kwe";
 var root=base+"";
 
-var lgntscopeglobal="/g/";
-var lgntscopelocal="/p/";
-var lgntinherits="==";
-var lgntreturns="<<";
-var lgntdatapaths="/";
-var lgntpackagepaths="/-/";
-var lgntcomments="/../";
+var lgndcodebase="golang";
+var lgndscopeglobal="/g/";
+var lgndscopelocal="/p/";
+var lgndinherits="==";
+var lgndreturns="<<";
+var lgnddatapaths="/";
+var lgndpackagepaths="/-/";
+var lgndcomments="/../";
 
 //type
-var lgntfields="/f/";
-var lgntmethods="/m/";
+var lgndfields="/f/";
+var lgndmethods="/m/";
 
 var prep={
         "/legent":{
-            "/scope-global":lgntscopeglobal,
-            "/scope-local":lgntscopelocal,
-            "/inherits":lgntinherits,
-            "/returns":lgntreturns,
-            "/comments":lgntcomments,
-            "/fields":lgntfields,
-            "/methods":lgntmethods,
-            "/package-paths":lgntpackagepaths
+            "/code-base":lgndcodebase,
+            "/scope-global":lgndscopeglobal,
+            "/scope-local":lgndscopelocal,
+            "/inherits":lgndinherits,
+            "/returns":lgndreturns,
+            "/comments":lgndcomments,
+            "/fields":lgndfields,
+            "/methods":lgndmethods,
+            "/package-paths":lgndpackagepaths
         }};
-        prep[lgntpackagepaths]=[];
+        prep[lgndpackagepaths]=[];
 var pathspckgs={};
 var files={};
 var crntpreplvl=0;
@@ -100,7 +102,7 @@ _fsutils.FIND(root).filter(function(e){
                         pkgobj=prvtstpkg;
                     }
                 });
-                prep[lgntpackagepaths].push(pckgthsfound.join("."));
+                prep[lgndpackagepaths].push(pckgthsfound.join("."));
             } else if (package!=="" && pkgobj!==null && typeof pkgobj==="object") {
                 if(typedeflni==-1) {
                     if ((ln.startsWith("type ") && ln.endsWith("{"))||(ln.startsWith("func ") && ln.endsWith("{"))) {
@@ -110,12 +112,12 @@ _fsutils.FIND(root).filter(function(e){
                         typedefln="";
                     }
                 } else if(typedeflni>-1&&ln==="}"){
-                    if (pkgobj[lgntdatapaths]===undefined) {
-                        pkgobj[lgntdatapaths]={};
-                        pkgobj[lgntdatapaths][lgntscopeglobal]={}
-                        pkgobj[lgntdatapaths][lgntscopelocal]={}
+                    if (pkgobj[lgnddatapaths]===undefined) {
+                        pkgobj[lgnddatapaths]={};
+                        pkgobj[lgnddatapaths][lgndscopeglobal]={}
+                        pkgobj[lgnddatapaths][lgndscopelocal]={}
                     }
-                    data=pkgobj[lgntdatapaths];
+                    data=pkgobj[lgnddatapaths];
                     var cmnti=typedeflni;
                     var typelni=typedeflni;
                     typedeflni=-1;
@@ -216,32 +218,32 @@ _fsutils.FIND(root).filter(function(e){
                     if(type=="func") {
                         var datascpobj;
                         if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
-                            datascpobj=data[lgntscopelocal];
+                            datascpobj=data[lgndscopelocal];
                         } else {
-                            datascpobj=data[lgntscopeglobal];
+                            datascpobj=data[lgndscopeglobal];
                         }
                         var objfnc={"type":type,"owner":typeowner,"parameters":args};
-                        objfnc[lgntcomments]=typecmnts.slice(0)
-                        objfnc[lgntreturns]=returntypes.slice(0);
+                        objfnc[lgndcomments]=typecmnts.slice(0)
+                        objfnc[lgndreturns]=returntypes.slice(0);
 
                         if (typeowner!=="") {
                             var ownerref=typeowner;
                             if((ownerref=ownerref.startsWith("*")?ownerref.substring(1).trim():ownerref.trim())!==""){
                                 if ((ownerref.charAt(0)+"").toLowerCase()===(ownerref.charAt(0)+"")) {
-                                    datascpobj=data[lgntscopelocal];
+                                    datascpobj=data[lgndscopelocal];
                                 } else {
-                                    datascpobj=data[lgntscopeglobal];
+                                    datascpobj=data[lgndscopeglobal];
                                 }
                                 if(datascpobj[ownerref+""]!==undefined && typeof datascpobj[ownerref+""]==="object") {
-                                    if(datascpobj[ownerref+""][lgntmethods]===undefined){
-                                        datascpobj[ownerref+""][lgntmethods]={};
-                                        datascpobj[ownerref+""][lgntmethods][lgntscopeglobal]={};
-                                        datascpobj[ownerref+""][lgntmethods][lgntscopelocal]={};
+                                    if(datascpobj[ownerref+""][lgndmethods]===undefined){
+                                        datascpobj[ownerref+""][lgndmethods]={};
+                                        datascpobj[ownerref+""][lgndmethods][lgndscopeglobal]={};
+                                        datascpobj[ownerref+""][lgndmethods][lgndscopelocal]={};
                                     }
                                     if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
-                                        datascpobj[ownerref+""][lgntmethods][lgntscopelocal][typename+""]=objfnc;
+                                        datascpobj[ownerref+""][lgndmethods][lgndscopelocal][typename+""]=objfnc;
                                     } else {
-                                        datascpobj[ownerref+""][lgntmethods][lgntscopeglobal][typename+""]=objfnc;
+                                        datascpobj[ownerref+""][lgndmethods][lgndscopeglobal][typename+""]=objfnc;
                                     }
                                 }
                             }
@@ -251,14 +253,14 @@ _fsutils.FIND(root).filter(function(e){
                     } else if (type!="") {
                         var datascpobj;
                         if ((typename.charAt(0)+"").toLowerCase()===(typename.charAt(0)+"")) {
-                            datascpobj=data[lgntscopelocal];
+                            datascpobj=data[lgndscopelocal];
                         } else {
-                            datascpobj=data[lgntscopeglobal];
+                            datascpobj=data[lgndscopeglobal];
                         }
                         if (typeof datascpobj[typename+""] !=="object") {
                             var members={};
-                            members[lgntscopeglobal]={};
-                            members[lgntscopelocal]={};
+                            members[lgndscopeglobal]={};
+                            members[lgndscopelocal]={};
                             var inherits=[];
                             if(typelni<lni){
                                 while(typelni<lni) {
@@ -269,9 +271,9 @@ _fsutils.FIND(root).filter(function(e){
                                                     var memnme=ln.substring(0,ln.indexOf("(")).trim();
                                                     ln=ln.substring(ln.indexOf("(")).trim();
                                                     if ((memnme.charAt(0)+"").toLowerCase()===(memnme.charAt(0)+"")) {
-                                                        members[lgntscopelocal][memnme]=ln;
+                                                        members[lgndscopelocal][memnme]=ln;
                                                     } else {
-                                                        members[lgntscopeglobal][memnme]=ln;
+                                                        members[lgndscopeglobal][memnme]=ln;
                                                     }
                                                 }                                                
                                             } else {
@@ -286,9 +288,9 @@ _fsutils.FIND(root).filter(function(e){
                                                             ln=ln.substring(0,ln.indexOf("//")).trim();
                                                         }                                                    
                                                         if ((memnme.charAt(0)+"").toLowerCase()===(memnme.charAt(0)+"")) {
-                                                            members[lgntscopelocal][memnme]=ln;
+                                                            members[lgndscopelocal][memnme]=ln;
                                                         } else {
-                                                            members[lgntscopeglobal][memnme]=ln;
+                                                            members[lgndscopeglobal][memnme]=ln;
                                                         }
                                                     }
                                                 }else{
@@ -302,12 +304,12 @@ _fsutils.FIND(root).filter(function(e){
                             }
                             var objtpe={"type":type,"base":typebase};
                             
-                            objtpe[lgntfields]=members;
-                            objtpe[lgntinherits]=inherits.slice(0);
-                            objtpe[lgntcomments]=typecmnts.slice(0);
-                            objtpe[lgntmethods]={};
-                            objtpe[lgntmethods][lgntscopeglobal]={};
-                            objtpe[lgntmethods][lgntscopelocal]={};
+                            objtpe[lgndfields]=members;
+                            objtpe[lgndinherits]=inherits.slice(0);
+                            objtpe[lgndcomments]=typecmnts.slice(0);
+                            objtpe[lgndmethods]={};
+                            objtpe[lgndmethods][lgndscopeglobal]={};
+                            objtpe[lgndmethods][lgndscopelocal]={};
                             datascpobj[typename+""]=objtpe;               
                         }
                     }
