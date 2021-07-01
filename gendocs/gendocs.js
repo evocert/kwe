@@ -305,6 +305,9 @@ _fsutils.FIND(root).filter(function(e){
                             objtpe[lgntfields]=members;
                             objtpe[lgntinherits]=inherits.slice(0);
                             objtpe[lgntcomments]=typecmnts.slice(0);
+                            objtpe[lgntmethods]={};
+                            objtpe[lgntmethods][lgntscopeglobal]={};
+                            objtpe[lgntmethods][lgntscopelocal]={};
                             datascpobj[typename+""]=objtpe;               
                         }
                     }
