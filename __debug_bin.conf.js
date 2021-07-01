@@ -1,7 +1,7 @@
-<@
 resourcing.RegisterEndpoint("/gendocs","./gendocs");
-//println(channel.Send("/active:gendocs/gendocs.js"));
+channel.Send("/gendocs/active:gendocs.js");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
+resourcing.RegisterEndpoint("/movies","D:/movies");
 resourcing.RegisterEndpoint("/mqtt","C:/Users/User/Downloads/mqtt");
 
 dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
@@ -44,4 +44,3 @@ sch0.AddAction(
 	[{schid:schid}]
 );    
 sch0.Start();*/
-@>

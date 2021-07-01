@@ -62,6 +62,12 @@ func (mphndlr *MapHandler) Reset(ks ...interface{}) {
 	}
 }
 
+//NewBuffer helper that returns instance of *iorw.Buffer
+func (mphndlr *MapHandler) NewBuffer() (buf *iorw.Buffer) {
+	buf = iorw.NewBuffer()
+	return
+}
+
 func (mphndlr *MapHandler) Focus(ks ...interface{}) (focused bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {

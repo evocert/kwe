@@ -198,7 +198,6 @@ func (rqst *Request) SetResponseStatus(status int) {
 	if httpw := rqst.httpw; httpw != nil {
 		rqst.httpstatus = status
 	}
-	return
 }
 
 //RequestHeaders wrap arround current Request.Header
