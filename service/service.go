@@ -64,7 +64,7 @@ func (lnksrvs *LnkService) startLnkService(args ...string) {
 			conflabel = "broker"
 		}
 	}
-	chnls.GLOBALCHNL().DefaultServeRW(out, "/"+lnksrvs.ServiceName()+"."+conflabel+".js", in)
+	chnls.GLOBALCHNL().DefaultServeRW(out, "/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", in)
 	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 
