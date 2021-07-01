@@ -421,6 +421,7 @@ MPEG Video	video/mpeg	.mpeg	Wikipedia: MPEG
 MPEG-21	application/mp21	.m21	Wikipedia: MPEG-21
 MPEG-4 Audio	audio/mp4	.mp4a	Wikipedia: MP4A
 MPEG-4 Video	video/mp4	.mp4	Wikipedia: MP4
+MPEG-4 Video	video/mp4	.mkv	Wikipedia: MP4
 MPEG4	application/mp4	.mp4	RFC 4337
 Multimedia Playlist Unicode	application/vnd.apple.mpegurl	.m3u8	Wikipedia: M3U
 MUsical Score Interpreted Code Invented for the ASCII designation of Notation	application/vnd.musician	.mus	IANA: MUSICIAN
