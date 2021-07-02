@@ -283,24 +283,23 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	//var tcpcn *net.TCPConn = nil
-	//if lstnhndlr.lntcp != nil {
-	//	tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
-	//} else {
-	con, err = lstnhndlr.ln.Accept()
-	//if con, err = lstnhndlr.ln.Accept(); err == nil {
-	//	tcpcn, _ = con.(*net.TCPConn)
-	//}
-	//}
-	//if tcpcn != nil {
-	//	tcpcn.SetLinger(0)
-	//	tcpcn.SetReadBuffer(65536)
-	//	tcpcn.SetWriteBuffer(65536)
-	//tcpcn.SetNoDelay(false)
-	//	tcpcn.SetKeepAlive(true)
-	//	tcpcn.SetKeepAlivePeriod(time.Second * 30)
-	//	con = tcpcn
-	//}
+	var tcpcn *net.TCPConn = nil
+	if lstnhndlr.lntcp != nil {
+		tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
+	} else {
+		if con, err = lstnhndlr.ln.Accept(); err == nil {
+			tcpcn, _ = con.(*net.TCPConn)
+		}
+	}
+	if tcpcn != nil {
+		tcpcn.SetLinger(-1)
+		tcpcn.SetReadBuffer(8192)
+		tcpcn.SetWriteBuffer(65536)
+		tcpcn.SetNoDelay(true)
+		tcpcn.SetKeepAlive(true)
+		tcpcn.SetKeepAlivePeriod(time.Second * 30)
+		con = tcpcn
+	}
 
 	if con != nil {
 		func() {
@@ -312,7 +311,6 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 			con = cnhn
 		}()
 	}
-
 	return
 }
 
