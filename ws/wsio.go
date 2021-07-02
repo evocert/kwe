@@ -15,6 +15,7 @@ import (
 type ReaderWriter struct {
 	ws       *websocket.Conn
 	r        io.Reader
+	MaxRead  int64
 	rbuf     *bufio.Reader
 	rerr     error
 	w        io.WriteCloser
@@ -34,7 +35,7 @@ func NewServerReaderWriter(w http.ResponseWriter, r *http.Request) (wsrw *Reader
 			return true
 		}}
 		if ws, wserr := wsu.Upgrade(w, r, nil); wserr == nil {
-			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil, MaxRead: -1}
 		} else {
 			err = wserr
 		}
@@ -49,6 +50,17 @@ func NewClientReaderWriter(rqstpath string, headers http.Header) (wsrw *ReaderWr
 		if ws, resp, err = websocket.DefaultDialer.Dial(rqstpath, headers); err == nil {
 			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
 		}
+	}
+	return
+}
+
+//SetMaxRead - set max read implementation for Reader interface compliance
+func (wsrw *ReaderWriter) SetMaxRead(maxlen int64) (err error) {
+	if wsrw != nil {
+		if maxlen < 0 {
+			maxlen = -1
+		}
+		wsrw.MaxRead = maxlen
 	}
 	return
 }
@@ -83,66 +95,81 @@ func (wsrw *ReaderWriter) CanWrite() bool {
 
 //Read - refer io.Reader
 func (wsrw *ReaderWriter) Read(p []byte) (n int, err error) {
-	if pl := len(p); pl > 0 {
-		if wsrw.r == nil {
-			if err = wsrw.Flush(); err == nil {
-				if wsrw.CanRead() {
-					var messageType int
-					var rdr io.Reader = nil
+	if wsrw != nil && wsrw.MaxRead == 0 {
+		err = io.EOF
+	} else {
+		if pl := len(p); pl > 0 {
+			if wsrw.MaxRead > 0 {
+				if int64(pl) >= wsrw.MaxRead {
+					pl = int(wsrw.MaxRead)
+				}
+			}
+			if wsrw.r == nil {
+				if err = wsrw.Flush(); err == nil {
+					if wsrw.CanRead() {
+						var messageType int
+						var rdr io.Reader = nil
 
-					messageType, rdr, wsrw.rerr = wsrw.ws.NextReader()
-					wsrw.isText = messageType == websocket.TextMessage
-					wsrw.isBinary = messageType == websocket.BinaryMessage
-					if wsrw.rerr != nil {
-						if wsrw.rerr != io.EOF {
-							return 0, wsrw.rerr
+						messageType, rdr, wsrw.rerr = wsrw.ws.NextReader()
+						wsrw.isText = messageType == websocket.TextMessage
+						wsrw.isBinary = messageType == websocket.BinaryMessage
+						if wsrw.rerr != nil {
+							if wsrw.rerr != io.EOF {
+								return 0, wsrw.rerr
+							}
+							return 0, io.EOF
 						}
-						return 0, io.EOF
-					}
-					if rdr != nil {
-						ctx, ctxcancel := context.WithCancel(context.Background())
-						pr, pw := io.Pipe()
-						go func() {
-							var pwerr error = nil
-							defer func() {
-								if pwerr != io.EOF {
-									pw.CloseWithError(pwerr)
-								} else {
-									pw.Close()
-								}
+						if rdr != nil {
+							ctx, ctxcancel := context.WithCancel(context.Background())
+							pr, pw := io.Pipe()
+							go func() {
+								var pwerr error = nil
+								defer func() {
+									if pwerr != io.EOF {
+										pw.CloseWithError(pwerr)
+									} else {
+										pw.Close()
+									}
+								}()
+								ctxcancel()
+								_, pwerr = io.Copy(pw, rdr)
 							}()
-							ctxcancel()
-							_, pwerr = io.Copy(pw, rdr)
-						}()
-						<-ctx.Done()
-						ctx = nil
-						wsrw.r = pr
+							<-ctx.Done()
+							ctx = nil
+							wsrw.r = pr
+						}
+					}
+
+				} else {
+					return 0, io.EOF
+				}
+			}
+			for n = 0; n < len(p[:pl]); {
+				var m int
+				m, err = wsrw.r.Read(p[n:])
+				if m > 0 && wsrw.MaxRead > 0 {
+					wsrw.MaxRead -= int64(m)
+					if wsrw.MaxRead < 0 {
+						wsrw.MaxRead = 0
 					}
 				}
-
-			} else {
-				return 0, io.EOF
-			}
-		}
-		for n = 0; n < len(p); {
-			var m int
-			m, err = wsrw.r.Read(p[n:])
-			n += m
-			if err != nil {
-				if err == io.EOF {
-					wsrw.r = nil
+				n += m
+				if err != nil {
+					if err == io.EOF {
+						wsrw.r = nil
+						break
+					} else {
+						wsrw.rerr = err
+					}
+				}
+				if err != nil {
 					break
-				} else {
-					wsrw.rerr = err
 				}
 			}
-			if err != nil {
-				break
-			}
-		}
 
-		if n == 0 && err == nil {
-			err = io.EOF
+			if n == 0 && err == nil {
+				err = io.EOF
+			}
 		}
 	}
 	return
