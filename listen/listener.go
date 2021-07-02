@@ -22,12 +22,153 @@ type lstnrserver struct {
 }
 
 type ListnerHandler struct {
-	lntcp          *net.TCPListener
-	ln             net.Listener
-	backlog        int
-	backcon        chan *ConnHandler
-	backLogStarted bool
-	lck            *sync.Mutex
+	lntcp        *net.TCPListener
+	ln           net.Listener
+	lck          *sync.RWMutex
+	lstactualcns map[int64]net.Conn
+}
+
+func contextReadWriteBytes(oprw rune, lstnhndlr *ListnerHandler, atclcnref int64, p []byte, con net.Conn) (n int, err error) {
+	if con == nil {
+		con = getcontextcn(lstnhndlr, atclcnref)
+	}
+	if con != nil {
+		if oprw == 'R' {
+			n, err = con.Read(p)
+		} else if oprw == 'W' {
+			n, err = con.Write(p)
+		}
+	} else {
+		if oprw == 'R' && n == 0 && err == nil {
+			err = io.EOF
+		}
+	}
+	return
+}
+
+func contextSetDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
+	if con == nil {
+		con = getcontextcn(lstnhndlr, atclcnref)
+	}
+	if con != nil {
+		err = con.SetDeadline(t)
+	}
+	return
+}
+
+func contextSetReadDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
+	if con == nil {
+		con = getcontextcn(lstnhndlr, atclcnref)
+	}
+	if con != nil {
+		err = con.SetReadDeadline(t)
+	}
+	return
+}
+
+func contextSetWriteDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
+	if con == nil {
+		con = getcontextcn(lstnhndlr, atclcnref)
+	}
+	if con != nil {
+		err = con.SetWriteDeadline(t)
+	}
+	return
+}
+
+func getcontextcn(lstnhndlr *ListnerHandler, atclcnref int64) (con net.Conn) {
+	if lstnhndlr != nil {
+		func() {
+			lstnhndlr.lck.RLock()
+			defer lstnhndlr.lck.RUnlock()
+			con = lstnhndlr.lstactualcns[atclcnref]
+		}()
+	}
+	return
+}
+
+func contextClose(lstnhndlr *ListnerHandler, atclcnref int64, con net.Conn) (err error) {
+	if con != nil {
+		err = con.Close()
+	} else {
+		func() {
+			lstnhndlr.lck.Lock()
+			defer lstnhndlr.lck.Unlock()
+			if con := lstnhndlr.lstactualcns[atclcnref]; con != nil {
+				delete(lstnhndlr.lstactualcns, atclcnref)
+				err = con.Close()
+			}
+		}()
+	}
+	return
+}
+
+type connHandler struct {
+	atclcnref int64
+	con       net.Conn
+	lstnhndlr *ListnerHandler
+	rmtaddr   net.Addr
+	lcladdr   net.Addr
+}
+
+func (cnhn *connHandler) Read(p []byte) (n int, err error) {
+	if cnhn != nil && cnhn.lstnhndlr != nil && cnhn.atclcnref > 0 {
+		n, err = contextReadWriteBytes('R', cnhn.lstnhndlr, cnhn.atclcnref, p, cnhn.con)
+	}
+	return
+}
+
+func (cnhn *connHandler) Write(p []byte) (n int, err error) {
+	if cnhn != nil && cnhn.lstnhndlr != nil && cnhn.atclcnref > 0 {
+		n, err = contextReadWriteBytes('W', cnhn.lstnhndlr, cnhn.atclcnref, p, cnhn.con)
+	}
+	return
+}
+
+func (cnhn *connHandler) Close() (err error) {
+	if cnhn != nil {
+		if cnhn.lstnhndlr != nil {
+			if cnhn.atclcnref > 0 {
+				err = contextClose(cnhn.lstnhndlr, cnhn.atclcnref, cnhn.con)
+			}
+			cnhn.lstnhndlr = nil
+		}
+		if cnhn.lcladdr != nil {
+			cnhn.lcladdr = nil
+		}
+		if cnhn.rmtaddr != nil {
+			cnhn.rmtaddr = nil
+		}
+		if cnhn.con != nil {
+			cnhn.con = nil
+		}
+	}
+	return
+}
+
+func (cnhn *connHandler) LocalAddr() (addr net.Addr) {
+	addr = cnhn.lcladdr
+	return
+}
+
+func (cnhn *connHandler) RemoteAddr() (addr net.Addr) {
+	addr = cnhn.rmtaddr
+	return
+}
+
+func (cnhn *connHandler) SetDeadline(t time.Time) (err error) {
+	err = contextSetDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
+	return
+}
+
+func (cnhn *connHandler) SetReadDeadline(t time.Time) (err error) {
+	err = contextSetReadDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
+	return
+}
+
+func (cnhn *connHandler) SetWriteDeadline(t time.Time) (err error) {
+	err = contextSetWriteDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
+	return
 }
 
 type ConnHandler struct {
@@ -142,22 +283,34 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	var tcpcn *net.TCPConn = nil
-	if lstnhndlr.lntcp != nil {
-		tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
-	} else {
-		if con, err = lstnhndlr.ln.Accept(); err == nil {
-			tcpcn, _ = con.(*net.TCPConn)
-		}
-	}
-	if tcpcn != nil {
-		tcpcn.SetLinger(-1)
-		tcpcn.SetReadBuffer(8192)
-		tcpcn.SetWriteBuffer(8192)
-		//tcpcn.SetNoDelay(false)
-		tcpcn.SetKeepAlive(true)
-		tcpcn.SetKeepAlivePeriod(time.Second * 30)
-		con = tcpcn
+	//var tcpcn *net.TCPConn = nil
+	//if lstnhndlr.lntcp != nil {
+	//	tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
+	//} else {
+	con, err = lstnhndlr.ln.Accept()
+	//if con, err = lstnhndlr.ln.Accept(); err == nil {
+	//	tcpcn, _ = con.(*net.TCPConn)
+	//}
+	//}
+	//if tcpcn != nil {
+	//	tcpcn.SetLinger(0)
+	//	tcpcn.SetReadBuffer(65536)
+	//	tcpcn.SetWriteBuffer(65536)
+	//tcpcn.SetNoDelay(false)
+	//	tcpcn.SetKeepAlive(true)
+	//	tcpcn.SetKeepAlivePeriod(time.Second * 30)
+	//	con = tcpcn
+	//}
+
+	if con != nil {
+		func() {
+			atclcnref := time.Now().UnixNano()
+			lstnhndlr.lck.Lock()
+			defer lstnhndlr.lck.Unlock()
+			lstnhndlr.lstactualcns[atclcnref] = con
+			cnhn := &connHandler{con: nil, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
+			con = cnhn
+		}()
 	}
 
 	return
@@ -179,7 +332,7 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
 		go func() {
-			lsndnlr := &ListnerHandler{ln: ln, lck: &sync.Mutex{}}
+			lsndnlr := &ListnerHandler{ln: ln, lck: &sync.RWMutex{}, lstactualcns: map[int64]net.Conn{}}
 			lsndnlr.lntcp, _ = ln.(*net.TCPListener)
 			if err := lstnrsrvr.srvr.Serve(lsndnlr); err != nil && err != http.ErrServerClosed {
 				fmt.Printf("error: Failed to serve HTTP: %v", err.Error())
