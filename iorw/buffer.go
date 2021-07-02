@@ -298,6 +298,17 @@ type BuffReader struct {
 	rbytesi  int
 }
 
+//SetMaxRead - set max read implementation for Reader interface compliance
+func (bufr *BuffReader) SetMaxRead(maxlen int64) (err error) {
+	if bufr != nil {
+		if maxlen < 0 {
+			maxlen = -1
+		}
+		bufr.MaxRead = maxlen
+	}
+	return
+}
+
 //WriteTo - helper for io.Copy
 func (bufr *BuffReader) WriteTo(w io.Writer) (n int64, err error) {
 	if w != nil && bufr != nil {

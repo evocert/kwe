@@ -7,18 +7,19 @@ import (
 )
 
 type EOFCloseSeekReader struct {
-	r    io.Reader
-	rc   io.Closer
-	rs   io.Seeker
-	size int64
-	bfr  *bufio.Reader
+	r       io.Reader
+	rc      io.Closer
+	rs      io.Seeker
+	size    int64
+	bfr     *bufio.Reader
+	MaxRead int64
 	//Reader Api
 	canclose bool
 }
 
 func NewEOFCloseSeekReader(r io.Reader, canclose ...bool) (eofclsr *EOFCloseSeekReader) {
 	if r != nil {
-		eofclsr = &EOFCloseSeekReader{r: r, size: -1, canclose: len(canclose) == 0 || (len(canclose) > 0 && canclose[0])}
+		eofclsr = &EOFCloseSeekReader{r: r, size: -1, canclose: len(canclose) == 0 || (len(canclose) > 0 && canclose[0]), MaxRead: -1}
 		if rc, rck := r.(io.Closer); rck {
 			eofclsr.rc = rc
 		}
@@ -48,6 +49,17 @@ func (eofclsr *EOFCloseSeekReader) ReadRune() (r rune, size int, err error) {
 		} else {
 			r, size, err = 0, 0, io.EOF
 		}
+	}
+	return
+}
+
+//SetMaxRead - set max read implementation for Reader interface compliance
+func (eofclsr *EOFCloseSeekReader) SetMaxRead(maxlen int64) (err error) {
+	if eofclsr != nil {
+		if maxlen < 0 {
+			maxlen = -1
+		}
+		eofclsr.MaxRead = maxlen
 	}
 	return
 }
@@ -123,11 +135,24 @@ func (eofclsr *EOFCloseSeekReader) Seek(offset int64, whence int) (n int64, err 
 }
 
 func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
-	if eofclsr == nil {
+	if eofclsr == nil || eofclsr.MaxRead == 0 {
 		err = io.EOF
 		return
 	} else if eofclsr.r != nil {
-		if n, err = eofclsr.r.Read(p); err != nil {
+		rl := len(p)
+		if eofclsr.MaxRead > 0 {
+			if int64(rl) >= eofclsr.MaxRead {
+				rl = int(eofclsr.MaxRead)
+			}
+		}
+		n, err = eofclsr.r.Read(p[0:rl])
+		if n > 0 && eofclsr.MaxRead > 0 {
+			eofclsr.MaxRead -= int64(n)
+			if eofclsr.MaxRead < 0 {
+				eofclsr.MaxRead = 0
+			}
+		}
+		if err != nil {
 			if eofclsr.bfr == nil {
 				eofclsr.Close()
 			} else {

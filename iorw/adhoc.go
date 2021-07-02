@@ -18,6 +18,7 @@ type Printer interface {
 //Reader - interface
 type Reader interface {
 	Seek(int64, int) (int64, error)
+	SetMaxRead(int64) (err error)
 	Read([]byte) (int, error)
 	ReadRune() (rune, int, error)
 	Readln() (string, error)
