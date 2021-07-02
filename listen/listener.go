@@ -283,7 +283,7 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	var tcpcn *net.TCPConn = nil
+	/*var tcpcn *net.TCPConn = nil
 	if lstnhndlr.lntcp != nil {
 		tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
 	} else {
@@ -310,7 +310,8 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 			cnhn := &connHandler{con: con, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
 			con = cnhn
 		}()
-	}
+	}*/
+	con, err = lstnhndlr.ln.Accept()
 	return
 }
 
