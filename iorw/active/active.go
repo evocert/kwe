@@ -25,8 +25,10 @@ type Active struct {
 	Namespace      string
 	Print          func(a ...interface{})
 	Println        func(a ...interface{})
+	BinWrite       func(b ...byte) (n int, err error)
 	FPrint         func(w io.Writer, a ...interface{})
 	FPrintLn       func(w io.Writer, a ...interface{})
+	FBinWrite      func(w io.Writer, b ...byte) (n int, err error)
 	Seek           func(offset int64, whence int) (n int64, err error)
 	Readln         func() (string, error)
 	ReadLines      func() ([]string, error)
@@ -154,7 +156,7 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 		} else if atv.FPrintLn != nil && w != nil {
 			atv.lckprnt.Lock()
 			defer atv.lckprnt.Unlock()
-			atv.FPrint(w, a...)
+			atv.FPrintLn(w, a...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
 				prntr.Println(a...)
@@ -168,6 +170,35 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 			}
 		}
 	}
+}
+
+func (atv *Active) binwrite(w io.Writer, b ...byte) (n int, err error) {
+	if prntr, prntrok := w.(iorw.Printer); prntrok {
+		n, err = prntr.Write(b)
+	} else {
+		if atv.BinWrite != nil {
+			if len(b) > 0 {
+				atv.lckprnt.Lock()
+				defer atv.lckprnt.Unlock()
+				n, err = atv.BinWrite(b...)
+			}
+		} else if atv.FBinWrite != nil && w != nil {
+			atv.lckprnt.Lock()
+			defer atv.lckprnt.Unlock()
+			n, err = atv.FBinWrite(w, b...)
+		} else if w != nil {
+			if prntr, prntrok := w.(iorw.Printer); prntrok {
+				n, err = prntr.Write(b)
+			} else {
+				if len(b) > 0 {
+					atv.lckprnt.Lock()
+					defer atv.lckprnt.Unlock()
+					n, err = w.Write(b)
+				}
+			}
+		}
+	}
+	return
 }
 
 func (atv *Active) seek(r io.Reader, offset int64, whence int) (n int64, err error) {
@@ -290,6 +321,14 @@ func (cdeerr *CodeException) Error() (s string) {
 	s += "path:" + cdeerr.execpath + "\r\n"
 	s += cdeerr.cde
 	return
+}
+
+func (cdeerr *CodeException) Code() string {
+	return cdeerr.cde
+}
+
+func (cdeerr *CodeException) ExecPath() string {
+	return cdeerr.execpath
 }
 
 func (atv *Active) atvrun(prsng *parsing) (err error) {
@@ -454,6 +493,17 @@ func (prsng *parsing) println(a ...interface{}) {
 			prsng.atv.println(prsng.wout, a...)
 		}
 	}
+}
+
+func (prsng *parsing) binwrite(b ...byte) (n int, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.prntrs); pl > 0 {
+			n, err = prsng.atv.binwrite(prsng.prntrs[pl-1], b...)
+		} else {
+			n, err = prsng.atv.binwrite(prsng.wout, b...)
+		}
+	}
+	return
 }
 
 func (prsng *parsing) incprint(w io.Writer) {
@@ -1414,6 +1464,14 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 				atvrntme.atv.println(nil, a...)
 			}
 		},
+		atvrntme.atv.namespace() + "binwrite": func(b ...byte) (n int, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				n, err = atvrntme.prsng.binwrite(b...)
+			} else if atvrntme.atv != nil {
+				n, err = atvrntme.atv.binwrite(nil, b...)
+			}
+			return
+		},
 		//READER
 		atvrntme.atv.namespace() + "incread": func(r io.Reader) {
 			if atvrntme.prsng != nil {
@@ -1428,13 +1486,6 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		atvrntme.atv.namespace() + "decread": func() {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.decread()
-			}
-		},
-		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				atvrntme.prsng.print(a...)
-			} else if atvrntme.atv != nil {
-				atvrntme.atv.print(nil, a...)
 			}
 		},
 		atvrntme.atv.namespace() + "seek": func(offset int64, whence int) (n int64, err error) {
