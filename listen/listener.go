@@ -307,7 +307,7 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 			lstnhndlr.lck.Lock()
 			defer lstnhndlr.lck.Unlock()
 			lstnhndlr.lstactualcns[atclcnref] = con
-			cnhn := &connHandler{con: nil, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
+			cnhn := &connHandler{con: con, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
 			con = cnhn
 		}()
 	}
