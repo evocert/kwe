@@ -33,10 +33,12 @@ type Active struct {
 	Readln         func() (string, error)
 	ReadLines      func() ([]string, error)
 	ReadAll        func() (string, error)
+	BinRead        func(size int) (b []byte, err error)
 	FSeek          func(io.Reader, int64, int) (int64, error)
 	FReadln        func(io.Reader) (string, error)
 	FReadLines     func(io.Reader) ([]string, error)
 	FReadAll       func(io.Reader) (string, error)
+	FBinRead       func(io.Reader, int) ([]byte, error)
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
 	lckprnt        *sync.Mutex
@@ -195,6 +197,42 @@ func (atv *Active) binwrite(w io.Writer, b ...byte) (n int, err error) {
 					defer atv.lckprnt.Unlock()
 					n, err = w.Write(b)
 				}
+			}
+		}
+	}
+	return
+}
+
+func (atv *Active) binread(r io.Reader, size int) (b []byte, err error) {
+	if rdr, rdrok := r.(iorw.Reader); rdrok {
+		if size > 0 {
+			p := make([]byte, size)
+			pn, perr := rdr.Read(p)
+			if pn > 0 {
+				b = make([]byte, pn)
+				copy(b, p[0:pn])
+			}
+			err = perr
+		}
+	} else {
+		if atv.BinWrite != nil {
+			atv.lckprnt.Lock()
+			defer atv.lckprnt.Unlock()
+			b, err = atv.BinRead(size)
+		} else if atv.FBinRead != nil && r != nil {
+			atv.lckprnt.Lock()
+			defer atv.lckprnt.Unlock()
+			b, err = atv.FBinRead(r, size)
+		} else if r != nil {
+			atv.lckprnt.Unlock()
+			if size > 0 {
+				p := make([]byte, size)
+				pn, perr := r.Read(p)
+				if pn > 0 {
+					b = make([]byte, pn)
+					copy(b, p[0:pn])
+				}
+				err = perr
 			}
 		}
 	}
@@ -578,6 +616,17 @@ func (prsng *parsing) incread(r io.Reader) {
 	if prsng != nil {
 		prsng.rdrs = append(prsng.rdrs, r)
 	}
+}
+
+func (prsng *parsing) binread(size int) (b []byte, err error) {
+	if prsng.atv != nil {
+		if pl := len(prsng.rdrs); pl > 0 {
+			b, err = prsng.atv.binread(prsng.rdrs[pl-1], size)
+		} else {
+			b, err = prsng.atv.binread(prsng.rin, size)
+		}
+	}
+	return
 }
 
 func (prsng *parsing) resetread() {
@@ -1516,6 +1565,13 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 				s, err = atvrntme.prsng.readAll()
 			} else if atvrntme.atv != nil {
 				s, err = atvrntme.atv.readAll(nil)
+			}
+			return
+		}, atvrntme.atv.namespace() + "binread": func(size int) (b []byte, err error) {
+			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
+				b, err = atvrntme.prsng.binread(size)
+			} else if atvrntme.atv != nil {
+				b, err = atvrntme.atv.binread(nil, size)
 			}
 			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
