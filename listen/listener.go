@@ -22,6 +22,7 @@ type lstnrserver struct {
 }
 
 type ListnerHandler struct {
+	lntcp          *net.TCPListener
 	ln             net.Listener
 	backlog        int
 	backcon        chan *ConnHandler
@@ -141,52 +142,24 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	/*if lstnhndlr.backlog > 0 {
-		if !lstnhndlr.backLogStarted {
-			func() {
-				lstnhndlr.lck.Lock()
-				defer lstnhndlr.lck.Unlock()
-				if !lstnhndlr.backLogStarted {
-					lstnhndlr.backLogStarted = true
-					go func() {
-						for {
-							if con, err = lstnhndlr.ln.Accept(); err == nil {
-								lstnhndlr.backcon <- newConnHandler(con)
-							} else {
-								time.Sleep(10 * time.Millisecond)
-							}
-						}
-					}()
-				}
-			}()
-		}
-
-		doneChecking := false
-		for !doneChecking {
-			select {
-			case con = <-lstnhndlr.backcon:
-				doneChecking = true
-			default:
-				time.Sleep(10 * time.Millisecond)
-			}
-		}
-
+	var tcpcn *net.TCPConn = nil
+	if lstnhndlr.lntcp != nil {
+		tcpcn, err = lstnhndlr.lntcp.AcceptTCP()
 	} else {
 		if con, err = lstnhndlr.ln.Accept(); err == nil {
-			con = newConnHandler(con)
+			tcpcn, _ = con.(*net.TCPConn)
 		}
-	}*/
-	if con, err = lstnhndlr.ln.Accept(); err == nil {
-		if tcpcn, tcpcnok := con.(*net.TCPConn); tcpcnok {
-			tcpcn.SetLinger(-1)
-			tcpcn.SetReadBuffer(8192)
-			tcpcn.SetWriteBuffer(8192)
-			//tcpcn.SetNoDelay(false)
-			tcpcn.SetKeepAlive(true)
-			con = tcpcn
-		}
-		//con = newConnHandler(con)
 	}
+	if tcpcn != nil {
+		tcpcn.SetLinger(-1)
+		tcpcn.SetReadBuffer(8192)
+		tcpcn.SetWriteBuffer(8192)
+		//tcpcn.SetNoDelay(false)
+		tcpcn.SetKeepAlive(true)
+		tcpcn.SetKeepAlivePeriod(time.Second * 30)
+		con = tcpcn
+	}
+
 	return
 }
 
@@ -206,7 +179,9 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
 		go func() {
-			if err := lstnrsrvr.srvr.Serve(&ListnerHandler{ln: ln, lck: &sync.Mutex{}}); err != nil && err != http.ErrServerClosed {
+			lsndnlr := &ListnerHandler{ln: ln, lck: &sync.Mutex{}}
+			lsndnlr.lntcp, _ = ln.(*net.TCPListener)
+			if err := lstnrsrvr.srvr.Serve(lsndnlr); err != nil && err != http.ErrServerClosed {
 				fmt.Printf("error: Failed to serve HTTP: %v", err.Error())
 			}
 		}()
