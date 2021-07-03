@@ -3,6 +3,7 @@ package caching
 import (
 	"context"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/evocert/kwe/iorw"
@@ -12,6 +13,12 @@ type MapHandler struct {
 	mp       *Map
 	crntmp   *Map
 	internal bool
+}
+
+func finalizeMapHandler(mphndlr *MapHandler) {
+	runtime.SetFinalizer(mphndlr, nil)
+	mphndlr.Close()
+	mphndlr = nil
 }
 
 func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
@@ -31,6 +38,7 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 			mp.Put(a[0], a[1:])
 		}
 		mphndlr = &MapHandler{mp: mp, internal: internal}
+		//runtime.SetFinalizer(mphndlr, finalizeMapHandler)
 	}
 	return
 }

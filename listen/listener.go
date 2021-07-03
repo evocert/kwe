@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"runtime"
 	"sync"
 	"time"
 
@@ -106,6 +105,7 @@ func contextClose(lstnhndlr *ListnerHandler, atclcnref int64, con net.Conn) (err
 type connHandler struct {
 	atclcnref int64
 	con       net.Conn
+	tcpcon    *net.TCPConn
 	lstnhndlr *ListnerHandler
 	rmtaddr   net.Addr
 	lcladdr   net.Addr
@@ -180,8 +180,8 @@ type ConnHandler struct {
 func newConnHandler(con net.Conn) (cnhdnlr *ConnHandler) {
 	if tcpcn, tcpcnok := con.(*net.TCPConn); tcpcnok {
 		tcpcn.SetLinger(-1)
-		tcpcn.SetReadBuffer(65536)
-		tcpcn.SetWriteBuffer(65536)
+		tcpcn.SetReadBuffer(8192)
+		tcpcn.SetWriteBuffer(8192)
 		cnhdnlr = &ConnHandler{con: tcpcn, maxread: 0, maxwrite: 0}
 	}
 	return cnhdnlr
@@ -298,7 +298,7 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 		con = tcpcn
 	}
 
-	/*if con != nil {
+	if con != nil {
 		func() {
 			atclcnref := time.Now().UnixNano()
 			lstnhndlr.lck.Lock()
@@ -307,7 +307,7 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 			cnhn := &connHandler{con: con, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
 			con = cnhn
 		}()
-	}*/
+	}
 	//con, err = lstnhndlr.ln.Accept()
 	return
 }
@@ -325,7 +325,7 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 	return
 }
 
-func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener, backlog ...int) {
+func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
 	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
 		go func() {
 			lsndnlr := &ListnerHandler{ln: ln, lck: &sync.RWMutex{}, lstactualcns: map[int64]net.Conn{}}
@@ -368,6 +368,7 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 		return context.WithValue(ctx, ConnContextKey, c)
 	}, Handler: h2c.NewHandler(hndlr, h2s), ReadHeaderTimeout: time.Millisecond * 2000}
 
+	//srvr.SetKeepAlivesEnabled(true)
 	lstnrsrvr = &lstnrserver{srvr: srvr, h2s: h2s, addr: addr}
 	return
 }
@@ -429,7 +430,7 @@ func (lstnr *Listener) Listen(addr string, ish2c ...bool) {
 	if _, lstok := lstnr.lstnrservers[addr]; !lstok {
 		var lstnrsrvr = newlstnrserver(lstnr, addr, len(ish2c) == 1 && ish2c[0])
 		lstnr.lstnrservers[addr] = lstnrsrvr
-		lstnrsrvr.startListening(lstnr, runtime.NumCPU()*15)
+		lstnrsrvr.startListening(lstnr)
 	}
 }
 
