@@ -3,7 +3,6 @@ package caching
 import (
 	"encoding/json"
 	"io"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -775,15 +774,8 @@ func (mp *Map) Handler() (mphndlr *MapHandler) {
 	return
 }
 
-func finalizeMap(mp *Map) {
-	runtime.SetFinalizer(mp, nil)
-	mp.Close()
-	mp = nil
-}
-
 func NewMap() (mp *Map) {
 	mp = &Map{lck: &sync.RWMutex{}, lckedlvl: 0, valid: true, imp: map[interface{}]interface{}{}}
-	//runtime.SetFinalizer(mp, finalizeMap)
 	return
 }
 
