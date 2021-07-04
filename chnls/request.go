@@ -1,7 +1,6 @@
 package chnls
 
 import (
-	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -250,8 +249,8 @@ func (rqst *Request) RequestBodyS(cached ...bool) (s string) {
 	return s
 }
 
-//RequestBody - RequestBody as bufio.Reader
-func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
+//RequestBody - RequestBody as *iorw.EOFCloseSeekReader
+func (rqst *Request) RequestBody(cached ...bool) (bf *iorw.EOFCloseSeekReader) {
 	if rqst.httpr != nil {
 		if len(cached) == 1 && cached[0] {
 			if rqst.cchdrqstcntnt == nil {
@@ -269,7 +268,7 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 						}
 					}
 				}()
-				bf = bufio.NewReader(pi)
+				bf = iorw.NewEOFCloseSeekReader(pi)
 			} else {
 				if rqst.cchdrqstcntntrdr == nil {
 					rqst.cchdrqstcntntrdr = rqst.cchdrqstcntnt.Reader()
@@ -278,15 +277,15 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *bufio.Reader) {
 				}
 			}
 			if rqst.cchdrqstcntntrdr != nil {
-				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
+				bf = iorw.NewEOFCloseSeekReader(rqst.cchdrqstcntntrdr)
 			}
 		} else {
 			if rqst.cchdrqstcntnt != nil && rqst.cchdrqstcntntrdr != nil {
 				rqst.cchdrqstcntntrdr.Seek(0, io.SeekStart)
-				bf = bufio.NewReader(rqst.cchdrqstcntntrdr)
+				bf = iorw.NewEOFCloseSeekReader(rqst.cchdrqstcntntrdr)
 			} else if httpr := rqst.httpr; httpr != nil {
 				if bdy := httpr.Body; bdy != nil {
-					bf = bufio.NewReader(bdy)
+					bf = iorw.NewEOFCloseSeekReader(bdy)
 				}
 			}
 		}
