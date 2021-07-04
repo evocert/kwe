@@ -1456,7 +1456,7 @@ func (atvrntme *atvruntime) dispose() {
 
 func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]interface{}) {
 	internmapref = map[string]interface{}{
-		atvrntme.atv.namespace() + "newbuffer": func() (buff *iorw.Buffer) {
+		atvrntme.atv.namespace() + "buffer": func() (buff *iorw.Buffer) {
 			buff = iorw.NewBuffer()
 			buff.OnClose = atvrntme.removeBuffer
 			atvrntme.intrnbuffs[buff] = buff
