@@ -104,6 +104,21 @@ func (mphndlr *MapHandler) Focus(ks ...interface{}) (focused bool) {
 	return
 }
 
+func (mphndlr *MapHandler) Exist(ks ...interface{}) (exist bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			if len(ks) > 0 {
+				func() {
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+					exist = mapExist(crntmp, mphndlr, ks...)
+				}()
+			}
+		}
+	}
+	return
+}
+
 func (mphndlr *MapHandler) Find(ks ...interface{}) (value interface{}) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
