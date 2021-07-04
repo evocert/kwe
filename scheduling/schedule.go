@@ -1,6 +1,7 @@
 package scheduling
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,8 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-//ScheduleHandler - interface
-type ScheduleHandler interface {
+//ScheduleAPI - interface
+type ScheduleAPI interface {
 	StartedSchedule(...interface{}) error
 	StoppedSchedule(...interface{}) error
 	ShutdownSchedule() error
@@ -27,7 +28,7 @@ type Schedule struct {
 	initstart    bool
 	schdlid      string
 	once         bool
-	schdlhndlr   ScheduleHandler
+	schdlhndlr   ScheduleAPI
 	From         time.Time
 	To           time.Time
 	schdlrs      *Schedules
@@ -446,9 +447,10 @@ func (schdl *Schedule) execute() (done bool, err error) {
 func (schdl *Schedule) Start() (err error) {
 	if schdl != nil {
 		if !schdl.running {
-			schdl.wg.Add(1)
+			ctx, ctxcancel := context.WithCancel(context.Background())
+
 			go func() {
-				defer schdl.wg.Done()
+				defer ctxcancel()
 				if schdl.OnStart != nil {
 					err = schdl.OnStart(schdl.StartArgs...)
 				}
@@ -456,7 +458,7 @@ func (schdl *Schedule) Start() (err error) {
 					schdl.running = true
 				}
 			}()
-			schdl.wg.Wait()
+			<-ctx.Done()
 			if schdl.running {
 				schdl.wg.Add(1)
 				go schdl.ticking()

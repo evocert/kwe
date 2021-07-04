@@ -344,6 +344,52 @@ func mapRemove(mp *Map, mphndlr *MapHandler, name ...interface{}) {
 	}
 }
 
+func (mp *Map) Exist(ks ...interface{}) (exist bool) {
+	if len(ks) > 0 {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			exist = mapExist(mp, nil, ks...)
+		}()
+	}
+	return
+}
+
+func mapExist(mp *Map, mphndlr *MapHandler, ks ...interface{}) (exist bool) {
+	if mp != nil {
+		var lkpmp *Map = mp
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if _, found := subfind(); found {
+					exist = found
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
 func (mp *Map) Find(ks ...interface{}) (value interface{}) {
 	if len(ks) > 0 {
 		func() {

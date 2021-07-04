@@ -9,22 +9,22 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-//SchedulesHandler - interface
-type SchedulesHandler interface {
-	NewSchedule(*Schedule, ...interface{}) ScheduleHandler
+//SchedulesAPI - interface
+type SchedulesAPI interface {
+	NewSchedule(*Schedule, ...interface{}) ScheduleAPI
 	Schedules() *Schedules
 }
 
 //Schedules - struct
 type Schedules struct {
 	schdls      map[string]*Schedule
-	schdlshndlr SchedulesHandler
-	lck         *sync.Mutex
+	schdlshndlr SchedulesAPI
+	lck         *sync.RWMutex
 }
 
 //NewSchedules instance
-func NewSchedules(schdlshndlr SchedulesHandler) (schdls *Schedules) {
-	schdls = &Schedules{schdlshndlr: schdlshndlr, schdls: map[string]*Schedule{}, lck: &sync.Mutex{}}
+func NewSchedules(schdlshndlr SchedulesAPI) (schdls *Schedules) {
+	schdls = &Schedules{schdlshndlr: schdlshndlr, schdls: map[string]*Schedule{}, lck: &sync.RWMutex{}}
 	return
 }
 
@@ -189,8 +189,12 @@ func (schdls *Schedules) InOut(in interface{}, out io.Writer, ioargs ...interfac
 
 //Get - Scheduler by schdlname
 func (schdls *Schedules) Get(schdlname string) (schdl *Schedule) {
-	if schdlname != "" {
-		schdl, _ = schdls.schdls[schdlname]
+	if schdls != nil && schdlname != "" {
+		func() {
+			schdls.lck.RLock()
+			defer schdls.lck.RUnlock()
+			schdl = schdls.schdls[schdlname]
+		}()
 	}
 	return
 }
@@ -234,7 +238,7 @@ func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (s
 					}
 					schdls.schdls[schdlname] = schdl
 					schdl.schdlid = schdlname
-					if schdlactions != nil && len(schdlactions) > 0 {
+					if len(schdlactions) > 0 {
 						for schdlactntpe, actns := range schdlactions {
 							if len(actns) > 0 {
 								if schdlactntpe = strings.ToLower(schdlactntpe); schdlactntpe == "init" {
@@ -279,8 +283,8 @@ func (schdls *Schedules) removeSchedule(schdl *Schedule) {
 func (schdls *Schedules) Schedules(schdlids ...string) (scls []*Schedule) {
 	if len(schdls.schdls) > 0 {
 		func() {
-			schdls.lck.Lock()
-			defer schdls.lck.Unlock()
+			schdls.lck.RLock()
+			defer schdls.lck.RUnlock()
 			if len(schdlids) > 0 {
 				for _, schdlid := range schdlids {
 					if schdl, schdlok := schdls.schdls[schdlid]; schdlok {

@@ -47,8 +47,8 @@ func (chnl *Channel) Schedules() *scheduling.Schedules {
 	return chnl.schdls
 }
 
-//NewSchedule - implement scheduling.ScheduleHandler NewScheduler()
-func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
+//NewSchedule - implement scheduling.ScheduleAPI NewScheduler()
+func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleAPI) {
 	if al := len(a); al > 0 {
 		ai := 0
 		var prntrqst *Request = nil
