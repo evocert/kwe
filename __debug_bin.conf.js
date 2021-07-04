@@ -1,4 +1,4 @@
-//resourcing.RegisterEndpoint("/gendocs","./gendocs");
+resourcing.RegisterEndpoint("/gendocs","./gendocs");
 //channel.Send("/gendocs/active:gendocs.js");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
 resourcing.RegisterEndpoint("/movies","D:/movies");
