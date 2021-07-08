@@ -144,7 +144,7 @@ func (clnt *Client) SendRespondString(rqstpath string, a ...interface{}) (rspstr
 	return
 }
 
-type response struct {
+type Response struct {
 	Status     string // e.g. "200 OK"
 	StatusCode int    // e.g. 200
 	Proto      string // e.g. "HTTP/1.0"
@@ -152,8 +152,8 @@ type response struct {
 	rdr        *iorw.EOFCloseSeekReader
 }
 
-func newresponse(resp *http.Response) (rspns *response) {
-	rspns = &response{resp: resp,
+func newresponse(resp *http.Response) (rspns *Response) {
+	rspns = &Response{resp: resp,
 		Status:     resp.Status,
 		StatusCode: resp.StatusCode,
 		Proto:      resp.Proto,
@@ -161,14 +161,14 @@ func newresponse(resp *http.Response) (rspns *response) {
 	return
 }
 
-func (rspns *response) Cookies() (cookies []*http.Cookie) {
+func (rspns *Response) Cookies() (cookies []*http.Cookie) {
 	if rspns != nil && rspns.resp != nil {
 		cookies = rspns.resp.Cookies()
 	}
 	return
 }
 
-func (rspns *response) dispose() {
+func (rspns *Response) dispose() {
 	if rspns != nil {
 		if rspns.resp != nil {
 			if rspns.resp.Body != nil {
@@ -185,7 +185,7 @@ func (rspns *response) dispose() {
 	}
 }
 
-func (rspns *response) Reader() (rdr *iorw.EOFCloseSeekReader) {
+func (rspns *Response) Reader() (rdr *iorw.EOFCloseSeekReader) {
 	if rspns != nil {
 		if rspns.rdr == nil {
 			if rspns.resp != nil {
@@ -199,7 +199,7 @@ func (rspns *response) Reader() (rdr *iorw.EOFCloseSeekReader) {
 	return
 }
 
-func (rspns *response) Headers() (headers []string) {
+func (rspns *Response) Headers() (headers []string) {
 	if rspns != nil && rspns.resp != nil {
 		if hdrsl := len(rspns.resp.Header); hdrsl > 0 {
 			headers = make([]string, hdrsl)
@@ -213,7 +213,7 @@ func (rspns *response) Headers() (headers []string) {
 	return
 }
 
-func (rspns *response) Header(hdr string) (val string) {
+func (rspns *Response) Header(hdr string) (val string) {
 	if hdr != "" && rspns != nil && rspns.resp != nil && len(rspns.resp.Header) > 0 {
 		val = rspns.resp.Header.Get(hdr)
 	}
@@ -360,7 +360,7 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 				}
 			}
 			func() {
-				var rspns *response = nil
+				var rspns *Response = nil
 				defer func() {
 					if rspns != nil {
 						rspns.dispose()
