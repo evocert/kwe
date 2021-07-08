@@ -264,7 +264,10 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 						a = append(a[:ai], a[ai+1:]...)
 						break
 					}
-				} else if rntme, aok = d.(active.Runtime); aok {
+				} else if trntme, taok := d.(active.Runtime); taok {
+					if rntme == nil {
+						rntme = trntme
+					}
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue

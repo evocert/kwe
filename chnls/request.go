@@ -614,6 +614,8 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
+				} else {
+					a = append([]interface{}{rqst.atv}, a...)
 				}
 			} else {
 				a = append([]interface{}{rqst.atv}, a...)
@@ -624,6 +626,8 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
+				} else {
+					a = append([]interface{}{rqst.atv}, a...)
 				}
 			} else {
 				a = append([]interface{}{rqst.atv}, a...)
@@ -634,6 +638,8 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
+				} else {
+					a = append([]interface{}{rqst.atv}, a...)
 				}
 			} else {
 				a = append([]interface{}{rqst.atv}, a...)
@@ -723,14 +729,16 @@ func (rqst *Request) processPaths(wrapup bool) {
 	if rqst.actnslst.Length() > 0 {
 		var actn *Action = nil
 		rqst.actnslst.Do( //RemovingNode
-			func(nde *enumeration.Node, val interface{}) bool {
+			func(nde *enumeration.Node, val interface{}) (done bool, err error) {
 				if actn, _ = val.(*Action); actn != nil {
 					executeAction(actn)
 					actn.Close()
 					nde.Set(nil)
 				}
-				return true
+				return true, nil
 			},
+			//ErrRemovingNode,
+			nil,
 			//RemovedNode
 			func(nde *enumeration.Node, val interface{}) {
 				if actn, _ = val.(*Action); actn != nil {
@@ -914,14 +922,6 @@ func (rqst *Request) ismediaExt(ext string) bool {
 func (rqst *Request) executeRW(interrupt func()) (err error) {
 	if rqst != nil {
 		rqst.prms = parameters.NewParameters()
-		//if rqststdio := newrequeststdio(rqst); rqststdio != nil {
-		//	func() {
-		//		defer rqststdio.dispose()
-		//		err = rqststdio.executeStdIO()
-		//	}()
-		//	rqst.wrapup()
-		//}
-		//rqst.wrapup()
 		rqst.AddPath(rqst.initPath)
 		rqst.processPaths(true)
 	}
