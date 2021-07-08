@@ -285,7 +285,7 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 	var tcpcn *net.TCPConn = nil
 	if con, err = lstnhndlr.ln.Accept(); err == nil {
-		tcpcn, _ = con.(*net.TCPConn)
+		//tcpcn, _ = con.(*net.TCPConn)
 	}
 
 	if tcpcn != nil {
@@ -293,12 +293,12 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 		tcpcn.SetReadBuffer(8192)
 		tcpcn.SetWriteBuffer(65536)
 		tcpcn.SetNoDelay(true)
-		tcpcn.SetKeepAlive(true)
-		tcpcn.SetKeepAlivePeriod(time.Second * 30)
+		tcpcn.SetKeepAlive(false)
+		//tcpcn.SetKeepAlivePeriod(time.Second * 30)
 		con = tcpcn
 	}
 
-	if con != nil {
+	/*if con != nil {
 		func() {
 			atclcnref := time.Now().UnixNano()
 			lstnhndlr.lck.Lock()
@@ -307,7 +307,7 @@ func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
 			cnhn := &connHandler{con: con, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
 			con = cnhn
 		}()
-	}
+	}*/
 	//con, err = lstnhndlr.ln.Accept()
 	return
 }
