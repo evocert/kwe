@@ -144,6 +144,82 @@ func (clnt *Client) SendRespondString(rqstpath string, a ...interface{}) (rspstr
 	return
 }
 
+type response struct {
+	Status     string // e.g. "200 OK"
+	StatusCode int    // e.g. 200
+	Proto      string // e.g. "HTTP/1.0"
+	resp       *http.Response
+	rdr        *iorw.EOFCloseSeekReader
+}
+
+func newresponse(resp *http.Response) (rspns *response) {
+	rspns = &response{resp: resp,
+		Status:     resp.Status,
+		StatusCode: resp.StatusCode,
+		Proto:      resp.Proto,
+	}
+	return
+}
+
+func (rspns *response) Cookies() (cookies []*http.Cookie) {
+	if rspns != nil && rspns.resp != nil {
+		cookies = rspns.resp.Cookies()
+	}
+	return
+}
+
+func (rspns *response) dispose() {
+	if rspns != nil {
+		if rspns.resp != nil {
+			if rspns.resp.Body != nil {
+
+			}
+			rspns.resp = nil
+		}
+		if rspns.rdr != nil {
+			func() {
+				defer rspns.rdr.Close()
+			}()
+			rspns.rdr = nil
+		}
+	}
+}
+
+func (rspns *response) Reader() (rdr *iorw.EOFCloseSeekReader) {
+	if rspns != nil {
+		if rspns.rdr == nil {
+			if rspns.resp != nil {
+				rspns.rdr = iorw.NewEOFCloseSeekReader(rspns.resp.Body)
+			} else {
+				rspns.rdr = iorw.NewEOFCloseSeekReader(rspns.resp.Body)
+			}
+		}
+		rdr = rspns.rdr
+	}
+	return
+}
+
+func (rspns *response) Headers() (headers []string) {
+	if rspns != nil && rspns.resp != nil {
+		if hdrsl := len(rspns.resp.Header); hdrsl > 0 {
+			headers = make([]string, hdrsl)
+			hdrn := 0
+			for hdr := range rspns.resp.Header {
+				headers[hdrn] = hdr
+				hdrn++
+			}
+		}
+	}
+	return
+}
+
+func (rspns *response) Header(hdr string) (val string) {
+	if hdr != "" && rspns != nil && rspns.resp != nil && len(rspns.resp.Header) > 0 {
+		val = rspns.resp.Header.Get(hdr)
+	}
+	return
+}
+
 //Send - Client send
 func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, err error) {
 	if strings.HasPrefix(rqstpath, "http:") || strings.HasPrefix(rqstpath, "https://") {
@@ -280,43 +356,53 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 					rqst.Header.Add(hdk, hdv)
 				}
 			}
-
-			var resp, resperr = clnt.Do(rqst)
-			if resperr == nil {
-				if rntme != nil && onsucess != nil {
-					rntme.InvokeFunction(onsucess, method, resp)
-				}
-				if scde := resp.StatusCode; scde >= 200 && scde < 300 {
-					if respbdy := resp.Body; respbdy != nil {
-						if w != nil {
-							ctx, ctxcancel := context.WithCancel(context.Background())
-							pi, pw := io.Pipe()
-							go func() {
-								defer func() {
-									pw.Close()
-								}()
-								ctxcancel()
+			func() {
+				var rspns *response = nil
+				defer func() {
+					if rspns != nil {
+						rspns.dispose()
+					}
+				}()
+				var resp, resperr = clnt.Do(rqst)
+				if resperr == nil {
+					if rntme != nil && onsucess != nil {
+						rspns = newresponse(resp)
+						rntme.InvokeFunction(onsucess, method, rspns)
+					} else {
+						if scde := resp.StatusCode; scde >= 200 && scde < 300 {
+							if respbdy := resp.Body; respbdy != nil {
 								if w != nil {
-									io.Copy(pw, respbdy)
+									ctx, ctxcancel := context.WithCancel(context.Background())
+									pi, pw := io.Pipe()
+									go func() {
+										defer func() {
+											pw.Close()
+										}()
+										ctxcancel()
+										if w != nil {
+											io.Copy(pw, respbdy)
+										}
+									}()
+									<-ctx.Done()
+									ctx = nil
+									io.Copy(w, pi)
+								} else if rspr == nil {
+									rspr = iorw.NewEOFCloseSeekReader(respbdy)
 								}
-							}()
-							<-ctx.Done()
-							ctx = nil
-							io.Copy(w, pi)
-						} else if rspr == nil {
-							rspr = iorw.NewEOFCloseSeekReader(respbdy)
+							}
 						}
 					}
+				} else {
+					err = resperr
+					if rntme != nil && onerror != nil {
+						rspns = newresponse(resp)
+						rntme.InvokeFunction(onerror, err, method, rspns)
+					}
 				}
-			} else {
-				err = resperr
-				if rntme != nil && onerror != nil {
-					rntme.InvokeFunction(onerror, err, onerror, method, resp)
-				}
-			}
+			}()
 		} else {
 			if rntme != nil && onerror != nil {
-				rntme.InvokeFunction(onerror, err, onerror)
+				rntme.InvokeFunction(onerror, err)
 			}
 		}
 	}
