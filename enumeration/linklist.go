@@ -1,5 +1,7 @@
 package enumeration
 
+import "sync"
+
 type Node struct {
 	lst *List
 	val interface{}
@@ -164,18 +166,99 @@ func (lst *List) ValueNode(val interface{}) (nde *Node) {
 	return
 }
 
-func (lst *List) Do(RemovingNode func(*Node, interface{}) bool,
+func (lst *List) Iterate(dolnk func(*Node, interface{}) (bool, error), errdolnk func(*Node, interface{}, error) bool, donelnk func(*Node) error, errdonelnk func(*Node, error) bool, eventRemoved func(nde *Node, val interface{}), disposingRemoving func(nde *Node, val interface{})) (diddo bool) {
+	if lst != nil && lst.head != nil && lst.tail != nil {
+		var done = false
+		var err error = nil
+		wg := &sync.WaitGroup{}
+		cnt := 0
+		func() {
+			for e := lst.Head(); e != nil && !done; e = e.Next() {
+				if e == nil {
+					continue
+				}
+				cnt++
+				func() {
+					wg.Add(1)
+					defer wg.Wait()
+					go func() {
+						defer wg.Done()
+						if done, err = dolnk(e, e.Value()); done || err != nil {
+							if done && err == nil {
+								if donelnk != nil {
+									if err = donelnk(e); err != nil {
+										if errdonelnk != nil {
+											errdonelnk(e, err)
+										}
+									}
+								}
+							}
+							if !done && errdonelnk != nil {
+								done = errdonelnk(e, err)
+							}
+						} else if err != nil {
+							if errdolnk != nil {
+								if done = errdolnk(e, e.Value(), err); done {
+									if donelnk != nil {
+										if err = donelnk(e); err != nil {
+											if errdonelnk != nil {
+												errdonelnk(e, err)
+											}
+										}
+									}
+								}
+							}
+						}
+						if done { //|| e.done {
+							e.Dispose(eventRemoved, disposingRemoving)
+						}
+					}()
+				}()
+			}
+			diddo = true
+		}()
+	}
+	return false
+}
+
+func (lst *List) Do(RemovingNode func(*Node, interface{}) (bool, error),
+	ErrRemovingNode func(*Node, interface{}, error) bool,
 	RemovedNode func(*Node, interface{}),
 	DisposingNode func(*Node, interface{})) {
 	if lst.head != nil && lst.tail != nil {
 		crntnde := lst.head
 		nxtnde := crntnde
 		for nxtnde != nil {
-			if RemovingNode != nil && RemovingNode(nxtnde, nxtnde.val) {
-				crntnde = nxtnde
-				nxtnde = lst.forwardmap[crntnde]
-				crntnde.Dispose(RemovedNode, DisposingNode)
-				crntnde = nil
+			if RemovingNode != nil {
+				dne, err := RemovingNode(nxtnde, nxtnde.val)
+				if err == nil {
+					if dne {
+						crntnde = nxtnde
+						nxtnde = lst.forwardmap[crntnde]
+						crntnde.Dispose(RemovedNode, DisposingNode)
+						crntnde = nil
+					} else {
+						nxtnde = lst.forwardmap[crntnde]
+						crntnde = nxtnde
+					}
+				} else {
+					if ErrRemovingNode == nil {
+						crntnde = nxtnde
+						nxtnde = lst.forwardmap[crntnde]
+						crntnde.Dispose(RemovedNode, DisposingNode)
+						crntnde = nil
+					} else if ErrRemovingNode != nil {
+						if dne = ErrRemovingNode(nxtnde, nxtnde.val, err); dne {
+							crntnde = nxtnde
+							nxtnde = lst.forwardmap[crntnde]
+							crntnde.Dispose(RemovedNode, DisposingNode)
+							crntnde = nil
+						} else {
+							nxtnde = lst.forwardmap[crntnde]
+							crntnde = nxtnde
+						}
+					}
+				}
 			} else {
 				nxtnde = lst.forwardmap[crntnde]
 				crntnde = nxtnde
