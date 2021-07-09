@@ -2,10 +2,6 @@ package logging
 
 import "log"
 
-//"github.com/rs/zerolog"
-
-//_ "github.com/rs/zerolog/log"
-
 type LogWriter interface {
 	Write([]byte) (int, error)
 	Print(a ...interface{})
