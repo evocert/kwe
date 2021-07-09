@@ -142,27 +142,24 @@ func (rw *readwrite) ticFlushing() {
 		defer rw.lckinout.RUnlock()
 		return rw.inbf.Size()
 	}
-	var bufout = iorw.NewBuffer()
 	for {
 		if chkl := checksize(); chkl > 0 {
+			var rlines []string = nil
 			func() {
 				rw.lckinout.Lock()
 				defer rw.lckinout.Unlock()
 				rd := rw.inbf.Reader()
 				rd.MaxRead = chkl
-				io.CopyN(bufout, rd, chkl)
+				rlines, _ = rd.Readlines()
 				rd.Close()
 				rw.inbf.Clear()
 			}()
 			func() {
-				if bfl := bufout.Size(); bfl > 0 {
-					rd := bufout.Reader()
-					rd.MaxRead = bfl
-					defer func() {
-						rd.Close()
-						bufout.Clear()
-					}()
-					io.CopyN(rw.outw, rd, bfl)
+				if bfl := len(rlines); bfl > 0 {
+					for _, ln := range rlines {
+						rw.outw.Write([]byte(ln + "\r\n"))
+					}
+					rlines = nil
 				}
 			}()
 		} else {
