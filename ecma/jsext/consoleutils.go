@@ -19,7 +19,7 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 		Minor int `json:"minor"`
 		Bump  int `json:"bump"`
 	}
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds) //global???
+	//log.SetFlags(log.LstdFlags | log.Lmicroseconds) //global???
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
 	vm.Set("console", struct {
@@ -37,45 +37,69 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 		},
 		//todo: colors
 		Log: func(msg ...interface{}) {
-			buf := iorw.NewBuffer()
-			buf.Print(msg...)
-			lgmsg := buf.String()
-			buf.Close()
-			buf = nil
+			//buf := iorw.NewBuffer()
+			//buf.Print(msg...)
+			//lgmsg := buf.String()
+			//buf.Close()
+			//buf = nil
 			//log.Println("LOG:   ", lgmsg)
-			logger.Output(2, fmt.Sprintln("LOG:   "+lgmsg))
+			//logger.Output(2, fmt.Sprintln("LOG:   "+lgmsg))
+			if len(msg) > 0 {
+				msg = append([]interface{}{"LOG   "}, msg...)
+			}
+			logger.Output(2, fmt.Sprintln(msg...))
+			//rw.Println(msg)
 		},
 		Warn: func(msg ...interface{}) {
-			buf := iorw.NewBuffer()
-			buf.Print(msg...)
-			lgmsg := buf.String()
-			buf = nil
+			//buf := iorw.NewBuffer()
+			//buf.Print(msg...)
+			//lgmsg := buf.String()
+			//buf = nil
 			//log.Println("WARN:  ", lgmsg)
-			logger.Output(2, fmt.Sprintln("WARN:   "+lgmsg))
+			//logger.Output(2, fmt.Sprintln("WARN:   "+lgmsg))
+			if len(msg) > 0 {
+				msg = append([]interface{}{"WARN   "}, msg...)
+			}
+			logger.Output(2, fmt.Sprintln(msg...))
+			rw.Println(msg)
 		},
 		Error: func(msg ...interface{}) {
-			buf := iorw.NewBuffer()
-			buf.Print(msg...)
-			lgmsg := buf.String()
-			buf = nil
+			//buf := iorw.NewBuffer()
+			//buf.Print(msg...)
+			//lgmsg := buf.String()
+			//buf = nil
 			//log.Println("ERROR: ", lgmsg)
-			logger.Output(2, fmt.Sprintln("ERROR:   "+lgmsg))
+			//logger.Output(2, fmt.Sprintln("ERROR:   "+lgmsg))
+			if len(msg) > 0 {
+				msg = append([]interface{}{"ERROR   "}, msg...)
+			}
+			logger.Output(2, fmt.Sprintln(msg...))
+			//rw.Println(msg)
 		},
 		Debug: func(msg ...interface{}) {
-			buf := iorw.NewBuffer()
-			buf.Print(msg...)
-			lgmsg := buf.String()
-			buf = nil
+			//buf := iorw.NewBuffer()
+			//buf.Print(msg...)
+			//lgmsg := buf.String()
+			//buf = nil
 			//log.Println("DEBUG: ", lgmsg)
-			logger.Output(2, fmt.Sprintln("DEBUG:   "+lgmsg))
+			//logger.Output(2, fmt.Sprintln("DEBUG:   "+lgmsg))
+			if len(msg) > 0 {
+				msg = append([]interface{}{"DEBUG   "}, msg...)
+			}
+			logger.Output(2, fmt.Sprintln(msg...))
+			//rw.Println(msg)
 		},
 		Trace: func(msg ...interface{}) {
-			buf := iorw.NewBuffer()
-			buf.Print(msg...)
-			lgmsg := buf.String()
-			buf = nil
+			//buf := iorw.NewBuffer()
+			//buf.Print(msg...)
+			//lgmsg := buf.String()
+			//buf = nil
 			//log.Println("TRACE: ", lgmsg)
-			logger.Output(2, fmt.Sprintln("RACE:   "+lgmsg))
+			if len(msg) > 0 {
+				msg = append([]interface{}{"TRACE   "}, msg...)
+			}
+			logger.Output(2, fmt.Sprintln(msg...))
+			//rw.Println(msg)
 		},
 	})
 }
@@ -100,6 +124,18 @@ func (rw *readwrite) Write(p []byte) (n int, err error) {
 	return
 }
 
+func (rw *readwrite) Print(a ...interface{}) {
+	if rw != nil {
+		iorw.Fprint(rw, a...)
+	}
+}
+
+func (rw *readwrite) Println(a ...interface{}) {
+	if rw != nil {
+		iorw.Fprintln(rw, a...)
+	}
+}
+
 func (rw *readwrite) ticFlushing() {
 	var checksize = func() int64 {
 		rw.lckinout.RLock()
@@ -108,28 +144,37 @@ func (rw *readwrite) ticFlushing() {
 	}
 	var bufout = iorw.NewBuffer()
 	for {
-		time.Sleep(rw.flshdr)
-		if checksize() > 0 {
+		if chkl := checksize(); chkl > 0 {
 			func() {
 				rw.lckinout.Lock()
 				defer rw.lckinout.Unlock()
 				rd := rw.inbf.Reader()
-				io.Copy(bufout, rd)
+				rd.MaxRead = chkl
+				io.CopyN(bufout, rd, chkl)
 				rd.Close()
 				rw.inbf.Clear()
 			}()
-			if bufout.Size() > 0 {
-				rd := bufout.Reader()
-				io.Copy(rw.outw, rd)
-				rd.Close()
-				bufout.Clear()
-			}
+			func() {
+				if bfl := bufout.Size(); bfl > 0 {
+					rd := bufout.Reader()
+					rd.MaxRead = bfl
+					defer func() {
+						rd.Close()
+						bufout.Clear()
+					}()
+					io.CopyN(rw.outw, rd, bfl)
+				}
+			}()
+		} else {
+			time.Sleep(rw.flshdr)
 		}
 	}
 }
 
+var rw *readwrite = nil
+
 func init() {
-	var rw = &readwrite{inbf: iorw.NewBuffer(), lckinout: &sync.RWMutex{}, flshdr: time.Millisecond * 500, outw: os.Stderr}
+	rw = &readwrite{inbf: iorw.NewBuffer(), lckinout: &sync.RWMutex{}, flshdr: time.Millisecond * 500, outw: os.Stderr}
 	go rw.ticFlushing()
-	logger = log.New(rw, "", log.LstdFlags)
+	logger = log.New(rw, "", log.LstdFlags|log.Lmicroseconds)
 }
