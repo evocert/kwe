@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -107,6 +108,7 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 var logger *log.Logger = nil
 
 type readwrite struct {
+	inbytes  []byte
 	inbf     *iorw.Buffer
 	outw     io.Writer
 	lckinout *sync.RWMutex
@@ -115,11 +117,55 @@ type readwrite struct {
 
 func (rw *readwrite) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
-		func() {
-			rw.lckinout.RLock()
-			defer rw.lckinout.RUnlock()
-			n, err = rw.inbf.Write(p[:pl])
-		}()
+		bi := 0
+		bl := len(rw.inbytes)
+		bn := 0
+		for _, pb := range p {
+			if pb == '\n' {
+				func() {
+					if bi > 0 {
+						//rw.lckinout.RLock()
+						//defer rw.lckinout.RUnlock()
+						bn, err = rw.inbf.Write(rw.inbytes[:bi])
+						if bn > 0 {
+							n += bn
+						}
+						bi = 0
+					}
+					//rw.lckinout.Lock()
+					//defer rw.lckinout.Unlock()
+					if hdrln := rw.inbf.String(); hdrln != "" {
+						rw.inbf.Clear()
+						rlines <- (strings.TrimSpace(hdrln) + "\n")
+					}
+				}()
+			} else {
+				rw.inbytes[bi] = pb
+				bi++
+				if bi == bl {
+					func() {
+						//rw.lckinout.RLock()
+						//defer rw.lckinout.RUnlock()
+						bn, err = rw.inbf.Write(rw.inbytes[:bi])
+						if bn > 0 {
+							n += bn
+						}
+					}()
+					bi = 0
+				}
+			}
+		}
+
+		if bi > 0 {
+			func() {
+				//rw.lckinout.RLock()
+				//defer rw.lckinout.RUnlock()
+				bn, err = rw.inbf.Write(rw.inbytes[:bi])
+				if bn > 0 {
+					n += bn
+				}
+			}()
+		}
 	}
 	return
 }
@@ -136,41 +182,20 @@ func (rw *readwrite) Println(a ...interface{}) {
 	}
 }
 
-func (rw *readwrite) ticFlushing() {
-	var checksize = func() int64 {
-		rw.lckinout.RLock()
-		defer rw.lckinout.RUnlock()
-		return rw.inbf.Size()
-	}
-	for {
-		if chkl := checksize(); chkl > 0 {
-			var rlines []string = nil
-			func() {
-				rw.lckinout.Lock()
-				defer rw.lckinout.Unlock()
-				rd := rw.inbf.Reader()
-				rlines, _ = rd.Readlines()
-				rd.Close()
-				rw.inbf.Clear()
-			}()
-			func() {
-				if bfl := len(rlines); bfl > 0 {
-					for _, ln := range rlines {
-						rw.outw.Write([]byte(ln + "\r\n"))
-					}
-					rlines = nil
-				}
-			}()
-		} else {
-			time.Sleep(rw.flshdr)
-		}
-	}
-}
+var rlines chan string = make(chan string)
 
 var rw *readwrite = nil
 
 func init() {
-	rw = &readwrite{inbf: iorw.NewBuffer(), lckinout: &sync.RWMutex{}, flshdr: time.Millisecond * 500, outw: os.Stderr}
-	go rw.ticFlushing()
+	rw = &readwrite{inbf: iorw.NewBuffer(), lckinout: &sync.RWMutex{}, flshdr: time.Millisecond * 500, outw: os.Stderr, inbytes: make([]byte, 8192)}
+	go func() {
+		for {
+			for lgln := range rlines {
+				if lgln != "" {
+					rw.outw.Write([]byte(lgln))
+				}
+			}
+		}
+	}()
 	logger = log.New(rw, "", log.LstdFlags|log.Lmicroseconds)
 }
