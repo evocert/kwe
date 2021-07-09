@@ -173,5 +173,5 @@ var rw *readwrite = nil
 func init() {
 	rw = &readwrite{inbf: iorw.NewBuffer(), lckinout: &sync.RWMutex{}, flshdr: time.Millisecond * 500, outw: os.Stderr}
 	go rw.ticFlushing()
-	logger = log.New(rw, "", log.LstdFlags|log.Lmicroseconds)
+	logger = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
 }
