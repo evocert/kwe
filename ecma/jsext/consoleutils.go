@@ -149,7 +149,6 @@ func (rw *readwrite) ticFlushing() {
 				rw.lckinout.Lock()
 				defer rw.lckinout.Unlock()
 				rd := rw.inbf.Reader()
-				rd.MaxRead = chkl
 				rlines, _ = rd.Readlines()
 				rd.Close()
 				rw.inbf.Clear()

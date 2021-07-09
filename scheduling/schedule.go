@@ -24,14 +24,15 @@ type ScheduleAPI interface {
 
 //Schedule - struct
 type Schedule struct {
-	actnmde      scheduleactiontype
-	initstart    bool
-	schdlid      string
-	once         bool
-	schdlhndlr   ScheduleAPI
-	From         time.Time
-	To           time.Time
-	schdlrs      *Schedules
+	actnmde    scheduleactionsection
+	initstart  bool
+	schdlid    string
+	once       bool
+	schdlhndlr ScheduleAPI
+	From       time.Time
+	To         time.Time
+	schdlrs    *Schedules
+	//actns        *enumeration.Chain
 	actns        *enumeration.Chain
 	initactns    *enumeration.Chain
 	wrapupactns  *enumeration.Chain
@@ -162,10 +163,10 @@ type FuncArgsHandle func(...interface{})
 type FuncErrHandle func() error
 type FuncHandle func(...interface{})
 
-type scheduleactiontype int
+type scheduleactionsection int
 
 const (
-	schdlactnmain scheduleactiontype = iota
+	schdlactnmain scheduleactionsection = iota
 	schdlactninit
 	schdlactnwrapup
 )
@@ -189,7 +190,7 @@ func (schdl *Schedule) AddWrapupAction(a ...interface{}) (err error) {
 	return
 }
 
-func (schdl *Schedule) internalAction(actntpe scheduleactiontype, a ...interface{}) (err error) {
+func (schdl *Schedule) internalAction(actntpe scheduleactionsection, a ...interface{}) (err error) {
 	var lstargs []interface{} = nil
 	var lstactn func(...interface{}) error = nil
 	var al = 0
@@ -592,7 +593,7 @@ func (schdl *Schedule) Stop() (err error) {
 }
 
 //Shutdown - Schedule
-//after this Schedule is destroyed adn not accessable anymore
+//after this Schedule is destroyed it is not accessable anymore
 func (schdl *Schedule) Shutdown() (err error) {
 	if schdl != nil {
 		err = schdl.Stop()
@@ -663,9 +664,6 @@ func (schdl *Schedule) inMapOut(mpin map[string]interface{}, out io.Writer, ioar
 								} else {
 									if out != nil {
 										hasoutput = true
-										//jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
-										//io.Copy(out, jsnrdr)
-										//jsnrdr = nil
 										iorw.Fprint(out, "{}")
 									}
 								}
@@ -674,7 +672,14 @@ func (schdl *Schedule) inMapOut(mpin map[string]interface{}, out io.Writer, ioar
 								for _, schdla := range schdlargs {
 									if schdlas, schdlasok := schdla.(string); schdlasok && schdlas != "" {
 										if schdlas = strings.ToLower(schdlas); schdlas != "" && strings.Contains("|start|stop|shutdown|", "|"+schdlas+"|") {
-
+											if schdlas == "start" {
+												schdl.Start()
+												break
+											} else if schdlas == "stop" {
+												schdl.Stop()
+											} else if schdlas == "shutdown" {
+												schdl.Shutdown()
+											}
 										}
 									} else {
 										if out != nil {
@@ -790,7 +795,7 @@ func (schdl *Schedule) InOut(in interface{}, out io.Writer, ioargs ...interface{
 	return
 }
 
-func addactns(schdl *Schedule, actntpe scheduleactiontype, schdlactns ...*schdlaction) {
+func addactns(schdl *Schedule, actntpe scheduleactionsection, schdlactns ...*schdlaction) {
 
 	for len(schdlactns) > 0 {
 		schlactn := schdlactns[0]
@@ -799,7 +804,7 @@ func addactns(schdl *Schedule, actntpe scheduleactiontype, schdlactns ...*schdla
 	}
 }
 
-func addactn(schdl *Schedule, actntpe scheduleactiontype, schdlactn *schdlaction) {
+func addactn(schdl *Schedule, actntpe scheduleactionsection, schdlactn *schdlaction) {
 	if schdl != nil {
 		if schdlactn != nil {
 			switch actntpe {

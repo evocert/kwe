@@ -1,3 +1,4 @@
+resourcing.RegisterEndpoint("/gendocs","C:/GitHub/kwe/gendocs");
 /*resourcing.RegisterEndpoint("/","D:/projects/system");
 resourcing.RegisterEndpoint("/jquery","https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0");
 resourcing.RegisterEndpoint("/webactions","C:/GitHub/kwe/webactions");

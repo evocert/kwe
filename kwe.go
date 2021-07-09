@@ -67,6 +67,7 @@ func main() {
 		}
 		//}
 	}()*/
+
 	service.RunService(os.Args...)
 
 }

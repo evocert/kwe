@@ -74,7 +74,6 @@ func (schdls *Schedules) inMapOut(mpin map[string]interface{}, out io.Writer, io
 					if crntschdl == nil {
 						if out != nil {
 							hasoutput = true
-
 							iorw.Fprint(out, "{\"error\":\"alias does not exist\"}")
 						}
 					}
@@ -86,7 +85,6 @@ func (schdls *Schedules) inMapOut(mpin map[string]interface{}, out io.Writer, io
 							if out != nil {
 								if out != nil {
 									hasoutput = true
-
 									iorw.Fprint(out, "{\"error\":\"default alias does not exist\"}")
 								}
 							}
@@ -94,7 +92,6 @@ func (schdls *Schedules) inMapOut(mpin map[string]interface{}, out io.Writer, io
 							if out != nil {
 								if out != nil {
 									hasoutput = true
-
 									iorw.Fprint(out, "{\"error\":\no alias\"}")
 								}
 							}
@@ -199,6 +196,31 @@ func (schdls *Schedules) Get(schdlname string) (schdl *Schedule) {
 	return
 }
 
+//Exists - return true if Scheduler by schdlname exists
+func (schdls *Schedules) Exists(schdlname string) (exist bool) {
+	if schdls != nil && schdlname != "" {
+		func() {
+			schdls.lck.RLock()
+			defer schdls.lck.RUnlock()
+			_, exist = schdls.schdls[schdlname]
+		}()
+	}
+	return
+}
+
+func (schdls *Schedules) UnregisterSchedule(schdlname string, a ...interface{}) {
+	if schdls != nil {
+		if schdlname = strings.TrimSpace(schdlname); schdlname != "" {
+			func() {
+				if schdl := schdls.Get(schdlname); schdl != nil {
+					schdl.Shutdown()
+					schdl = nil
+				}
+			}()
+		}
+	}
+}
+
 //RegisterSchedule - If schedule  with same name do not exists
 // will the schedule be registered
 func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (schdl *Schedule) {
@@ -258,10 +280,11 @@ func (schdls *Schedules) RegisterSchedule(schdlname string, a ...interface{}) (s
 	return
 }
 
-//ScheduleExists returns true if *Schedule with schdlid string exists
+//scheduleExists returns true if *Schedule with schdlid string exists
 func (schdls *Schedules) ScheduleExists(scdhkid string) (schdlexist bool, schdl *Schedule) {
 	if schdls != nil {
-		schdl, schdlexist = schdls.schdls[scdhkid]
+		schdl = schdls.Get(scdhkid)
+		schdlexist = schdl != nil
 	}
 	return
 }
@@ -280,6 +303,7 @@ func (schdls *Schedules) removeSchedule(schdl *Schedule) {
 }
 
 //Schedules return []*Schedule of schdlid(s) ..string
+
 func (schdls *Schedules) Schedules(schdlids ...string) (scls []*Schedule) {
 	if len(schdls.schdls) > 0 {
 		func() {
