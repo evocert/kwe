@@ -97,6 +97,7 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 func internalExecuteRequest(rqst *Request, interrupt func()) {
 	var bgrndctnx context.Context = nil
 	httpr, httpw, rqstw, rqstr := rqst.httpr, rqst.httpw, rqst.rqstw, rqst.rqstr
+
 	if httpr != nil && httpw != nil {
 		rqst.prtcl = httpr.Proto
 		rqst.prtclmethod = httpr.Method
@@ -105,19 +106,21 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 		bgrndctnx = context.Background()
 	}
 	func() {
+		notify := func() func() <-chan bool {
+			var clsntfy http.CloseNotifier = nil
+			if httpw != nil {
+				clsntfy, _ = httpw.(http.CloseNotifier)
+			} else if rqstw != nil {
+				clsntfy, _ = rqstw.(http.CloseNotifier)
+			}
+			if clsntfy != nil {
+				return clsntfy.CloseNotify
+			}
+			return nil
+		}()
 		isCancelled := false
 		ctx, cancel := context.WithCancel(bgrndctnx)
-		defer func() {
-			if r := recover(); r != nil {
-
-			}
-			if !isCancelled {
-				isCancelled = true
-				cancel()
-			}
-		}()
-
-		func() {
+		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 
@@ -135,11 +138,31 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 				rqst.executePath("", interrupt)
 			}
 		}()
-		<-ctx.Done()
-		if ctxerr := ctx.Err(); ctxerr != nil {
-			if !isCancelled {
+		if notify != nil {
+			select {
+			case <-notify():
 				if interrupt != nil {
 					interrupt()
+					interrupt = nil
+				}
+			case <-ctx.Done():
+				if ctxerr := ctx.Err(); ctxerr != nil {
+					if !isCancelled {
+						if interrupt != nil {
+							interrupt()
+							interrupt = nil
+						}
+					}
+				}
+			}
+		} else {
+			<-ctx.Done()
+			if ctxerr := ctx.Err(); ctxerr != nil {
+				if !isCancelled {
+					if interrupt != nil {
+						interrupt()
+						interrupt = nil
+					}
 				}
 			}
 		}

@@ -866,10 +866,9 @@ func (rqst *Request) wrapup() (err error) {
 func (rqst *Request) startWriting() (err error) {
 	defer func() {
 		if rv := recover(); rv != nil {
-			err = fmt.Errorf("%v", rv)
+			//err = fmt.Errorf("%v", rv)
 		}
 	}()
-	//if rqst.httpr != nil && rqst.httpw != nil {
 	if rqst.startedWriting {
 		return
 	}
@@ -887,12 +886,9 @@ func (rqst *Request) startWriting() (err error) {
 		hdr.Set("Expires", time.Now().Format(http.TimeFormat))
 		hdr.Set("Connection", "close")
 	}
-	//httpw.Header().Set("Transfer-Encoding", "chunked")
-	//rqst.zpw = gzip.NewWriter(httpw)
 	if httpw := rqst.httpw; httpw != nil {
 		httpw.WriteHeader(rqst.httpstatus)
 	}
-	//}
 	return
 }
 
