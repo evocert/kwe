@@ -18,7 +18,7 @@ type ClientHandle struct {
 	*Client
 	SendReceive       func(rqstpath string, a ...interface{}) (rw ReaderWriter, err error)
 	SendRespondString func(rqstpath string, a ...interface{}) (rspstr string, err error)
-	Send              func(rqstpath string, a ...interface{}) (rspr io.Reader, err error)
+	Send              func(rqstpath string, a ...interface{}) (rspr iorw.Reader, err error)
 	Close             func()
 }
 
@@ -81,9 +81,17 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 							if onerror == nil {
 								onerror = v
 							}
-						} else {
-							if s, sok := v.(string); sok && s != "" {
-								headers.Set(k, s)
+						} else if k == "headers" {
+							if v != nil {
+								if hdrs, hdrsok := v.(map[string]interface{}); hdrsok {
+									for hdrk, hdrv := range hdrs {
+										if hdrv != nil {
+											if s, sok := hdrv.(string); sok && s != "" {
+												headers.Set(hdrk, s)
+											}
+										}
+									}
+								}
 							}
 						}
 					}
@@ -134,11 +142,11 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 
 //SendRespondString - Client Send but return response as string
 func (clnt *Client) SendRespondString(rqstpath string, a ...interface{}) (rspstr string, err error) {
-	var rspr io.Reader = nil
+	var rspr iorw.Reader = nil
 	rspstr = ""
 	if rspr, err = clnt.Send(rqstpath, a...); err == nil {
 		if rspr != nil {
-			rspstr, err = iorw.ReaderToString(rspr)
+			rspstr, err = rspr.ReadAll()
 		}
 	}
 	return
@@ -232,7 +240,7 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 		var onsucess interface{} = nil
 		var onerror interface{} = nil
 
-		var rqstheaders map[string]string = nil
+		var rqstheaders http.Header
 		var rspnselts []interface{} = nil
 		for ai < len(a) {
 			d := a[ai]
@@ -290,15 +298,22 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 								if onerror == nil {
 									onerror = v
 								}
+							} else if k == "headers" {
+								if v != nil {
+									if hdrs, hdrsok := v.(map[string]interface{}); hdrsok {
+										for hdrk, hdrv := range hdrs {
+											if hdrv != nil {
+												if s, sok := hdrv.(string); sok {
+													rqstheaders.Set(hdrk, s)
+												}
+											}
+										}
+									}
+								}
 							} else {
 								if s, sok := v.(string); sok && s != "" {
 									if k == "method" && method == "" {
 										method = strings.ToUpper(s)
-									} else {
-										if rqstheaders == nil {
-											rqstheaders = map[string]string{}
-										}
-										rqstheaders[k] = s
 									}
 								}
 							}
@@ -352,7 +367,9 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 		if rqsterr == nil {
 			if len(rqstheaders) > 0 {
 				for hdk, hdv := range rqstheaders {
-					rqst.Header.Add(hdk, hdv)
+					for _, hv := range hdv {
+						rqst.Header.Add(hdk, hv)
+					}
 				}
 			}
 			func() {

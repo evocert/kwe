@@ -610,7 +610,7 @@ func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
 		webclient = &web.ClientHandle{
 			Client: web.NewClient(),
 		}
-		webclient.Send = func(rqstpath string, a ...interface{}) (rspr io.Reader, err error) {
+		webclient.Send = func(rqstpath string, a ...interface{}) (rspr iorw.Reader, err error) {
 			if len(a) == 0 {
 				if a == nil {
 					a = []interface{}{rqst.atv}
