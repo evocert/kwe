@@ -124,16 +124,12 @@ func (rw *readwrite) Write(p []byte) (n int, err error) {
 			if pb == '\n' {
 				func() {
 					if bi > 0 {
-						//rw.lckinout.RLock()
-						//defer rw.lckinout.RUnlock()
 						bn, err = rw.inbf.Write(rw.inbytes[:bi])
 						if bn > 0 {
 							n += bn
 						}
 						bi = 0
 					}
-					//rw.lckinout.Lock()
-					//defer rw.lckinout.Unlock()
 					if hdrln := rw.inbf.String(); hdrln != "" {
 						rw.inbf.Clear()
 						rlines <- (strings.TrimSpace(hdrln) + "\n")
@@ -144,8 +140,6 @@ func (rw *readwrite) Write(p []byte) (n int, err error) {
 				bi++
 				if bi == bl {
 					func() {
-						//rw.lckinout.RLock()
-						//defer rw.lckinout.RUnlock()
 						bn, err = rw.inbf.Write(rw.inbytes[:bi])
 						if bn > 0 {
 							n += bn
@@ -158,8 +152,6 @@ func (rw *readwrite) Write(p []byte) (n int, err error) {
 
 		if bi > 0 {
 			func() {
-				//rw.lckinout.RLock()
-				//defer rw.lckinout.RUnlock()
 				bn, err = rw.inbf.Write(rw.inbytes[:bi])
 				if bn > 0 {
 					n += bn
