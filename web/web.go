@@ -243,13 +243,11 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 							rspnselts = []interface{}{}
 						}
 						rspnselts = append(rspnselts, rs)
-						//r = strings.NewReader(rs)
 					}
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue
 					} else {
-						a = append(a[:ai], a[ai+1:]...)
 						break
 					}
 				} else if r, aok = d.(io.Reader); aok {
@@ -261,7 +259,6 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 						a = append(a[:ai], a[ai+1:]...)
 						continue
 					} else {
-						a = append(a[:ai], a[ai+1:]...)
 						break
 					}
 				} else if trntme, taok := d.(active.Runtime); taok {
@@ -322,7 +319,6 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 						a = append(a[:ai], a[ai+1:]...)
 						continue
 					} else {
-						a = append(a[:ai], a[ai+1:]...)
 						break
 					}
 				}
