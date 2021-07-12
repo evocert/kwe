@@ -258,11 +258,11 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 					} else {
 						break
 					}
-				} else if r, aok = d.(io.Reader); aok {
+				} else if rr, raok := d.(io.Reader); raok {
 					if rspnselts == nil {
 						rspnselts = []interface{}{}
 					}
-					rspnselts = append(rspnselts, r)
+					rspnselts = append(rspnselts, rr)
 					if ai < len(a)-1 {
 						a = append(a[:ai], a[ai+1:]...)
 						continue
