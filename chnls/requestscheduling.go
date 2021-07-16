@@ -6,11 +6,11 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/evocert/kwe/database"
-	"github.com/evocert/kwe/scheduling"
+	"github.com/evocert/kwe/scheduling/ext"
 )
 
 //Schedule refer to scheduling.ScheduleHandler - StartedSchedule()
-func (rqst *Request) Schedule() *scheduling.Schedule {
+func (rqst *Request) Schedule() *ext.Schedule {
 	return rqst.schdl
 }
 
@@ -32,7 +32,7 @@ func (rqst *Request) ShutdownSchedule() (err error) {
 
 //RequestScheduleAction - struct implementing scheduling.ActionHandler and wrapping *Request
 type RequestScheduleAction struct {
-	*scheduling.ScheduleAction
+	*ext.ScheduleAction
 	rqst    *Request
 	atvfunc func(goja.FunctionCall) goja.Value
 }
@@ -124,7 +124,7 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 		ai := 0
 		regatvfnc := func(atvfnc func(goja.FunctionCall) goja.Value) bool {
 			if atvfnc != nil {
-				var prppdatvfnc scheduling.FuncArgsErrHandle = nil
+				var prppdatvfnc ext.FuncArgsErrHandle = nil
 				prppdatvfnc = func(args ...interface{}) (rserr error) {
 					rqst.invokeAtv()
 					if rslt := rqst.atv.InvokeFunction(atvfnc, args...); rslt != nil {
@@ -188,7 +188,7 @@ func (rqst *Request) PrepActionArgs(a ...interface{}) (preppedargs []interface{}
 						if !ignore {
 							ignore = true
 						}
-						a[ai] = scheduling.FuncArgsErrHandle(rqst.executeScheduleAction)
+						a[ai] = ext.FuncArgsErrHandle(rqst.executeScheduleAction)
 						tmpa := a[ai+1:]
 						a = append(append(a[:ai+1], []interface{}{rqstmk, rqstmv}), tmpa...)
 						al = len(a)

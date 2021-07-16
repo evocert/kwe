@@ -1,7 +1,5 @@
 package enumeration
 
-import "sync"
-
 type Node struct {
 	lst *List
 	val interface{}
@@ -166,34 +164,27 @@ func (lst *List) ValueNode(val interface{}) (nde *Node) {
 	return
 }
 
-func (lst *List) Iterate(dolnk func(*Node, interface{}) (bool, error), errdolnk func(*Node, interface{}, error) bool, donelnk func(*Node) error, errdonelnk func(*Node, error) bool, eventRemoved func(nde *Node, val interface{}), disposingRemoving func(nde *Node, val interface{})) (diddo bool) {
+func (lst *List) Iterate(dolnk func(*Node, interface{}) (bool, error), errdolnk func(*Node, interface{}, error) bool, donelnk func(*Node) error, errdonelnk func(*Node, error) bool, disposelnk func(nde *Node), eventRemoved func(nde *Node, val interface{}), disposingRemoving func(nde *Node, val interface{})) {
 	if lst != nil && lst.head != nil && lst.tail != nil {
 		var done = false
 		var err error = nil
-		wg := &sync.WaitGroup{}
-		cnt := 0
 		func() {
-			for e := lst.Head(); e != nil && !done; e = e.Next() {
+			for e := lst.Head(); e != nil && !done; done, e = false, e.Next() {
 				if e == nil {
 					continue
 				}
-				cnt++
 				func() {
-					wg.Add(1)
-					defer wg.Wait()
-					go func() {
-						defer wg.Done()
+					if dolnk != nil {
 						if done, err = dolnk(e, e.Value()); done || err != nil {
 							if done && err == nil {
 								if donelnk != nil {
 									if err = donelnk(e); err != nil {
 										if errdonelnk != nil {
-											errdonelnk(e, err)
+											done = errdonelnk(e, err)
 										}
 									}
 								}
-							}
-							if !done && errdonelnk != nil {
+							} else if !done && errdonelnk != nil {
 								done = errdonelnk(e, err)
 							}
 						} else if err != nil {
@@ -202,23 +193,25 @@ func (lst *List) Iterate(dolnk func(*Node, interface{}) (bool, error), errdolnk 
 									if donelnk != nil {
 										if err = donelnk(e); err != nil {
 											if errdonelnk != nil {
-												errdonelnk(e, err)
+												done = errdonelnk(e, err)
 											}
 										}
 									}
 								}
 							}
 						}
-						if done { //|| e.done {
-							e.Dispose(eventRemoved, disposingRemoving)
+						if done {
+							if disposelnk == nil {
+								e.Dispose(eventRemoved, disposingRemoving)
+							} else {
+								disposelnk(e)
+							}
 						}
-					}()
+					}
 				}()
 			}
-			diddo = true
 		}()
 	}
-	return false
 }
 
 func (lst *List) Do(RemovingNode func(*Node, interface{}) (bool, error),

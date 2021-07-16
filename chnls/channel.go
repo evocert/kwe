@@ -9,7 +9,7 @@ import (
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mqtt"
-	"github.com/evocert/kwe/scheduling"
+	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/ws"
 )
 
@@ -48,7 +48,7 @@ func (chnl *Channel) Schedules() *scheduling.Schedules {
 }
 
 //NewSchedule - implement scheduling.ScheduleAPI NewScheduler()
-func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleAPI) {
+func (chnl *Channel) NewSchedule(schdl *scheduling.Schedule, a ...interface{}) (scdhlhndlr scheduling.ScheduleHandler) {
 	if al := len(a); al > 0 {
 		ai := 0
 		var prntrqst *Request = nil

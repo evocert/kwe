@@ -5,6 +5,7 @@ import (
 
 	//_ "github.com/evocert/kwe/database/db2"
 
+	_ "github.com/evocert/kwe/alertify"
 	_ "github.com/evocert/kwe/fonts/material"
 
 	_ "github.com/evocert/kwe/database/mysql"

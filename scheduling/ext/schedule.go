@@ -17,6 +17,19 @@ type ScheduleAPI interface {
 	Shutdown() error
 }
 
+type ScheduleHandler interface {
+	StartedSchedule(...interface{}) error
+	StoppedSchedule(...interface{}) error
+	ShutdownSchedule() error
+	PrepActionArgs(...interface{}) ([]interface{}, error)
+	Schedule() *Schedule
+}
+
+type FuncArgsErrHandle func(...interface{}) error
+type FuncArgsHandle func(...interface{})
+type FuncErrHandle func() error
+type FuncHandle func(...interface{})
+
 type scheduleactionsection int
 
 const (
@@ -31,6 +44,7 @@ type Schedule struct {
 	schdlid        string
 	once           bool
 	schdls         SchedulesAPI
+	schdlhndlr     ScheduleHandler
 	From           time.Time
 	To             time.Time
 	initactns      *enumeration.List
@@ -76,10 +90,13 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 		ai := 0
 		for ai < al {
 			d := a[ai]
-			if schdls == nil {
-				schdls, _ = d.(SchedulesAPI)
-				a = append(a[:ai], a[ai+1:])
+			if dschdls, dschdlsok := d.(SchedulesAPI); dschdlsok {
+				if dschdls != nil && schdls == nil {
+					schdls = dschdls
+				}
+				a = append(a[:ai], a[ai+1:]...)
 				al--
+				ai++
 				continue
 			} else if dmp, dmpok := a[0].(map[string]interface{}); dmpok {
 				for stngk, stngv := range dmp {
@@ -138,8 +155,8 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 					}
 				}
 			}
+			ai++
 		}
-		ai++
 	}
 
 	schdl = &Schedule{
@@ -159,9 +176,321 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 		Hours:        hours,
 		From:         frm,
 		To:           to,
-		initactns:    enumeration.NewList(), lckinitactns: &sync.RWMutex{},
-		actns: enumeration.NewList(), lckactns: &sync.RWMutex{},
-		wrapupactns: enumeration.NewList(), lckwrapupactns: &sync.RWMutex{}}
+		initactns:    enumeration.NewList(true), lckinitactns: &sync.RWMutex{},
+		actns: enumeration.NewList(true), lckactns: &sync.RWMutex{},
+		wrapupactns: enumeration.NewList(true), lckwrapupactns: &sync.RWMutex{}}
+
+	if schdls != nil {
+		if schdls.Handler() != nil {
+			schdl.schdlhndlr = schdls.Handler().NewSchedule(schdl, a...)
+			if schdl.OnStart == nil {
+				schdl.OnStart = schdl.schdlhndlr.StartedSchedule
+			}
+			if schdl.OnStop == nil {
+				schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
+			}
+			if schdl.OnShutdown == nil {
+				schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
+			}
+		}
+	}
+	return
+}
+
+//AddAction - add action(s) to *Schedule
+func (schdl *Schedule) AddAction(a ...interface{}) (err error) {
+	err = internalAction(schdl, schdlactnmain, a...)
+	return
+}
+
+//AddInitAction - add action(s) to *Schedule that will be execute initially
+func (schdl *Schedule) AddInitAction(a ...interface{}) (err error) {
+	err = internalAction(schdl, schdlactninit, a...)
+	return
+}
+
+//AddWrapupAction - add action(s) to *Schedule that will be execute when there are no more
+// main list fo action(s) to execute
+func (schdl *Schedule) AddWrapupAction(a ...interface{}) (err error) {
+	err = internalAction(schdl, schdlactnwrapup, a...)
+	return
+}
+
+func internalAction(schdl *Schedule, actntpe scheduleactionsection, a ...interface{}) (err error) {
+	var lstargs []interface{} = nil
+	var lstactn func(...interface{}) error = nil
+	var al = 0
+	var vldactions = []*schdlaction{}
+	var cactn func(...interface{}) error = nil
+	if schdl.schdlhndlr != nil && len(a) > 0 {
+		if preppedargs, preppederr := schdl.schdlhndlr.PrepActionArgs(a...); preppederr == nil {
+			if len(preppedargs) > 0 {
+				a = preppedargs[:]
+			}
+		} else {
+			err = preppederr
+			return
+		}
+	}
+	for {
+		if al = len(a); al > 0 {
+			d := a[0]
+			a = a[1:]
+			if args, argsok := d.([]interface{}); argsok {
+				if al > 1 {
+					d = a[0]
+					if atcne, actneok := d.(func(...interface{}) error); actneok {
+						vldactions = append(vldactions, newSchdlAction(schdl, actntpe, atcne, args...))
+						a = a[1:]
+						lstargs = nil
+					} else if actn, actnok := d.(func(...interface{})); actnok {
+						vldactions = append(vldactions, newSchdlAction(schdl, actntpe, func(fna ...interface{}) (fnerr error) {
+							func() {
+								defer func() {
+									if rv := recover(); rv != nil {
+										fnerr = fmt.Errorf("%v", rv)
+									}
+								}()
+								actn(fna...)
+							}()
+							return fnerr
+						}, args...))
+						a = a[1:]
+						lstargs = nil
+					} else {
+						lstargs = args[:]
+					}
+				} else {
+					if lstactn != nil {
+						vldactions = append(vldactions, newSchdlAction(schdl, actntpe, lstactn, args...))
+					}
+					break
+				}
+			} else {
+				if cactn != nil {
+					cactn = nil
+				}
+				d = interface{}(d)
+				if actnae, actnaeok := d.(FuncArgsErrHandle); actnaeok {
+					cactn = actnae
+				} else if actna, actnaok := d.(FuncArgsHandle); actnaok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actna(fna...)
+						}()
+						return fnerr
+					}
+				} else if actne, actneok := d.(FuncErrHandle); actneok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							fnerr = actne()
+						}()
+						return fnerr
+					}
+				} else if actn, actnok := d.(FuncHandle); actnok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actn()
+						}()
+						return fnerr
+					}
+				} else if actnae, actnaeok := d.(func(...interface{}) error); actnaeok {
+					cactn = actnae
+				} else if actna, actnaok := d.(func(...interface{})); actnaok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actna(fna...)
+						}()
+						return fnerr
+					}
+				} else if actne, actneok := d.(func() error); actneok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							fnerr = actne()
+						}()
+						return fnerr
+					}
+				} else if actn, actnok := d.(func()); actnok {
+					cactn = func(fna ...interface{}) (fnerr error) {
+						func() {
+							defer func() {
+								if rv := recover(); rv != nil {
+									fnerr = fmt.Errorf("%v", rv)
+								}
+							}()
+							actn()
+						}()
+						return fnerr
+					}
+				}
+				if cactn != nil {
+					if al > 1 {
+						if lstargs != nil {
+							vldactions = append(vldactions, newSchdlAction(schdl, actntpe, cactn, lstargs...))
+							lstargs = nil
+						} else {
+							d = a[0]
+							if args, argsok := d.([]interface{}); argsok {
+								vldactions = append(vldactions, newSchdlAction(schdl, actntpe, cactn, args...))
+								a = a[1:]
+							} else {
+								lstactn = cactn
+								a = a[1:]
+							}
+						}
+					} else {
+						vldactions = append(vldactions, newSchdlAction(schdl, actntpe, cactn, lstargs...))
+						break
+					}
+				} else {
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+	if len(vldactions) > 0 {
+		addactns(schdl, actntpe, vldactions...)
+	}
+	return
+}
+
+func addactns(schdl *Schedule, actntpe scheduleactionsection, schdlactns ...*schdlaction) {
+	for len(schdlactns) > 0 {
+		schlactn := schdlactns[0]
+		addactn(schdl, actntpe, schlactn)
+		schdlactns = schdlactns[1:]
+	}
+}
+
+func addactn(schdl *Schedule, actntpe scheduleactionsection, schdlactn *schdlaction) {
+	if schdl != nil {
+		if schdlactn != nil {
+			switch actntpe {
+			case schdlactnmain:
+				if schdl.actns != nil {
+					func() {
+						schdl.lckactns.Lock()
+						defer schdl.lckactns.Unlock()
+						schdl.actns.Push(nil, nil, schdlactn)
+					}()
+				}
+			case schdlactninit:
+				if schdl.initactns != nil {
+					func() {
+						schdl.lckinitactns.Lock()
+						defer schdl.lckinitactns.Unlock()
+						schdl.initactns.Push(nil, nil, schdlactn)
+					}()
+				}
+			case schdlactnwrapup:
+				if schdl.wrapupactns != nil {
+					func() {
+						schdl.lckwrapupactns.Lock()
+						defer schdl.lckwrapupactns.Unlock()
+						schdl.wrapupactns.Push(nil, nil, schdlactn)
+					}()
+				}
+			}
+		}
+	}
+}
+
+/*func removeactns(schdl *Schedule, schdlactns ...*schdlaction) {
+	for len(schdlactns) > 0 {
+		removeactn(schdl, schdlactns[0])
+		schdlactns = schdlactns[1:]
+	}
+}*/
+
+func removeactn(schdl *Schedule, schdlactn *schdlaction) {
+	if schdlactn != nil && schdl != nil {
+		var rmvctncall = func(actnlst *enumeration.List, actnslck *sync.RWMutex) {
+			actnslck.Lock()
+			defer actnslck.Unlock()
+			actnlst.ValueNode(schdlactn).Dispose(nil, nil)
+		}
+		switch schdlactn.actnsctn {
+		case schdlactninit:
+			rmvctncall(schdl.initactns, schdl.lckinitactns)
+		case schdlactnmain:
+			rmvctncall(schdl.actns, schdl.lckactns)
+		case schdlactnwrapup:
+			rmvctncall(schdl.wrapupactns, schdl.lckwrapupactns)
+		}
+		schdlactn = nil
+	}
+}
+
+type schdlaction struct {
+	crntschdlactn ScheduleActionAPI
+	schdl         *Schedule
+	actnsctn      scheduleactionsection
+	args          []interface{}
+	actn          func(...interface{}) error
+	valid         bool
+}
+
+func newSchdlAction(schdl *Schedule, actnsctn scheduleactionsection, actn func(...interface{}) error, a ...interface{}) (scdhlactn *schdlaction) {
+	scdhlactn = &schdlaction{schdl: schdl, actnsctn: actnsctn,
+		actn: actn, args: a, valid: true}
+	return
+}
+
+func (schdlctn *schdlaction) dispose() {
+	if schdlctn != nil {
+		if schdlctn.schdl != nil {
+			removeactn(schdlctn.schdl, schdlctn)
+		}
+		if schdlctn.schdl != nil {
+			schdlctn.schdl = nil
+		}
+		if schdlctn.actn != nil {
+			schdlctn.actn = nil
+		}
+		if schdlctn.args != nil {
+			schdlctn.args = nil
+		}
+		if schdlctn.crntschdlactn != nil {
+			schdlctn.crntschdlactn = nil
+		}
+		schdlctn = nil
+	}
+}
+
+func (scdhlctn *schdlaction) execute() (err error) {
+	if scdhlctn != nil {
+		err = scdhlctn.actn(scdhlctn.args...)
+		if err != nil && strings.ToLower(err.Error()) == "done" {
+			scdhlctn.valid = false
+		}
+	}
 	return
 }
 
@@ -352,6 +681,16 @@ func (schdl *Schedule) doneLink(lnk *enumeration.Node) (err error) {
 	return
 }
 
+func (schdl *Schedule) disposeLink(lnk *enumeration.Node) {
+	if schdl != nil && lnk != nil {
+		if schdlactn, _ := lnk.Value().(*schdlaction); schdlactn != nil {
+			schdlactn.dispose()
+		} else {
+			lnk.Dispose(nil, nil)
+		}
+	}
+}
+
 func (schdl *Schedule) errDoneLink(lnk *enumeration.Node, err error) (done bool) {
 	if schdl.actnmde != schdlactnmain {
 		done = true
@@ -361,12 +700,12 @@ func (schdl *Schedule) errDoneLink(lnk *enumeration.Node, err error) (done bool)
 
 func executeMain(schdl *Schedule) (done bool, err error) {
 	if actnsl := schdl.actns.Length(); actnsl > 0 {
-		schdl.actns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, nil, nil)
+		schdl.actns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, schdl.disposeLink, nil, nil)
 	}
 	if schdl.actns.Length() == 0 || schdl.once {
 		schdl.actnmde = schdlactnwrapup
 		if actnsl := schdl.wrapupactns.Length(); actnsl > 0 {
-			schdl.wrapupactns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, nil, nil)
+			schdl.wrapupactns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, schdl.disposeLink, nil, nil)
 		}
 		if done = (schdl.actns.Length() == 0 || schdl.once); !done {
 			schdl.actnmde = schdlactnmain
@@ -380,7 +719,7 @@ func executeInit(schdl *Schedule) (nextactns bool, err error) {
 		if schdl.actnmde == schdlactninit && schdl.initstart {
 			schdl.initstart = false
 			if actnsl := schdl.initactns.Length(); actnsl > 0 {
-				schdl.initactns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, nil, nil)
+				schdl.initactns.Iterate(schdl.doLink, schdl.errDoLink, schdl.doneLink, schdl.errDoneLink, schdl.disposeLink, nil, nil)
 			}
 			if actnsl := schdl.initactns.Length(); actnsl == 0 {
 				schdl.actnmde = schdlactnmain

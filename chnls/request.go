@@ -17,7 +17,7 @@ import (
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
-	"github.com/evocert/kwe/scheduling"
+	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/web"
 	"github.com/evocert/kwe/webactions"
 
