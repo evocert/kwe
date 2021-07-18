@@ -29,7 +29,7 @@ func AlertifyCSS() io.Reader {
 func init() {
 	gblrs := resources.GLOBALRSNG()
 	gblrs.FS().MKDIR("/alertify/css", "")
-	gblrs.FS().MKDIR("/alerttify/js", "")
+	gblrs.FS().MKDIR("/alertify/js", "")
 	gblrs.FS().SET("/alertify/css/alertify.css", AlertifyCSS())
 	gblrs.FS().SET("/alertify/js/alertify.js", AlertifyJS())
 }
