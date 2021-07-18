@@ -31,5 +31,5 @@ func init() {
 	gblrs.FS().MKDIR("/alertify/css", "")
 	gblrs.FS().MKDIR("/alerttify/js", "")
 	gblrs.FS().SET("/alertify/css/alertify.css", AlertifyCSS())
-	gblrs.FS().SET("/alertify/js/alertify.j", AlertifyJS())
+	gblrs.FS().SET("/alertify/js/alertify.js", AlertifyJS())
 }
