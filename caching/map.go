@@ -2,7 +2,9 @@ package caching
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -639,8 +641,68 @@ func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
 	return
 }
 
-func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (arv interface{}) {
+func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
+	if mp != nil && len(a) > 1 {
+		var lkpmp *Map = mp
+		ks := a[0 : len(a)-1]
+		a = a[len(a):]
+		var arrv []interface{} = nil
+		if arv, atargsok := a[0].([]interface{}); atargsok {
+			arrv = arv[:]
+		} else {
+			arrv = []interface{}{a[0]}
+		}
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if valf, found := subfind(); found {
+					if arv, arrvok := valf.([]interface{}); arrvok {
+						for an, ad := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+								if ai := int(adi); ai > -1 && ai < len(arv) {
+									if (an + 1) < len(arrv) {
+										if arv, arrvok = arv[ai].([]interface{}); arrvok {
+											continue
+										} else {
+											break
+										}
+									} else {
+										av = arv[ai]
+										break
+									}
+								} else {
+									break
+								}
 
+							} else {
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
 	return
 }
 
