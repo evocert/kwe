@@ -172,16 +172,16 @@ func (cnhn *connHandler) SetWriteDeadline(t time.Time) (err error) {
 }
 
 type ConnHandler struct {
-	con      *net.TCPConn
+	con      net.Conn
 	maxread  int64
 	maxwrite int64
 }
 
 func newConnHandler(con net.Conn) (cnhdnlr *ConnHandler) {
 	if tcpcn, tcpcnok := con.(*net.TCPConn); tcpcnok {
-		tcpcn.SetLinger(-1)
-		tcpcn.SetReadBuffer(8192)
-		tcpcn.SetWriteBuffer(8192)
+		//tcpcn.SetLinger(0)
+		//tcpcn.SetReadBuffer(8192)
+		//tcpcn.SetWriteBuffer(8192)
 		cnhdnlr = &ConnHandler{con: tcpcn, maxread: 0, maxwrite: 0}
 	}
 	return cnhdnlr
@@ -283,32 +283,9 @@ func (cnhndlr *ConnHandler) SetWriteDeadline(t time.Time) (err error) {
 
 // Accept waits for and returns the next connection to the listener.
 func (lstnhndlr *ListnerHandler) Accept() (con net.Conn, err error) {
-	var tcpcn *net.TCPConn = nil
 	if con, err = lstnhndlr.ln.Accept(); err == nil {
-		//tcpcn, _ = con.(*net.TCPConn)
+		con = newConnHandler(con)
 	}
-
-	if tcpcn != nil {
-		tcpcn.SetLinger(-1)
-		tcpcn.SetReadBuffer(8192)
-		tcpcn.SetWriteBuffer(65536)
-		tcpcn.SetNoDelay(true)
-		tcpcn.SetKeepAlive(false)
-		//tcpcn.SetKeepAlivePeriod(time.Second * 30)
-		con = tcpcn
-	}
-
-	/*if con != nil {
-		func() {
-			atclcnref := time.Now().UnixNano()
-			lstnhndlr.lck.Lock()
-			defer lstnhndlr.lck.Unlock()
-			lstnhndlr.lstactualcns[atclcnref] = con
-			cnhn := &connHandler{con: con, atclcnref: atclcnref, lstnhndlr: lstnhndlr, rmtaddr: con.RemoteAddr(), lcladdr: con.LocalAddr()}
-			con = cnhn
-		}()
-	}*/
-	//con, err = lstnhndlr.ln.Accept()
 	return
 }
 

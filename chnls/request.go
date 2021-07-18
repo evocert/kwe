@@ -54,6 +54,7 @@ type Request struct {
 	wbytesi          int
 	rqstw            io.Writer
 	httpr            *http.Request
+	tmpbffr          *iorw.Buffer
 	cchdrqstcntnt    *iorw.Buffer
 	cchdrqstcntntrdr *iorw.BuffReader
 	prtclmethod      string
@@ -356,6 +357,10 @@ func (rqst *Request) Close() (err error) {
 			rqst.cchdrqstcntnt.Close()
 			rqst.cchdrqstcntnt = nil
 		}
+		if rqst.tmpbffr != nil {
+			rqst.tmpbffr.Close()
+			rqst.tmpbffr = nil
+		}
 		if rqst.httpr != nil {
 			rqst.httpr = nil
 		}
@@ -546,17 +551,19 @@ func (rqst *Request) execute(interrupt func()) {
 }
 
 func (rqst *Request) internWrite(p []byte) (n int, err error) {
-	if httpw := rqst.httpw; httpw != nil {
-		if rqst.zpw != nil {
-			n, err = rqst.zpw.Write(p)
-		} else if httpw != nil {
-			n, err = httpw.Write(p)
+	func() {
+		if httpw := rqst.httpw; httpw != nil {
+			if rqst.zpw != nil {
+				n, err = rqst.zpw.Write(p)
+			} else if httpw != nil {
+				n, err = httpw.Write(p)
+			} else if rqstw := rqst.rqstw; rqstw != nil {
+				n, err = rqstw.Write(p)
+			}
 		} else if rqstw := rqst.rqstw; rqstw != nil {
 			n, err = rqstw.Write(p)
 		}
-	} else if rqstw := rqst.rqstw; rqstw != nil {
-		n, err = rqstw.Write(p)
-	}
+	}()
 	return
 }
 
@@ -575,7 +582,11 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 					return
 				}
 			}
-			n, err = rqst.internWrite(p)
+			if rqst.tmpbffr == nil {
+				rqst.tmpbffr = iorw.NewBuffer()
+			}
+			n, err = rqst.tmpbffr.Write(p)
+			rqst.flushTmpBuf(1024 * 1024)
 		}
 	}
 	return
@@ -774,9 +785,22 @@ func (rqst *Request) processPaths(wrapup bool) {
 		}
 		rqst.startWriting()
 	}
+	rqst.flushTmpBuf()
 	if wrapup {
 		rqst.wrapup()
 	}
+}
+
+func (rqst *Request) flushTmpBuf(mxsize ...int64) (err error) {
+	if rqst.tmpbffr != nil && ((len(mxsize) == 0 && rqst.tmpbffr.Size() > 0) || (len(mxsize) == 0 && rqst.tmpbffr.Size() >= mxsize[0])) {
+		func() {
+			rdr := rqst.tmpbffr.Reader()
+			defer rdr.Close()
+			_, err = iorw.WriteToFunc(rdr, rqst.internWrite)
+			rqst.tmpbffr.Clear()
+		}()
+	}
+	return
 }
 
 //Print helper Print(...interface) over *Request

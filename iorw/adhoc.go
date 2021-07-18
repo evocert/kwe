@@ -231,3 +231,68 @@ func RunesToUTF8(rs []rune) []byte {
 
 	return bs
 }
+
+type funcrdrwtr struct {
+	funcw func([]byte) (int, error)
+	funcr func([]byte) (int, error)
+}
+
+func (fncrw *funcrdrwtr) Close() (err error) {
+	if fncrw != nil {
+		if fncrw.funcr != nil {
+			fncrw.funcr = nil
+		}
+		if fncrw.funcw != nil {
+			fncrw.funcw = nil
+		}
+		fncrw = nil
+	}
+	return
+}
+
+func (fncrw *funcrdrwtr) Write(p []byte) (n int, err error) {
+	if fncrw != nil && fncrw.funcw != nil {
+		n, err = fncrw.funcw(p)
+	}
+	return
+}
+
+func (fncrw *funcrdrwtr) Read(p []byte) (n int, err error) {
+	if fncrw != nil && fncrw.funcr != nil {
+		n, err = fncrw.funcr(p)
+	}
+	return
+}
+
+func WriteToFunc(r io.Reader, funcw func([]byte) (int, error)) (n int64, err error) {
+	if r != nil && funcw != nil {
+		fncrw := &funcrdrwtr{funcw: funcw}
+		func() {
+			defer fncrw.Close()
+			n, err = io.Copy(fncrw, r)
+		}()
+	}
+	return
+}
+
+func ReadToFunc(w io.Writer, funcr func([]byte) (int, error)) (n int64, err error) {
+	if w != nil && funcr != nil {
+		fncrw := &funcrdrwtr{funcr: funcr}
+		func() {
+			defer fncrw.Close()
+			n, err = io.Copy(w, fncrw)
+		}()
+	}
+	return
+}
+
+func ReadWriteToFunc(funcw func([]byte) (int, error), funcr func([]byte) (int, error)) (n int64, err error) {
+	if funcw != nil && funcr != nil {
+		fncrw := &funcrdrwtr{funcr: funcr, funcw: funcw}
+		func() {
+			defer fncrw.Close()
+			n, err = io.Copy(fncrw, fncrw)
+		}()
+	}
+	return
+}

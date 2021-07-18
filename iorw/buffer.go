@@ -309,6 +309,13 @@ func (bufr *BuffReader) SetMaxRead(maxlen int64) (err error) {
 	return
 }
 
+func (bufr *BuffReader) WriteToFunc(funcw func([]byte) (int, error)) (n int64, err error) {
+	if bufr != nil && funcw != nil {
+		n, err = WriteToFunc(bufr, funcw)
+	}
+	return
+}
+
 //WriteTo - helper for io.Copy
 func (bufr *BuffReader) WriteTo(w io.Writer) (n int64, err error) {
 	if w != nil && bufr != nil {
