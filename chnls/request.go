@@ -586,7 +586,7 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 				rqst.tmpbffr = iorw.NewBuffer()
 			}
 			n, err = rqst.tmpbffr.Write(p)
-			rqst.flushTmpBuf(1024 * 1024)
+			rqst.flushTmpBuf(8192)
 		}
 	}
 	return
@@ -911,7 +911,14 @@ func (rqst *Request) startWriting() (err error) {
 		hdr.Set("Connection", "close")
 	}
 	if httpw := rqst.httpw; httpw != nil {
-		httpw.WriteHeader(rqst.httpstatus)
+		func() {
+			defer func() {
+				if rv := recover(); rv != nil {
+					err = fmt.Errorf("%v", rv)
+				}
+			}()
+			httpw.WriteHeader(rqst.httpstatus)
+		}()
 	}
 	return
 }
