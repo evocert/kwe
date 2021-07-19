@@ -54,7 +54,8 @@ type Request struct {
 	wbytesi          int
 	rqstw            io.Writer
 	httpr            *http.Request
-	tmpbffr          *iorw.Buffer
+	tmpbytes         []byte
+	tmpbytesi        int
 	cchdrqstcntnt    *iorw.Buffer
 	cchdrqstcntntrdr *iorw.BuffReader
 	prtclmethod      string
@@ -357,10 +358,10 @@ func (rqst *Request) Close() (err error) {
 			rqst.cchdrqstcntnt.Close()
 			rqst.cchdrqstcntnt = nil
 		}
-		if rqst.tmpbffr != nil {
-			rqst.tmpbffr.Close()
-			rqst.tmpbffr = nil
+		if rqst.tmpbytes != nil {
+			rqst.tmpbytes = nil
 		}
+		rqst.tmpbytesi = 0
 		if rqst.httpr != nil {
 			rqst.httpr = nil
 		}
@@ -582,11 +583,32 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 					return
 				}
 			}
-			if rqst.tmpbffr == nil {
-				rqst.tmpbffr = iorw.NewBuffer()
+			if rqst.tmpbytes == nil {
+				rqst.tmpbytes = make([]byte, 1024*1024)
+				rqst.tmpbytesi = 0
 			}
-			n, err = rqst.tmpbffr.Write(p)
-			rqst.flushTmpBuf(8192)
+			if pl := len(p); pl > 0 {
+				for n < pl {
+					if tmpl := len(rqst.tmpbytes); tmpl > 0 {
+						if (pl - n) >= (tmpl - rqst.tmpbytesi) {
+							if cl := copy(rqst.tmpbytes[rqst.tmpbytesi:rqst.tmpbytesi+(tmpl-rqst.tmpbytesi)], p[n:n+(tmpl-rqst.tmpbytesi)]); cl > 0 {
+								rqst.tmpbytesi += cl
+								n += cl
+							}
+						} else if (pl - n) < (tmpl - rqst.tmpbytesi) {
+							if cl := copy(rqst.tmpbytes[rqst.tmpbytesi:rqst.tmpbytesi+(pl-n)], p[n:n+(pl-n)]); cl > 0 {
+								rqst.tmpbytesi += cl
+								n += cl
+							}
+						}
+						rqst.flushTmpBuf(tmpl)
+					} else {
+						break
+					}
+				}
+			}
+			//n, err = rqst.tmpbffr.Write(p)
+			//rqst.flushTmpBuf(8192)
 		}
 	}
 	return
@@ -791,14 +813,18 @@ func (rqst *Request) processPaths(wrapup bool) {
 	}
 }
 
-func (rqst *Request) flushTmpBuf(mxsize ...int64) (err error) {
-	if rqst.tmpbffr != nil && ((len(mxsize) == 0 && rqst.tmpbffr.Size() > 0) || (len(mxsize) == 0 && rqst.tmpbffr.Size() >= mxsize[0])) {
+func (rqst *Request) flushTmpBuf(mxsize ...int) (err error) {
+	/*if rqst.tmpbffr != nil && ((len(mxsize) == 0 && rqst.tmpbffr.Size() > 0) || (len(mxsize) == 0 && rqst.tmpbffr.Size() >= mxsize[0])) {
 		func() {
 			rdr := rqst.tmpbffr.Reader()
 			defer rdr.Close()
 			_, err = iorw.WriteToFunc(rdr, rqst.internWrite)
 			rqst.tmpbffr.Clear()
 		}()
+	}*/
+	if (len(mxsize) > 0 && rqst.tmpbytesi >= mxsize[0]) || (len(mxsize) == 0 && rqst.tmpbytesi > 0) {
+		_, err = rqst.internWrite(rqst.tmpbytes[:rqst.tmpbytesi])
+		rqst.tmpbytesi = 0
 	}
 	return
 }
