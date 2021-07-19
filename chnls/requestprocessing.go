@@ -74,7 +74,7 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		rqstsettings = map[string]interface{}{}
 	}
 
-	rqst = &Request{prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpstatus: 200, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+	rqst = &Request{stillValid: true, prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpstatus: 200, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:      initPath,
 		mphndlr:       caching.GLOBALMAP().Handler(),
 		mediarqst:     false,
@@ -97,7 +97,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 func internalExecuteRequest(rqst *Request, interrupt func()) {
 	var bgrndctnx context.Context = nil
 	httpr, httpw, rqstw, rqstr := rqst.httpr, rqst.httpw, rqst.rqstw, rqst.rqstr
-
 	if httpr != nil && httpw != nil {
 		rqst.prtcl = httpr.Proto
 		rqst.prtclmethod = httpr.Method
@@ -165,6 +164,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 					}
 				}
 			}
+			rqst.stillValid = false
 		}
 	}()
 }

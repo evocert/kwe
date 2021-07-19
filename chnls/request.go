@@ -30,6 +30,7 @@ import (
 
 //Request -
 type Request struct {
+	stillValid       bool
 	atv              *active.Active
 	actnslst         *enumeration.List
 	lstexctngactng   *Action
@@ -588,8 +589,8 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 				rqst.tmpbytesi = 0
 			}
 			if pl := len(p); pl > 0 {
-				for n < pl {
-					if tmpl := len(rqst.tmpbytes); tmpl > 0 {
+				for n < pl && rqst.stillValid {
+					if tmpl := len(rqst.tmpbytes); tmpl > 0 && rqst.stillValid {
 						if (pl - n) >= (tmpl - rqst.tmpbytesi) {
 							if cl := copy(rqst.tmpbytes[rqst.tmpbytesi:rqst.tmpbytesi+(tmpl-rqst.tmpbytesi)], p[n:n+(tmpl-rqst.tmpbytesi)]); cl > 0 {
 								rqst.tmpbytesi += cl
@@ -603,6 +604,9 @@ func (rqst *Request) Write(p []byte) (n int, err error) {
 						}
 						rqst.flushTmpBuf(tmpl)
 					} else {
+						if !rqst.stillValid {
+							err = fmt.Errorf("*Request invalid")
+						}
 						break
 					}
 				}
@@ -943,7 +947,9 @@ func (rqst *Request) startWriting() (err error) {
 					err = fmt.Errorf("%v", rv)
 				}
 			}()
-			httpw.WriteHeader(rqst.httpstatus)
+			if rqst.stillValid {
+				httpw.WriteHeader(rqst.httpstatus)
+			}
 		}()
 	}
 	return
