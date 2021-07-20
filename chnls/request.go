@@ -918,15 +918,15 @@ func (rqst *Request) wrapup() (err error) {
 }
 
 func (rqst *Request) startWriting() (err error) {
-	defer func() {
-		if rv := recover(); rv != nil {
-			//err = fmt.Errorf("%v", rv)
-		}
-	}()
 	if rqst.startedWriting {
 		return
 	}
 	rqst.startedWriting = true
+	defer func() {
+		if rv := recover(); rv != nil {
+			err = fmt.Errorf("%v", rv)
+		}
+	}()
 	if hdr := rqst.ResponseHeader(); hdr != nil {
 		if hdr.Get("Content-Type") == "" {
 			hdr.Set("Content-Type", rqst.mimetype)
