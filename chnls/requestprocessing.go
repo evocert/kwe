@@ -1,37 +1,26 @@
 package chnls
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"runtime"
 
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw"
-	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
+	"github.com/evocert/kwe/requesting"
 )
 
-func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpr *http.Request, httpflshr http.Flusher, a ...interface{}) (rqst *Request, interrupt func()) {
+func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rqstrw requesting.RequestorAPI, a ...interface{}) (rqst *Request, interrupt func()) {
 	defer runtime.GC()
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
-	var rqstr iorw.Reader = nil
-	var remoteHost = ""
-	var localHost = ""
+
 	var mqttmsg mqtt.Message = nil
 	var mqttevent mqtt.MqttEvent = nil
 	var aok = false
-	if rdr != nil {
-		if rqstr, _ = rdr.(iorw.Reader); rqstr == nil {
-			rqstr = iorw.NewEOFCloseSeekReader(rdr)
-		}
-	}
+
 	for ai < len(a) {
 		if da, daok := a[ai].([]interface{}); daok {
 			if al := len(da); al > 0 {
@@ -40,20 +29,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 			} else {
 				a = a[1:]
 			}
-			continue
-		} else if cnctn, cnctnok := a[ai].(*listen.ConnHandler); cnctnok {
-			if cnctn != nil {
-				remoteHost = cnctn.RemoteAddr().String()
-				localHost = cnctn.LocalAddr().String()
-			}
-			a = a[1:]
-			continue
-		} else if cnctn, cnctnok := a[ai].(net.Conn); cnctnok {
-			if cnctn != nil {
-				remoteHost = cnctn.RemoteAddr().String()
-				localHost = cnctn.LocalAddr().String()
-			}
-			a = a[1:]
 			continue
 		} else if mqttmsg, aok = a[ai].(mqtt.Message); aok {
 			a = a[1:]
@@ -74,16 +49,11 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 		rqstsettings = map[string]interface{}{}
 	}
 
-	rqst = &Request{stillValid: true, prntrqst: prntrqst, chnl: chnl, rmtHost: remoteHost, lclHost: localHost, isFirstRequest: true, mimetype: "", zpw: nil, Interrupted: false, startedWriting: false, wbytes: make([]byte, 8192), wbytesi: 0, flshr: httpflshr, rqstw: wtr, httpstatus: 200, httpw: httpw, rqstr: rqstr, httpr: httpr, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
-		initPath:      initPath,
-		mphndlr:       caching.GLOBALMAP().Handler(),
-		mediarqst:     false,
-		rqstoffset:    -1,
-		rqstendoffset: -1,
-		rqstoffsetmax: -1,
-		rqstmaxsize:   -1,
-		mqttmsg:       mqttmsg,
-		mqttevent:     mqttevent}
+	rqst = &Request{rqstrw: rqstrw, prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, Interrupted: false, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
+		initPath:  initPath,
+		mphndlr:   caching.GLOBALMAP().Handler(),
+		mqttmsg:   mqttmsg,
+		mqttevent: mqttevent}
 	if len(rqst.args) > 0 {
 		copy(rqst.args[:], a[:])
 	}
@@ -94,7 +64,7 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rdr i
 	return
 }
 
-func internalExecuteRequest(rqst *Request, interrupt func()) {
+/*func internalExecuteRequest(rqst *Request, interrupt func()) {
 	var bgrndctnx context.Context = nil
 	httpr, httpw, rqstw, rqstr := rqst.httpr, rqst.httpw, rqst.rqstw, rqst.rqstr
 	if httpr != nil && httpw != nil {
@@ -164,34 +134,33 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 					}
 				}
 			}
-			rqst.stillValid = false
 		}
 	}()
+}*/
+
+func internalExecuteRequest(rqst *Request, interrupt func()) {
+	rqst.executeNow(interrupt)
 }
 
-func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rdr io.Reader, wtr io.Writer, httpw http.ResponseWriter, httpflshr http.Flusher, httpr *http.Request, a ...interface{}) {
+func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rqstrapi requesting.RequestAPI, rqstwapi requesting.ResponseAPI, a ...interface{}) {
 	var excrqst *Request = nil
 	var interrupt func() = nil
-	if wtr == nil && httpw != nil {
-		wtr = httpw
-	}
-
-	if httpw != nil && httpflshr == nil {
-		if flshr, flshrok := httpw.(http.Flusher); flshrok {
-			httpflshr = flshr
-		}
-	}
 	if prntrqst == nil {
-		excrqst, interrupt = internalNewRequest(initpath, chnl, prntrqst, rdr, wtr, httpw, httpr, httpflshr, a...)
+		excrqst, interrupt = internalNewRequest(initpath, chnl, prntrqst, requesting.NewRequestor(rqstrapi, rqstwapi), a...)
 	} else {
 		excrqst = prntrqst
 	}
 	if excrqst != nil {
-		internalExecuteRequest(excrqst, func() {
-			if interrupt != nil {
-				interrupt()
+		func() {
+			if prntrqst != excrqst {
+				defer excrqst.Close()
 			}
-		})
+			internalExecuteRequest(excrqst, func() {
+				if interrupt != nil {
+					interrupt()
+				}
+			})
+		}()
 		excrqst = nil
 	}
 }

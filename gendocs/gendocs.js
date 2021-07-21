@@ -318,6 +318,6 @@ _fsutils.FIND(root).filter(function(e){
         }
     });
 }.bind(this));
-request.ResponseHeader().Set("Content-Type","application/json");
+request.Response().SetHeader("Content-Type","application/json");
 _fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
 print(JSON.stringify(prep));

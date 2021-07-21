@@ -64,7 +64,7 @@ func (lnksrvs *LnkService) startLnkService(args ...string) {
 			conflabel = "broker"
 		}
 	}
-	chnls.GLOBALCHNL().DefaultServeRW(out, "/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", in)
+	chnls.GLOBALCHNL().ServeReaderWriter("/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", out, in)
 	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 
@@ -76,9 +76,9 @@ func (lnksrvs *LnkService) runLnkService(args ...string) {
 			cancelChan <- syscall.SIGTERM
 			cancelChan <- syscall.SIGINT
 		})
-		go func() {
+		/*go func() {
 			chnls.GLOBALCHNL().Stdio(os.Stdout, os.Stdin, os.Stderr)
-		}()
+		}()*/
 		<-cancelChan
 	} else if lnksrvs.IsBroker() {
 		if lnksrvs.brkrfnc != nil {
@@ -111,5 +111,5 @@ func RunService(args ...string) {
 
 //RunBroker - RunBroker command as request in global channel
 func RunBroker(exename string, exealias string, args ...string) {
-	chnls.GLOBALCHNL().DefaultServeRW(os.Stdout, "/", os.Stdin)
+	chnls.GLOBALCHNL().ServeReaderWriter("/", os.Stdout, os.Stdin)
 }

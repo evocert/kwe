@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/requesting"
+	httpr "github.com/evocert/kwe/requesting/http"
+	"github.com/evocert/kwe/ws"
 	http2 "golang.org/x/net/http2"
 	h2c "golang.org/x/net/http2/h2c"
 )
@@ -25,150 +28,6 @@ type ListnerHandler struct {
 	ln           net.Listener
 	lck          *sync.RWMutex
 	lstactualcns map[int64]net.Conn
-}
-
-func contextReadWriteBytes(oprw rune, lstnhndlr *ListnerHandler, atclcnref int64, p []byte, con net.Conn) (n int, err error) {
-	if con == nil {
-		con = getcontextcn(lstnhndlr, atclcnref)
-	}
-	if con != nil {
-		if oprw == 'R' {
-			n, err = con.Read(p)
-		} else if oprw == 'W' {
-			n, err = con.Write(p)
-		}
-	} else {
-		if oprw == 'R' && n == 0 && err == nil {
-			err = io.EOF
-		}
-	}
-	return
-}
-
-func contextSetDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
-	if con == nil {
-		con = getcontextcn(lstnhndlr, atclcnref)
-	}
-	if con != nil {
-		err = con.SetDeadline(t)
-	}
-	return
-}
-
-func contextSetReadDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
-	if con == nil {
-		con = getcontextcn(lstnhndlr, atclcnref)
-	}
-	if con != nil {
-		err = con.SetReadDeadline(t)
-	}
-	return
-}
-
-func contextSetWriteDeadline(lstnhndlr *ListnerHandler, atclcnref int64, t time.Time, con net.Conn) (err error) {
-	if con == nil {
-		con = getcontextcn(lstnhndlr, atclcnref)
-	}
-	if con != nil {
-		err = con.SetWriteDeadline(t)
-	}
-	return
-}
-
-func getcontextcn(lstnhndlr *ListnerHandler, atclcnref int64) (con net.Conn) {
-	if lstnhndlr != nil {
-		func() {
-			lstnhndlr.lck.RLock()
-			defer lstnhndlr.lck.RUnlock()
-			con = lstnhndlr.lstactualcns[atclcnref]
-		}()
-	}
-	return
-}
-
-func contextClose(lstnhndlr *ListnerHandler, atclcnref int64, con net.Conn) (err error) {
-	if con != nil {
-		err = con.Close()
-	} else {
-		func() {
-			lstnhndlr.lck.Lock()
-			defer lstnhndlr.lck.Unlock()
-			if con := lstnhndlr.lstactualcns[atclcnref]; con != nil {
-				delete(lstnhndlr.lstactualcns, atclcnref)
-				err = con.Close()
-			}
-		}()
-	}
-	return
-}
-
-type connHandler struct {
-	atclcnref int64
-	con       net.Conn
-	tcpcon    *net.TCPConn
-	lstnhndlr *ListnerHandler
-	rmtaddr   net.Addr
-	lcladdr   net.Addr
-}
-
-func (cnhn *connHandler) Read(p []byte) (n int, err error) {
-	if cnhn != nil && cnhn.lstnhndlr != nil && cnhn.atclcnref > 0 {
-		n, err = contextReadWriteBytes('R', cnhn.lstnhndlr, cnhn.atclcnref, p, cnhn.con)
-	}
-	return
-}
-
-func (cnhn *connHandler) Write(p []byte) (n int, err error) {
-	if cnhn != nil && cnhn.lstnhndlr != nil && cnhn.atclcnref > 0 {
-		n, err = contextReadWriteBytes('W', cnhn.lstnhndlr, cnhn.atclcnref, p, cnhn.con)
-	}
-	return
-}
-
-func (cnhn *connHandler) Close() (err error) {
-	if cnhn != nil {
-		if cnhn.lstnhndlr != nil {
-			if cnhn.atclcnref > 0 {
-				err = contextClose(cnhn.lstnhndlr, cnhn.atclcnref, cnhn.con)
-			}
-			cnhn.lstnhndlr = nil
-		}
-		if cnhn.lcladdr != nil {
-			cnhn.lcladdr = nil
-		}
-		if cnhn.rmtaddr != nil {
-			cnhn.rmtaddr = nil
-		}
-		if cnhn.con != nil {
-			cnhn.con = nil
-		}
-	}
-	return
-}
-
-func (cnhn *connHandler) LocalAddr() (addr net.Addr) {
-	addr = cnhn.lcladdr
-	return
-}
-
-func (cnhn *connHandler) RemoteAddr() (addr net.Addr) {
-	addr = cnhn.rmtaddr
-	return
-}
-
-func (cnhn *connHandler) SetDeadline(t time.Time) (err error) {
-	err = contextSetDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
-	return
-}
-
-func (cnhn *connHandler) SetReadDeadline(t time.Time) (err error) {
-	err = contextSetReadDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
-	return
-}
-
-func (cnhn *connHandler) SetWriteDeadline(t time.Time) (err error) {
-	err = contextSetWriteDeadline(cnhn.lstnhndlr, cnhn.atclcnref, t, cnhn.con)
-	return
 }
 
 type ConnHandler struct {
@@ -329,7 +188,7 @@ type contextKey struct {
 	key string
 }
 
-var ConnContextKey = &contextKey{"http-conn"}
+var ConnContextKey = "http-conn"
 
 func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrvr *lstnrserver) {
 	var h2s = &http2.Server{}
@@ -353,13 +212,44 @@ func newlstnrserver(hndlr http.Handler, addr string, unencrypted bool) (lstnrsrv
 //Listener - struct
 type Listener struct {
 	hndlr        http.Handler
+	rqsthndlr    requesting.RequestorHandler
 	lstnrservers map[string]*lstnrserver
 	dne          chan bool
 }
 
 //NewListener - instance
-func NewListener(hndlr http.Handler) (lstnr *Listener) {
-	lstnr = &Listener{dne: make(chan bool, 1), hndlr: hndlr, lstnrservers: map[string]*lstnrserver{}}
+func NewListener(handler interface{}) (lstnr *Listener) {
+	var hndlr http.Handler = nil
+	var rqsthndlr requesting.RequestorHandler = nil
+	if handler != nil {
+		if rqsthndlr, _ = handler.(requesting.RequestorHandler); rqsthndlr != nil {
+			hndlr = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var inirspath = r.URL.Path
+				if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
+					go func() {
+						var rqstr = httpr.NewRequest(inirspath, wsrw)
+						var rspns = httpr.NewResponse(wsrw, rqstr)
+						defer func() {
+							rqstr.Close()
+							rspns.Close()
+							defer wsrw.Close()
+						}()
+						rqsthndlr.Serve(inirspath, rqstr, rspns)
+					}()
+				} else {
+					var rqstr = httpr.NewRequest(inirspath, r)
+					var rspns = httpr.NewResponse(w, rqstr)
+					defer func() {
+						rqstr.Close()
+						rspns.Close()
+					}()
+					rqsthndlr.Serve(inirspath, rqstr, rspns)
+				}
+
+			})
+		}
+	}
+	lstnr = &Listener{dne: make(chan bool, 1), hndlr: hndlr, rqsthndlr: rqsthndlr, lstnrservers: map[string]*lstnrserver{}}
 	return
 }
 

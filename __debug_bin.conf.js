@@ -1,6 +1,6 @@
 resourcing.RegisterEndpoint("/gendocs","C:/GitHub/kwe/gendocs");
 resourcing.RegisterEndpoint("/webcrawler","D:/projects/system/kweexamples-main/kweexamples-main/src/webcrawler");
-//channel.Send("/gendocs/active:gendocs.js");
+channel.Send("/gendocs/active:gendocs.js");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/one/system");
 resourcing.RegisterEndpoint("/movies","D:/movies");
 resourcing.RegisterEndpoint("/mqtt","C:/Users/User/Downloads/mqtt");

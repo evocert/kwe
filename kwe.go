@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/evocert/kwe/alertify"
 	_ "github.com/evocert/kwe/fonts/material"
+
 	_ "github.com/evocert/kwe/typescript"
 
 	_ "github.com/evocert/kwe/database/mysql"
@@ -18,5 +19,4 @@ import (
 
 func main() {
 	service.RunService(os.Args...)
-
 }

@@ -8,17 +8,20 @@ import (
 
 //Buffer -
 type Buffer struct {
-	buffer  [][]byte
-	bytes   []byte
-	bytesi  int
-	lck     *sync.RWMutex
-	bufrs   map[*BuffReader]*BuffReader
-	OnClose func(*Buffer)
+	buffer        [][]byte
+	bytes         []byte
+	bytesi        int
+	lck           *sync.RWMutex
+	bufrs         map[*BuffReader]*BuffReader
+	OnClose       func(*Buffer)
+	MaxLenToWrite int64
+	maxwrttnl     int64
+	OnMaxWritten  func(int64) bool
 }
 
 //NewBuffer -
 func NewBuffer() (buff *Buffer) {
-	buff = &Buffer{lck: &sync.RWMutex{}, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192), bufrs: map[*BuffReader]*BuffReader{}}
+	buff = &Buffer{lck: &sync.RWMutex{}, maxwrttnl: -1, MaxLenToWrite: -1, buffer: [][]byte{}, bytesi: 0, bytes: make([]byte, 8192), bufrs: map[*BuffReader]*BuffReader{}}
 	//runtime.SetFinalizer(buff, bufferFinalize)
 	return
 }
@@ -200,11 +203,25 @@ func (buff *Buffer) Write(p []byte) (n int, err error) {
 					if cl := copy(buff.bytes[buff.bytesi:buff.bytesi+tl], p[n:n+tl]); cl > 0 {
 						n += cl
 						buff.bytesi += cl
+						if buff.MaxLenToWrite > 0 {
+							if buff.maxwrttnl < 0 {
+								buff.maxwrttnl = int64(cl)
+							} else {
+								buff.maxwrttnl += int64(cl)
+							}
+						}
 					}
 				} else if tl := (pl - n); tl < (len(buff.bytes) - buff.bytesi) {
 					if cl := copy(buff.bytes[buff.bytesi:buff.bytesi+tl], p[n:n+tl]); cl > 0 {
 						n += cl
 						buff.bytesi += cl
+						if buff.MaxLenToWrite > 0 {
+							if buff.maxwrttnl < 0 {
+								buff.maxwrttnl = int64(cl)
+							} else {
+								buff.maxwrttnl += int64(cl)
+							}
+						}
 					}
 				}
 				if buff.bytesi == len(buff.bytes) {
@@ -218,6 +235,19 @@ func (buff *Buffer) Write(p []byte) (n int, err error) {
 				}
 			}
 		}()
+		if buff.MaxLenToWrite > 0 && buff.maxwrttnl >= buff.MaxLenToWrite {
+			if buff.OnMaxWritten != nil {
+				if buff.OnMaxWritten(buff.maxwrttnl) {
+					buff.maxwrttnl = -1
+				} else {
+					buff.MaxLenToWrite = -1
+					buff.maxwrttnl = -1
+				}
+			} else {
+				buff.MaxLenToWrite = -1
+				buff.maxwrttnl = -1
+			}
+		}
 	}
 	return
 }
@@ -280,6 +310,12 @@ func (buff *Buffer) Clear() (err error) {
 				}
 				if buff.bytesi > 0 {
 					buff.bytesi = 0
+				}
+				if buff.MaxLenToWrite > 0 {
+					if buff.OnMaxWritten == nil {
+						buff.MaxLenToWrite = -1
+						buff.maxwrttnl = -1
+					}
 				}
 			}()
 		}

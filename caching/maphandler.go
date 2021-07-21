@@ -436,7 +436,9 @@ func (mphndlr *MapHandler) Close(ks ...interface{}) {
 		kl := len(ks)
 		if kl == 0 {
 			if crntmp := mphndlr.mp; validMap(crntmp) {
-				crntmp.Close(mphndlr)
+				if mphndlr.internal {
+					crntmp.Close(mphndlr)
+				}
 				mphndlr.mp = nil
 				mphndlr.crntmp = nil
 				crntmp = nil

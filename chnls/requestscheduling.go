@@ -99,10 +99,8 @@ func (rqst *Request) executeScheduleAction(a ...interface{}) (err error) {
 					cmdfnctoexec(cmdmap)
 				} else if cmdargs, cmdargsok := a[0].([]interface{}); cmdargsok && len(cmdargs) > 0 {
 					cmdfnctoexec(cmdargs)
-				} else if cmdarg, cmdargok := a[0].(interface{}); cmdargok {
-					if cmdarg != nil {
-						cmdfnctoexec(cmdarg)
-					}
+				} else if cmdarg := a[0]; cmdarg == nil || cmdarg != nil {
+					cmdfnctoexec(cmdarg)
 				} else {
 					break
 				}

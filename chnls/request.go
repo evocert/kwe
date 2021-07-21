@@ -1,14 +1,10 @@
 package chnls
 
 import (
-	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/enumeration"
@@ -25,46 +21,25 @@ import (
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
+	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
 )
 
 //Request -
 type Request struct {
-	stillValid       bool
+	rqstrw requesting.RequestorAPI
+	//stillValid       bool
 	atv              *active.Active
 	actnslst         *enumeration.List
 	lstexctngactng   *Action
 	rqstrsngmngr     *resources.ResourcingManager
 	chnl             *Channel
-	rqstoffset       int64
-	rqstendoffset    int64
-	rqstoffsetmax    int64
-	rqstmaxsize      int64
-	mediarqst        bool
 	initPath         string
 	settings         map[string]interface{}
 	args             []interface{}
-	startedWriting   bool
-	startedReading   bool
-	mimetype         string
-	httpw            http.ResponseWriter
-	httpstatus       int
-	flshr            http.Flusher
 	prms             *parameters.Parameters
-	wbytes           []byte
-	wbytesi          int
-	rqstw            io.Writer
-	httpr            *http.Request
-	tmpbytes         []byte
-	tmpbytesi        int
 	cchdrqstcntnt    *iorw.Buffer
 	cchdrqstcntntrdr *iorw.BuffReader
-	prtclmethod      string
-	prtcl            string
-	rmtHost          string
-	lclHost          string
-	zpw              *gzip.Writer
-	rqstr            iorw.Reader
 	Interrupted      bool
 	objmap           map[string]interface{}
 	intrnbuffs       map[*iorw.Buffer]*iorw.Buffer
@@ -84,20 +59,8 @@ type Request struct {
 	//webing
 	webclient *web.ClientHandle
 	//mqtt
-	//mqttmngr  *mqtt.MQTTManager
-	//mqtttopic mqtt.Topic
 	mqttmsg   mqtt.Message
 	mqttevent mqtt.MqttEvent
-}
-
-//RemoteAddr return remote Address of any network request
-func (rqst *Request) RemoteAddr() string {
-	return rqst.rmtHost
-}
-
-//LocalAddr return local Address of any network request
-func (rqst *Request) LocalAddr() string {
-	return rqst.lclHost
 }
 
 //Resource - return mapped resource interface{} by path
@@ -109,7 +72,7 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 			} else if strings.HasSuffix(path, "require.min.js") {
 				path = "require.min.js"
 			}
-			rqst.FS().MKDIR("require")
+			rqst.FS().MKDIR("require", "")
 			if rs = rqst.FS().CAT("require/" + path); rs == nil {
 				if path == "require.js" || path == "require.min.js" {
 					rqst.FS().SET("require/"+path, requirejs.RequireJS())
@@ -131,16 +94,6 @@ func (rqst *Request) Resource(path string) (rs interface{}) {
 		}
 	}
 	return
-}
-
-//ProtoMethod - http e.g request METHOD
-func (rqst *Request) ProtoMethod() string {
-	return rqst.prtclmethod
-}
-
-//Proto - protocol of request e.g HTTP/1.1
-func (rqst *Request) Proto() string {
-	return rqst.prtcl
 }
 
 //MimeType - mimetype of extension - defaultext
@@ -176,49 +129,40 @@ func (rqst *Request) AddPath(path ...string) {
 	}
 }
 
-//ResponseHeaders wrap arround current ResponseWriter.Header
-func (rqst *Request) ResponseHeaders() (hdrs []string) {
-	hdrs = []string{}
-	if hdr := rqst.ResponseHeader(); hdr != nil {
-		for k := range hdr {
-			hdrs = append(hdrs, k)
+//Request - return requesting.RequestAPI
+func (rqst *Request) Request() requesting.RequestAPI {
+	if rqst != nil && rqst.rqstrw != nil {
+		return rqst.rqstrw.Request()
+	}
+	return nil
+}
+
+//Response - return requesting.ResponseAPI
+func (rqst *Request) Response() requesting.ResponseAPI {
+	if rqst != nil && rqst.rqstrw != nil {
+		return rqst.rqstrw.Response()
+	}
+	return nil
+}
+
+//IsValid - return valid,err
+func (rqst *Request) IsValid() (valid bool, err error) {
+	if rqst != nil {
+		if rqst.rqstrw != nil {
+			valid, err = rqst.rqstrw.IsValid()
+		} else {
+			valid, err = true, nil
 		}
+	} else {
+		valid, err = false, nil
 	}
 	return
 }
 
-//ResponseHeader wrap arround current ResponseWriter.Header
-func (rqst *Request) ResponseHeader() (hdr http.Header) {
-	if httpw := rqst.httpw; httpw != nil {
-		hdr = httpw.Header()
+func (rqst *Request) LoadParameters(prms *parameters.Parameters) {
+	if rqst != nil && rqst.rqstrw != nil {
+		rqst.rqstrw.LoadParameters(prms)
 	}
-	return
-}
-
-//SetResponseStatus  set Response Status
-func (rqst *Request) SetResponseStatus(status int) {
-	if httpw := rqst.httpw; httpw != nil {
-		rqst.httpstatus = status
-	}
-}
-
-//RequestHeaders wrap arround current Request.Header
-func (rqst *Request) RequestHeaders() (hdrs []string) {
-	hdrs = []string{}
-	if hdr := rqst.RequestHeader(); hdr != nil {
-		for k := range hdr {
-			hdrs = append(hdrs, k)
-		}
-	}
-	return
-}
-
-//RequestHeader wrap arround current Request.Header
-func (rqst *Request) RequestHeader() (hdr http.Header) {
-	if httpr := rqst.httpr; httpr != nil {
-		hdr = httpr.Header
-	}
-	return hdr
 }
 
 //Parameters - Request web Parameters
@@ -254,7 +198,7 @@ func (rqst *Request) RequestBodyS(cached ...bool) (s string) {
 
 //RequestBody - RequestBody as *iorw.EOFCloseSeekReader
 func (rqst *Request) RequestBody(cached ...bool) (bf *iorw.EOFCloseSeekReader) {
-	if rqst.httpr != nil {
+	/*if rqst.httpr != nil {
 		if len(cached) == 1 && cached[0] {
 			if rqst.cchdrqstcntnt == nil {
 				if rqst.cchdrqstcntntrdr != nil {
@@ -292,7 +236,7 @@ func (rqst *Request) RequestBody(cached ...bool) (bf *iorw.EOFCloseSeekReader) {
 				}
 			}
 		}
-	}
+	}*/
 	return
 }
 
@@ -305,6 +249,10 @@ func (rqst *Request) Close() (err error) {
 		}
 		if rqst.chnl != nil {
 			rqst.chnl = nil
+		}
+		if rqst.rqstrw != nil {
+			rqst.rqstrw.Close()
+			rqst.rqstrw = nil
 		}
 		if rqst.settings != nil {
 			if len(rqst.settings) > 0 {
@@ -327,12 +275,6 @@ func (rqst *Request) Close() (err error) {
 				rqst.args = rqst.args[1:]
 			}
 			rqst.args = nil
-		}
-		if rqst.rqstw != nil {
-			rqst.rqstw = nil
-		}
-		if rqst.rqstr != nil {
-			rqst.rqstr = nil
 		}
 		if rqst.actnslst != nil {
 			var actntodispose *Action
@@ -358,16 +300,6 @@ func (rqst *Request) Close() (err error) {
 		if rqst.cchdrqstcntnt != nil {
 			rqst.cchdrqstcntnt.Close()
 			rqst.cchdrqstcntnt = nil
-		}
-		if rqst.tmpbytes != nil {
-			rqst.tmpbytes = nil
-		}
-		rqst.tmpbytesi = 0
-		if rqst.httpr != nil {
-			rqst.httpr = nil
-		}
-		if rqst.httpw != nil {
-			rqst.httpw = nil
 		}
 		if rqst.objmap != nil {
 			if l := len(rqst.objmap); l > 0 {
@@ -478,7 +410,7 @@ func (rqst *Request) Close() (err error) {
 }
 
 func (rqst *Request) execute(interrupt func()) {
-	if httpr := rqst.httpr; httpr != nil {
+	/*if httpr := rqst.httpr; httpr != nil {
 		if httpw := rqst.httpw; httpw != nil {
 			rqst.prtcl = httpr.Proto
 			rqst.prtclmethod = httpr.Method
@@ -549,97 +481,7 @@ func (rqst *Request) execute(interrupt func()) {
 				}
 			}
 		}()
-	}
-}
-
-func (rqst *Request) internWrite(p []byte) (n int, err error) {
-	func() {
-		if httpw := rqst.httpw; httpw != nil {
-			if rqst.zpw != nil {
-				n, err = rqst.zpw.Write(p)
-			} else if httpw != nil {
-				n, err = httpw.Write(p)
-			} else if rqstw := rqst.rqstw; rqstw != nil {
-				n, err = rqstw.Write(p)
-			}
-		} else if rqstw := rqst.rqstw; rqstw != nil {
-			n, err = rqstw.Write(p)
-		}
-	}()
-	return
-}
-
-func (rqst *Request) internRead(p []byte) (n int, err error) {
-	if rqstr := rqst.rqstr; rqstr != nil {
-		n, err = rqstr.Read(p)
-	}
-	return
-}
-
-func (rqst *Request) Write(p []byte) (n int, err error) {
-	if rqst != nil {
-		if pl := len(p); pl > 0 {
-			if !rqst.startedWriting {
-				if err = rqst.startWriting(); err != nil {
-					return
-				}
-			}
-			if rqst.tmpbytes == nil {
-				rqst.tmpbytes = make([]byte, 1024*1024)
-				rqst.tmpbytesi = 0
-			}
-			if pl := len(p); pl > 0 {
-				for n < pl && rqst.stillValid {
-					if tmpl := len(rqst.tmpbytes); tmpl > 0 && rqst.stillValid {
-						if (pl - n) >= (tmpl - rqst.tmpbytesi) {
-							if cl := copy(rqst.tmpbytes[rqst.tmpbytesi:rqst.tmpbytesi+(tmpl-rqst.tmpbytesi)], p[n:n+(tmpl-rqst.tmpbytesi)]); cl > 0 {
-								rqst.tmpbytesi += cl
-								n += cl
-							}
-						} else if (pl - n) < (tmpl - rqst.tmpbytesi) {
-							if cl := copy(rqst.tmpbytes[rqst.tmpbytesi:rqst.tmpbytesi+(pl-n)], p[n:n+(pl-n)]); cl > 0 {
-								rqst.tmpbytesi += cl
-								n += cl
-							}
-						}
-						rqst.flushTmpBuf(tmpl)
-					} else {
-						if !rqst.stillValid {
-							err = fmt.Errorf("*Request invalid")
-						}
-						break
-					}
-				}
-			}
-			//n, err = rqst.tmpbffr.Write(p)
-			//rqst.flushTmpBuf(8192)
-		}
-	}
-	return
-}
-
-func (rqst *Request) startReading() (err error) {
-	defer func() {
-		if rv := recover(); rv != nil {
-			err = fmt.Errorf("%v", rv)
-		}
-		rqst.startedReading = true
-	}()
-	return
-}
-
-func (rqst *Request) Read(p []byte) (n int, err error) {
-	if rqst != nil {
-		if pl := len(p); pl > 0 {
-			if !rqst.startedReading {
-				if err = rqst.startReading(); err != nil {
-					return
-				}
-			}
-			n, err = rqst.internRead(p)
-		}
-	}
-	return
+	}*/
 }
 
 func (rqst *Request) WebClient() (webclient *web.ClientHandle) {
@@ -791,78 +633,16 @@ func (rqst *Request) processPaths(wrapup bool) {
 			})
 		actn = nil
 	}
-	//var actn *Action = nil
-	/*for len(rqst.actns) > 0 && !rqst.Interrupted {
-		actn = rqst.actns[0]
-		rqst.actns = rqst.actns[1:]
-		func() {
-			defer func() {
-
-			}()
-			executeAction(actn)
-		}()
-	}*/
-	if rqst.wbytesi > 0 {
-		_, _ = rqst.internWrite(rqst.wbytes[:rqst.wbytesi])
-	}
-	if !rqst.startedWriting {
-		if rqst.httpw != nil {
-			rqst.httpw.Header().Set("Content-Length", "0")
-		}
-		rqst.startWriting()
-	}
-	rqst.flushTmpBuf()
+	//if !rqst.startedWriting {
+	//	if rqst.httpw != nil {
+	//		rqst.httpw.Header().Set("Content-Length", "0")
+	//	}
+	//	rqst.startWriting()
+	//}
 	if wrapup {
+		//rqst.rqstrw.Response().StartedWriting(wrapup)
 		rqst.wrapup()
 	}
-}
-
-func (rqst *Request) flushTmpBuf(mxsize ...int) (err error) {
-	/*if rqst.tmpbffr != nil && ((len(mxsize) == 0 && rqst.tmpbffr.Size() > 0) || (len(mxsize) == 0 && rqst.tmpbffr.Size() >= mxsize[0])) {
-		func() {
-			rdr := rqst.tmpbffr.Reader()
-			defer rdr.Close()
-			_, err = iorw.WriteToFunc(rdr, rqst.internWrite)
-			rqst.tmpbffr.Clear()
-		}()
-	}*/
-	if (len(mxsize) > 0 && rqst.tmpbytesi >= mxsize[0]) || (len(mxsize) == 0 && rqst.tmpbytesi > 0) {
-		_, err = rqst.internWrite(rqst.tmpbytes[:rqst.tmpbytesi])
-		rqst.tmpbytesi = 0
-	}
-	return
-}
-
-//Print helper Print(...interface) over *Request
-func (rqst *Request) Print(a ...interface{}) {
-	iorw.Fprint(rqst, a...)
-}
-
-//Println helper Println(...interface) over *Request
-func (rqst *Request) Println(a ...interface{}) {
-	iorw.Fprintln(rqst, a...)
-}
-
-//Readln helper Readln() over *Request
-func (rqst *Request) Readln() (ln string, err error) {
-	ln, err = iorw.ReadLine(rqst)
-	return
-}
-
-//ReadLines helper ReadLines() over *Request
-func (rqst *Request) ReadLines() (lines []string, err error) {
-	lines, err = iorw.ReadLines(rqst)
-	return
-}
-
-//ReadAll helper ReadAll() over *Request
-func (rqst *Request) ReadAll() (s string, err error) {
-	if rqst.rqstr != nil {
-
-	} else {
-		s, err = iorw.ReaderToString(rqst)
-	}
-	return
 }
 
 func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, isactive bool, initpath string) {
@@ -871,24 +651,24 @@ func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, isactive boo
 			rqst.invokeAtv()
 			if altw == nil {
 				if isactive {
-					if err := rqst.atv.Eval(rqst, rqst, initpath, "<@", r, "@>"); err != nil {
+					if err := rqst.atv.Eval(rqst.rqstrw.Response(), rqst.rqstrw.Request(), initpath, "<@", r, "@>"); err != nil {
 						if err != io.EOF {
 							fmt.Println(err)
 						}
 					}
 				} else {
-					if err := rqst.atv.Eval(rqst, rqst, initpath, r); err != nil {
+					if err := rqst.atv.Eval(rqst.rqstrw.Response(), rqst.rqstrw.Request(), initpath, r); err != nil {
 						if err != io.EOF {
 							fmt.Println(err)
 						}
 					}
 				}
 			} else {
-				rqst.atv.Eval(altw, rqst, initpath, r)
+				rqst.atv.Eval(altw, rqst.rqstrw.Request(), initpath, r)
 			}
 		} else {
 			if altw == nil {
-				io.Copy(rqst, r)
+				io.Copy(rqst.rqstrw.Response(), r)
 			} else {
 				io.Copy(altw, r)
 			}
@@ -897,78 +677,31 @@ func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, isactive boo
 }
 
 func (rqst *Request) wrapup() (err error) {
-	if rqst != nil && rqst.httpw != nil {
-		if rqst.zpw != nil {
-			err = rqst.zpw.Close()
-			rqst.zpw = nil
-		}
-		if err == nil {
-			if rqst.flshr != nil {
-				rqst.flshr.Flush()
-			} else {
-				if httpw := rqst.httpw; httpw != nil {
-					if wflsh, wflshok := httpw.(http.Flusher); wflshok {
-						wflsh.Flush()
-					}
-				}
-			}
-		}
+	if rqst != nil && rqst.rqstrw != nil {
+		rqst.rqstrw.Response().Flush()
 	}
 	return
-}
-
-func (rqst *Request) startWriting() (err error) {
-	if rqst.startedWriting {
-		return
-	}
-	rqst.startedWriting = true
-	defer func() {
-		if rv := recover(); rv != nil {
-			err = fmt.Errorf("%v", rv)
-		}
-	}()
-	if hdr := rqst.ResponseHeader(); hdr != nil {
-		if hdr.Get("Content-Type") == "" {
-			hdr.Set("Content-Type", rqst.mimetype)
-		}
-		if cntntl := hdr.Get("Content-Length"); cntntl != "" {
-			if cntntl != "0" {
-				hdr.Del("Content-Length")
-			}
-		}
-		hdr.Set("Cache-Control", "no-cache")
-		hdr.Set("Expires", time.Now().Format(http.TimeFormat))
-		hdr.Set("Connection", "close")
-	}
-	if httpw := rqst.httpw; httpw != nil {
-		func() {
-			defer func() {
-				if rv := recover(); rv != nil {
-					err = fmt.Errorf("%v", rv)
-				}
-			}()
-			if rqst.stillValid {
-				httpw.WriteHeader(rqst.httpstatus)
-			}
-		}()
-	}
-	return
-}
-
-func (rqst *Request) executeHTTP(interrupt func()) {
-	if rqst != nil {
-		rqst.prms = parameters.NewParameters()
-		if httpr := rqst.httpr; httpr != nil {
-			parameters.LoadParametersFromHTTPRequest(rqst.prms, httpr)
-			rqst.executePath(httpr.URL.Path, interrupt)
-		}
-	}
 }
 
 func (rqst *Request) executePath(path string, interrupt func()) {
 	if rqst != nil {
 		rqst.initPath = path
 		rqst.AddPath(path)
+		rqst.processPaths(true)
+	}
+}
+
+func (rqst *Request) executeNow(interrupt func()) {
+	if rqst != nil {
+		if rqst.prms == nil {
+			rqst.prms = parameters.NewParameters()
+			rqst.LoadParameters(rqst.prms)
+		}
+		if rqst.rqstrw.Request() == nil {
+			rqst.AddPath(rqst.initPath)
+		} else {
+			rqst.AddPath(rqst.rqstrw.Request().Path())
+		}
 		rqst.processPaths(true)
 	}
 }
@@ -1076,9 +809,11 @@ func (rqst *Request) invokeAtv() {
 				nmspce = nmspce + "."
 			}
 		}
+		if rqst.mphndlr == nil {
+			rqst.mphndlr = caching.GLOBALMAP().Handler()
+		}
 		rqst.objmap[nmspce+"request"] = rqst
 		rqst.objmap[nmspce+"channel"] = rqst.chnl
-		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
 		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
 
 		rqst.objmap[nmspce+"mqtting"] = rqst.chnl.MQTT()
@@ -1148,59 +883,6 @@ func (rqst *Request) removeBuffer(buff *iorw.Buffer) {
 		if bf, bfok := rqst.intrnbuffs[buff]; bfok && bf == buff {
 			rqst.intrnbuffs[buff] = nil
 			delete(rqst.intrnbuffs, buff)
-		}
-	}
-}
-
-//Response - struct
-type Response struct {
-	r              *http.Request
-	w              io.Writer
-	statusCode     int
-	header         http.Header
-	canWriteHeader bool
-}
-
-//NewResponse - Instance of Response http.ResponseWriter helper
-func NewResponse(w io.Writer, r *http.Request) (resp *Response) {
-	resp = &Response{w: w, header: http.Header{}, r: r, canWriteHeader: true}
-	return resp
-}
-
-//Header refer to http.Header
-func (resp *Response) Header() http.Header {
-	return resp.header
-}
-
-//Writer refer to io.Writer
-func (resp *Response) Write(p []byte) (n int, err error) {
-	if resp.w != nil {
-		n, err = resp.w.Write(p)
-	}
-	return 0, nil
-}
-
-//WriteHeader - refer to http.ResponseWriter -> WriteHeader
-func (resp *Response) WriteHeader(statusCode int) {
-	resp.statusCode = statusCode
-
-	if resp.w != nil {
-		if resp.canWriteHeader {
-			var statusLine = resp.r.Proto + " " + fmt.Sprintf("%d", statusCode) + " " + http.StatusText(statusCode)
-			fmt.Fprintln(resp.w, statusLine)
-			if resp.header != nil {
-				resp.header.Write(resp.w)
-			}
-			fmt.Fprintln(resp.w)
-		}
-	}
-}
-
-//Flush refer to http.Flusher
-func (resp *Response) Flush() {
-	if resp.w != nil {
-		if flshr, flshrok := resp.w.(http.Flusher); flshrok {
-			flshr.Flush()
 		}
 	}
 }
