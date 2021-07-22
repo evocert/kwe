@@ -227,24 +227,25 @@ func NewListener(handler interface{}) (lstnr *Listener) {
 				var inirspath = r.URL.Path
 				if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
 					go func() {
-						var rspns = httpr.NewResponse(wsrw, httpr.NewRequest(inirspath, wsrw))
-						var rqstr = rspns.Request()
+						//var rspns = httpr.NewResponse(wsrw, httpr.NewRequest(inirspath, wsrw))
+						//var rqstr = rspns.Request()
 						defer func() {
 							wsrw.Close()
-							rqstr.Close()
-							rspns.Close()
+							//rqstr.Close()
+							//rspns.Close()
 						}()
-						rqsthndlr.Serve(inirspath, rqstr, rspns)
+						rqsthndlr.ServeRequest(inirspath, wsrw, wsrw, httpr.ResponseInvoker, httpr.RequestInvoker) //Serve(inirspath, rqstr, rspns)
 					}()
 				} else {
 					func() {
-						var rqstr = httpr.NewRequest(inirspath, r)
-						var rspns = httpr.NewResponse(w, rqstr)
-						defer func() {
-							rqstr.Close()
-							rspns.Close()
-						}()
-						rqsthndlr.Serve(inirspath, rqstr, rspns)
+						//var rqstr = httpr.NewRequest(inirspath, r)
+						//var rspns = httpr.NewResponse(w, rqstr)
+						//defer func() {
+						//	rqstr.Close()
+						//	rspns.Close()
+						//}()
+						//rqsthndlr.Serve(inirspath, rqstr, rspns)
+						rqsthndlr.ServeRequest(inirspath, r, w, httpr.ResponseInvoker, httpr.RequestInvoker)
 					}()
 				}
 

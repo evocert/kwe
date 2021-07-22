@@ -35,7 +35,7 @@ func (chnl *Channel) Listener() *listen.Listener {
 func (chnl *Channel) MQTT() *mqtt.MQTTManager {
 	if chnl.mqttmngr == nil {
 		chnl.mqttmngr = mqtt.NewMQTTManager(func(message mqtt.Message) {
-			processingRequestIO(message.TopicPath(), chnl, nil, nil, nil, []interface{}{message}...)
+			processingRequestIO(message.TopicPath(), chnl, nil, nil, []interface{}{message}...)
 		})
 	}
 	return chnl.mqttmngr
@@ -107,7 +107,7 @@ func NewChannel() (chnl *Channel) {
 }
 
 func (chnl *Channel) internalServePath(path string, a ...interface{}) {
-	processingRequestIO(path, chnl, nil, nil, nil, a...)
+	processingRequestIO(path, chnl, nil, nil, a...)
 }
 
 func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a ...interface{}) {
@@ -119,15 +119,13 @@ func (chnl *Channel) internalServeHTTP(w http.ResponseWriter, r *http.Request, a
 			if cnctn != nil {
 				a = append([]interface{}{cnctn}, a...)
 			}
-			rqstr := httprqstng.NewRequest(inirspath, wsrw)
-			processingRequestIO(inirspath, chnl, nil, rqstr, httprqstng.NewResponse(wsrw, rqstr), a...)
+			processingRequestIO(inirspath, chnl, nil, requesting.NewRequestor(httprqstng.NewResponse(wsrw, httprqstng.NewRequest(inirspath, wsrw))), a...)
 		}()
 	} else {
 		if cnctn != nil {
 			a = append([]interface{}{cnctn}, a...)
 		}
-		rqstr := httprqstng.NewRequest(inirspath, r)
-		processingRequestIO(inirspath, chnl, nil, rqstr, httprqstng.NewResponse(w, rqstr), a...)
+		processingRequestIO(inirspath, chnl, nil, requesting.NewRequestor(httprqstng.NewResponse(w, httprqstng.NewRequest(inirspath, r))), a...)
 	}
 }
 
@@ -150,7 +148,12 @@ func (chnl *Channel) ServeReaderWriter(path string, w io.Writer, r io.Reader) (e
 
 //Serve - refer requesting.RequestorHandler
 func (chnl *Channel) Serve(path string, rqst requesting.RequestAPI, rspns requesting.ResponseAPI) (err error) {
-	processingRequestIO(path, chnl, nil, rqst, rspns)
+	processingRequestIO(path, chnl, nil, requesting.NewRequestor(rqst, rspns))
+	return
+}
+
+func (chnl *Channel) ServeRequest(a ...interface{}) (err error) {
+	processingRequestIO("", chnl, nil, requesting.NewRequestor(a...))
 	return
 }
 
@@ -168,8 +171,7 @@ func (chnl *Channel) ServeRW(r io.Reader, w io.Writer, a ...interface{}) {
 			}
 		}
 	}
-	rqstr := httprqstng.NewRequest(initpath, r)
-	processingRequestIO(initpath, chnl, nil, rqstr, httprqstng.NewResponse(w, rqstr), a...)
+	processingRequestIO(initpath, chnl, nil, requesting.NewRequestor(httprqstng.NewResponse(w, httprqstng.NewRequest(initpath, r))), a...)
 }
 
 //Stdio - os.Stdout, os.Stdin
@@ -187,7 +189,7 @@ func (chnl *Channel) Send(path string, a ...interface{}) (rspr iorw.Reader, err 
 				pw.Close()
 			}()
 			cancel()
-			processingRequestIO(path, chnl, nil, nil, httprqstng.NewResponse(pw, nil))
+			processingRequestIO(path, chnl, nil, requesting.NewRequestor(httprqstng.NewResponse(pw, nil)))
 		}()
 		ctx.Done()
 		rspr = iorw.NewEOFCloseSeekReader(pi, true)
@@ -215,12 +217,12 @@ func GLOBALCHNL() *Channel {
 			gblchnl.mqttmngr = mqtt.GLOBALMQTTMANAGER()
 			if gblchnl.mqttmngr.MqttMessaging == nil {
 				gblchnl.mqttmngr.MqttMessaging = func(message mqtt.Message) {
-					processingRequestIO(message.TopicPath(), gblchnl, nil, nil, nil, []interface{}{message}...)
+					processingRequestIO(message.TopicPath(), gblchnl, nil, nil, []interface{}{message}...)
 				}
 			}
 			if gblchnl.mqttmngr.MqttEventing == nil {
 				gblchnl.mqttmngr.MqttEventing = func(event mqtt.MqttEvent) {
-					processingRequestIO(event.EventPath(), gblchnl, nil, nil, nil, []interface{}{event}...)
+					processingRequestIO(event.EventPath(), gblchnl, nil, nil, []interface{}{event}...)
 				}
 			}
 		}

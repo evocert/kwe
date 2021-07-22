@@ -263,3 +263,11 @@ func (rspns *Response) Close() (err error) {
 	}
 	return
 }
+
+var ResponseInvoker requesting.ResponseInvokerFunc = nil
+
+func init() {
+	ResponseInvoker = func(w interface{}, a ...requesting.RequestAPI) requesting.ResponseAPI {
+		return NewResponse(w, a...)
+	}
+}

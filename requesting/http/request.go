@@ -8,6 +8,7 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/parameters"
+	"github.com/evocert/kwe/requesting"
 )
 
 type remoting interface {
@@ -236,4 +237,12 @@ func (rqst *Request) Close() (err error) {
 		rqst = nil
 	}
 	return
+}
+
+var RequestInvoker requesting.RequestInvokerFunc = nil
+
+func init() {
+	RequestInvoker = func(path string, r interface{}) requesting.RequestAPI {
+		return NewRequest(path, r)
+	}
 }

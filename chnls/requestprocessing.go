@@ -142,11 +142,11 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 	rqst.executeNow(interrupt)
 }
 
-func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rqstrapi requesting.RequestAPI, rqstwapi requesting.ResponseAPI, a ...interface{}) {
+func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rqstrw requesting.RequestorAPI, a ...interface{}) {
 	var excrqst *Request = nil
 	var interrupt func() = nil
 	if prntrqst == nil {
-		excrqst, interrupt = internalNewRequest(initpath, chnl, prntrqst, requesting.NewRequestor(rqstrapi, rqstwapi), a...)
+		excrqst, interrupt = internalNewRequest(initpath, chnl, prntrqst, rqstrw, a...)
 	} else {
 		excrqst = prntrqst
 	}

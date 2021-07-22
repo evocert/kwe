@@ -6,6 +6,7 @@ import (
 
 type RequestorHandler interface {
 	Serve(string, RequestAPI, ResponseAPI) error
+	ServeRequest(...interface{}) error
 }
 
 type RequestorHandlerFunc func(string, RequestAPI, ResponseAPI) error
@@ -28,8 +29,74 @@ type Requestor struct {
 	rspns ResponseAPI
 }
 
-func NewRequestor(rwrqst RequestAPI, rwrspns ResponseAPI) (rqstor *Requestor) {
-	rqstor = &Requestor{rspns: rwrspns, rqst: rwrqst}
+type RequestInvokerFunc func(path string, r interface{}) RequestAPI
+type ResponseInvokerFunc func(w interface{}, a ...RequestAPI) ResponseAPI
+
+func NewRequestor(a ...interface{}) (rqstor *Requestor) {
+	var rspns ResponseAPI = nil
+	var rqst RequestAPI = nil
+	var path string = ""
+	var rqstarg interface{} = nil
+	var rspnsarg interface{} = nil
+	var rqstinvoker RequestInvokerFunc
+	var rspnsinvoker ResponseInvokerFunc
+	if len(a) > 0 {
+		for _, d := range a {
+			if sd, _ := d.(string); sd != "" {
+				if path == "" {
+					path = sd
+				}
+			} else if rspnsd, _ := d.(ResponseAPI); rspnsd != nil {
+				if rspns == nil {
+					rspns = rspnsd
+				}
+			} else if rqstd, _ := d.(RequestAPI); rqstd != nil {
+				if rqst == nil {
+					rqst = rqstd
+				}
+			} else if rqstinvokerd, _ := d.(func(path string, r interface{}) RequestAPI); rqstinvokerd != nil {
+				if rqstinvoker == nil {
+					rqstinvoker = rqstinvokerd
+				}
+			} else if rspnsinvokerd, _ := d.(func(w interface{}, a ...RequestAPI) ResponseAPI); rspnsinvokerd != nil {
+				if rspnsinvoker == nil {
+					rspnsinvoker = rspnsinvokerd
+				}
+			} else if rqstinvokerd, _ := d.(RequestInvokerFunc); rqstinvokerd != nil {
+				if rqstinvoker == nil {
+					rqstinvoker = rqstinvokerd
+				}
+			} else if rspnsinvokerd, _ := d.(ResponseInvokerFunc); rspnsinvokerd != nil {
+				if rspnsinvoker == nil {
+					rspnsinvoker = rspnsinvokerd
+				}
+			} else if rqstarg == nil {
+				rqstarg = d
+			} else if rspnsarg == nil {
+				rspnsarg = d
+			}
+		}
+	}
+	if rspns == nil && rspnsinvoker == nil && rspnsarg != nil {
+		rspnsinvoker = DefaultResponseInvoker
+	}
+
+	if rqst == nil && rqstinvoker == nil && (rqstarg != nil || path != "") {
+		rqstinvoker = DefaultRequestInvoker
+	}
+
+	if rqst == nil && rqstinvoker != nil {
+		rqst = rqstinvoker(path, rqstarg)
+	}
+
+	if rspns == nil && rspnsinvoker != nil {
+		rspns = rspnsinvoker(rspnsarg, rqst)
+	}
+
+	if rqst == nil && rspns != nil {
+		rqst = rspns.Request()
+	}
+	rqstor = &Requestor{rspns: rspns, rqst: rqst}
 	return
 }
 
@@ -88,3 +155,6 @@ func (rqstor *Requestor) Close() (err error) {
 	}
 	return
 }
+
+var DefaultRequestInvoker RequestInvokerFunc = nil
+var DefaultResponseInvoker ResponseInvokerFunc = nil
