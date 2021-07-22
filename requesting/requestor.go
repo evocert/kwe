@@ -1,6 +1,8 @@
 package requesting
 
-import "github.com/evocert/kwe/parameters"
+import (
+	"github.com/evocert/kwe/parameters"
+)
 
 type RequestorHandler interface {
 	Serve(string, RequestAPI, ResponseAPI) error

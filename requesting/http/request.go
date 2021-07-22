@@ -10,6 +10,11 @@ import (
 	"github.com/evocert/kwe/parameters"
 )
 
+type remoting interface {
+	LocalAddr() string
+	RemoteAddr() string
+}
+
 type Request struct {
 	ctx         context.Context
 	httpr       *http.Request
@@ -29,6 +34,7 @@ func NewRequest(path string, r interface{}) (rqst *Request) {
 	var ctx context.Context = nil
 	var httpr *http.Request = nil
 	var rdr io.Reader = nil
+	var rmtngaddr remoting = nil
 	if r != nil {
 		if httpr, _ = r.(*http.Request); httpr == nil {
 			rdr, _ = r.(io.Reader)
@@ -43,12 +49,22 @@ func NewRequest(path string, r interface{}) (rqst *Request) {
 	} else {
 		ctx = context.Background()
 	}
-	rqst = &Request{path: path, rdr: rdr, httpr: httpr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr)}
+	if rdr != nil {
+		rmtngaddr, _ = rdr.(remoting)
+	}
+	rqst = &Request{path: path, rdr: rdr, httpr: httpr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false)}
+
 	if ctxv := ctx.Value(ConnContextKey); ctxv != nil {
 		if cnctn, _ := ctxv.(net.Conn); cnctn != nil {
 			rqst.rmtaddr = cnctn.RemoteAddr().String()
 			rqst.lcladdr = cnctn.LocalAddr().String()
+		} else if rmtngaddr != nil {
+			rqst.rmtaddr = rmtngaddr.RemoteAddr()
+			rqst.lcladdr = rmtngaddr.LocalAddr()
 		}
+	} else if rmtngaddr != nil {
+		rqst.rmtaddr = rmtngaddr.RemoteAddr()
+		rqst.lcladdr = rmtngaddr.LocalAddr()
 	}
 	if httpr != nil {
 		rqst.prtcl = httpr.Proto

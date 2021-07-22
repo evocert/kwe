@@ -13,6 +13,8 @@ import (
 
 //ReaderWriter - struct
 type ReaderWriter struct {
+	lcladdr  string
+	rmtaddr  string
 	ws       *websocket.Conn
 	r        io.Reader
 	MaxRead  int64
@@ -35,7 +37,7 @@ func NewServerReaderWriter(w http.ResponseWriter, r *http.Request) (wsrw *Reader
 			return true
 		}}
 		if ws, wserr := wsu.Upgrade(w, r, nil); wserr == nil {
-			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil, MaxRead: -1}
+			wsrw = &ReaderWriter{ws: ws, lcladdr: ws.LocalAddr().String(), rmtaddr: ws.RemoteAddr().String(), isText: false, isBinary: false, rerr: nil, werr: nil, MaxRead: -1}
 		} else {
 			err = wserr
 		}
@@ -48,10 +50,24 @@ func NewClientReaderWriter(rqstpath string, headers http.Header) (wsrw *ReaderWr
 	if rqstpath != "" {
 		var ws *websocket.Conn = nil
 		if ws, resp, err = websocket.DefaultDialer.Dial(rqstpath, headers); err == nil {
-			wsrw = &ReaderWriter{ws: ws, isText: false, isBinary: false, rerr: nil, werr: nil}
+			wsrw = &ReaderWriter{ws: ws, lcladdr: ws.LocalAddr().String(), rmtaddr: ws.RemoteAddr().String(), isText: false, isBinary: false, rerr: nil, werr: nil}
 		}
 	}
 	return
+}
+
+func (wsrw *ReaderWriter) LocalAddr() string {
+	if wsrw != nil {
+		return wsrw.lcladdr
+	}
+	return ""
+}
+
+func (wsrw *ReaderWriter) RemoteAddr() string {
+	if wsrw != nil {
+		return wsrw.rmtaddr
+	}
+	return ""
 }
 
 //SetMaxRead - set max read implementation for Reader interface compliance
