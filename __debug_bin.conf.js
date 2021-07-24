@@ -1,6 +1,7 @@
 
-caching.Put("a",[[1,2,3,4]]);
-console.Log(JSON.stringify(caching.At("a",2)));
+caching.Put("a",{"b":[1,2,{"f":"g"},4]});
+console.Log(caching.At("a","b",[2]).Find("f"));
+
 resourcing.RegisterEndpoint("/gendocs","C:/GitHub/kwe/gendocs");
 resourcing.RegisterEndpoint("/webcrawler","D:/projects/system/kweexamples-main/kweexamples-main/src/webcrawler");
 channel.Send("/gendocs/active:gendocs.js");

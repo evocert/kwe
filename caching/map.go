@@ -178,7 +178,7 @@ func mapPut(mp *Map, mphndlr *MapHandler, candispose bool, a ...interface{}) {
 									disposeMapVal(mp, mphndlr, prvv)
 								}
 							}
-							mp.imp[k] = v
+							mp.imp[k] = prepNewVal(v)
 						}()
 						a = a[1:]
 					}
@@ -202,6 +202,26 @@ func mapPut(mp *Map, mphndlr *MapHandler, candispose bool, a ...interface{}) {
 			}
 		}
 	}
+}
+
+func prepNewVal(v interface{}) (vn interface{}) {
+	if v != nil {
+		if m, mok := v.(map[string]interface{}); mok && len(m) > 0 {
+			vmp := NewMap()
+			for k, v := range m {
+				vmp.Put(k, v)
+			}
+			vn = vmp
+		} else if arv, arvok := v.([]interface{}); arvok {
+			for an, av := range arv {
+				arv[an] = prepNewVal(av)
+			}
+			vn = arv
+		} else {
+			vn = v
+		}
+	}
+	return
 }
 
 func disposeMapVal(mp *Map, mphndlr *MapHandler, valdispose interface{}) {
@@ -1231,8 +1251,11 @@ func (mp *Map) Handler() (mphndlr *MapHandler) {
 	return
 }
 
-func NewMap() (mp *Map) {
+func NewMap(a ...interface{}) (mp *Map) {
 	mp = &Map{lck: &sync.RWMutex{}, lckedlvl: 0, valid: true, imp: map[interface{}]interface{}{}}
+	if len(a) > 0 {
+		mapPut(mp, nil, false, a...)
+	}
 	return
 }
 
