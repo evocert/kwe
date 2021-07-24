@@ -706,7 +706,7 @@ func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
 	if mp != nil && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
-		a = a[len(a):]
+		a = a[len(a)-1:]
 		var arrv []interface{} = nil
 		if arv, atargsok := a[0].([]interface{}); atargsok {
 			arrv = arv[:]
@@ -784,7 +784,7 @@ func mapExistsAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (exists bool) {
 	if mp != nil && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
-		a = a[len(a):]
+		a = a[len(a)-1:]
 		var arrv []interface{} = nil
 		if arv, atargsok := a[0].([]interface{}); atargsok {
 			arrv = arv[:]
@@ -865,7 +865,7 @@ func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
 	if mp != nil && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
-		a = a[len(a):]
+		a = a[len(a)-1:]
 		var arrv []interface{} = nil
 		if arv, atargsok := a[0].([]interface{}); atargsok {
 			arrv = arv[:]
@@ -950,7 +950,7 @@ func mapClearAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (cleared bool) {
 	if mp != nil && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
-		a = a[len(a):]
+		a = a[len(a)-1:]
 		var arrv []interface{} = nil
 		if arv, atargsok := a[0].([]interface{}); atargsok {
 			arrv = arv[:]
@@ -1036,7 +1036,7 @@ func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
 	if mp != nil && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
-		a = a[len(a):]
+		a = a[len(a)-1:]
 		var arrv []interface{} = nil
 		if arv, atargsok := a[0].([]interface{}); atargsok {
 			arrv = arv[:]
