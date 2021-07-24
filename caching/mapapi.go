@@ -21,7 +21,9 @@ type MapAPI interface {
 	Reset(...interface{}) bool
 	Clear(...interface{}) bool
 	Close(...interface{}) bool
+
 	//Array
+
 	IsMapAt(interface{}, ...interface{}) bool
 	ExistsAt(interface{}, ...interface{}) bool
 	Push(interface{}, ...interface{}) int
