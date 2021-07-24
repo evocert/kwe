@@ -48,18 +48,20 @@ func (mphndlr *MapHandler) currentMap() (crntmp *Map) {
 	return
 }
 
-func (mphndlr *MapHandler) Reset(ks ...interface{}) {
+func (mphndlr *MapHandler) Reset(ks ...interface{}) (reset bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			if len(ks) == 0 {
 				if mphndlr.mp != crntmp {
 					mphndlr.crntmp = nil
 				}
+				reset = true
 			} else {
-				mphndlr.Focus(ks...)
+				reset = mphndlr.Focus(ks...)
 			}
 		}
 	}
+	return
 }
 
 //NewBuffer helper that returns instance of *iorw.Buffer
@@ -96,14 +98,29 @@ func (mphndlr *MapHandler) Focus(ks ...interface{}) (focused bool) {
 	return
 }
 
-func (mphndlr *MapHandler) Exist(ks ...interface{}) (exist bool) {
+func (mphndlr *MapHandler) IsMap(ks ...interface{}) (ismap bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			if len(ks) > 0 {
 				func() {
 					crntmp.RLock()
 					defer crntmp.RUnlock()
-					exist = mapExist(crntmp, mphndlr, ks...)
+					ismap = mapIsMap(crntmp, mphndlr, ks...)
+				}()
+			}
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) Exists(ks ...interface{}) (exist bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			if len(ks) > 0 {
+				func() {
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+					exist = mapExists(crntmp, mphndlr, ks...)
 				}()
 			}
 		}
@@ -247,12 +264,92 @@ func (mphndlr *MapHandler) Unshift(k interface{}, a ...interface{}) (unshift int
 	return
 }
 
+func (mphndlr *MapHandler) IsMapAt(k interface{}, a ...interface{}) (ismap bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			func() {
+				crntmp.RLock()
+				defer crntmp.RUnlock()
+				if len(a) == 0 {
+					if a != nil {
+						a = append([]interface{}{k}, a)
+						ismap = mapIsMapAt(crntmp, mphndlr, a...)
+					}
+				} else {
+					a = append([]interface{}{k}, a...)
+					ismap = mapIsMapAt(crntmp, mphndlr, a...)
+				}
+			}()
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) ExistsAt(k interface{}, a ...interface{}) (exists bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			func() {
+				crntmp.RLock()
+				defer crntmp.RUnlock()
+				if len(a) == 0 {
+					a = append([]interface{}{k}, a)
+				} else {
+					a = append([]interface{}{k}, a...)
+				}
+				exists = mapExistsAt(crntmp, mphndlr, a...)
+			}()
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) ClearAt(k interface{}, a ...interface{}) (cleared bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			func() {
+				crntmp.RLock()
+				defer crntmp.RUnlock()
+				if len(a) == 0 {
+					a = append([]interface{}{k}, a)
+				} else {
+					a = append([]interface{}{k}, a...)
+				}
+				cleared = mapClearAt(crntmp, mphndlr, a...)
+			}()
+		}
+	}
+	return
+}
+
+func (mphndlr *MapHandler) CloseAt(k interface{}, a ...interface{}) (closed bool) {
+	if mphndlr != nil {
+		if crntmp := mphndlr.currentMap(); crntmp != nil {
+			func() {
+				crntmp.RLock()
+				defer crntmp.RUnlock()
+				if len(a) == 0 {
+					a = append([]interface{}{k}, a)
+				} else {
+					a = append([]interface{}{k}, a...)
+				}
+				closed = mapCloseAt(crntmp, mphndlr, a...)
+			}()
+		}
+	}
+	return
+}
+
 func (mphndlr *MapHandler) At(k interface{}, a ...interface{}) (arv interface{}) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
 				crntmp.RLock()
 				defer crntmp.RUnlock()
+				if len(a) == 0 {
+					a = append([]interface{}{k}, a)
+				} else {
+					a = append([]interface{}{k}, a...)
+				}
 				arv = mapAt(crntmp, mphndlr, a...)
 			}()
 		}
@@ -267,24 +364,20 @@ func (mphndlr *MapHandler) FocusAt(k interface{}, a ...interface{}) (focused boo
 				crntmp.RLock()
 				defer crntmp.RUnlock()
 				if len(a) == 0 {
-					if a != nil {
-						a = append([]interface{}{k}, a)
-						focused = mapFocusAt(crntmp, mphndlr, a...)
-					}
+					a = []interface{}{k}
 				} else {
 					a = append([]interface{}{k}, a...)
-					focused = mapFocusAt(crntmp, mphndlr, a...)
 				}
+				focused = mapFocusAt(crntmp, mphndlr, a...)
 			}()
 		}
 	}
 	return
 }
 
-func (mphndlr *MapHandler) Clear(ks ...interface{}) {
+func (mphndlr *MapHandler) Clear(ks ...interface{}) (cleared bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-
 			if len(ks) == 0 {
 				func() {
 					crntmp.Lock()
@@ -299,6 +392,7 @@ func (mphndlr *MapHandler) Clear(ks ...interface{}) {
 						mapRemove(crntmp, mphndlr, ks...)
 					}
 				}()
+				cleared = true
 			} else {
 				var lkpmp *Map = nil
 				func() {
@@ -311,10 +405,12 @@ func (mphndlr *MapHandler) Clear(ks ...interface{}) {
 				}()
 				if lkpmp != nil {
 					lkpmp.Clear(mphndlr)
+					cleared = true
 				}
 			}
 		}
 	}
+	return
 }
 
 func (mphndlr *MapHandler) Remove(name ...interface{}) {
@@ -431,7 +527,7 @@ func (mphndlr *MapHandler) String(ks ...interface{}) (s string) {
 	return
 }
 
-func (mphndlr *MapHandler) Close(ks ...interface{}) {
+func (mphndlr *MapHandler) Close(ks ...interface{}) (closed bool) {
 	if mphndlr != nil {
 		kl := len(ks)
 		if kl == 0 {
@@ -444,13 +540,16 @@ func (mphndlr *MapHandler) Close(ks ...interface{}) {
 				crntmp = nil
 				mphndlr = nil
 			}
+			closed = true
 		} else {
 			if crntmp := mphndlr.currentMap(); validMap(crntmp) {
 				ks = append([]interface{}{mphndlr}, ks...)
 				crntmp.Close(ks...)
 			}
+			closed = true
 		}
 	}
+	return
 }
 
 func (mphndlr *MapHandler) Reader(ks ...interface{}) io.Reader {

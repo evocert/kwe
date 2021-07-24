@@ -10,22 +10,28 @@ import (
 type MapAPI interface {
 	Keys(...interface{}) []interface{}
 	Values(...interface{}) []interface{}
+	IsMap(...interface{}) bool
+	Exists(...interface{}) bool
+	Find(...interface{}) interface{}
 	Put(interface{}, ...interface{})
 	Remove(...interface{})
-	Find(...interface{}) interface{}
 	Fprint(io.Writer, ...interface{}) error
 	String(...interface{}) string
 	Focus(...interface{}) bool
-	Reset(...interface{})
-	Clear(...interface{})
-	Close(...interface{})
+	Reset(...interface{}) bool
+	Clear(...interface{}) bool
+	Close(...interface{}) bool
 	//Array
+	IsMapAt(interface{}, ...interface{}) bool
+	ExistsAt(interface{}, ...interface{}) bool
 	Push(interface{}, ...interface{}) int
 	Pop(interface{}, ...interface{}) interface{}
 	Shift(interface{}, ...interface{}) int
 	Unshift(interface{}, ...interface{}) interface{}
 	At(interface{}, ...interface{}) interface{}
 	FocusAt(interface{}, ...interface{}) bool
+	ClearAt(interface{}, ...interface{}) bool
+	CloseAt(interface{}, ...interface{}) bool
 }
 
 func MapReader(mapapi MapAPI, ks ...interface{}) (rdr *iorw.EOFCloseSeekReader) {

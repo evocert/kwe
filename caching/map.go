@@ -220,7 +220,7 @@ func disposeMapVal(mp *Map, mphndlr *MapHandler, valdispose interface{}) {
 	}
 }
 
-func (mp *Map) Close(ks ...interface{}) {
+func (mp *Map) Close(ks ...interface{}) (closed bool) {
 	var mphndlr *MapHandler = nil
 	if len(ks) >= 1 {
 		mphndlr, _ = ks[0].(*MapHandler)
@@ -244,6 +244,7 @@ func (mp *Map) Close(ks ...interface{}) {
 			}()
 			mp.valid = false
 			mp = nil
+			closed = true
 		} else {
 			var lkpmp *Map = nil
 			var prvlkmp *Map = mp
@@ -265,9 +266,11 @@ func (mp *Map) Close(ks ...interface{}) {
 				}()
 				lkpmp = nil
 				prvlkmp = nil
+				closed = true
 			}
 		}
 	}
+	return
 }
 
 func validMap(mp *Map) (valid bool) {
@@ -281,10 +284,11 @@ func validMap(mp *Map) (valid bool) {
 	return
 }
 
-func (mp *Map) Reset(ks ...interface{}) {
+func (mp *Map) Reset(ks ...interface{}) bool {
+	return false
 }
 
-func (mp *Map) Clear(ks ...interface{}) {
+func (mp *Map) Clear(ks ...interface{}) (cleared bool) {
 	var mphndlr *MapHandler = nil
 	if len(ks) >= 1 {
 		mphndlr, _ = ks[0].(*MapHandler)
@@ -305,6 +309,7 @@ func (mp *Map) Clear(ks ...interface{}) {
 					mapRemove(mp, mphndlr, ks...)
 				}
 			}()
+			cleared = true
 		} else {
 			var lkpmp *Map = nil
 			if v := mp.Find(ks...); v != nil {
@@ -312,10 +317,11 @@ func (mp *Map) Clear(ks ...interface{}) {
 				v = nil
 			}
 			if lkpmp != nil {
-				lkpmp.Clear(mphndlr)
+				cleared = lkpmp.Clear(mphndlr)
 			}
 		}
 	}
+	return
 }
 
 func (mp *Map) Remove(name ...interface{}) {
@@ -345,18 +351,66 @@ func mapRemove(mp *Map, mphndlr *MapHandler, name ...interface{}) {
 	}
 }
 
-func (mp *Map) Exist(ks ...interface{}) (exist bool) {
+func (mp *Map) IsMap(ks ...interface{}) (ismap bool) {
 	if len(ks) > 0 {
 		func() {
 			mp.RLock()
 			defer mp.RUnlock()
-			exist = mapExist(mp, nil, ks...)
+			ismap = mapExists(mp, nil, ks...)
 		}()
 	}
 	return
 }
 
-func mapExist(mp *Map, mphndlr *MapHandler, ks ...interface{}) (exist bool) {
+func mapIsMap(mp *Map, mphndlr *MapHandler, ks ...interface{}) (ismap bool) {
+	if mp != nil {
+		var lkpmp *Map = mp
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if v, found := subfind(); found {
+					if v != nil {
+						_, ismap = v.(*Map)
+					}
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
+func (mp *Map) Exists(ks ...interface{}) (exist bool) {
+	if len(ks) > 0 {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			exist = mapExists(mp, nil, ks...)
+		}()
+	}
+	return
+}
+
+func mapExists(mp *Map, mphndlr *MapHandler, ks ...interface{}) (exist bool) {
 	if mp != nil {
 		var lkpmp *Map = mp
 		if ksl := len(ks); ksl > 0 {
@@ -630,11 +684,177 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 	return
 }
 
+func (mp *Map) IsMapAt(k interface{}, a ...interface{}) (ismap bool) {
+	if validMap(mp) {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			if len(a) == 0 {
+				if a != nil {
+					a = append([]interface{}{k}, a)
+				}
+			} else {
+				a = append([]interface{}{k}, a...)
+			}
+			ismap = mapIsMapAt(mp, nil, a...)
+		}()
+	}
+	return
+}
+
+func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
+	if mp != nil && len(a) > 1 {
+		var lkpmp *Map = mp
+		ks := a[0 : len(a)-1]
+		a = a[len(a):]
+		var arrv []interface{} = nil
+		if arv, atargsok := a[0].([]interface{}); atargsok {
+			arrv = arv[:]
+		} else {
+			arrv = []interface{}{a[0]}
+		}
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if valf, found := subfind(); found {
+					if arv, arrvok := valf.([]interface{}); arrvok {
+						for an, ad := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+								if ai := int(adi); ai > -1 && ai < len(arv) {
+									if (an + 1) < len(arrv) {
+										if arv, arrvok = arv[ai].([]interface{}); arrvok {
+											continue
+										} else {
+											break
+										}
+									} else {
+										if av := arv[ai]; av != nil {
+											_, ismap = av.(*Map)
+										}
+										break
+									}
+								} else {
+									break
+								}
+
+							} else {
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
+func (mp *Map) ExistsAt(k interface{}, a ...interface{}) (exist bool) {
+	if validMap(mp) {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			exist = mapExistsAt(mp, nil, a...)
+		}()
+	}
+	return
+}
+
+func mapExistsAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (exists bool) {
+	if mp != nil && len(a) > 1 {
+		var lkpmp *Map = mp
+		ks := a[0 : len(a)-1]
+		a = a[len(a):]
+		var arrv []interface{} = nil
+		if arv, atargsok := a[0].([]interface{}); atargsok {
+			arrv = arv[:]
+		} else {
+			arrv = []interface{}{a[0]}
+		}
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if valf, found := subfind(); found {
+					if arv, arrvok := valf.([]interface{}); arrvok {
+						for an, ad := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+								if ai := int(adi); ai > -1 && ai < len(arv) {
+									if (an + 1) < len(arrv) {
+										if arv, arrvok = arv[ai].([]interface{}); arrvok {
+											continue
+										} else {
+											break
+										}
+									} else {
+										exists = true
+										break
+									}
+								} else {
+									break
+								}
+
+							} else {
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
 func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
 	if validMap(mp) {
 		func() {
 			mp.RLock()
 			defer mp.RUnlock()
+			if len(a) == 0 {
+				a = append([]interface{}{k}, a)
+			} else {
+				a = append([]interface{}{k}, a...)
+			}
 			arv = mapAt(mp, nil, a...)
 		}()
 	}
@@ -707,6 +927,181 @@ func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
 }
 
 func (mp *Map) FocusAt(k interface{}, a ...interface{}) (focused bool) {
+	return
+}
+
+func (mp *Map) ClearAt(k interface{}, a ...interface{}) (cleared bool) {
+	if validMap(mp) {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			if len(a) == 0 {
+				a = append([]interface{}{k}, a)
+			} else {
+				a = append([]interface{}{k}, a...)
+			}
+			cleared = mapClearAt(mp, nil, a...)
+		}()
+	}
+	return
+}
+
+func mapClearAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (cleared bool) {
+	if mp != nil && len(a) > 1 {
+		var lkpmp *Map = mp
+		ks := a[0 : len(a)-1]
+		a = a[len(a):]
+		var arrv []interface{} = nil
+		if arv, atargsok := a[0].([]interface{}); atargsok {
+			arrv = arv[:]
+		} else {
+			arrv = []interface{}{a[0]}
+		}
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if valf, found := subfind(); found {
+					if arv, arrvok := valf.([]interface{}); arrvok {
+						for an, ad := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+								if ai := int(adi); ai > -1 && ai < len(arv) {
+									if (an + 1) < len(arrv) {
+										if arv, arrvok = arv[ai].([]interface{}); arrvok {
+											continue
+										} else {
+											break
+										}
+									} else {
+										if av := arv[ai]; av != nil {
+											if amp, _ := av.(*Map); amp != nil {
+												amp.Clear()
+												cleared = true
+											}
+										}
+										break
+									}
+								} else {
+									break
+								}
+
+							} else {
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
+func (mp *Map) CloseAt(k interface{}, a ...interface{}) (closed bool) {
+	if validMap(mp) {
+		func() {
+			mp.RLock()
+			defer mp.RUnlock()
+			if len(a) == 0 {
+				a = append([]interface{}{k}, a)
+			} else {
+				a = append([]interface{}{k}, a...)
+			}
+			closed = mapCloseAt(mp, nil, a...)
+		}()
+	}
+	return
+}
+
+func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
+	if mp != nil && len(a) > 1 {
+		var lkpmp *Map = mp
+		ks := a[0 : len(a)-1]
+		a = a[len(a):]
+		var arrv []interface{} = nil
+		if arv, atargsok := a[0].([]interface{}); atargsok {
+			arrv = arv[:]
+		} else {
+			arrv = []interface{}{a[0]}
+		}
+		if ksl := len(ks); ksl > 0 {
+			ksi := 0
+			var subfind = func() (valf interface{}, found bool) {
+				if lkpmp != mp {
+					crntmp := lkpmp
+					crntmp.RLock()
+					defer crntmp.RUnlock()
+				}
+				ksi++
+				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+					if ksi < ksl {
+						found = false
+						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+							lkpmp = vmp
+						} else {
+							ksi = ksl
+						}
+					}
+				}
+				return
+			}
+			for ksi < ksl {
+				if valf, found := subfind(); found {
+					if arv, arrvok := valf.([]interface{}); arrvok {
+						for an, ad := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+								if ai := int(adi); ai > -1 && ai < len(arv) {
+									if (an + 1) < len(arrv) {
+										if arv, arrvok = arv[ai].([]interface{}); arrvok {
+											continue
+										} else {
+											break
+										}
+									} else {
+										if av := arv[ai]; av != nil {
+											if ai > 0 {
+												arv = append(arv[:ai-1], arv[ai+1:]...)
+											}
+											if amp, _ := av.(*Map); amp != nil {
+												amp.Close()
+												closed = true
+											}
+										}
+										break
+									}
+								} else {
+									break
+								}
+
+							} else {
+								break
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
 	return
 }
 

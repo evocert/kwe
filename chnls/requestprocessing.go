@@ -49,6 +49,11 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rqstr
 		rqstsettings = map[string]interface{}{}
 	}
 
+	if initPath == "" {
+		if rqstrw != nil && rqstrw.Request() != nil {
+			initPath = rqstrw.Request().Path()
+		}
+	}
 	rqst = &Request{rqstrw: rqstrw, prntrqst: prntrqst, chnl: chnl, isFirstRequest: true, Interrupted: false, settings: rqstsettings, actnslst: enumeration.NewList(), args: make([]interface{}, len(a)), objmap: map[string]interface{}{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}, activecns: map[string]*database.Connection{}, cmnds: map[int]*osprc.Command{},
 		initPath:  initPath,
 		mphndlr:   caching.GLOBALMAP().Handler(),
@@ -63,80 +68,6 @@ func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rqstr
 	}
 	return
 }
-
-/*func internalExecuteRequest(rqst *Request, interrupt func()) {
-	var bgrndctnx context.Context = nil
-	httpr, httpw, rqstw, rqstr := rqst.httpr, rqst.httpw, rqst.rqstw, rqst.rqstr
-	if httpr != nil && httpw != nil {
-		rqst.prtcl = httpr.Proto
-		rqst.prtclmethod = httpr.Method
-		bgrndctnx = httpr.Context()
-	} else {
-		bgrndctnx = context.Background()
-	}
-	func() {
-		notify := func() func() <-chan bool {
-			var clsntfy http.CloseNotifier = nil
-			if httpw != nil {
-				clsntfy, _ = httpw.(http.CloseNotifier)
-			} else if rqstw != nil {
-				clsntfy, _ = rqstw.(http.CloseNotifier)
-			}
-			if clsntfy != nil {
-				return clsntfy.CloseNotify
-			}
-			return nil
-		}()
-		isCancelled := false
-		ctx, cancel := context.WithCancel(bgrndctnx)
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-
-				}
-				isCancelled = true
-				cancel()
-			}()
-			if httpr != nil && httpw != nil {
-				rqst.executeHTTP(interrupt)
-			} else if (rqstr == nil || rqstw == nil) || (rqstr != nil && rqstw != nil) {
-				if rwerr := rqst.executeRW(interrupt); rwerr != nil {
-					fmt.Println(rwerr)
-				}
-			} else {
-				rqst.executePath("", interrupt)
-			}
-		}()
-		if notify != nil {
-			select {
-			case <-notify():
-				if interrupt != nil {
-					interrupt()
-					interrupt = nil
-				}
-			case <-ctx.Done():
-				if ctxerr := ctx.Err(); ctxerr != nil {
-					if !isCancelled {
-						if interrupt != nil {
-							interrupt()
-							interrupt = nil
-						}
-					}
-				}
-			}
-		} else {
-			<-ctx.Done()
-			if ctxerr := ctx.Err(); ctxerr != nil {
-				if !isCancelled {
-					if interrupt != nil {
-						interrupt()
-						interrupt = nil
-					}
-				}
-			}
-		}
-	}()
-}*/
 
 func internalExecuteRequest(rqst *Request, interrupt func()) {
 	rqst.executeNow(interrupt)

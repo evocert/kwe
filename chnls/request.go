@@ -27,8 +27,7 @@ import (
 
 //Request -
 type Request struct {
-	rqstrw requesting.RequestorAPI
-	//stillValid       bool
+	rqstrw           requesting.RequestorAPI
 	atv              *active.Active
 	actnslst         *enumeration.List
 	lstexctngactng   *Action
@@ -678,7 +677,9 @@ func (rqst *Request) copy(r io.Reader, altw io.Writer, istext bool, isactive boo
 
 func (rqst *Request) wrapup() (err error) {
 	if rqst != nil && rqst.rqstrw != nil {
-		rqst.rqstrw.Response().Flush()
+		if rqst.rqstrw.Response() != nil {
+			rqst.rqstrw.Response().Flush()
+		}
 	}
 	return
 }
