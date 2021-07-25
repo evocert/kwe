@@ -13,7 +13,7 @@ type MapAPI interface {
 	IsMap(...interface{}) bool
 	Exists(...interface{}) bool
 	Find(...interface{}) interface{}
-	Put(interface{}, ...interface{})
+	Put(interface{}, ...interface{}) bool
 	Remove(...interface{})
 	Fprint(io.Writer, ...interface{}) error
 	String(...interface{}) string

@@ -40,42 +40,20 @@ func (mp *Map) RUnlock() (lcked bool) {
 
 func (mp *Map) Keys(ks ...interface{}) (keys []interface{}) {
 	if mp != nil {
-		func() {
-			if len(ks) == 0 {
-				func() {
-					mp.lck.RLock()
-					defer mp.lck.RUnlock()
-					keys = mapKeys(mp, nil)
-				}()
-			} else {
-				var lkpmp *Map = nil
-				func() {
-					mp.lck.RLock()
-					defer mp.lck.RUnlock()
-					if lkv := mapFind(mp, nil, ks...); lkv != nil {
-						lkpmp, _ = lkv.(*Map)
-					}
-				}()
-				if lkpmp != nil {
-					func() {
-						lkpmp.lck.RLock()
-						defer lkpmp.lck.RUnlock()
-						keys = mapKeys(lkpmp, nil)
-					}()
-				}
-			}
-		}()
+		keys = mapKeys(mp, nil, ks...)
 	}
 	return
 }
 
-func mapKeys(mp *Map, mphndlr *MapHandler) (keys []interface{}) {
-	if mp != nil {
-		if mp != nil && len(mp.imp) > 0 {
-			keys := make([]interface{}, len(mp.imp))
+func keysFound(ksmp *Map) (keys []interface{}) {
+	if validMap(ksmp) {
+		ksmp.RLock()
+		defer ksmp.RUnlock()
+		if ksmp != nil && len(ksmp.imp) > 0 {
+			keys = make([]interface{}, len(ksmp.imp))
 			keysi := 0
-			for k := range mp.imp {
-				keys[keysi] = k
+			for _, v := range ksmp.imp {
+				keys[keysi] = v
 				keysi++
 			}
 		}
@@ -83,52 +61,64 @@ func mapKeys(mp *Map, mphndlr *MapHandler) (keys []interface{}) {
 	return
 }
 
-func (mp *Map) Values(ks ...interface{}) (values []interface{}) {
-	if mp != nil {
+func mapKeys(mp *Map, mphndlr *MapHandler, ks ...interface{}) (keys []interface{}) {
+	if len(ks) == 0 {
+		keys = keysFound(mp)
+	} else {
+		var lkpmp *Map = nil
 		func() {
-			if len(ks) == 0 {
-				func() {
-					mp.lck.RLock()
-					defer mp.lck.RUnlock()
-					values = mapValues(mp, nil)
-				}()
-			} else {
-				var lkpmp *Map = nil
-				func() {
-					mp.lck.RLock()
-					defer mp.lck.RUnlock()
-					if lkv := mapFind(mp, nil, ks...); lkv != nil {
-						lkpmp, _ = lkv.(*Map)
-					}
-				}()
-				if lkpmp != nil {
-					func() {
-						lkpmp.lck.RLock()
-						defer lkpmp.lck.RUnlock()
-						values = mapValues(lkpmp, nil)
-					}()
-				}
+			if lkv := mapFind(mp, mphndlr, ks...); lkv != nil {
+				lkpmp, _ = lkv.(*Map)
 			}
 		}()
+		if lkpmp != nil {
+			keys = keysFound(lkpmp)
+		}
 	}
 	return
 }
 
-func mapValues(mp *Map, mphndlr *MapHandler) (values []interface{}) {
-	if mp != nil {
-		if mp != nil && len(mp.imp) > 0 {
-			values := make([]interface{}, len(mp.imp))
-			valuesi := 0
-			for _, v := range mp.imp {
-				values[valuesi] = v
-				valuesi++
+func (mp *Map) Values(ks ...interface{}) (values []interface{}) {
+	if validMap(mp) {
+		values = mapValues(mp, nil, ks...)
+	}
+	return
+}
+
+func valuesFound(ksmp *Map) (values []interface{}) {
+	if validMap(ksmp) {
+		ksmp.RLock()
+		defer ksmp.RUnlock()
+		if ksmp != nil && len(ksmp.imp) > 0 {
+			values = make([]interface{}, len(ksmp.imp))
+			valsi := 0
+			for _, v := range ksmp.imp {
+				values[valsi] = v
+				valsi++
 			}
 		}
 	}
 	return
 }
 
-func (mp *Map) Put(name interface{}, a ...interface{}) {
+func mapValues(mp *Map, mphndlr *MapHandler, ks ...interface{}) (values []interface{}) {
+	if len(ks) == 0 {
+		values = valuesFound(mp)
+	} else {
+		var lkpmp *Map = nil
+		func() {
+			if lkv := mapFind(mp, nil, ks...); lkv != nil {
+				lkpmp, _ = lkv.(*Map)
+			}
+		}()
+		if lkpmp != nil {
+			values = valuesFound(lkpmp)
+		}
+	}
+	return
+}
+
+func (mp *Map) Put(name interface{}, a ...interface{}) (putit bool) {
 	if name != nil {
 		if len(a) == 0 {
 			if mpkv, mpkvok := name.(map[interface{}]interface{}); mpkvok && len(mpkv) > 0 {
@@ -141,67 +131,70 @@ func (mp *Map) Put(name interface{}, a ...interface{}) {
 		} else {
 			a = append([]interface{}{name}, a...)
 		}
+		if validMap(mp) {
+			putit = mapPut(mp, nil, true, a...)
+		}
+	}
+	return
+}
+
+func mapPut(mp *Map, mphndlr *MapHandler, candispose bool, a ...interface{}) (putit bool) {
+	if validMap(mp) && len(a) > 0 {
 		func() {
-			if validMap(mp) {
-				mp.Lock()
-				defer mp.Unlock()
-				mapPut(mp, nil, true, a...)
+			mp.Lock()
+			defer mp.Unlock()
+			for {
+				if al := len(a); al > 0 {
+					if al%2 == 0 {
+						k := a[0]
+						if k != nil {
+							a = a[1:]
+							v := a[0]
+							func() {
+								if v != nil {
+									if vmp, vmpok := v.(map[interface{}]interface{}); vmpok {
+										vnmp := NewMap()
+										vnmp.Put(vmp)
+										v = vnmp
+									} else if vmp, vmpok := v.(map[string]interface{}); vmpok {
+										vnmp := NewMap()
+										vnmp.Put(vmp)
+										v = vnmp
+									}
+								}
+								if prvv, hask := mp.imp[k]; hask {
+									delete(mp.imp, k)
+									if candispose && prvv != nil {
+										disposeMapVal(mp, mphndlr, prvv)
+									}
+								}
+								mp.imp[k] = prepNewVal(v)
+								putit = true
+							}()
+							a = a[1:]
+						}
+					} else {
+						if m, mok := a[0].(map[string]interface{}); mok && len(m) > 0 {
+							a = a[1:]
+							for k, v := range m {
+								a = append(a, k, v)
+							}
+						} else if mi, miok := a[0].(map[interface{}]interface{}); miok && len(mi) > 0 {
+							a = a[1:]
+							for k, v := range mi {
+								a = append(a, k, v)
+							}
+						} else {
+							a = a[1:]
+						}
+					}
+				} else {
+					break
+				}
 			}
 		}()
 	}
-}
-
-func mapPut(mp *Map, mphndlr *MapHandler, candispose bool, a ...interface{}) {
-	if mp != nil && len(a) > 0 {
-		for {
-			if al := len(a); al > 0 {
-				if al%2 == 0 {
-					k := a[0]
-					if k != nil {
-						a = a[1:]
-						v := a[0]
-						func() {
-							if v != nil {
-								if vmp, vmpok := v.(map[interface{}]interface{}); vmpok {
-									vnmp := NewMap()
-									vnmp.Put(vmp)
-									v = vnmp
-								} else if vmp, vmpok := v.(map[string]interface{}); vmpok {
-									vnmp := NewMap()
-									vnmp.Put(vmp)
-									v = vnmp
-								}
-							}
-							if prvv, hask := mp.imp[k]; hask {
-								delete(mp.imp, k)
-								if candispose && prvv != nil {
-									disposeMapVal(mp, mphndlr, prvv)
-								}
-							}
-							mp.imp[k] = prepNewVal(v)
-						}()
-						a = a[1:]
-					}
-				} else {
-					if m, mok := a[0].(map[string]interface{}); mok && len(m) > 0 {
-						a = a[1:]
-						for k, v := range m {
-							a = append(a, k, v)
-						}
-					} else if mi, miok := a[0].(map[interface{}]interface{}); miok && len(mi) > 0 {
-						a = a[1:]
-						for k, v := range mi {
-							a = append(a, k, v)
-						}
-					} else {
-						a = a[1:]
-					}
-				}
-			} else {
-				break
-			}
-		}
-	}
+	return
 }
 
 func prepNewVal(v interface{}) (vn interface{}) {
@@ -269,10 +262,14 @@ func (mp *Map) Close(ks ...interface{}) (closed bool) {
 			var lkpmp *Map = nil
 			var prvlkmp *Map = mp
 			if len(ks) > 1 {
-				if v := mp.Find(ks[:len(ks)-1]); v != nil {
-					prvlkmp, _ = v.(*Map)
-					v = nil
-				}
+				func() {
+					mp.Lock()
+					defer mp.Unlock()
+					if v := mapFind(mp, mphndlr, ks[:len(ks)-1]); v != nil {
+						prvlkmp, _ = v.(*Map)
+						v = nil
+					}
+				}()
 			}
 			if v := mp.Find(ks...); v != nil {
 				lkpmp, _ = v.(*Map)
@@ -320,7 +317,7 @@ func (mp *Map) Clear(ks ...interface{}) (cleared bool) {
 				mp.Lock()
 				defer mp.Unlock()
 				if len(mp.imp) > 0 {
-					ks := make([]interface{}, len(mp.imp))
+					ks = make([]interface{}, len(mp.imp))
 					ksi := 0
 					for k := range mp.imp {
 						ks[ksi] = k
@@ -374,140 +371,74 @@ func mapRemove(mp *Map, mphndlr *MapHandler, name ...interface{}) {
 func (mp *Map) IsMap(ks ...interface{}) (ismap bool) {
 	if len(ks) > 0 {
 		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			ismap = mapExists(mp, nil, ks...)
+			ismap = mapIsMap(mp, nil, ks...)
 		}()
+	}
+	return
+}
+
+func baseMapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (found bool, vfound interface{}) {
+	var lkpmp *Map = mp
+	if ksl := len(ks); ksl > 0 && validMap(lkpmp) {
+		ksi := 0
+		var subfind = func() (valf interface{}, found bool) {
+			var currentMap *Map = nil
+			if validMap(lkpmp) {
+				currentMap = lkpmp
+				currentMap.RLock()
+				defer currentMap.RUnlock()
+			}
+			ksi++
+			if valf, found = lkpmp.imp[ks[ksi-1]]; found {
+				if ksi < ksl {
+					found = false
+					if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
+						lkpmp = vmp
+					} else {
+						ksi = ksl
+					}
+				}
+			}
+			return
+		}
+		var vfnd interface{} = nil
+		var fnd bool = false
+		for ksi < ksl {
+			if vfnd, fnd = subfind(); fnd {
+				found, vfound = fnd, vfnd
+				break
+			}
+		}
 	}
 	return
 }
 
 func mapIsMap(mp *Map, mphndlr *MapHandler, ks ...interface{}) (ismap bool) {
-	if mp != nil {
-		var lkpmp *Map = mp
-		if ksl := len(ks); ksl > 0 {
-			ksi := 0
-			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-				}
-				ksi++
-				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
-					if ksi < ksl {
-						found = false
-						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
-							lkpmp = vmp
-						} else {
-							ksi = ksl
-						}
-					}
-				}
-				return
-			}
-			for ksi < ksl {
-				if v, found := subfind(); found {
-					if v != nil {
-						_, ismap = v.(*Map)
-					}
-					break
-				}
-			}
-		}
+	if found, vfound := baseMapFind(mp, mphndlr, ks...); found && vfound != nil {
+		_, ismap = vfound.(*Map)
 	}
 	return
 }
 
 func (mp *Map) Exists(ks ...interface{}) (exist bool) {
-	if len(ks) > 0 {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			exist = mapExists(mp, nil, ks...)
-		}()
-	}
+	exist = mapExists(mp, nil, ks...)
 	return
 }
 
 func mapExists(mp *Map, mphndlr *MapHandler, ks ...interface{}) (exist bool) {
-	if mp != nil {
-		var lkpmp *Map = mp
-		if ksl := len(ks); ksl > 0 {
-			ksi := 0
-			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-				}
-				ksi++
-				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
-					if ksi < ksl {
-						found = false
-						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
-							lkpmp = vmp
-						} else {
-							ksi = ksl
-						}
-					}
-				}
-				return
-			}
-			for ksi < ksl {
-				if _, found := subfind(); found {
-					exist = found
-					break
-				}
-			}
-		}
+	if found, _ := baseMapFind(mp, mphndlr, ks...); found {
+		exist = found
 	}
 	return
 }
 
 func (mp *Map) Find(ks ...interface{}) (value interface{}) {
-	if len(ks) > 0 {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			value = mapFind(mp, nil, ks...)
-		}()
-	}
+	value = mapFind(mp, nil, ks...)
 	return
 }
 
 func mapFind(mp *Map, mphndlr *MapHandler, ks ...interface{}) (vfound interface{}) {
-	if mp != nil {
-		var lkpmp *Map = mp
-		if ksl := len(ks); ksl > 0 {
-			ksi := 0
-			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-				}
-				ksi++
-				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
-					if ksi < ksl {
-						found = false
-						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
-							lkpmp = vmp
-						} else {
-							ksi = ksl
-						}
-					}
-				}
-				return
-			}
-			for ksi < ksl {
-				if valf, found := subfind(); found {
-					vfound = valf
-					break
-				}
-			}
-		}
-	}
+	_, vfound = baseMapFind(mp, mphndlr, ks...)
 	return
 }
 
@@ -705,25 +636,19 @@ func mapUnshift(mp *Map, mphndlr *MapHandler, a ...interface{}) (unshift interfa
 }
 
 func (mp *Map) IsMapAt(k interface{}, a ...interface{}) (ismap bool) {
-	if validMap(mp) {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			if len(a) == 0 {
-				if a != nil {
-					a = append([]interface{}{k}, a)
-				}
-			} else {
-				a = append([]interface{}{k}, a...)
-			}
-			ismap = mapIsMapAt(mp, nil, a...)
-		}()
+	if len(a) == 0 {
+		if a != nil {
+			a = append([]interface{}{k}, a)
+		}
+	} else {
+		a = append([]interface{}{k}, a...)
 	}
+	ismap = mapIsMapAt(mp, nil, a...)
 	return
 }
 
 func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
-	if mp != nil && len(a) > 1 {
+	if validMap(mp) && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
 		a = a[len(a)-1:]
@@ -736,10 +661,11 @@ func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
 		if ksl := len(ks); ksl > 0 {
 			ksi := 0
 			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
+				var currentMap *Map = nil
+				if lkpmp != nil {
+					currentMap = lkpmp
+					currentMap.RLock()
+					defer currentMap.RUnlock()
 				}
 				ksi++
 				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
@@ -791,11 +717,12 @@ func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
 
 func (mp *Map) ExistsAt(k interface{}, a ...interface{}) (exist bool) {
 	if validMap(mp) {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			exist = mapExistsAt(mp, nil, a...)
-		}()
+		if len(a) == 0 {
+			a = append([]interface{}{k}, a)
+		} else {
+			a = append([]interface{}{k}, a...)
+		}
+		exist = mapExistsAt(mp, nil, a...)
 	}
 	return
 }
@@ -814,10 +741,11 @@ func mapExistsAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (exists bool) {
 		if ksl := len(ks); ksl > 0 {
 			ksi := 0
 			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
+				var currentMap *Map = nil
+				if lkpmp != nil {
+					currentMap = lkpmp
+					currentMap.RLock()
+					defer currentMap.RUnlock()
 				}
 				ksi++
 				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
@@ -868,8 +796,6 @@ func mapExistsAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (exists bool) {
 func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
 	if validMap(mp) {
 		func() {
-			mp.RLock()
-			defer mp.RUnlock()
 			if len(a) == 0 {
 				a = append([]interface{}{k}, a)
 			} else {
@@ -882,7 +808,7 @@ func (mp *Map) At(k interface{}, a ...interface{}) (arv interface{}) {
 }
 
 func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
-	if mp != nil && len(a) > 1 {
+	if validMap(mp) && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
 		a = a[len(a)-1:]
@@ -895,10 +821,11 @@ func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
 		if ksl := len(ks); ksl > 0 {
 			ksi := 0
 			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
+				var currentMap *Map = nil
+				if validMap(lkpmp) {
+					currentMap = lkpmp
+					currentMap.RLock()
+					defer currentMap.RUnlock()
 				}
 				ksi++
 				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
@@ -951,109 +878,44 @@ func (mp *Map) FocusAt(k interface{}, a ...interface{}) (focused bool) {
 }
 
 func (mp *Map) ClearAt(k interface{}, a ...interface{}) (cleared bool) {
-	if validMap(mp) {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			if len(a) == 0 {
-				a = append([]interface{}{k}, a)
-			} else {
-				a = append([]interface{}{k}, a...)
-			}
-			cleared = mapClearAt(mp, nil, a...)
-		}()
+	if len(a) == 0 {
+		a = append([]interface{}{k}, a)
+	} else {
+		a = append([]interface{}{k}, a...)
 	}
+	cleared = mapClearAt(mp, nil, a...)
+
 	return
 }
 
 func mapClearAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (cleared bool) {
-	if mp != nil && len(a) > 1 {
-		var lkpmp *Map = mp
-		ks := a[0 : len(a)-1]
-		a = a[len(a)-1:]
-		var arrv []interface{} = nil
-		if arv, atargsok := a[0].([]interface{}); atargsok {
-			arrv = arv[:]
-		} else {
-			arrv = []interface{}{a[0]}
-		}
-		if ksl := len(ks); ksl > 0 {
-			ksi := 0
-			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-				}
-				ksi++
-				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
-					if ksi < ksl {
-						found = false
-						if vmp, vmpok := valf.(*Map); vmpok && vmp != nil {
-							lkpmp = vmp
-						} else {
-							ksi = ksl
-						}
-					}
-				}
-				return
+	if validMap(mp) && len(a) > 1 {
+		var lkpmp *Map = nil
+		func() {
+			if v := mapAt(mp, mphndlr, a...); v != nil {
+				lkpmp, _ = v.(*Map)
 			}
-			for ksi < ksl {
-				if valf, found := subfind(); found {
-					if arv, arrvok := valf.([]interface{}); arrvok {
-						for an, ad := range arrv {
-							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
-								if ai := int(adi); ai > -1 && ai < len(arv) {
-									if (an + 1) < len(arrv) {
-										if arv, arrvok = arv[ai].([]interface{}); arrvok {
-											continue
-										} else {
-											break
-										}
-									} else {
-										if av := arv[ai]; av != nil {
-											if amp, _ := av.(*Map); amp != nil {
-												amp.Clear()
-												cleared = true
-											}
-										}
-										break
-									}
-								} else {
-									break
-								}
-
-							} else {
-								break
-							}
-						}
-					}
-					break
-				}
-			}
+		}()
+		if lkpmp != nil {
+			lkpmp.Clear(mphndlr)
+			cleared = true
 		}
 	}
 	return
 }
 
 func (mp *Map) CloseAt(k interface{}, a ...interface{}) (closed bool) {
-	if validMap(mp) {
-		func() {
-			mp.RLock()
-			defer mp.RUnlock()
-			if len(a) == 0 {
-				a = append([]interface{}{k}, a)
-			} else {
-				a = append([]interface{}{k}, a...)
-			}
-			closed = mapCloseAt(mp, nil, a...)
-		}()
+	if len(a) == 0 {
+		a = append([]interface{}{k}, a)
+	} else {
+		a = append([]interface{}{k}, a...)
 	}
+	closed = mapCloseAt(mp, nil, a...)
 	return
 }
 
 func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
-	if mp != nil && len(a) > 1 {
+	if validMap(mp) && len(a) > 1 {
 		var lkpmp *Map = mp
 		ks := a[0 : len(a)-1]
 		a = a[len(a)-1:]
@@ -1066,10 +928,11 @@ func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
 		if ksl := len(ks); ksl > 0 {
 			ksi := 0
 			var subfind = func() (valf interface{}, found bool) {
-				if lkpmp != mp {
-					crntmp := lkpmp
-					crntmp.RLock()
-					defer crntmp.RUnlock()
+				var currentMap *Map = nil
+				if validMap(lkpmp) {
+					currentMap = lkpmp
+					currentMap.RLock()
+					defer currentMap.RUnlock()
 				}
 				ksi++
 				if valf, found = lkpmp.imp[ks[ksi-1]]; found {
@@ -1084,6 +947,7 @@ func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
 				}
 				return
 			}
+
 			for ksi < ksl {
 				if valf, found := subfind(); found {
 					if arv, arrvok := valf.([]interface{}); arrvok {
@@ -1098,20 +962,21 @@ func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
 										}
 									} else {
 										if av := arv[ai]; av != nil {
+											disposeMapVal(mp, nil, av)
+											arv[ai] = nil
+											var narv []interface{} = nil
 											if ai > 0 {
-												arv = append(arv[:ai-1], arv[ai+1:]...)
+												narv = append(arv[:ai], arv[ai+1:]...)
+											} else {
+												narv = []interface{}{}
 											}
-											if amp, _ := av.(*Map); amp != nil {
-												amp.Close()
-												closed = true
-											}
+											lkpmp.imp[ks[ksi-1]] = narv
 										}
 										break
 									}
 								} else {
 									break
 								}
-
 							} else {
 								break
 							}

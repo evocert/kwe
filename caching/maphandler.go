@@ -101,13 +101,7 @@ func (mphndlr *MapHandler) Focus(ks ...interface{}) (focused bool) {
 func (mphndlr *MapHandler) IsMap(ks ...interface{}) (ismap bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			if len(ks) > 0 {
-				func() {
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-					ismap = mapIsMap(crntmp, mphndlr, ks...)
-				}()
-			}
+			ismap = mapIsMap(crntmp, mphndlr, ks...)
 		}
 	}
 	return
@@ -116,13 +110,7 @@ func (mphndlr *MapHandler) IsMap(ks ...interface{}) (ismap bool) {
 func (mphndlr *MapHandler) Exists(ks ...interface{}) (exist bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			if len(ks) > 0 {
-				func() {
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-					exist = mapExists(crntmp, mphndlr, ks...)
-				}()
-			}
+			exist = mapExists(crntmp, mphndlr, ks...)
 		}
 	}
 	return
@@ -131,13 +119,7 @@ func (mphndlr *MapHandler) Exists(ks ...interface{}) (exist bool) {
 func (mphndlr *MapHandler) Find(ks ...interface{}) (value interface{}) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			if len(ks) > 0 {
-				func() {
-					crntmp.RLock()
-					defer crntmp.RUnlock()
-					value = mapFind(crntmp, mphndlr, ks...)
-				}()
-			}
+			value = mapFind(crntmp, mphndlr, ks...)
 		}
 	}
 	return
@@ -146,31 +128,7 @@ func (mphndlr *MapHandler) Find(ks ...interface{}) (value interface{}) {
 func (mphndlr *MapHandler) Keys(ks ...interface{}) (keys []interface{}) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			func() {
-				if len(ks) == 0 {
-					func() {
-						crntmp.lck.RLock()
-						defer crntmp.lck.RUnlock()
-						keys = mapKeys(crntmp, mphndlr)
-					}()
-				} else {
-					var lkpmp *Map = nil
-					func() {
-						crntmp.lck.RLock()
-						defer crntmp.lck.RUnlock()
-						if lkv := mapFind(crntmp, mphndlr, ks...); lkv != nil {
-							lkpmp, _ = lkv.(*Map)
-						}
-					}()
-					if lkpmp != nil {
-						func() {
-							lkpmp.lck.RLock()
-							defer lkpmp.lck.RUnlock()
-							keys = mapKeys(lkpmp, nil)
-						}()
-					}
-				}
-			}()
+			keys = mapKeys(crntmp, mphndlr, ks...)
 		}
 	}
 	return
@@ -179,37 +137,13 @@ func (mphndlr *MapHandler) Keys(ks ...interface{}) (keys []interface{}) {
 func (mphndlr *MapHandler) Values(ks ...interface{}) (values []interface{}) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			func() {
-				if len(ks) == 0 {
-					func() {
-						crntmp.lck.RLock()
-						defer crntmp.lck.RUnlock()
-						values = mapValues(crntmp, mphndlr)
-					}()
-				} else {
-					var lkpmp *Map = nil
-					func() {
-						crntmp.lck.RLock()
-						defer crntmp.lck.RUnlock()
-						if lkv := mapFind(crntmp, mphndlr, ks...); lkv != nil {
-							lkpmp, _ = lkv.(*Map)
-						}
-					}()
-					if lkpmp != nil {
-						func() {
-							lkpmp.lck.RLock()
-							defer lkpmp.lck.RUnlock()
-							values = mapValues(lkpmp, nil)
-						}()
-					}
-				}
-			}()
+			values = mapValues(crntmp, mphndlr, ks...)
 		}
 	}
 	return
 }
 
-func (mphndlr *MapHandler) Put(name interface{}, a ...interface{}) {
+func (mphndlr *MapHandler) Put(name interface{}, a ...interface{}) (putit bool) {
 	if name != nil {
 		if mphndlr != nil {
 			if crntmp := mphndlr.currentMap(); crntmp != nil {
@@ -224,16 +158,11 @@ func (mphndlr *MapHandler) Put(name interface{}, a ...interface{}) {
 				} else {
 					a = append([]interface{}{name}, a...)
 				}
-				func() {
-					if validMap(crntmp) {
-						crntmp.Lock()
-						defer crntmp.Unlock()
-						mapPut(crntmp, mphndlr, true, a...)
-					}
-				}()
+				putit = mapPut(crntmp, mphndlr, true, a...)
 			}
 		}
 	}
+	return
 }
 
 func (mphndlr *MapHandler) Pop(k interface{}, a ...interface{}) (pop interface{}) {
@@ -268,8 +197,6 @@ func (mphndlr *MapHandler) IsMapAt(k interface{}, a ...interface{}) (ismap bool)
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
 				if len(a) == 0 {
 					if a != nil {
 						a = append([]interface{}{k}, a)
@@ -289,8 +216,6 @@ func (mphndlr *MapHandler) ExistsAt(k interface{}, a ...interface{}) (exists boo
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
 				if len(a) == 0 {
 					a = append([]interface{}{k}, a)
 				} else {
@@ -306,16 +231,12 @@ func (mphndlr *MapHandler) ExistsAt(k interface{}, a ...interface{}) (exists boo
 func (mphndlr *MapHandler) ClearAt(k interface{}, a ...interface{}) (cleared bool) {
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
-			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
-				if len(a) == 0 {
-					a = append([]interface{}{k}, a)
-				} else {
-					a = append([]interface{}{k}, a...)
-				}
-				cleared = mapClearAt(crntmp, mphndlr, a...)
-			}()
+			if len(a) == 0 {
+				a = append([]interface{}{k}, a)
+			} else {
+				a = append([]interface{}{k}, a...)
+			}
+			cleared = mapClearAt(crntmp, mphndlr, a...)
 		}
 	}
 	return
@@ -325,8 +246,6 @@ func (mphndlr *MapHandler) CloseAt(k interface{}, a ...interface{}) (closed bool
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
 				if len(a) == 0 {
 					a = append([]interface{}{k}, a)
 				} else {
@@ -343,8 +262,6 @@ func (mphndlr *MapHandler) At(k interface{}, a ...interface{}) (arv interface{})
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
 				if len(a) == 0 {
 					a = append([]interface{}{k}, a)
 				} else {
@@ -361,8 +278,6 @@ func (mphndlr *MapHandler) FocusAt(k interface{}, a ...interface{}) (focused boo
 	if mphndlr != nil {
 		if crntmp := mphndlr.currentMap(); crntmp != nil {
 			func() {
-				crntmp.RLock()
-				defer crntmp.RUnlock()
 				if len(a) == 0 {
 					a = []interface{}{k}
 				} else {

@@ -1,7 +1,17 @@
 
-caching.Put("a",{"b":[1,2,{"f":[7,8,9,18]},4]});
+caching.Put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.Log(caching.String());
-console.Log(caching.At("a","b",[2]).At("f",3));
+if (caching.ExistsAt("a","b",2)) {
+	console.Log(caching.At("a","b",2).String());
+	caching.ClearAt("a","b",2)
+	console.Log(caching.At("a","b",2).String());
+}
+console.Log(caching.String());
+if (caching.ExistsAt("a","b",2)) {
+	caching.CloseAt("a","b",2)
+	console.Log(caching.At("a","b",2));
+	console.Log(caching.String());
+}
 //console.Log(readAll());
 resourcing.RegisterEndpoint("/gendocs","C:/GitHub/kwe/gendocs");
 resourcing.RegisterEndpoint("/webcrawler","D:/projects/system/kweexamples-main/kweexamples-main/src/webcrawler");
