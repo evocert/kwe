@@ -47,13 +47,13 @@ type Active struct {
 
 func (atv *Active) LockPrint() {
 	if atv != nil && atv.lckprnt != nil {
-		//atv.lckprnt.Lock()
+		atv.lckprnt.Lock()
 	}
 }
 
 func (atv *Active) UnlockPrint() {
 	if atv != nil && atv.lckprnt != nil {
-		//atv.UnlockPrint()
+		atv.lckprnt.Unlock()
 	}
 }
 
@@ -147,8 +147,6 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 		if atv.Print != nil {
 			if len(a) > 0 {
 				func() {
-					atv.LockPrint()
-					defer atv.UnlockPrint()
 					atv.Print(a...)
 				}()
 			}
@@ -177,21 +175,19 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 	} else {
 		if atv.Println != nil {
 			if len(a) > 0 {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
-				atv.Println(a...)
+				func() {
+					atv.LockPrint()
+					defer atv.UnlockPrint()
+					atv.Println(a...)
+				}()
 			}
 		} else if atv.FPrintLn != nil && w != nil {
-			atv.LockPrint()
-			defer atv.UnlockPrint()
 			atv.FPrintLn(w, a...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
 				prntr.Println(a...)
 			} else {
 				if len(a) > 0 {
-					atv.LockPrint()
-					defer atv.UnlockPrint()
 					fmt.Fprint(w, a...)
 				}
 				fmt.Fprintln(w)
@@ -206,21 +202,15 @@ func (atv *Active) binwrite(w io.Writer, b ...byte) (n int, err error) {
 	} else {
 		if atv.BinWrite != nil {
 			if len(b) > 0 {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
 				n, err = atv.BinWrite(b...)
 			}
 		} else if atv.FBinWrite != nil && w != nil {
-			atv.LockPrint()
-			defer atv.UnlockPrint()
 			n, err = atv.FBinWrite(w, b...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
 				n, err = prntr.Write(b)
 			} else {
 				if len(b) > 0 {
-					atv.LockPrint()
-					defer atv.UnlockPrint()
 					n, err = w.Write(b)
 				}
 			}
@@ -242,12 +232,8 @@ func (atv *Active) binread(r io.Reader, size int) (b []byte, err error) {
 		}
 	} else {
 		if atv.BinWrite != nil {
-			atv.LockPrint()
-			defer atv.UnlockPrint()
 			b, err = atv.BinRead(size)
 		} else if atv.FBinRead != nil && r != nil {
-			atv.LockPrint()
-			defer atv.UnlockPrint()
 			b, err = atv.FBinRead(r, size)
 		} else if r != nil {
 			atv.UnlockPrint()
@@ -273,8 +259,6 @@ func (atv *Active) seek(r io.Reader, offset int64, whence int) (n int64, err err
 			n, err = atv.Seek(offset, whence)
 		} else if atv.FSeek != nil && r != nil {
 			func() {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
 				n, err = atv.FSeek(r, offset, whence)
 			}()
 		} else if r != nil {
@@ -294,8 +278,6 @@ func (atv *Active) readln(r io.Reader) (ln string, err error) {
 			ln, err = atv.Readln()
 		} else if atv.FReadln != nil && r != nil {
 			func() {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
 				ln, err = atv.FReadln(r)
 			}()
 		} else if r != nil {
@@ -317,8 +299,6 @@ func (atv *Active) readlines(r io.Reader) (lines []string, err error) {
 			lines, err = atv.ReadLines()
 		} else if atv.FReadLines != nil && r != nil {
 			func() {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
 				lines, err = atv.FReadLines(r)
 			}()
 		} else if r != nil {
@@ -340,8 +320,6 @@ func (atv *Active) readAll(r io.Reader) (s string, err error) {
 			s, err = atv.ReadAll()
 		} else if atv.FReadAll != nil && r != nil {
 			func() {
-				atv.LockPrint()
-				defer atv.UnlockPrint()
 				s, err = atv.FReadAll(r)
 			}()
 		} else if r != nil {
