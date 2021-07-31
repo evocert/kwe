@@ -14,6 +14,7 @@ if (caching.ExistsAt("a","b",2)) {
 }
 //console.Log(readAll());
 resourcing.RegisterEndpoint("/gendocs","C:/GitHub/kwe/gendocs");
+resourcing.RegisterEndpoint("/materialicons","https://cdn.jsdelivr.net/npm/@mdi/font/");
 resourcing.RegisterEndpoint("/webcrawler","D:/projects/system/kweexamples-main/kweexamples-main/src/webcrawler");
 channel.Send("/gendocs/active:gendocs.js");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");

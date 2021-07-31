@@ -74,6 +74,7 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 }
 
 func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rqstrw requesting.RequestorAPI, a ...interface{}) {
+	defer runtime.GC()
 	var excrqst *Request = nil
 	var interrupt func() = nil
 	if prntrqst == nil {

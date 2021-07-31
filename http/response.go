@@ -18,8 +18,10 @@ type Response struct {
 	wtr         io.Writer
 	startwrtng  bool
 	contenttype string
-	wbuf        *iorw.Buffer
-	wbufr       *iorw.BuffReader
+	//wbuf        *iorw.Buffer
+	//wbufr       *iorw.BuffReader
+	wbytes []byte
+	wbytei int
 }
 
 func NewResponse(w interface{}, a ...requesting.RequestAPI) (rspns *Response) {
@@ -27,7 +29,7 @@ func NewResponse(w interface{}, a ...requesting.RequestAPI) (rspns *Response) {
 	if len(a) > 0 {
 		for _, d := range a {
 			if d != nil {
-				if rqstrd, _ := d.(requesting.RequestAPI); rqstrd != nil {
+				if rqstrd := d.(requesting.RequestAPI); rqstrd != nil {
 					if rqst == nil {
 						rqst = rqstrd
 					}
@@ -48,13 +50,13 @@ func NewResponse(w interface{}, a ...requesting.RequestAPI) (rspns *Response) {
 	if httpflshr == nil && wtr != nil {
 		httpflshr, _ = wtr.(http.Flusher)
 	}
-	rspns = &Response{rqst: rqst, wtr: wtr, httpw: httpw, httpflshr: httpflshr, httpstatus: 200, wbuf: iorw.NewBuffer()}
-	rspns.wbuf.MaxLenToWrite = 1024 * 1024
-	rspns.wbuf.OnMaxWritten = func(maxwritten int64) bool {
-		rspns.internFlush()
-		return true
-	}
-	rspns.wbufr = rspns.wbuf.Reader()
+	rspns = &Response{rqst: rqst, wtr: wtr, httpw: httpw, httpflshr: httpflshr, httpstatus: 200, wbytei: 0, wbytes: make([]byte, 1024*1024)}
+	//rspns.wbuf.MaxLenToWrite = 1024 * 1024
+	//rspns.wbuf.OnMaxWritten = func(maxwritten int64) bool {
+	//	rspns.internFlush()
+	//	return true
+	//}
+	//rspns.wbufr = rspns.wbuf.Reader()
 
 	return
 }
@@ -177,32 +179,22 @@ func (rspns *Response) Write(p []byte) (n int, err error) {
 
 func (rspns *Response) internFlush() (err error) {
 	if rspns != nil {
-		if rspns.wbuf != nil {
-			if wbufl := rspns.wbuf.Size(); wbufl > 0 {
-				func() {
-					defer rspns.wbuf.Clear()
-					if !rspns.startwrtng {
-						if err = rspns.StartedWriting(); err != nil {
-							return
-						}
-					}
-					if wbufl > 0 {
-						rspns.wbufr.Seek(0, io.SeekStart)
-						rspns.wbufr.MaxRead = wbufl
-						_, err = iorw.WriteToFunc(rspns.wbufr, func(p []byte) (fn int, fnerr error) {
-							if httpw := rspns.httpw; httpw != nil {
-								if httpw != nil {
-									fn, fnerr = httpw.Write(p)
-								} else if rqstw := rspns.wtr; rqstw != nil {
-									fn, fnerr = rqstw.Write(p)
-								}
-							} else if rqstw := rspns.wtr; rqstw != nil {
-								fn, fnerr = rqstw.Write(p)
-							}
-							return
-						})
-					}
-				}()
+		if rspns.wbytei > 0 {
+			if !rspns.startwrtng {
+				if err = rspns.StartedWriting(); err != nil {
+					return
+				}
+			}
+			p := rspns.wbytes[:rspns.wbytei]
+			rspns.wbytei = 0
+			if httpw := rspns.httpw; httpw != nil {
+				if httpw != nil {
+					_, err = httpw.Write(p)
+				} else if rqstw := rspns.wtr; rqstw != nil {
+					_, err = rqstw.Write(p)
+				}
+			} else if rqstw := rspns.wtr; rqstw != nil {
+				_, err = rqstw.Write(p)
 			}
 		}
 	}
@@ -210,8 +202,23 @@ func (rspns *Response) internFlush() (err error) {
 }
 
 func (rspns *Response) internWrite(p []byte) (n int, err error) {
-	if rspns != nil && rspns.wbuf != nil {
-		n, err = rspns.wbuf.Write(p)
+	if rspns != nil {
+		if pl, wl := len(p), len(rspns.wbytes); pl > 0 {
+			for n < pl {
+				if tl := (wl - rspns.wbytei); (pl - n) >= tl {
+					cpl := copy(rspns.wbytes[rspns.wbytei:rspns.wbytei+(tl)], p[n:n+tl])
+					n += cpl
+					rspns.wbytei += cpl
+				} else if tl := (pl - n); tl < (wl - rspns.wbytei) {
+					cpl := copy(rspns.wbytes[rspns.wbytei:rspns.wbytei+(tl)], p[n:n+tl])
+					n += cpl
+					rspns.wbytei += cpl
+				}
+				if rspns.wbytei == wl {
+					rspns.internFlush()
+				}
+			}
+		}
 	}
 	return
 }
@@ -245,19 +252,22 @@ func (rspns *Response) Close() (err error) {
 		if rspns.httpw != nil {
 			rspns.httpw = nil
 		}
-		if rspns.wbufr != nil {
-			rspns.wbufr.Close()
-			rspns.wbufr = nil
-		}
-		if rspns.wbuf != nil {
-			rspns.wbuf.Close()
-			rspns.wbuf = nil
-		}
+		//if rspns.wbufr != nil {
+		//	rspns.wbufr.Close()
+		//	rspns.wbufr = nil
+		//}
+		//if rspns.wbuf != nil {
+		//	rspns.wbuf.Close()
+		//	rspns.wbuf = nil
+		//}
 		if rspns.wtr != nil {
 			if cls, _ := rspns.wtr.(io.Closer); cls != nil {
 				cls.Close()
 			}
 			rspns.wtr = nil
+		}
+		if rspns.rqst != nil {
+			rspns.rqst = nil
 		}
 		rspns = nil
 	}

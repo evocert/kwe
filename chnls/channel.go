@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"os"
 
+	httprqstng "github.com/evocert/kwe/http"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/requesting"
-	httprqstng "github.com/evocert/kwe/requesting/http"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/ws"
 )
@@ -153,7 +153,26 @@ func (chnl *Channel) Serve(path string, rqst requesting.RequestAPI, rspns reques
 }
 
 func (chnl *Channel) ServeRequest(a ...interface{}) (err error) {
-	processingRequestIO("", chnl, nil, requesting.NewRequestor(a...))
+	var rqstr requesting.RequestorAPI = nil
+	if al := len(a); al > 0 {
+		ai := 0
+		for ai < al {
+			if d := a[ai]; d != nil {
+				if rqstrd, _ := d.(requesting.RequestorAPI); rqstrd != nil && rqstr == nil {
+					rqstr = rqstrd
+					a = append(a[0:ai], a[ai+1:]...)
+					al--
+					continue
+				}
+			}
+			ai++
+		}
+	}
+	if rqstr == nil {
+		processingRequestIO("", chnl, nil, requesting.NewRequestor(a...))
+	} else {
+		processingRequestIO("", chnl, nil, rqstr, a...)
+	}
 	return
 }
 

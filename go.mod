@@ -11,6 +11,7 @@ require (
 	github.com/ibmdb/go_ibm_db v0.4.1
 	github.com/jackc/pgx/v4 v4.12.0
 	github.com/sijms/go-ora/v2 v2.1.21
+	github.com/valyala/fasthttp v1.28.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20210716203947-853a461950ff
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c

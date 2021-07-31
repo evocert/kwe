@@ -226,7 +226,10 @@ func (rqst *Request) Close() (err error) {
 			rqst.httpr = nil
 		}
 		if rqst.rdr != nil {
-			if clsr, _ := rqst.rdr.(io.Closer); clsr != nil {
+			if eofr, _ := rqst.rdr.(*iorw.EOFCloseSeekReader); eofr != nil {
+				eofr.CanClose = true
+				eofr.Close()
+			} else if clsr, _ := rqst.rdr.(io.Closer); clsr != nil {
 				clsr.Close()
 			}
 			rqst.rdr = nil

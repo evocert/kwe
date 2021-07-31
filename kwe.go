@@ -1,12 +1,16 @@
 package main
 
 import (
-	"os"
 
 	//_ "github.com/evocert/kwe/database/db2"
 
+	"os"
+
 	_ "github.com/evocert/kwe/alertify"
+	_ "github.com/evocert/kwe/datepicker"
 	_ "github.com/evocert/kwe/fonts/material"
+
+	"github.com/evocert/kwe/service"
 
 	_ "github.com/evocert/kwe/typescript"
 
@@ -14,10 +18,10 @@ import (
 	_ "github.com/evocert/kwe/database/ora"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
-	"github.com/evocert/kwe/service"
 )
 
 func main() {
+	//go fasthttp.ListenAndServe(":1002")
 	service.RunService(os.Args...)
 }
 

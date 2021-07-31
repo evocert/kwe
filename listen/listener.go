@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	httpr "github.com/evocert/kwe/http"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/requesting"
-	httpr "github.com/evocert/kwe/requesting/http"
 	"github.com/evocert/kwe/ws"
 	http2 "golang.org/x/net/http2"
 	h2c "golang.org/x/net/http2/h2c"
@@ -281,12 +281,9 @@ func (lstnr *Listener) WaitOnShutdown() {
 			go func(dne chan bool) {
 				defer close(dne)
 
-				for {
-					select {
-					case d := <-dne:
-						if d || !d {
-							return
-						}
+				for d := range dne {
+					if d || !d {
+						return
 					}
 				}
 			}(lstnr.dne)
