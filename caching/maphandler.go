@@ -61,7 +61,9 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 		if len(a) > 0 {
 			mp.Put(a[0], a[1:])
 		}
-		mphndlr = newHandler(mp, internal)
+		mphndlr = initMapHandler()
+		mphndlr.mp = mp
+		mphndlr.internal = internal
 	}
 	return
 }
@@ -481,7 +483,7 @@ func (mphndlr *MapHandler) Close(ks ...interface{}) (closed bool) {
 				if mphndlr.internal {
 					crntmp.Close(mphndlr)
 				}
-				putHandler(mphndlr)
+				clearHandler(mphndlr)
 				crntmp = nil
 				mphndlr = nil
 			}

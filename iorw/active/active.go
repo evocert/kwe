@@ -45,6 +45,18 @@ type Active struct {
 	*atvruntime
 }
 
+func (atv *Active) LockPrint() {
+	if atv != nil && atv.lckprnt != nil {
+		//atv.lckprnt.Lock()
+	}
+}
+
+func (atv *Active) UnlockPrint() {
+	if atv != nil && atv.lckprnt != nil {
+		//atv.UnlockPrint()
+	}
+}
+
 //InvokeFunction ivoke *Acive.actvruntime function
 func (atv *Active) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if atv != nil {
@@ -96,7 +108,11 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	}
 }
 
-var activePool *sync.Pool = nil
+var activePool *sync.Pool = &sync.Pool{New: func() interface{} {
+	atv := &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+	atv.atvruntime, _ = newatvruntime(atv, nil)
+	return atv
+}}
 
 func newActive() (atv *Active) {
 	if v := activePool.Get(); v != nil {
@@ -131,8 +147,8 @@ func (atv *Active) print(w io.Writer, a ...interface{}) {
 		if atv.Print != nil {
 			if len(a) > 0 {
 				func() {
-					atv.lckprnt.Lock()
-					defer atv.lckprnt.Unlock()
+					atv.LockPrint()
+					defer atv.UnlockPrint()
 					atv.Print(a...)
 				}()
 			}
@@ -161,21 +177,21 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 	} else {
 		if atv.Println != nil {
 			if len(a) > 0 {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				atv.Println(a...)
 			}
 		} else if atv.FPrintLn != nil && w != nil {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			atv.LockPrint()
+			defer atv.UnlockPrint()
 			atv.FPrintLn(w, a...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
 				prntr.Println(a...)
 			} else {
 				if len(a) > 0 {
-					atv.lckprnt.Lock()
-					defer atv.lckprnt.Unlock()
+					atv.LockPrint()
+					defer atv.UnlockPrint()
 					fmt.Fprint(w, a...)
 				}
 				fmt.Fprintln(w)
@@ -190,21 +206,21 @@ func (atv *Active) binwrite(w io.Writer, b ...byte) (n int, err error) {
 	} else {
 		if atv.BinWrite != nil {
 			if len(b) > 0 {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				n, err = atv.BinWrite(b...)
 			}
 		} else if atv.FBinWrite != nil && w != nil {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			atv.LockPrint()
+			defer atv.UnlockPrint()
 			n, err = atv.FBinWrite(w, b...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
 				n, err = prntr.Write(b)
 			} else {
 				if len(b) > 0 {
-					atv.lckprnt.Lock()
-					defer atv.lckprnt.Unlock()
+					atv.LockPrint()
+					defer atv.UnlockPrint()
 					n, err = w.Write(b)
 				}
 			}
@@ -226,15 +242,15 @@ func (atv *Active) binread(r io.Reader, size int) (b []byte, err error) {
 		}
 	} else {
 		if atv.BinWrite != nil {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			atv.LockPrint()
+			defer atv.UnlockPrint()
 			b, err = atv.BinRead(size)
 		} else if atv.FBinRead != nil && r != nil {
-			atv.lckprnt.Lock()
-			defer atv.lckprnt.Unlock()
+			atv.LockPrint()
+			defer atv.UnlockPrint()
 			b, err = atv.FBinRead(r, size)
 		} else if r != nil {
-			atv.lckprnt.Unlock()
+			atv.UnlockPrint()
 			if size > 0 {
 				p := make([]byte, size)
 				pn, perr := r.Read(p)
@@ -257,8 +273,8 @@ func (atv *Active) seek(r io.Reader, offset int64, whence int) (n int64, err err
 			n, err = atv.Seek(offset, whence)
 		} else if atv.FSeek != nil && r != nil {
 			func() {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				n, err = atv.FSeek(r, offset, whence)
 			}()
 		} else if r != nil {
@@ -278,8 +294,8 @@ func (atv *Active) readln(r io.Reader) (ln string, err error) {
 			ln, err = atv.Readln()
 		} else if atv.FReadln != nil && r != nil {
 			func() {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				ln, err = atv.FReadln(r)
 			}()
 		} else if r != nil {
@@ -301,8 +317,8 @@ func (atv *Active) readlines(r io.Reader) (lines []string, err error) {
 			lines, err = atv.ReadLines()
 		} else if atv.FReadLines != nil && r != nil {
 			func() {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				lines, err = atv.FReadLines(r)
 			}()
 		} else if r != nil {
@@ -324,8 +340,8 @@ func (atv *Active) readAll(r io.Reader) (s string, err error) {
 			s, err = atv.ReadAll()
 		} else if atv.FReadAll != nil && r != nil {
 			func() {
-				atv.lckprnt.Lock()
-				defer atv.lckprnt.Unlock()
+				atv.LockPrint()
+				defer atv.UnlockPrint()
 				s, err = atv.FReadAll(r)
 			}()
 		} else if r != nil {
@@ -1655,11 +1671,6 @@ var requirejsprgm *goja.Program = nil
 //var GlobelModules map[string]*
 
 func init() {
-	activePool = &sync.Pool{New: func() interface{} {
-		atv := &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
-		atv.atvruntime, _ = newatvruntime(atv, nil)
-		return atv
-	}}
 	var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
