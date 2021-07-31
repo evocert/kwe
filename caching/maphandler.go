@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -12,6 +13,36 @@ type MapHandler struct {
 	mp       *Map
 	crntmp   *Map
 	internal bool
+}
+
+var handlerPool *sync.Pool = nil
+
+func initMapHandler() (mphndlr *MapHandler) {
+	mphndlr = &MapHandler{}
+	return
+}
+
+func newHandler(mp *Map, internal bool) (mphndlr *MapHandler) {
+	if v := handlerPool.Get(); v != nil {
+		mphndlr = v.(*MapHandler)
+	} else {
+		mphndlr = initMapHandler()
+	}
+	mphndlr.mp = mp
+	mphndlr.internal = internal
+	return
+}
+
+func clearHandler(mphndlr *MapHandler) {
+	if mphndlr != nil {
+		mphndlr.mp = nil
+		mphndlr.crntmp = nil
+	}
+}
+
+func putHandler(mphndlr *MapHandler) {
+	clearHandler(mphndlr)
+	handlerPool.Put(mphndlr)
 }
 
 func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
@@ -30,7 +61,7 @@ func NewMapHandler(a ...interface{}) (mphndlr *MapHandler) {
 		if len(a) > 0 {
 			mp.Put(a[0], a[1:])
 		}
-		mphndlr = &MapHandler{mp: mp, internal: internal}
+		mphndlr = newHandler(mp, internal)
 	}
 	return
 }
@@ -450,8 +481,7 @@ func (mphndlr *MapHandler) Close(ks ...interface{}) (closed bool) {
 				if mphndlr.internal {
 					crntmp.Close(mphndlr)
 				}
-				mphndlr.mp = nil
-				mphndlr.crntmp = nil
+				putHandler(mphndlr)
 				crntmp = nil
 				mphndlr = nil
 			}

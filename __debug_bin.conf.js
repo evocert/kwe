@@ -27,6 +27,7 @@ dbms.RegisterConnection("avononeremote","remote","ws://127.0.0.1:1038/dbms-avono
 resourcing.RegisterEndpoint("/controls","D:/projects/system/controls");
 console.Log("Start Service");
 channel.Listener().Listen(":1044");
+channel.Listener().Listen(":1014");
 console.Log("Started Service");
 /*dbms.RegisterConnection("avonone","sqlserver","sqlserver://COLLECTIONS:COLLECTIONS@127.0.0.1");
 resourcing.RegisterEndpoint("/","D:/projects/inovo/clients/Avon/avonone");

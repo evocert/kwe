@@ -1137,6 +1137,9 @@ var glbmphndlr *MapHandler = nil
 var glbmp *Map = nil
 
 func init() {
+	handlerPool = &sync.Pool{New: func() interface{} {
+		return initMapHandler()
+	}}
 	glbmp = NewMap()
 	glbmphndlr = NewMapHandler(glbmp)
 }

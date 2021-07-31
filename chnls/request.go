@@ -803,38 +803,31 @@ func (rqst *Request) ExecutePath(path string) (err error) {
 func (rqst *Request) invokeAtv() {
 	if rqst.atv == nil {
 		rqst.atv = active.NewActive()
-		nmspce := ""
-		if rqst.atv != nil {
-			nmspce = rqst.atv.Namespace
-			if nmspce != "" {
-				nmspce = nmspce + "."
-			}
-		}
 		if rqst.mphndlr == nil {
 			rqst.mphndlr = caching.GLOBALMAP().Handler()
 		}
-		rqst.objmap[nmspce+"request"] = rqst
-		rqst.objmap[nmspce+"channel"] = rqst.chnl
-		rqst.objmap[nmspce+"caching"] = rqst.mphndlr
+		rqst.objmap["request"] = rqst
+		rqst.objmap["channel"] = rqst.chnl
+		rqst.objmap["caching"] = rqst.mphndlr
 
-		rqst.objmap[nmspce+"mqtting"] = rqst.chnl.MQTT()
+		rqst.objmap["mqtting"] = rqst.chnl.MQTT()
 
 		if rqst.mqttmsg != nil {
-			rqst.objmap[nmspce+"mqttmsg"] = rqst.mqttmsg
+			rqst.objmap["mqttmsg"] = rqst.mqttmsg
 		}
 		if rqst.mqttevent != nil {
-			rqst.objmap[nmspce+"mqttevent"] = rqst.mqttmsg
+			rqst.objmap["mqttevent"] = rqst.mqttmsg
 		}
 		rqst.dbms = &rqstdbms{rqst: rqst, dbms: database.GLOBALDBMS()}
-		rqst.objmap[nmspce+"dbms"] = rqst.dbms
-		rqst.objmap[nmspce+"resourcing"] = resources.GLOBALRSNG()
-		rqst.objmap[nmspce+"newrqstbuffer"] = func() (buff *iorw.Buffer) {
+		rqst.objmap["dbms"] = rqst.dbms
+		rqst.objmap["resourcing"] = resources.GLOBALRSNG()
+		rqst.objmap["newrqstbuffer"] = func() (buff *iorw.Buffer) {
 			buff = iorw.NewBuffer()
 			buff.OnClose = rqst.removeBuffer
 			rqst.intrnbuffs[buff] = buff
 			return
 		}
-		rqst.objmap[nmspce+"newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+		rqst.objmap["newcommand"] = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
 			cmd, err = osprc.NewCommand(execpath, execargs...)
 			if err == nil && cmd != nil {
 				cmd.OnClose = rqst.removeCommand
@@ -842,13 +835,13 @@ func (rqst *Request) invokeAtv() {
 			}
 			return
 		}
-		rqst.objmap[nmspce+"action"] = func() *Action {
+		rqst.objmap["action"] = func() *Action {
 			return rqst.lstexctngactng
 		}
-		rqst.objmap[nmspce+"webing"] = rqst.WebClient()
+		rqst.objmap["webing"] = rqst.WebClient()
 
 		fstls := fsutils.NewFSUtils()
-		rqst.objmap[nmspce+"_fsutils"] = fstls
+		rqst.objmap["_fsutils"] = fstls
 
 		for cobjk, cobj := range rqst.chnl.objmap {
 			rqst.objmap[cobjk] = cobj

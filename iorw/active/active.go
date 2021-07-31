@@ -22,7 +22,6 @@ import (
 
 //Active - struct
 type Active struct {
-	Namespace      string
 	Print          func(a ...interface{})
 	Println        func(a ...interface{})
 	BinWrite       func(b ...byte) (n int, err error)
@@ -97,21 +96,32 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	}
 }
 
+var activePool *sync.Pool = nil
+
+func newActive() (atv *Active) {
+	if v := activePool.Get(); v != nil {
+		atv = v.(*Active)
+		return atv
+	}
+	atv = &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+	atv.atvruntime, _ = newatvruntime(atv, nil)
+	return atv
+}
+
+func putActive(atv *Active) {
+	atv.Clear()
+	activePool.Put(atv)
+}
+
 //NewActive - instance
-func NewActive(namespace ...string) (atv *Active) {
-	atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
+func NewActive() (atv *Active) {
+	/*atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
 	atv.atvruntime, _ = newatvruntime(atv, nil)
 	if len(namespace) == 1 && namespace[0] != "" {
 		atv.Namespace = namespace[0] + "."
-	}
+	}*/
+	atv = newActive()
 	return
-}
-
-func (atv *Active) namespace() string {
-	if atv.Namespace != "" {
-		return atv.Namespace
-	}
-	return ""
 }
 
 func (atv *Active) print(w io.Writer, a ...interface{}) {
@@ -399,12 +409,26 @@ func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...int
 
 //Close - refer to  io.Closer
 func (atv *Active) Close() (err error) {
+	putActive(atv)
+	return
+}
+
+//Dispose
+func (atv *Active) Dispose() (err error) {
 	if atv.lckprnt != nil {
 		atv.lckprnt = nil
 	}
 	if atv.atvruntime != nil {
 		atv.atvruntime.dispose()
 		atv.atvruntime = nil
+	}
+	return
+}
+
+//Clear
+func (atv *Active) Clear() (err error) {
+	if atv.atvruntime != nil {
+		atv.atvruntime.dispose(true)
 	}
 	return
 }
@@ -1148,7 +1172,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 				}
 			}()
 			isrequired := false
-			if code, isrequired, err = transformCode(code, atvrntme.atv.namespace(), nil); err == nil {
+			if code, isrequired, err = transformCode(code, nil); err == nil {
 				if isrequired {
 					code = `function ` + `_vmrequire(args) { return require([args]);}` + code
 				}
@@ -1218,7 +1242,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	return
 }
 
-func transformCode(code string, namespace string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
+func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	trsnfrmdcde = code
 	isrequired = strings.Contains(code, "require(\"")
 	if isrequired {
@@ -1397,14 +1421,17 @@ func (atvrntme *atvruntime) passiveout(i int) {
 	}
 }
 
-func (atvrntme *atvruntime) dispose() {
+func (atvrntme *atvruntime) dispose(clear ...bool) {
 	if atvrntme != nil {
+		var clearonly = len(clear) > 0 && clear[0]
 		if atvrntme.prsng != nil {
 			atvrntme.prsng.dispose()
 			atvrntme.prsng = nil
 		}
 		if atvrntme.atv != nil {
-			atvrntme.atv = nil
+			if !clearonly {
+				atvrntme.atv = nil
+			}
 		}
 		if atvrntme.vm != nil {
 			if vmgbl := atvrntme.vm.GlobalObject(); vmgbl != nil {
@@ -1415,7 +1442,9 @@ func (atvrntme *atvruntime) dispose() {
 					}
 				}
 			}
-			atvrntme.vm = nil
+			if !clearonly {
+				atvrntme.vm = nil
+			}
 		}
 		if atvrntme.includedpgrms != nil {
 			if il := len(atvrntme.includedpgrms); il > 0 {
@@ -1431,7 +1460,9 @@ func (atvrntme *atvruntime) dispose() {
 					includedpgrms = includedpgrms[1:]
 				}
 			}
-			atvrntme.includedpgrms = nil
+			if !clearonly {
+				atvrntme.includedpgrms = nil
+			}
 		}
 		if atvrntme.intrnbuffs != nil {
 			if il := len(atvrntme.intrnbuffs); il > 0 {
@@ -1448,15 +1479,19 @@ func (atvrntme *atvruntime) dispose() {
 					bfs = bfs[1:]
 				}
 			}
-			atvrntme.intrnbuffs = nil
+			if !clearonly {
+				atvrntme.intrnbuffs = nil
+			}
 		}
-		atvrntme = nil
+		if !clearonly {
+			atvrntme = nil
+		}
 	}
 }
 
 func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]interface{}) {
 	internmapref = map[string]interface{}{
-		atvrntme.atv.namespace() + "buffer": func() (buff *iorw.Buffer) {
+		"buffer": func() (buff *iorw.Buffer) {
 			buff = iorw.NewBuffer()
 			buff.OnClose = atvrntme.removeBuffer
 			atvrntme.intrnbuffs[buff] = buff
@@ -1480,40 +1515,40 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(true, a...)
 		},
-		atvrntme.atv.namespace() + "parseEval": func(a ...interface{}) (val interface{}, err error) {
+		"parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(false, a...)
 		},
 		//WRITER
-		atvrntme.atv.namespace() + "incprint": func(w io.Writer) {
+		"incprint": func(w io.Writer) {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.incprint(w)
 			}
 		},
-		atvrntme.atv.namespace() + "resetprint": func() {
+		"resetprint": func() {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.resetprint()
 			}
 		},
-		atvrntme.atv.namespace() + "decprint": func() {
+		"decprint": func() {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.decprint()
 			}
 		},
-		atvrntme.atv.namespace() + "print": func(a ...interface{}) {
+		"print": func(a ...interface{}) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				atvrntme.prsng.print(a...)
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.print(nil, a...)
 			}
 		},
-		atvrntme.atv.namespace() + "println": func(a ...interface{}) {
+		"println": func(a ...interface{}) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				atvrntme.prsng.println(a...)
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.println(nil, a...)
 			}
 		},
-		atvrntme.atv.namespace() + "binwrite": func(b ...byte) (n int, err error) {
+		"binwrite": func(b ...byte) (n int, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				n, err = atvrntme.prsng.binwrite(b...)
 			} else if atvrntme.atv != nil {
@@ -1522,22 +1557,22 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			return
 		},
 		//READER
-		atvrntme.atv.namespace() + "incread": func(r io.Reader) {
+		"incread": func(r io.Reader) {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.incread(r)
 			}
 		},
-		atvrntme.atv.namespace() + "resetread": func() {
+		"resetread": func() {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.resetread()
 			}
 		},
-		atvrntme.atv.namespace() + "decread": func() {
+		"decread": func() {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.decread()
 			}
 		},
-		atvrntme.atv.namespace() + "seek": func(offset int64, whence int) (n int64, err error) {
+		"seek": func(offset int64, whence int) (n int64, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				n, err = atvrntme.prsng.seek(offset, whence)
 			} else if atvrntme.atv != nil {
@@ -1545,7 +1580,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			}
 			return
 		},
-		atvrntme.atv.namespace() + "readln": func() (ln string, err error) {
+		"readln": func() (ln string, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				ln, err = atvrntme.prsng.readLn()
 			} else if atvrntme.atv != nil {
@@ -1553,21 +1588,21 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			}
 			return
 		},
-		atvrntme.atv.namespace() + "readLines": func() (lines []string, err error) {
+		"readLines": func() (lines []string, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				lines, err = atvrntme.prsng.readLines()
 			} else if atvrntme.atv != nil {
 				lines, err = atvrntme.atv.readlines(nil)
 			}
 			return
-		}, atvrntme.atv.namespace() + "readAll": func() (s string, err error) {
+		}, "readAll": func() (s string, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				s, err = atvrntme.prsng.readAll()
 			} else if atvrntme.atv != nil {
 				s, err = atvrntme.atv.readAll(nil)
 			}
 			return
-		}, atvrntme.atv.namespace() + "binread": func(size int) (b []byte, err error) {
+		}, "binread": func(size int) (b []byte, err error) {
 			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
 				b, err = atvrntme.prsng.binread(size)
 			} else if atvrntme.atv != nil {
@@ -1595,13 +1630,6 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 	return
 }
 
-func atvruntimeFinalize(atvrntme *atvruntime) {
-	if atvrntme != nil {
-		atvrntme.dispose()
-		atvrntme = nil
-	}
-}
-
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
 	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	atvrntme.atv.InterruptVM = func(v interface{}) {
@@ -1627,6 +1655,11 @@ var requirejsprgm *goja.Program = nil
 //var GlobelModules map[string]*
 
 func init() {
+	activePool = &sync.Pool{New: func() interface{} {
+		atv := &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+		atv.atvruntime, _ = newatvruntime(atv, nil)
+		return atv
+	}}
 	var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())

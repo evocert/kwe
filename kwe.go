@@ -21,7 +21,6 @@ import (
 )
 
 func main() {
-	//go fasthttp.ListenAndServe(":1002")
 	service.RunService(os.Args...)
 }
 
