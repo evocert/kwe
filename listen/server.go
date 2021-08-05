@@ -1,10 +1,8 @@
 package listen
 
 import (
-	"errors"
 	"io"
 	"net"
-	"os"
 	"runtime"
 	"time"
 )
@@ -14,15 +12,8 @@ type RawConn struct {
 	valid          bool
 	startedReading bool
 	startedWriting bool
-	doneRead       bool
 	doneWrite      bool
 	conn           net.Conn
-	rbytes         []byte
-	rbytesi        int
-	rbytesl        int
-	wbytes         []byte
-	wbytesl        int
-	wbytesi        int
 }
 
 // Read reads data from the connection.
@@ -31,7 +22,7 @@ type RawConn struct {
 func (rwcon *RawConn) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if rwcon != nil {
-			for rwcon.valid && n < pl {
+			/*for rwcon.valid && n < pl {
 				if rwcon.rbytesl == 0 || (rwcon.rbytesl > 0 && rwcon.rbytesl == rwcon.rbytesi) {
 					if rwcon.rbytesl > 0 {
 						rwcon.rbytesl = 0
@@ -46,13 +37,10 @@ func (rwcon *RawConn) Read(p []byte) (n int, err error) {
 					var cnerr error = nil
 					if !rwcon.startedReading {
 						rwcon.startedReading = true
-						cn, cnerr = rwcon.conn.Read(rwcon.rbytes)
-						if cnerr == nil {
-							rwcon.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-						}
 					} else {
-						cn, cnerr = rwcon.conn.Read(rwcon.rbytes)
+						rwcon.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 					}
+					cn, cnerr = rwcon.conn.Read(rwcon.rbytes)
 					if cn > 0 {
 						rwcon.rbytesl += cn
 					}
@@ -80,7 +68,13 @@ func (rwcon *RawConn) Read(p []byte) (n int, err error) {
 				} else {
 					break
 				}
+			}*/
+			if !rwcon.startedReading {
+				rwcon.startedReading = true
+			} else {
+				rwcon.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 			}
+			n, err = rwcon.conn.Read(p)
 		}
 		if n == 0 {
 			if err == nil {
@@ -97,27 +91,10 @@ func (rwcon *RawConn) Read(p []byte) (n int, err error) {
 func (rwcon *RawConn) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if rwcon != nil {
-			for rwcon.valid && n < pl {
-				if rwcon.wbytesl = len(rwcon.wbytes); rwcon.wbytesl > 0 {
-					if tl := (rwcon.wbytesl - rwcon.wbytesi); (pl - n) >= tl {
-						cl := copy(rwcon.wbytes[rwcon.wbytesi:rwcon.wbytesi+tl], p[n:n+tl])
-						n += cl
-						rwcon.wbytesi += cl
-					} else if tl := (pl - n); (rwcon.wbytesl - rwcon.wbytesi) > tl {
-						cl := copy(rwcon.wbytes[rwcon.wbytesi:rwcon.wbytesi+tl], p[n:n+tl])
-						n += cl
-						rwcon.wbytesi += cl
-					}
-					if rwcon.wbytesl == rwcon.wbytesi {
-						if flserr := rwcon.Flush(); flserr != nil {
-							err = flserr
-							break
-						}
-					}
-				} else {
-					break
-				}
+			if rwcon.startedWriting {
+				rwcon.conn.SetWriteDeadline(time.Now().Add(200 * time.Millisecond))
 			}
+			n, err = rwcon.conn.Write(p)
 		}
 	}
 	return
@@ -127,41 +104,8 @@ func (rwcon *RawConn) Write(p []byte) (n int, err error) {
 // Any blocked Read or Write operations will be unblocked and return errors.
 func (rwcon *RawConn) Close() (err error) {
 	if rwcon != nil {
-		/*if rwcon.conn != nil {
-			err = rwcon.conn.Close()
-			rwcon.conn = nil
-		}
-		if rwcon.rwlstnr != nil {
-			if rwcon.rwlstnr.rwchnlspool != nil {
-				rwcon.rwlstnr.rwchnlspool.Put(rwcon)
-			}
-		}*/
-		rwcon.Flush()
 		rwcon.Dispose()
 		rwcon = nil
-	}
-	return
-}
-
-func (rwcon *RawConn) Flush() (err error) {
-	if rwcon != nil && rwcon.conn != nil && rwcon.wbytesi > 0 {
-		cn := 0
-		wi := 0
-		wl := rwcon.wbytesi
-		rwcon.wbytesi = 0
-		var cnerr error = nil
-		for cnerr == nil && wi < wl {
-			cn, cnerr = rwcon.conn.Write(rwcon.wbytes[wi : wi+(wl-wi)])
-			if cn > 0 {
-				wi += cn
-			}
-			if !rwcon.startedWriting {
-				rwcon.startedWriting = true
-				if cnerr == nil {
-					//rwcon.conn.SetWriteDeadline(time.Now().Add(200 * time.Millisecond))
-				}
-			}
-		}
 	}
 	return
 }
@@ -241,8 +185,8 @@ func (rwcon *RawConn) SetWriteDeadline(t time.Time) (err error) {
 	return
 }
 
-func newRawConn(rwlstnr *RawListener, conn net.Conn, readsize int, writesize int) (rwconn *RawConn) {
-	rwconn = &RawConn{valid: true, rwlstnr: rwlstnr, conn: conn, rbytes: make([]byte, readsize), wbytes: make([]byte, writesize), rbytesi: 0, wbytesi: 0}
+func newRawConn(rwlstnr *RawListener, conn net.Conn) (rwconn *RawConn) {
+	rwconn = &RawConn{valid: true, rwlstnr: rwlstnr, conn: conn}
 	if rwconn.rwlstnr != rwlstnr {
 		if rwconn.rwlstnr != nil {
 			rwconn.rwlstnr = nil
@@ -287,7 +231,7 @@ func (rwlstnr *RawListener) accepting(listener net.Listener) (err error) {
 			break
 		}
 		go func() {
-			rwlstnr.rwchnls <- newRawConn(rwlstnr, conn, 4096, 4096)
+			rwlstnr.rwchnls <- newRawConn(rwlstnr, conn)
 		}()
 	}
 	return

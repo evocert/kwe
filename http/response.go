@@ -29,10 +29,8 @@ func NewResponse(w interface{}, a ...requesting.RequestAPI) (rspns *Response) {
 	if len(a) > 0 {
 		for _, d := range a {
 			if d != nil {
-				if rqstrd := d.(requesting.RequestAPI); rqstrd != nil {
-					if rqst == nil {
-						rqst = rqstrd
-					}
+				if rqst == nil {
+					rqst = d
 				}
 			}
 		}
@@ -102,6 +100,9 @@ func (rspns *Response) Header(header string) (value string) {
 
 func (rspns *Response) SetHeader(header string, value string) {
 	if rspns != nil && rspns.httpw != nil {
+		if header == "Content-Type" {
+			rspns.contenttype = value
+		}
 		rspns.httpw.Header().Set(header, value)
 	}
 }

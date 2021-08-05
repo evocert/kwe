@@ -1,8 +1,6 @@
 package chnls
 
 import (
-	"runtime"
-
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
@@ -13,7 +11,6 @@ import (
 )
 
 func internalNewRequest(initPath string, chnl *Channel, prntrqst *Request, rqstrw requesting.RequestorAPI, a ...interface{}) (rqst *Request, interrupt func()) {
-	defer runtime.GC()
 	var rqstsettings map[string]interface{} = nil
 	var ai = 0
 
@@ -74,7 +71,6 @@ func internalExecuteRequest(rqst *Request, interrupt func()) {
 }
 
 func processingRequestIO(initpath string, chnl *Channel, prntrqst *Request, rqstrw requesting.RequestorAPI, a ...interface{}) {
-	defer runtime.GC()
 	var excrqst *Request = nil
 	var interrupt func() = nil
 	if prntrqst == nil {
