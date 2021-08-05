@@ -131,12 +131,9 @@ func putActive(atv *Active) {
 
 //NewActive - instance
 func NewActive() (atv *Active) {
-	/*atv = &Active{lckprnt: &sync.Mutex{}, Namespace: "", atvruntime: nil}
+	atv = &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
 	atv.atvruntime, _ = newatvruntime(atv, nil)
-	if len(namespace) == 1 && namespace[0] != "" {
-		atv.Namespace = namespace[0] + "."
-	}*/
-	atv = newActive()
+	//atv = newActive()
 	return
 }
 
@@ -176,8 +173,6 @@ func (atv *Active) println(w io.Writer, a ...interface{}) {
 		if atv.Println != nil {
 			if len(a) > 0 {
 				func() {
-					atv.LockPrint()
-					defer atv.UnlockPrint()
 					atv.Println(a...)
 				}()
 			}
@@ -403,7 +398,8 @@ func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...int
 
 //Close - refer to  io.Closer
 func (atv *Active) Close() (err error) {
-	putActive(atv)
+	//putActive(atv)
+	err = atv.Dispose()
 	return
 }
 

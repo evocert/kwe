@@ -162,7 +162,7 @@ func (lstnhndlr *ListnerHandler) Addr() (addr net.Addr) {
 }
 
 func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
-	if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
+	/*if ln, err := net.Listen("tcp", lstnrsrvr.srvr.Addr); err == nil {
 		go func() {
 			lsndnlr := &ListnerHandler{ln: ln, lck: &sync.RWMutex{}, lstactualcns: map[int64]net.Conn{}}
 			lsndnlr.lntcp, _ = ln.(*net.TCPListener)
@@ -172,6 +172,15 @@ func (lstnrsrvr *lstnrserver) startListening(lstnr *Listener) {
 		}()
 	} else {
 		fmt.Println("error:", err.Error())
+	}*/
+	if rwlstnr := NewRawListener("tcp", lstnrsrvr.srvr.Addr); rwlstnr != nil {
+		if err := rwlstnr.startListening(); err == nil {
+			go func() {
+				if err := lstnrsrvr.srvr.Serve(rwlstnr); err != nil && err != http.ErrServerClosed {
+					fmt.Printf("error: Failed to serve HTTP: %v", err.Error())
+				}
+			}()
+		}
 	}
 }
 
@@ -227,28 +236,16 @@ func NewListener(handler interface{}) (lstnr *Listener) {
 				var inirspath = r.URL.Path
 				if wsrw, wsrwerr := ws.NewServerReaderWriter(w, r); wsrw != nil && wsrwerr == nil {
 					go func() {
-						//var rspns = httpr.NewResponse(wsrw, httpr.NewRequest(inirspath, wsrw))
-						//var rqstr = rspns.Request()
 						defer func() {
 							wsrw.Close()
-							//rqstr.Close()
-							//rspns.Close()
 						}()
 						rqsthndlr.ServeRequest(inirspath, wsrw, wsrw, httpr.ResponseInvoker, httpr.RequestInvoker) //Serve(inirspath, rqstr, rspns)
 					}()
 				} else {
 					func() {
-						//var rqstr = httpr.NewRequest(inirspath, r)
-						//var rspns = httpr.NewResponse(w, rqstr)
-						//defer func() {
-						//	rqstr.Close()
-						//	rspns.Close()
-						//}()
-						//rqsthndlr.Serve(inirspath, rqstr, rspns)
 						rqsthndlr.ServeRequest(inirspath, r, w, httpr.ResponseInvoker, httpr.RequestInvoker)
 					}()
 				}
-
 			})
 		}
 	}

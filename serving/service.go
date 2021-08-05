@@ -3,10 +3,7 @@ package serving
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/evocert/kwe/serving/service"
 )
@@ -194,7 +191,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 		if s, serr := service.New(svr, svr.svcConfig); serr == nil {
 			logger, serr = s.Logger(nil)
 			if svccmd == "" {
-				go func() {
+				/*go func() {
 					b := false
 					//lck := &sync.Mutex{}
 					for {
@@ -211,14 +208,14 @@ func (svr *Service) Execute(args ...string) (err error) {
 							}
 						}()
 					}
-				}()
+				}()*/
 				err = s.Run()
 			} else {
 				err = service.Control(s, svccmd)
 			}
 		}
 	} else if svr.isConsole {
-		go func() {
+		/*go func() {
 			b := false
 			lck := &sync.Mutex{}
 			for {
@@ -235,11 +232,11 @@ func (svr *Service) Execute(args ...string) (err error) {
 					}
 				}()
 			}
-		}()
+		}()*/
 		svr.Start(nil)
 		svr.Stop(nil)
 	} else if svr.isBroker {
-		go func() {
+		/*go func() {
 			b := false
 			lck := &sync.Mutex{}
 			for {
@@ -256,7 +253,7 @@ func (svr *Service) Execute(args ...string) (err error) {
 					}
 				}()
 			}
-		}()
+		}()*/
 		svr.Start(nil)
 		svr.Stop(nil)
 	}

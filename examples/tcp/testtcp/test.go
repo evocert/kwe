@@ -1,12 +1,19 @@
-package listen
+package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
-	"runtime"
+	"os/signal"
+	"syscall"
 	"time"
+
+	_ "github.com/evocert/kwe/alertify"
+	"github.com/evocert/kwe/chnls"
+	rhttp "github.com/evocert/kwe/http"
 )
 
 type RawConn struct {
@@ -263,7 +270,7 @@ type RawListener struct {
 }
 
 func NewRawListener(network string, addr string) (rwlstnr *RawListener) {
-	rwlstnr = &RawListener{network: network, addr: addr, rwchnls: make(chan *RawConn, runtime.NumCPU()*100)}
+	rwlstnr = &RawListener{network: network, addr: addr, rwchnls: make(chan *RawConn)}
 	return
 }
 
@@ -316,21 +323,21 @@ func (rwlstnr *RawListener) Addr() (addr net.Addr) {
 	return
 }
 
-/*func main() {
-chnls := chnls.GLOBALCHNL()
-if rwlstnr := NewRawListener("tcp", ":11223"); rwlstnr != nil {
-	if err := rwlstnr.startListening(); err == nil {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGQUIT)
-		srv := &http.Server{Handler: http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				/*w.Header().Set("Content-Type", func() (s string) {
-					s, _ = mimes.FindMimeType(r.URL.Path, "text/plain")
-					return
-				}())
-				w.Header().Set("Connection", "close")
-				iorw.Fprintln(w, alertify.AlertifyJS())*/
-/*chnls.ServeRequest(r, w, rhttp.RequestInvoker, rhttp.ResponseInvoker)
+func main() {
+	chnls := chnls.GLOBALCHNL()
+	if rwlstnr := NewRawListener("tcp", ":11223"); rwlstnr != nil {
+		if err := rwlstnr.startListening(); err == nil {
+			sigs := make(chan os.Signal, 1)
+			signal.Notify(sigs, syscall.SIGQUIT)
+			srv := &http.Server{Handler: http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					/*w.Header().Set("Content-Type", func() (s string) {
+						s, _ = mimes.FindMimeType(r.URL.Path, "text/plain")
+						return
+					}())
+					w.Header().Set("Connection", "close")
+					iorw.Fprintln(w, alertify.AlertifyJS())*/
+					chnls.ServeRequest(r, w, rhttp.RequestInvoker, rhttp.ResponseInvoker)
 				})}
 			srv.Serve(rwlstnr)
 			<-sigs
@@ -338,4 +345,4 @@ if rwlstnr := NewRawListener("tcp", ":11223"); rwlstnr != nil {
 			fmt.Print(err.Error())
 		}
 	}
-}*/
+}
