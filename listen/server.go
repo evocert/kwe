@@ -22,53 +22,6 @@ type RawConn struct {
 func (rwcon *RawConn) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if rwcon != nil {
-			/*for rwcon.valid && n < pl {
-				if rwcon.rbytesl == 0 || (rwcon.rbytesl > 0 && rwcon.rbytesl == rwcon.rbytesi) {
-					if rwcon.rbytesl > 0 {
-						rwcon.rbytesl = 0
-					}
-					if rwcon.rbytesi > 0 {
-						rwcon.rbytesi = 0
-					}
-					if rwcon.doneRead {
-						break
-					}
-					cn := 0
-					var cnerr error = nil
-					if !rwcon.startedReading {
-						rwcon.startedReading = true
-					} else {
-						rwcon.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-					}
-					cn, cnerr = rwcon.conn.Read(rwcon.rbytes)
-					if cn > 0 {
-						rwcon.rbytesl += cn
-					}
-					rwcon.doneRead = cnerr != nil
-					if rwcon.doneRead {
-						if cnerr != io.EOF {
-							if !errors.Is(cnerr, os.ErrDeadlineExceeded) {
-								rwcon.valid = cnerr != io.EOF
-								return
-							}
-						}
-					}
-				}
-
-				if rwcon.rbytesl > 0 {
-					if tl := (rwcon.rbytesl - rwcon.rbytesi); (pl - n) >= tl {
-						cl := copy(p[n:n+tl], rwcon.rbytes[rwcon.rbytesi:rwcon.rbytesi+tl])
-						n += cl
-						rwcon.rbytesi += cl
-					} else if tl := (pl - n); (rwcon.rbytesl - rwcon.rbytesi) > tl {
-						cl := copy(p[n:n+tl], rwcon.rbytes[rwcon.rbytesi:rwcon.rbytesi+tl])
-						n += cl
-						rwcon.rbytesi += cl
-					}
-				} else {
-					break
-				}
-			}*/
 			if !rwcon.startedReading {
 				rwcon.startedReading = true
 			} else {
@@ -92,7 +45,7 @@ func (rwcon *RawConn) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if rwcon != nil {
 			if rwcon.startedWriting {
-				rwcon.conn.SetWriteDeadline(time.Now().Add(200 * time.Millisecond))
+				rwcon.conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 			}
 			n, err = rwcon.conn.Write(p)
 		}
