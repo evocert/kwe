@@ -2,6 +2,7 @@ package iorw
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -39,7 +40,9 @@ func Fprint(w io.Writer, a ...interface{}) {
 			if s, sok := d.(string); sok {
 				w.Write([]byte(s))
 			} else if ir, irok := d.(io.Reader); irok {
-				io.Copy(w, ir)
+				WriteToFunc(ir, func(b []byte) (int, error) {
+					return w.Write(b)
+				})
 			} else if aa, aaok := d.([]interface{}); aaok {
 				if len(aa) > 0 {
 					Fprint(w, aa...)
@@ -266,10 +269,10 @@ func (fncrw *funcrdrwtr) Read(p []byte) (n int, err error) {
 
 func WriteToFunc(r io.Reader, funcw func([]byte) (int, error)) (n int64, err error) {
 	if r != nil && funcw != nil {
-		fncrw := &funcrdrwtr{funcw: funcw}
 		func() {
-			defer fncrw.Close()
-			n, err = io.Copy(fncrw, r)
+			n, err = ReadWriteToFunc(funcw, func(b []byte) (int, error) {
+				return r.Read(b)
+			})
 		}()
 	}
 	return
@@ -277,10 +280,10 @@ func WriteToFunc(r io.Reader, funcw func([]byte) (int, error)) (n int64, err err
 
 func ReadToFunc(w io.Writer, funcr func([]byte) (int, error)) (n int64, err error) {
 	if w != nil && funcr != nil {
-		fncrw := &funcrdrwtr{funcr: funcr}
 		func() {
-			defer fncrw.Close()
-			n, err = io.Copy(w, fncrw)
+			n, err = ReadWriteToFunc(func(b []byte) (int, error) {
+				return w.Write(b)
+			}, funcr)
 		}()
 	}
 	return
@@ -290,7 +293,19 @@ func ReadWriteToFunc(funcw func([]byte) (int, error), funcr func([]byte) (int, e
 	if funcw != nil && funcr != nil {
 		fncrw := &funcrdrwtr{funcr: funcr, funcw: funcw}
 		func() {
-			defer fncrw.Close()
+			defer func() {
+				if rv := recover(); rv != nil {
+					switch x := rv.(type) {
+					case string:
+						err = errors.New(x)
+					case error:
+						err = x
+					default:
+						err = errors.New("unknown panic")
+					}
+				}
+				fncrw.Close()
+			}()
 			n, err = io.Copy(fncrw, fncrw)
 		}()
 	}

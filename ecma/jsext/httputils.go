@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/dop251/goja"
 )
 
-func Register_jsext_httputils(vm *goja.Runtime) {
+func Register_jsext_httputils(lclobjmp map[string]interface{}) {
+	if lclobjmp == nil {
+		return
+	}
 	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
 	type Version struct {
 		Major int `json:"major"`
@@ -17,7 +18,7 @@ func Register_jsext_httputils(vm *goja.Runtime) {
 	}
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
-	vm.Set("httputils", struct {
+	lclobjmp["httputils"] = struct {
 		Version Version                             `json:"version"`
 		Get     func(string) string                 `json:"get"`
 		Post    func(string, string, string) string `json:"post"`
@@ -30,12 +31,12 @@ func Register_jsext_httputils(vm *goja.Runtime) {
 		Get: func(path string) string {
 			resp, err := http.Get(path)
 			if err != nil {
-				panic(vm.ToValue("Failed to open url"))
+				panic("Failed to open url")
 			}
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				panic(vm.ToValue("Failed to read from url"))
+				panic("Failed to read from url")
 			}
 			return string(body)
 		},
@@ -43,15 +44,15 @@ func Register_jsext_httputils(vm *goja.Runtime) {
 
 			resp, err := http.Post(path, contenttype, bytes.NewBufferString(body))
 			if err != nil {
-				panic(vm.ToValue("Failed to open url"))
+				panic("Failed to open url")
 			}
 			defer resp.Body.Close()
 			resbody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				panic(vm.ToValue("Failed to read from url"))
+				panic("Failed to read from url")
 			}
 			return string(resbody)
 
 		},
-	})
+	}
 }

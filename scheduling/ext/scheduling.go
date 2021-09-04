@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/parameters"
 )
 
 type SchedulesHandler interface {
@@ -26,6 +28,117 @@ type SchedulesAPI interface {
 	InOut(io.Reader, io.Writer) error
 	Fprint(io.Writer) error
 	Reader() iorw.Reader
+	ActiveSCHEDULING(active.Runtime, ...parameters.ParametersAPI) ActiveSchedulesAPI
+}
+
+type ActiveSchedulesAPI interface {
+	Register(string, ...interface{}) error
+	Get(string) ScheduleAPI
+	Unregister(string) error
+	Exists(string) bool
+	Start(string, ...interface{}) error
+	Stop(string) error
+	Ammend(string, ...interface{}) error
+	Shutdown(string) error
+	InOut(io.Reader, io.Writer) error
+	Fprint(io.Writer) error
+	Reader() iorw.Reader
+}
+
+type ActiveSchedules struct {
+	schdls SchedulesAPI
+	rntme  active.Runtime
+	prms   parameters.ParametersAPI
+}
+
+func newActiveSchedules(schdls SchedulesAPI, rntme active.Runtime, prms ...parameters.ParametersAPI) (atvschdls *ActiveSchedules) {
+	if rntme != nil && schdls != nil {
+		atvschdls = &ActiveSchedules{rntme: rntme, schdls: schdls}
+		if len(prms) > 0 && prms[0] != nil {
+			atvschdls.prms = prms[0]
+		}
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		a = append([]interface{}{atvschdls.rntme}, a...)
+		err = atvschdls.schdls.Register(schdlid, a...)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Get(schdlid string) (schdl ScheduleAPI) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		schdl = atvschdls.schdls.Get(schdlid)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Unregister(schdlid string) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		err = atvschdls.schdls.Unregister(schdlid)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Exists(schdlid string) (exists bool) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		exists = atvschdls.schdls.Exists(schdlid)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Start(schdlid string, a ...interface{}) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		a = append([]interface{}{atvschdls.rntme}, a...)
+		err = atvschdls.schdls.Start(schdlid, a...)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Stop(schdlid string) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		err = atvschdls.schdls.Stop(schdlid)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Ammend(schdlid string, a ...interface{}) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		a = append([]interface{}{atvschdls.rntme}, a...)
+		err = atvschdls.schdls.Ammend(schdlid, a...)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Shutdown(schdlid string) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		err = atvschdls.schdls.Shutdown(schdlid)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) InOut(in io.Reader, out io.Writer) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		err = atvschdls.schdls.InOut(in, out)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Fprint(w io.Writer) (err error) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		err = atvschdls.schdls.Fprint(w)
+	}
+	return
+}
+
+func (atvschdls *ActiveSchedules) Reader() (rdr iorw.Reader) {
+	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
+		rdr = atvschdls.schdls.Reader()
+	}
+	return
 }
 
 type Schedules struct {
@@ -40,6 +153,11 @@ func NewSchedules(schdlshndlr ...SchedulesHandler) (schdls *Schedules) {
 	if len(schdlshndlr) == 1 && schdlshndlr[0] != nil {
 		schdls.schdlshndlr = schdlshndlr[0]
 	}
+	return
+}
+
+func (schdls *Schedules) ActiveSCHEDULING(rntme active.Runtime, prms ...parameters.ParametersAPI) (atvschdlsapi ActiveSchedulesAPI) {
+	atvschdlsapi = newActiveSchedules(schdls, rntme, prms...)
 	return
 }
 

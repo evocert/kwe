@@ -35,7 +35,7 @@ var preppath="";
 var currentpath="";
 var lastpreppath=".";
 
-_fsutils.FIND(root).filter(function(e){
+kwe.fsutils.FIND(root).filter(function(e){
     return e.AbsolutePath().endsWith(".go");
 }).sort(function(a,b){
     var apath=a.AbsolutePath().substring(base.length+1);
@@ -59,7 +59,7 @@ _fsutils.FIND(root).filter(function(e){
     var typedefln="";
     var typedeflni=-1;
 
-    var srclines=_fsutils.CAT(root+"/"+currentpath).Readlines();
+    var srclines=kwe.fsutils.CAT(root+"/"+currentpath).Readlines();
     srclines.forEach(function(ln,lni,lns){
         if ((ln=ln.trim())!==""){
             if(package==="" && ln.startsWith("package ")&&(ln=ln.substring("package ".length).trim())!=="") {
@@ -318,6 +318,6 @@ _fsutils.FIND(root).filter(function(e){
         }
     });
 }.bind(this));
-request.Response().SetHeader("Content-Type","application/json");
-_fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
+kwe.out.SetHeader("Content-Type","application/json");
+kwe.fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
 print(JSON.stringify(prep));

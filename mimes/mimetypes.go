@@ -664,6 +664,7 @@ WAP Bitamp (WBMP)	image/vnd.wap.wbmp	.wbmp	IANA: WBMP
 Waveform Audio File Format (WAV)	audio/x-wav	.wav	Wikipedia: WAV
 Web Distributed Authoring and Versioning	application/davmount+xml	.davmount	RFC 4918
 Web Open Font Format	application/x-font-woff	.woff	Wikipedia: Web Open Font Format
+Web Open Font Format	font/woff2	.woff2	Wikipedia: Web Open Font Format
 Web Services Policy	application/wspolicy+xml	.wspolicy	W3C Web Services Policy
 WebP Image	image/webp	.webp	Wikipedia: WebP
 WebTurbo	application/vnd.webturbo	.wtb	IANA: WebTurbo
@@ -707,6 +708,18 @@ func MimeTypesCSV() io.Reader {
 	return strings.NewReader(mimetypescsv)
 }
 
+func ExtMimeType(ext string, defaultext string, defaulttype ...string) (mimetype string) {
+	var defaulttpe = ""
+	if len(defaulttype) > 0 {
+		defaulttpe = defaulttype[0]
+	}
+	if ext = filepath.Ext(ext); ext == "" {
+		ext = filepath.Ext(defaultext)
+	}
+	mimetype, _ = FindMimeType(ext, defaulttpe)
+	return
+}
+
 //FindMimeType - ext or defaulttype
 func FindMimeType(ext string, defaulttype string) (mimetype string, texttype bool) {
 	if defaulttype == "" {
@@ -715,8 +728,6 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	texttype = false
 	if ext = filepath.Ext(ext); ext != "" {
 		func() {
-			mtypesfoundlck.Lock()
-			defer mtypesfoundlck.Unlock()
 			if _, mimetypeok := mtypesfound[ext]; mimetypeok {
 				mimetype = mtypesfound[ext]
 				if _, textextok := mtextexts[ext]; textextok {
@@ -752,7 +763,7 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 }
 
 var mtypesfound map[string]string
-var mtypesfoundlck = &sync.Mutex{}
+var mtypesfoundlck = &sync.RWMutex{}
 
 var mtextexts map[string]bool
 

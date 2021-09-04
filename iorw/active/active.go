@@ -14,7 +14,6 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/evocert/kwe/ecma/jsext"
-	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/requirejs"
 
 	"github.com/evocert/kwe/iorw"
@@ -40,21 +39,21 @@ type Active struct {
 	FBinRead       func(io.Reader, int) ([]byte, error)
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
-	lckprnt        *sync.Mutex
-	InterruptVM    func(v interface{})
+	//lckprnt        *sync.Mutex
+	InterruptVM func(v interface{})
 	*atvruntime
 }
 
 func (atv *Active) LockPrint() {
-	if atv != nil && atv.lckprnt != nil {
+	/*if atv != nil && atv.lckprnt != nil {
 		atv.lckprnt.Lock()
-	}
+	}*/
 }
 
 func (atv *Active) UnlockPrint() {
-	if atv != nil && atv.lckprnt != nil {
+	/*if atv != nil && atv.lckprnt != nil {
 		atv.lckprnt.Unlock()
-	}
+	}*/
 }
 
 //InvokeFunction ivoke *Acive.actvruntime function
@@ -90,26 +89,28 @@ func (atv *Active) ExtractGlobals(extrglbs map[string]interface{}) {
 func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	if atv.atvruntime != nil {
 		if len(imprtglbs) > 0 {
-			if gbl := atv.atvruntime.vm.GlobalObject(); gbl != nil {
-				for k, kv := range imprtglbs {
-					if gjv, gjvok := kv.(goja.Value); gjvok {
-						if expv := gjv.Export(); expv == nil {
-							gbl.Set(k, gjv)
+			if vm := atv.atvruntime.lclvm(); vm != nil {
+				if gbl := vm.GlobalObject(); gbl != nil {
+					for k, kv := range imprtglbs {
+						if gjv, gjvok := kv.(goja.Value); gjvok {
+							if expv := gjv.Export(); expv == nil {
+								gbl.Set(k, gjv)
+							} else {
+								gbl.Set(k, expv)
+							}
 						} else {
-							gbl.Set(k, expv)
+							gbl.Set(k, kv)
 						}
-					} else {
-						gbl.Set(k, kv)
 					}
+					gbl = nil
 				}
-				gbl = nil
 			}
 		}
 	}
 }
 
 var activePool *sync.Pool = &sync.Pool{New: func() interface{} {
-	atv := &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+	atv := &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
 	atv.atvruntime, _ = newatvruntime(atv, nil)
 	return atv
 }}
@@ -119,7 +120,7 @@ func newActive() (atv *Active) {
 		atv = v.(*Active)
 		return atv
 	}
-	atv = &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+	atv = &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
 	atv.atvruntime, _ = newatvruntime(atv, nil)
 	return atv
 }
@@ -131,7 +132,7 @@ func putActive(atv *Active) {
 
 //NewActive - instance
 func NewActive() (atv *Active) {
-	atv = &Active{lckprnt: &sync.Mutex{}, atvruntime: nil}
+	atv = &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
 	atv.atvruntime, _ = newatvruntime(atv, nil)
 	//atv = newActive()
 	return
@@ -405,9 +406,9 @@ func (atv *Active) Close() (err error) {
 
 //Dispose
 func (atv *Active) Dispose() (err error) {
-	if atv.lckprnt != nil {
+	/*if atv.lckprnt != nil {
 		atv.lckprnt = nil
-	}
+	}*/
 	if atv.atvruntime != nil {
 		atv.atvruntime.dispose()
 		atv.atvruntime = nil
@@ -435,13 +436,13 @@ var elmlbl = [][]rune{[]rune("<#"), []rune(">"), []rune("</#"), []rune(">"), []r
 var phrslbl = [][]rune{[]rune("{#"), []rune("#}")}
 
 type parsing struct {
-	rnrdrsbeingparsed    *enumeration.List
-	crntrnrdrbeingparsed io.RuneReader
 	*iorw.Buffer
 	tmpltbuf       *iorw.Buffer
 	tmpltmap       map[string][]int64
 	atv            *Active
 	wout           io.Writer
+	woutbytes      []byte
+	woutbytesi     int
 	rin            io.Reader
 	prntrs         []io.Writer
 	rdrs           []io.Reader
@@ -683,21 +684,6 @@ func (prsng *parsing) dispose() {
 			prsng.cdebuf.Close()
 			prsng.cdebuf = nil
 		}
-		if prsng.crntrnrdrbeingparsed != nil {
-			prsng.crntrnrdrbeingparsed = nil
-		}
-		if prsng.rnrdrsbeingparsed != nil {
-			prsng.rnrdrsbeingparsed.Dispose(
-				func(n *enumeration.Node, i interface{}) {
-
-				},
-				func(n *enumeration.Node, i interface{}) {
-					if rc, _ := i.(io.Closer); rc != nil {
-						rc.Close()
-					}
-				})
-			prsng.rnrdrsbeingparsed = nil
-		}
 		if prsng.prntrs != nil {
 			for len(prsng.prntrs) > 0 {
 				prsng.prntrs[len(prsng.prntrs)-1] = nil
@@ -723,6 +709,9 @@ func (prsng *parsing) dispose() {
 		}
 		if prsng.wout != nil {
 			prsng.wout = nil
+		}
+		if prsng.woutbytes != nil {
+			prsng.woutbytes = nil
 		}
 		if prsng.tmpltmap != nil {
 			for k := range prsng.tmpltmap {
@@ -778,6 +767,14 @@ func (prsng *parsing) setpsvpos(startoffset int64, endoffset int64) (pos int) {
 	return
 }
 
+func (prsng *parsing) flushWritePsv() (err error) {
+	if prsng != nil && prsng.woutbytesi > 0 {
+		_, err = prsng.wout.Write(prsng.woutbytes[0:prsng.woutbytesi])
+		prsng.woutbytesi = 0
+	}
+	return
+}
+
 func (prsng *parsing) writePsv(p ...rune) (err error) {
 	if pl := len(p); pl > 0 {
 		if prsng.crntpsvsctn == nil {
@@ -788,7 +785,15 @@ func (prsng *parsing) writePsv(p ...rune) (err error) {
 				err = prsng.WriteRunes(p[:pl]...)
 			} else {
 				if bs := iorw.RunesToUTF8(p[:pl]); len(bs) > 0 {
-					_, err = prsng.wout.Write(bs)
+					for _, bsb := range bs {
+						prsng.woutbytes[prsng.woutbytesi] = bsb
+						prsng.woutbytesi++
+						if prsng.woutbytesi == len(prsng.woutbytes) {
+							if err = prsng.flushWritePsv(); err != nil {
+								break
+							}
+						}
+					}
 				}
 			}
 		} else {
@@ -825,7 +830,10 @@ func (prsng *parsing) flushPsv() (err error) {
 		prsng.psvri = 0
 		err = prsng.writePsv(prsng.psvr[:pi]...)
 	}
-	if prsng.crntpsvsctn == nil && prsng.foundCode() {
+	if err == nil {
+		err = prsng.flushWritePsv()
+	}
+	if err == nil && prsng.crntpsvsctn == nil && prsng.foundCode() {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
 			prsng.psvoffsetstart = -1
 			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
@@ -869,81 +877,23 @@ func (prsng *parsing) flushCde() (err error) {
 	return
 }
 
-func loadRuneReaders(prsng *parsing, a ...interface{}) {
-	if al := len(a); al > 0 {
-		rdrs := []io.Reader{}
-		var tmpa []interface{}
-		tampardr := func() {
-			if len(tmpa) > 0 {
-				pr, pw := io.Pipe()
-				ctx, ctxcancel := context.WithCancel(context.Background())
-				go func(ga ...interface{}) {
-					defer pw.Close()
-					ctxcancel()
-					iorw.Fprint(pw, ga...)
-				}(tmpa...)
-				tmpa = nil
-				<-ctx.Done()
-				ctx = nil
-				if s, _ := iorw.ReaderToString(pr); s != "" {
-					//prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(strings.NewReader(s)))
-					rdrs = append(rdrs, strings.NewReader(s))
-				}
-			}
-		}
-
-		for ai := 0; ai < al; ai++ {
-			if d := a[0]; d != nil {
-				a = a[1:]
-				if r, rok := d.(io.Reader); rok {
-					tampardr()
-					if rnr, rnrok := r.(io.RuneReader); rnrok {
-						if len(rdrs) > 0 {
-							prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(io.MultiReader(rdrs...)))
-							rdrs = nil
-							rdrs = []io.Reader{}
-						}
-						prsng.rnrdrsbeingparsed.Push(nil, nil, rnr)
-					} else {
-						rdrs = append(rdrs, r)
-						//prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(r, false))
-					}
-				} else if buf, bufok := d.(*iorw.Buffer); bufok {
-					tampardr()
-					rdrs = append(rdrs, buf.Reader())
-					//prsng.rnrdrsbeingparsed.Push(nil, nil, buf.Reader())
-				} else {
-					if tmpa == nil {
-						tmpa = []interface{}{}
-					}
-					tmpa = append(tmpa, d)
-				}
-			} else {
-				a = a[1:]
-			}
-		}
-		tampardr()
-		if len(rdrs) > 0 {
-			prsng.rnrdrsbeingparsed.Push(nil, nil, iorw.NewEOFCloseSeekReader(io.MultiReader(rdrs...)))
-			rdrs = nil
-			rdrs = []io.Reader{}
-		}
-	}
-}
-
 func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
-	loadRuneReaders(prsng, a...)
-	for err == nil {
-		r, rsize, rerr := prsng.ReadRune()
-		if rsize > 0 {
-			if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
-				break
+	var rnr = iorw.NewMultiArgsReader(a...)
+	defer rnr.Close()
+	func() {
+		defer rnr.Close()
+		for err == nil {
+			r, rsize, rerr := rnr.ReadRune()
+			if rsize > 0 {
+				if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
+					break
+				}
+			}
+			if rerr != nil {
+				err = rerr
 			}
 		}
-		if rerr != nil {
-			err = rerr
-		}
-	}
+	}()
 	if err == io.EOF || err == nil {
 		if err == io.EOF {
 			err = nil
@@ -1036,41 +986,9 @@ func parseprsngrune(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (e
 	return
 }
 
-func (prsng *parsing) ReadRune() (r rune, size int, err error) {
-	if prsng != nil {
-		if prsng.crntrnrdrbeingparsed == nil {
-			if prsng.rnrdrsbeingparsed != nil && prsng.rnrdrsbeingparsed.Length() > 0 {
-				prsng.rnrdrsbeingparsed.Head().Dispose(nil, func(nde *enumeration.Node, val interface{}) {
-					prsng.crntrnrdrbeingparsed, _ = val.(io.RuneReader)
-				})
-			}
-			if prsng.crntrnrdrbeingparsed == nil {
-				err = io.EOF
-				return
-			}
-		}
-		r, size, err = prsng.crntrnrdrbeingparsed.ReadRune()
-		if err == io.EOF {
-			prsng.crntrnrdrbeingparsed = nil
-			if prsng.rnrdrsbeingparsed != nil && prsng.rnrdrsbeingparsed.Length() > 0 {
-				if size == 0 {
-					r, size, err = prsng.ReadRune()
-				} else {
-					err = nil
-				}
-			}
-		}
-	} else {
-		err = io.EOF
-	}
-	return
-}
-
 func nextparsing(atv *Active, prntprsng *parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rnrdrsbeingparsed: enumeration.NewList(), crntrnrdrbeingparsed: nil, rin: rin, wout: wout, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
 		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
-
-	//runtime.SetFinalizer(prsng, parsingFinalize)
 	return
 }
 
@@ -1149,11 +1067,11 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 
 func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
-		atvrntme.vm.ClearInterrupt()
+		if atvrntme.vm != nil {
+			atvrntme.vm.ClearInterrupt()
+		}
 		if len(objmapref) > 0 {
-			for k, ref := range objmapref {
-				atvrntme.vm.Set(k, ref)
-			}
+			atvrntme.lclvm(objmapref)
 		}
 		func() {
 			defer func() {
@@ -1190,7 +1108,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 						}
 					}
 					if p, perr := goja.CompileAST(prsd, false); perr == nil {
-						_, err = atvrntme.vm.RunProgram(p)
+						_, err = atvrntme.lclvm().RunProgram(p)
 						/*if err != nil {
 							fmt.Println(err.Error())
 						}*/
@@ -1621,30 +1539,172 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 }
 
 func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
-	atvrntme = &atvruntime{atv: atv, prsng: parsing, vm: goja.New(), includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+	atvrntme = &atvruntime{atv: atv, prsng: parsing, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	atvrntme.atv.InterruptVM = func(v interface{}) {
-		atvrntme.vm.Interrupt(v)
+		atvrntme.lclvm().Interrupt(v)
 	}
-	jsext.Register(atvrntme.vm)
-	if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
-		if len(definternmapref) > 0 {
-			for k, ref := range definternmapref {
-				atvrntme.vm.Set(k, ref)
+	return
+}
+
+func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja.Runtime) {
+	if atvrntme != nil {
+		if atvrntme.vm == nil {
+			atvrntme.vm = goja.New()
+			var dne = make(chan bool, 1)
+			go func(vm *goja.Runtime) {
+				defer func() { dne <- true }()
+				jsext.Register(vm)
+			}(atvrntme.vm)
+			<-dne
+			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
+				if len(definternmapref) > 0 {
+					for k, ref := range definternmapref {
+						atvrntme.vm.Set(k, ref)
+					}
+				}
+			}
+			if len(objmapref) > 0 && objmapref[0] != nil {
+				for k, ref := range objmapref[0] {
+					atvrntme.vm.Set(k, ref)
+				}
+			}
+			var modstoload = RetrieveModule()
+			modstoload = append([]*goja.Program{requirejsprgm}, modstoload...)
+			go loadInternalModules(dne, atvrntme.vm, modstoload...)
+			<-dne
+			defer close(dne)
+		} else {
+			if len(objmapref) > 0 && objmapref[0] != nil {
+				for k, ref := range objmapref[0] {
+					atvrntme.vm.Set(k, ref)
+				}
+			}
+		}
+		vm = atvrntme.vm
+	}
+	return
+}
+
+func loadInternalModules(dne chan bool, vm *goja.Runtime, prgrms ...*goja.Program) {
+	defer func() { dne <- true }()
+	if len(prgrms) > 0 {
+		for _, prgm := range prgrms {
+			if prgm != nil {
+				if _, err := vm.RunProgram(prgm); err != nil {
+
+				}
 			}
 		}
 	}
-	if requirejsprgm != nil {
-		_, err = atvrntme.vm.RunProgram(requirejsprgm)
-	}
-	//runtime.SetFinalizer(atvrntme, atvruntimeFinalize)
-	return
 }
 
 var requirejsprgm *goja.Program = nil
 
-//var GlobelModules map[string]*
+var globalModules map[string]*goja.Program
+
+//var globalModuleslck *sync.RWMutex
+
+func RetrieveModule(modulepath ...string) (modules []*goja.Program) {
+
+	if len(globalModules) > 0 {
+		if len(modulepath) > 0 {
+			var glblmodpths []string = nil
+			func() {
+				//globalModuleslck.RLock()
+				//defer globalModuleslck.RUnlock()
+				if glblmdpthsl := len(globalModules); glblmdpthsl > 0 {
+					glblmodpths = make([]string, glblmdpthsl)
+					var glblmodpthsi = 0
+					for mdpth := range globalModules {
+						glblmodpths[glblmodpthsi] = mdpth
+						glblmodpthsi++
+					}
+				}
+			}()
+			if len(glblmodpths) > 0 {
+				var modpthsi = 0
+				var modpthsl = len(modulepath)
+				for modpthsi < modpthsl {
+					for _, glgmdpth := range glblmodpths {
+						if modulepath[modpthsi] != glgmdpth {
+							modulepath = append(modulepath[0:modpthsi], modulepath[modpthsi])
+							modpthsl--
+						} else {
+							modpthsi++
+						}
+					}
+				}
+
+				if modpthsl > 0 {
+					func() {
+						//globalModuleslck.RLock()
+						//defer globalModuleslck.RUnlock()
+						modules = make([]*goja.Program, modpthsl)
+						var modulesi = 0
+						for _, mdpth := range modulepath {
+							modules[modulesi] = globalModules[mdpth]
+							modulesi++
+						}
+					}()
+				}
+			}
+		} else {
+			func() {
+				if glblmdsl := len(globalModules); glblmdsl > 0 {
+					//globalModuleslck.RLock()
+					//defer globalModuleslck.RUnlock()
+					modules = make([]*goja.Program, glblmdsl)
+					var modulesi = 0
+					for mdpth := range globalModules {
+						modules[modulesi] = globalModules[mdpth]
+						modulesi++
+					}
+				}
+			}()
+		}
+	}
+	return
+}
+
+func LoadGlobalModule(modulepath string, a ...interface{}) (err error) {
+	if modulepath != "" && len(a) > 0 {
+		var bufcde = iorw.NewBuffer()
+		defer bufcde.Close()
+		bufcde.Print(a...)
+		if bufcde.Size() > 0 {
+			var modulepgrm *goja.Program = nil
+			if modulepgrm, err = goja.Compile("", bufcde.String(), false); modulepgrm != nil && err == nil {
+				func() {
+					//globalModuleslck.Lock()
+					//defer globalModuleslck.Unlock()
+					if globalModules[modulepath] != nil {
+						globalModules[modulepath] = nil
+					}
+					globalModules[modulepath] = modulepgrm
+				}()
+			}
+		}
+	}
+	return
+}
+
+func UnloadGlobalModule(modulepath string) (existed bool) {
+	if modulepath != "" {
+		func() {
+			//globalModuleslck.Lock()
+			//defer globalModuleslck.Unlock()
+			if existed = globalModules[modulepath] != nil; existed {
+				globalModules[modulepath] = nil
+				delete(globalModules, modulepath)
+			}
+		}()
+	}
+	return
+}
 
 func init() {
+	globalModules = map[string]*goja.Program{}
+	//globalModuleslck = &sync.RWMutex{}
 	var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())

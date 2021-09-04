@@ -7,12 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	//runtime "runtime"
-
-	//"github.com/efjoubert/lnksys/network"
-	//"github.com/efjoubert/lnksys/network"
-	"github.com/evocert/kwe/chnls"
 	"github.com/evocert/kwe/env"
+	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/serving"
 )
@@ -64,7 +60,16 @@ func (lnksrvs *LnkService) startLnkService(args ...string) {
 			conflabel = "broker"
 		}
 	}
-	chnls.GLOBALCHNL().ServeReaderWriter("/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", out, in)
+
+	if ServeRequest != nil {
+
+		rqst := requesting.NewRequest(nil, "/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", in, out)
+		if rqst != nil {
+			defer rqst.Close()
+			ServeRequest(rqst)
+		}
+	}
+	//chnls.GLOBALCHNL().ServeReaderWriter("/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", out, in)
 	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 
@@ -76,9 +81,6 @@ func (lnksrvs *LnkService) runLnkService(args ...string) {
 			cancelChan <- syscall.SIGTERM
 			cancelChan <- syscall.SIGINT
 		})
-		/*go func() {
-			chnls.GLOBALCHNL().Stdio(os.Stdout, os.Stdin, os.Stderr)
-		}()*/
 		<-cancelChan
 	} else if lnksrvs.IsBroker() {
 		if lnksrvs.brkrfnc != nil {
@@ -95,8 +97,6 @@ func (lnksrvs *LnkService) stopLnkService(args ...string) {
 
 //RunService - startup Service pasing args...string
 func RunService(args ...string) {
-	//runtimedbg.SetGCPercent(33)
-	//runtime.GOMAXPROCS(runtime.NumCPU() * 10)
 	if len(args) == 0 {
 		args = os.Args
 	}
@@ -111,5 +111,14 @@ func RunService(args ...string) {
 
 //RunBroker - RunBroker command as request in global channel
 func RunBroker(exename string, exealias string, args ...string) {
-	chnls.GLOBALCHNL().ServeReaderWriter("/", os.Stdout, os.Stdin)
+	if ServeRequest != nil {
+		rqst := requesting.NewRequest(nil, "/", os.Stdin, os.Stdout)
+		if rqst != nil {
+			defer rqst.Close()
+			ServeRequest(rqst)
+		}
+	}
+	//chnls.GLOBALCHNL().ServeReaderWriter("/", os.Stdout, os.Stdin)
 }
+
+var ServeRequest func(rqst requesting.RequestAPI, a ...interface{}) (err error) = nil

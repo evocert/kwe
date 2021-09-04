@@ -3,6 +3,8 @@ package webactions
 import (
 	"io"
 	"strings"
+
+	"github.com/evocert/kwe/resources"
 )
 
 const jqueryjs string = `/*! jQuery v3.6.0 | (c) OpenJS Foundation and other contributors | jquery.org/license */
@@ -26,4 +28,10 @@ func ParsingJS() io.Reader {
 
 func WebactionsBundleJS() io.Reader {
 	return io.MultiReader(JqueryJS(), strings.NewReader("\r\n"), ParsingJS(), strings.NewReader("\r\n"), WebactionsJS())
+}
+
+func init() {
+	gblrs := resources.GLOBALRSNG()
+	gblrs.FS().MKDIR("/webactions", "")
+	gblrs.FS().SET("/webactions/webactions.js", WebactionsBundleJS())
 }

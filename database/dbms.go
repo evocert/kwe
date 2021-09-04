@@ -9,7 +9,87 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/parameters"
 )
+
+type DBMSAPI interface {
+	Connections() (cns []string)
+	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
+	AliasExists(alias string) (exists bool)
+	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
+	Execute(a interface{}, excargs ...interface{}) (exctr *Executor)
+	InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error)
+}
+
+type ActiveDBMS struct {
+	dbms     *DBMS
+	atvrntme active.Runtime
+	prms     parameters.ParametersAPI
+}
+
+func (atvdbms *ActiveDBMS) Connections() (cns []string) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		cns = atvdbms.dbms.Connections()
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		if atvdbms.atvrntme != nil {
+			a = append([]interface{}{atvdbms.atvrntme}, a...)
+		}
+		registered = atvdbms.dbms.RegisterConnection(alias, driver, datasource, a...)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) Exists(alias string) (exists bool) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		exists, _ = atvdbms.dbms.Exists(alias)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		if atvdbms.atvrntme != nil {
+			qryargs = append([]interface{}{atvdbms.atvrntme}, qryargs...)
+		}
+		reader = atvdbms.dbms.Query(a, qryargs...)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executor) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		if atvdbms.atvrntme != nil {
+			excargs = append([]interface{}{atvdbms.atvrntme}, excargs...)
+		}
+		exctr = atvdbms.dbms.Execute(a, excargs...)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		if atvdbms.atvrntme != nil {
+			ioargs = append([]interface{}{atvdbms.atvrntme}, ioargs...)
+		}
+		err = atvdbms.dbms.InOut(in, out, ioargs...)
+	}
+	return
+}
+
+func newActiveDBMS(dbms *DBMS, rntme active.Runtime, prms ...parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
+	if dbms != nil && rntme != nil {
+		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme}
+		if len(prms) > 0 && prms[0] != nil {
+			atvdbms.prms = prms[0]
+		}
+	}
+	return
+}
 
 //DBMS - struct
 type DBMS struct {
@@ -17,10 +97,15 @@ type DBMS struct {
 	drivers map[string]func(string, ...interface{}) (*sql.DB, error)
 }
 
+//ActiveDBMS return registered connections
+func (dbms *DBMS) ActiveDBMS(rntme active.Runtime, prms ...parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
+	return newActiveDBMS(dbms, rntme, prms...)
+}
+
 //Connection return registered connections
 func (dbms *DBMS) Connection(alias string) (cn *Connection) {
 	if alias = strings.TrimSpace(alias); alias != "" {
-		cn, _ = dbms.cnctns[alias]
+		cn = dbms.cnctns[alias]
 	}
 	return
 }
@@ -69,7 +154,6 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 		}
 	}
 	return
-
 }
 
 //RegisterDriver - register driver name for invokable db call
@@ -79,8 +163,8 @@ func (dbms *DBMS) RegisterDriver(driver string, invokedbcall func(string, ...int
 	}
 }
 
-//AliasExists - alias exist <= exist[true], dbcn[*Connection]
-func (dbms *DBMS) AliasExists(alias string) (exists bool, dbcn *Connection) {
+//Exists - alias exist <= exist[true], dbcn[*Connection]
+func (dbms *DBMS) Exists(alias string) (exists bool, dbcn *Connection) {
 	if alias != "" && len(dbms.cnctns) > 0 {
 		dbcn, exists = dbms.cnctns[alias]
 	}
@@ -150,7 +234,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			if len(qryargs) > 0 {
 				prms = append(prms, qryargs...)
 			}
-			if exists, dbcn := dbms.AliasExists(alias); exists {
+			if exists, dbcn := dbms.Exists(alias); exists {
 				var err error = nil
 				reader, _, err = internquery(dbcn, query, false, onsuccess, onerror, onfinalize, prms...)
 				if err != nil && reader == nil {
@@ -225,7 +309,7 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 			if dfltalias == "" {
 				if aliass, aliassok := aliasv.(string); aliassok {
 					dfltalias = aliass
-					if dfcnok, dfcn := dbms.AliasExists(aliass); dfcnok {
+					if dfcnok, dfcn := dbms.Exists(aliass); dfcnok {
 						dfltcn = dfcn
 					}
 				}
@@ -243,7 +327,7 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 				crntcn = nil
 				if dalias, daliasok := mvp["alias"]; daliasok && dalias != nil {
 					if salias, saliasok := dalias.(string); saliasok && salias != "" {
-						if cnok, cn := dbms.AliasExists(salias); cnok {
+						if cnok, cn := dbms.Exists(salias); cnok {
 							crntcn = cn
 						}
 					}
@@ -420,7 +504,7 @@ func (dbms *DBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executo
 		if len(excargs) > 0 {
 			prms = append(prms, excargs...)
 		}
-		if exists, dbcn := dbms.AliasExists(alias); exists {
+		if exists, dbcn := dbms.Exists(alias); exists {
 			var err error = nil
 			if _, exctr, err = internquery(dbcn, query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
 

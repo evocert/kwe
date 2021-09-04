@@ -9,11 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/evocert/kwe/iorw"
 )
 
-func Register_jsext_consoleutils(vm *goja.Runtime) {
+func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
+	if lclobjmp == nil {
+		return
+	}
 	//vm.SetFieldNameMapper(goja.TagFieldNameMapper("json",true))
 	type Version struct {
 		Major int `json:"major"`
@@ -23,7 +25,7 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 	//log.SetFlags(log.LstdFlags | log.Lmicroseconds) //global???
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
-	vm.Set("console", struct {
+	lclobjmp["console"] = struct {
 		Version Version              `json:"version"`
 		Log     func(...interface{}) `json:"log"`
 		Warn    func(...interface{}) `json:"warn"`
@@ -102,7 +104,7 @@ func Register_jsext_consoleutils(vm *goja.Runtime) {
 			logger.Output(2, fmt.Sprintln(msg...))
 			//rw.Println(msg)
 		},
-	})
+	}
 }
 
 var logger *log.Logger = nil

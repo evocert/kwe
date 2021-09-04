@@ -160,9 +160,8 @@ func (s *darwinLaunchdService) Install() error {
 
 		KeepAlive, RunAtLoad bool
 		SessionCreate        bool
-		StandardOut bool
-		StandardError bool
-		
+		StandardOut          bool
+		StandardError        bool
 	}{
 		Config:        s.Config,
 		Path:          path,
@@ -187,7 +186,7 @@ func (s *darwinLaunchdService) Uninstall() error {
 func (s *darwinLaunchdService) Status() (Status, error) {
 	exitCode, out, err := runWithOutput("launchctl", "list", s.Name)
 	if exitCode == 0 && err != nil {
-		if !strings.Contains(err.Error(), "failed with StandardError") {
+		if !strings.Contains(err.Error(), "failed with stderr") {
 			return StatusUnknown, err
 		}
 	}

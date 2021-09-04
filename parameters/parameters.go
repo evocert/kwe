@@ -9,6 +9,23 @@ import (
 	"strings"
 )
 
+type ParametersAPI interface {
+	StandardKeys() []string
+	FileKeys() []string
+	SetParameter(string, bool, ...string)
+	ContainsParameter(string) bool
+	RemoveParameter(string) []string
+	SetFileParameter(string, bool, ...interface{})
+	ContainsFileParameter(string) bool
+	Parameter(string, ...int) []string
+	StringParameter(string, string, ...int) string
+	FileReader(string, ...int) []io.Reader
+	FileName(string, ...int) []string
+	FileSize(string, ...int) []int64
+	FileParameter(string, ...int) []interface{}
+	CleanupParameters()
+}
+
 //Parameters -> structure containing parameters
 type Parameters struct {
 	standard  map[string][]string
@@ -356,8 +373,8 @@ func NewParameters() *Parameters {
 }
 
 //LoadParametersFromRawURL - populate paramaters just from raw url
-func LoadParametersFromRawURL(params *Parameters, rawURL string) {
-	if rawURL != "" {
+func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
+	if params != nil && rawURL != "" {
 		if urlvals, e := url.ParseQuery(rawURL); e == nil {
 			if urlvals != nil {
 				for pname, pvalue := range urlvals {
@@ -369,35 +386,37 @@ func LoadParametersFromRawURL(params *Parameters, rawURL string) {
 }
 
 //LoadParametersFromHTTPRequest - Load Parameters from http.Request
-func LoadParametersFromHTTPRequest(params *Parameters, r *http.Request) {
-	if r.URL != nil {
-		LoadParametersFromRawURL(params, r.URL.RawQuery)
-		r.URL.RawQuery = ""
-	}
-	if err := r.ParseMultipartForm(0); err == nil {
-		if r.MultipartForm != nil {
-			for pname, pvalue := range r.MultipartForm.Value {
-				params.SetParameter(pname, false, pvalue...)
-			}
-			for pname, pfile := range r.MultipartForm.File {
-				if len(pfile) > 0 {
-					pfilei := []interface{}{}
-					for _, pf := range pfile {
-						pfilei = append(pfilei, pf)
+func LoadParametersFromHTTPRequest(params ParametersAPI, r *http.Request) {
+	if params != nil {
+		if r.URL != nil {
+			LoadParametersFromRawURL(params, r.URL.RawQuery)
+			r.URL.RawQuery = ""
+		}
+		if err := r.ParseMultipartForm(0); err == nil {
+			if r.MultipartForm != nil {
+				for pname, pvalue := range r.MultipartForm.Value {
+					params.SetParameter(pname, false, pvalue...)
+				}
+				for pname, pfile := range r.MultipartForm.File {
+					if len(pfile) > 0 {
+						pfilei := []interface{}{}
+						for _, pf := range pfile {
+							pfilei = append(pfilei, pf)
+						}
+						params.SetFileParameter(pname, false, pfilei...)
+						pfilei = nil
 					}
-					params.SetFileParameter(pname, false, pfilei...)
-					pfilei = nil
+				}
+			} else if r.Form != nil {
+				for pname, pvalue := range r.Form {
+					params.SetParameter(pname, false, pvalue...)
 				}
 			}
-		} else if r.Form != nil {
-			for pname, pvalue := range r.Form {
-				params.SetParameter(pname, false, pvalue...)
-			}
-		}
-	} else if err := r.ParseForm(); err == nil {
-		if r.Form != nil {
-			for pname, pvalue := range r.Form {
-				params.SetParameter(pname, false, pvalue...)
+		} else if err := r.ParseForm(); err == nil {
+			if r.Form != nil {
+				for pname, pvalue := range r.Form {
+					params.SetParameter(pname, false, pvalue...)
+				}
 			}
 		}
 	}

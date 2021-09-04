@@ -3,8 +3,6 @@ package alertify
 import (
 	"io"
 	"strings"
-
-	"github.com/evocert/kwe/resources"
 )
 
 const alertifythemesdefaultcss string = `/**
@@ -19,7 +17,7 @@ func AlertifyThemesDefaultCSS() io.Reader {
 }
 
 func init() {
-	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/alertify/css/themes", "")
-	gblrs.FS().SET("/alertify/css/themes/default.css", AlertifyThemesDefaultCSS())
+	//gblrs := resources.GLOBALRSNG()
+	//gblrs.FS().MKDIR("/alertify/css/themes", "")
+	//gblrs.FS().SET("/alertify/css/themes/default.css", AlertifyThemesDefaultCSS())
 }
