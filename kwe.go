@@ -10,6 +10,7 @@ import (
 	_ "github.com/evocert/kwe/bootstrap"
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
+	_ "github.com/evocert/kwe/datepicker"
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
 	"github.com/evocert/kwe/fsutils"
@@ -162,22 +163,24 @@ func main() {
 							return
 						}
 					}
-					defer atv.Close()
-					var evalerr error = nil
-					if convertactive {
-						evalerr = atv.Eval(rspns, rqst, path, "<@", "\r\n", rs, "@>")
-					} else {
-						evalerr = atv.Eval(rspns, rqst, path, rs)
-					}
-					if evalerr != nil {
-						if rspns != nil {
-							rspns.SetHeader("Content-Type", "application/javascript")
-							rspns.SetStatus(500)
-							rspns.Print(evalerr)
+					func() {
+						defer atv.Close()
+						var evalerr error = nil
+						if convertactive {
+							evalerr = atv.Eval(rspns, rqst, path, "<@", "\r\n", rs, "@>")
 						} else {
-							println(evalerr.Error())
+							evalerr = atv.Eval(rspns, rqst, path, rs)
 						}
-					}
+						if evalerr != nil {
+							if rspns != nil {
+								rspns.SetHeader("Content-Type", "application/javascript")
+								rspns.SetStatus(500)
+								rspns.Print(evalerr)
+							} else {
+								println(evalerr.Error())
+							}
+						}
+					}()
 				} else if rspns != nil {
 					rspns.Print(rs)
 				}
@@ -193,6 +196,10 @@ func main() {
 }
 
 func send(atv *active.Active, fs *fsutils.FSUtils, rqst requesting.RequestAPI, rqstpath string, andeval bool, a ...interface{}) (rdr iorw.Reader, err error) {
+	convertactive := false
+	if convertactive = strings.Contains(rqstpath, "/active:"); convertactive {
+		rqstpath = strings.Replace(rqstpath, "/active:", "/", 1)
+	}
 	if strings.HasPrefix(rqstpath, "http://") || strings.HasPrefix(rqstpath, "https://") {
 		a = append([]interface{}{atv}, a...)
 		rdr, err = web.DefaultClient.Send(rqstpath, a...)
@@ -204,7 +211,12 @@ func send(atv *active.Active, fs *fsutils.FSUtils, rqst requesting.RequestAPI, r
 		pr, pw := io.Pipe()
 		go func() {
 			ctxcancel()
-			pwerr := atv.Eval(pw, nil, rqstpath, rdr)
+			var pwerr error = nil
+			if convertactive {
+				pwerr = atv.Eval(pw, nil, rqstpath, "<@", "\r\n", rdr, "@>")
+			} else {
+				pwerr = atv.Eval(pw, nil, rqstpath, rdr)
+			}
 			defer func() {
 				if pwerr == nil {
 					pw.Close()

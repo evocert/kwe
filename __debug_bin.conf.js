@@ -14,7 +14,7 @@ if (kwe.caching.ExistsAt("a","b",2)) {
 //kwe.fs.MKDIR("/materialdesign/fonts","D:/projects/kwe/fonts/material/fonts/")
 kwe.fs.MKDIR("/gendocs","C:/GitHub/kwe/gendocs");
 try {
-	kwe.send("/gendocs/active:gendocs.js");
+	kwe.sendEval("/active:gendocs/gendocs.js");
 } catch(e){
 	console.Log(e.Error());
 }
