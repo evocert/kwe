@@ -318,6 +318,8 @@ kwe.fsutils.FIND(root).filter(function(e){
         }
     });
 }.bind(this));
-kwe.out.SetHeader("Content-Type","application/json");
+if (kwe.out!==undefined && kwe.out!==null) {
+    kwe.out.SetHeader("Content-Type","application/json");
+}
 kwe.fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
 print(JSON.stringify(prep));

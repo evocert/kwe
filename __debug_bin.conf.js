@@ -11,12 +11,12 @@ if (kwe.caching.ExistsAt("a","b",2)) {
 	console.Log(kwe.caching.At("a","b",2));
 	console.Log(kwe.caching.String());
 }
-//kwe.fs.MKDIR("/materialdesign/fonts","D:/projects/kwe/fonts/material/fonts/")
+
 kwe.fs.MKDIR("/gendocs","C:/GitHub/kwe/gendocs");
 try {
-	kwe.sendEval("/active:gendocs/gendocs.js");
+	eval(kwe.send("/gendocs/gendocs.js").ReadAll());
 } catch(e){
-	console.Log(e.Error());
+	console.Log(e.message);
 }
 
 kwe.fs.MKDIR("/movies","D:/movies");

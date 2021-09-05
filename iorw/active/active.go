@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dop251/goja/parser"
@@ -109,32 +108,10 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 	}
 }
 
-var activePool *sync.Pool = &sync.Pool{New: func() interface{} {
-	atv := &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
-	atv.atvruntime, _ = newatvruntime(atv, nil)
-	return atv
-}}
-
-func newActive() (atv *Active) {
-	if v := activePool.Get(); v != nil {
-		atv = v.(*Active)
-		return atv
-	}
-	atv = &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
-	atv.atvruntime, _ = newatvruntime(atv, nil)
-	return atv
-}
-
-func putActive(atv *Active) {
-	atv.Clear()
-	activePool.Put(atv)
-}
-
 //NewActive - instance
 func NewActive() (atv *Active) {
-	atv = &Active{ /*lckprnt: &sync.Mutex{},*/ atvruntime: nil}
-	atv.atvruntime, _ = newatvruntime(atv, nil)
-	//atv = newActive()
+	atv = &Active{atvruntime: nil}
+	atv.atvruntime, _ = newatvruntime(atv)
 	return
 }
 
@@ -372,17 +349,10 @@ func (cdeerr *CodeException) ExecPath() string {
 func (atv *Active) atvrun(prsng *parsing) (err error) {
 	if prsng != nil {
 		if atv.atvruntime == nil {
-			atv.atvruntime, err = newatvruntime(atv, prsng)
-		} else {
-			if atv.prsng == nil || atv.prsng != prsng {
-				if atv.prsng != nil {
-					atv.prsng.dispose()
-					atv.prsng = nil
-				}
-				atv.prsng = prsng
-			}
+			atv.atvruntime, err = newatvruntime(atv)
 		}
 		if atv.atvruntime != nil {
+			atv.atvruntime.prsng = prsng
 			_, err = atv.atvruntime.run()
 		}
 	}
@@ -879,7 +849,6 @@ func (prsng *parsing) flushCde() (err error) {
 
 func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
 	var rnr = iorw.NewMultiArgsReader(a...)
-	defer rnr.Close()
 	func() {
 		defer rnr.Close()
 		for err == nil {
@@ -1538,8 +1507,8 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 	return
 }
 
-func newatvruntime(atv *Active, parsing *parsing) (atvrntme *atvruntime, err error) {
-	atvrntme = &atvruntime{atv: atv, prsng: parsing, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+func newatvruntime(atv *Active) (atvrntme *atvruntime, err error) {
+	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
 	atvrntme.atv.InterruptVM = func(v interface{}) {
 		atvrntme.lclvm().Interrupt(v)
 	}

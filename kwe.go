@@ -135,31 +135,32 @@ func main() {
 				if isactive {
 					var atv = active.NewActive()
 					if atv.ObjectMapRef == nil {
-						atv.ObjectMapRef = func() (objref map[string]interface{}) {
-							objref = map[string]interface{}{}
-							objref["_in"] = rqst
-							objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
-							objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
-							objref["_out"] = rspns
-							objref["_fs"] = glblrsfs()
-							objref["_fsutils"] = glblutilsfs
-							objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
-							objref["_mqtting"] = glblmqttng
-							objref["_mqttmsg"] = mqttmsg
-							objref["_mqttevent"] = mqttevent
-							objref["_extMimetype"] = mimes.ExtMimeType
-							objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-								return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
-							}
-							objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-								return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
-							}
-							objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
-								return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
-							}
-							objref["_listen"] = func(addr ...string) {
-								lstnr.Listen("tcp", addr...)
-							}
+						var objref = map[string]interface{}{}
+						objref["_in"] = rqst
+						objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
+						objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
+						objref["_out"] = rspns
+						objref["_fs"] = glblrsfs()
+						objref["_fsutils"] = glblutilsfs
+						objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
+						objref["_mqtting"] = glblmqttng
+						objref["_mqttmsg"] = mqttmsg
+						objref["_mqttevent"] = mqttevent
+						objref["_extMimetype"] = mimes.ExtMimeType
+						objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+							return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
+						}
+						objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+							return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
+						}
+						objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
+							return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
+						}
+						objref["_listen"] = func(addr ...string) {
+							lstnr.Listen("tcp", addr...)
+						}
+						atv.ObjectMapRef = func() (objrf map[string]interface{}) {
+							objrf = objref
 							return
 						}
 					}
