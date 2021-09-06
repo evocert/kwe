@@ -1,4 +1,4 @@
-var base="C:/GitHub/kwe";
+var base="./";
 var root=base+"";
 
 var lgndcodebase="golang";
@@ -322,4 +322,6 @@ if (kwe.out!==undefined && kwe.out!==null) {
     kwe.out.SetHeader("Content-Type","application/json");
 }
 kwe.fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
-print(JSON.stringify(prep));
+if (kwe.out!==undefined && kwe.out!==null) {
+    kwe.out.print(JSON.stringify(prep));
+}
