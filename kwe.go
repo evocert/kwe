@@ -246,7 +246,7 @@ func sysjsTemplate(nmspace string, objmap ...map[string]interface{}) (sysjscode 
 			for objk, objv := range objmap[0] {
 				if objv != nil && objk != "" {
 					if objs, _ := objv.(string); objs != "" {
-						cde += `obj` + nmspace + `["` + objk + `"]=` + objs + `;`
+						cde += `if (` + objs + `!==undefined && ` + objs + `!==null) {obj` + nmspace + `["` + objk + `"]=` + objs + `;}`
 					}
 				}
 			}
