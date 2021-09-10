@@ -99,6 +99,7 @@ func (nde *Node) Dispose(eventRemoved func(nde *Node, val interface{}), disposin
 }
 
 type List struct {
+	doingnde   *Node
 	head       *Node
 	tail       *Node
 	vnds       map[interface{}]*Node
@@ -131,6 +132,10 @@ func nextNode(lst *List, nde *Node) (nxtnde *Node) {
 		}
 	}()
 	return
+}
+
+func (lst *List) CurrentDoing() *Node {
+	return lst.doingnde
 }
 
 func (lst *List) Head() *Node {
@@ -219,42 +224,42 @@ func (lst *List) Do(RemovingNode func(*Node, interface{}) (bool, error),
 	RemovedNode func(*Node, interface{}),
 	DisposingNode func(*Node, interface{})) {
 	if lst.head != nil && lst.tail != nil {
-		crntnde := lst.head
-		nxtnde := crntnde
+		lst.doingnde = lst.head
+		nxtnde := lst.doingnde
 		for nxtnde != nil {
 			if RemovingNode != nil {
 				dne, err := RemovingNode(nxtnde, nxtnde.val)
 				if err == nil {
 					if dne {
-						crntnde = nxtnde
-						nxtnde = lst.forwardmap[crntnde]
-						crntnde.Dispose(RemovedNode, DisposingNode)
-						crntnde = nil
+						lst.doingnde = nxtnde
+						nxtnde = lst.forwardmap[lst.doingnde]
+						lst.doingnde.Dispose(RemovedNode, DisposingNode)
+						lst.doingnde = nil
 					} else {
-						nxtnde = lst.forwardmap[crntnde]
-						crntnde = nxtnde
+						nxtnde = lst.forwardmap[lst.doingnde]
+						lst.doingnde = nxtnde
 					}
 				} else {
 					if ErrRemovingNode == nil {
-						crntnde = nxtnde
-						nxtnde = lst.forwardmap[crntnde]
-						crntnde.Dispose(RemovedNode, DisposingNode)
-						crntnde = nil
+						lst.doingnde = nxtnde
+						nxtnde = lst.forwardmap[lst.doingnde]
+						lst.doingnde.Dispose(RemovedNode, DisposingNode)
+						lst.doingnde = nil
 					} else if ErrRemovingNode != nil {
 						if dne = ErrRemovingNode(nxtnde, nxtnde.val, err); dne {
-							crntnde = nxtnde
-							nxtnde = lst.forwardmap[crntnde]
-							crntnde.Dispose(RemovedNode, DisposingNode)
-							crntnde = nil
+							lst.doingnde = nxtnde
+							nxtnde = lst.forwardmap[lst.doingnde]
+							lst.doingnde.Dispose(RemovedNode, DisposingNode)
+							lst.doingnde = nil
 						} else {
-							nxtnde = lst.forwardmap[crntnde]
-							crntnde = nxtnde
+							nxtnde = lst.forwardmap[lst.doingnde]
+							lst.doingnde = nxtnde
 						}
 					}
 				}
 			} else {
-				nxtnde = lst.forwardmap[crntnde]
-				crntnde = nxtnde
+				nxtnde = lst.forwardmap[lst.doingnde]
+				lst.doingnde = nxtnde
 			}
 		}
 	}
@@ -389,6 +394,11 @@ func internalInput(lst *List, modifying func(value interface{}), modified func(c
 						lst.reversemap[nwndo] = nde
 						lst.forwardmap[nwndo] = nxtNde
 						lst.reversemap[nxtNde] = nwndo
+					} else if nde == lst.head {
+						lst.forwardmap[lst.head] = nwndo
+						lst.reversemap[nxtNde] = nwndo
+						lst.forwardmap[nwndo] = nxtNde
+						//lst.tail = nwndo
 					}
 				} else if action == insertBefore {
 					if nde == lst.head {
@@ -401,6 +411,11 @@ func internalInput(lst *List, modifying func(value interface{}), modified func(c
 						lst.forwardmap[nwndo] = nde
 						lst.reversemap[nwndo] = prvnde
 						lst.forwardmap[prvnde] = nwndo
+					} else if nde == lst.tail {
+						lst.reversemap[lst.tail] = nwndo
+						lst.forwardmap[prvnde] = nwndo
+						lst.reversemap[nwndo] = prvnde
+						//lst.tail = nwndo
 					}
 				}
 				if lst.distinct {
