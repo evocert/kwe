@@ -11,6 +11,7 @@ import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/datepicker"
+	"github.com/evocert/kwe/enumeration"
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
 	"github.com/evocert/kwe/fsutils"
@@ -33,6 +34,11 @@ import (
 	_ "github.com/evocert/kwe/webactions"
 )
 
+type exepath struct {
+	path string
+	args []interface{}
+}
+
 func main() {
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
@@ -42,6 +48,8 @@ func main() {
 	var glblschdlng = scheduling.GLOBALSCHEDULES
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
+			"path":        "_path",
+			"pathargs":    "_pathargs",
 			"in":          "_in",
 			"dbms":        "_dbms",
 			"caching":     "_caching",
@@ -53,6 +61,7 @@ func main() {
 			"mqttmsg":     "_mqttmsg",
 			"mqttevent":   "_mqttevent",
 			"extMimetype": "_extMimetype",
+			"addPath":     "_addpath",
 			"send":        "_send",
 			"sendEval":    "_sendeval",
 			"sendreceive": "_sendreceive",
@@ -86,108 +95,168 @@ func main() {
 			}
 		}
 		rspns := rqst.Response()
-		if path := rqst.Path(); path != "" {
-			var convertactive bool = false
-			var israw = false
-			var mimetype, isactive = mimes.FindMimeType(path, "text/plain")
-			if israw = strings.Contains(path, "/raw:"); israw {
-				path = strings.Replace(path, "/raw:", "/", 1)
-				isactive = !israw
-			}
-			if convertactive = strings.Contains(path, "/active:"); convertactive {
-				path = strings.Replace(path, "/active:", "/", 1)
-				if !israw && !isactive {
-					isactive = convertactive
-				}
-			}
-			if strings.HasSuffix(path, "/typescript.js") {
-				isactive = false
-			}
-			if rspns != nil {
-				rspns.SetHeader("Content-Type", mimetype)
-			}
-			var rs io.Reader = nil
-			if rs = glblrsfs().CAT(path); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
-				if !strings.HasSuffix(path, "/") {
-					path += "/"
-				}
-				for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
-					if rs = glblrsfs().CAT(path + "index" + "." + pth); rs == nil {
-						if rs = glblrsfs().CAT(path + "main" + "." + pth); rs == nil {
-							continue
-						} else {
-							mimetype, isactive = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
-							if rspns != nil {
-								rspns.SetHeader("Content-Type", mimetype)
-							}
-							break
-						}
-					} else {
-						mimetype, isactive = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
-						if rspns != nil {
-							rspns.SetHeader("Content-Type", mimetype)
-						}
-						break
-					}
-				}
-			}
-			if rs != nil {
-				if isactive {
-					var atv = active.NewActive()
-					if atv.ObjectMapRef == nil {
-						var objref = map[string]interface{}{}
-						objref["_in"] = rqst
-						objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
-						objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
-						objref["_out"] = rspns
-						objref["_fs"] = glblrsfs()
-						objref["_fsutils"] = glblutilsfs
-						objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
-						objref["_mqtting"] = glblmqttng
-						objref["_mqttmsg"] = mqttmsg
-						objref["_mqttevent"] = mqttevent
-						objref["_extMimetype"] = mimes.ExtMimeType
-						objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-							return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
-						}
-						objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-							return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
-						}
-						objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
-							return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
-						}
-						objref["_listen"] = func(addr ...string) {
-							lstnr.Listen("tcp", addr...)
-						}
-						atv.ObjectMapRef = func() (objrf map[string]interface{}) {
-							objrf = objref
-							return
-						}
-					}
-					func() {
-						defer atv.Close()
-						var evalerr error = nil
-						if convertactive {
-							evalerr = atv.Eval(rspns, rqst, path, "<@", "\r\n", rs, "@>")
-						} else {
-							evalerr = atv.Eval(rspns, rqst, path, rs)
-						}
-						if evalerr != nil {
-							if rspns != nil {
-								rspns.SetHeader("Content-Type", "application/javascript")
-								rspns.SetStatus(500)
-								rspns.Print(evalerr)
-							} else {
-								println(evalerr.Error())
-							}
-						}
-					}()
-				} else if rspns != nil {
-					rspns.Print(rs)
-				}
-			}
-		} else {
 
+		var rqstdpaths *enumeration.List = enumeration.NewList()
+		var addNextPath = func(nxtpth ...string) {
+			if nxtpthl := len(nxtpth); nxtpthl > 0 {
+				nxtpthi := 0
+				var nxtToAdd []string = nil
+				for nxtpthi < nxtpthl {
+					if nxtp := strings.TrimSpace(nxtpth[nxtpthi]); nxtp != "" {
+						for _, nxp := range strings.Split(nxtp, "|") {
+							if nxp != "" {
+								if nxtToAdd == nil {
+									nxtToAdd = []string{}
+								}
+								nxtToAdd = append(nxtToAdd, nxp)
+							}
+						}
+					}
+					nxtpthi++
+				}
+				if len(nxtToAdd) > 0 {
+					for _, nxttadd := range nxtToAdd {
+						rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
+					}
+					nxtToAdd = nil
+				}
+			}
+		}
+
+		if ppath := rqst.Path(); ppath != "" {
+			addNextPath(ppath)
+			var atv *active.Active = nil
+			func() {
+				defer func() {
+					if atv != nil {
+						atv.Close()
+					}
+				}()
+
+				var processPath = func(path string, args ...interface{}) (err error) {
+					var convertactive bool = false
+					var israw = false
+					var mimetype, isactive = mimes.FindMimeType(path, "text/plain")
+					if israw = strings.Contains(path, "/raw:"); israw {
+						path = strings.Replace(path, "/raw:", "/", 1)
+						isactive = !israw
+					}
+					if convertactive = strings.Contains(path, "/active:"); convertactive {
+						path = strings.Replace(path, "/active:", "/", 1)
+						if !israw && !isactive {
+							isactive = convertactive
+						}
+					}
+					if strings.HasSuffix(path, "/typescript.js") {
+						isactive = false
+					}
+					if rspns != nil {
+						rspns.SetHeader("Content-Type", mimetype)
+					}
+					var rs io.Reader = nil
+					if rs = glblrsfs().CAT(path); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
+						if !strings.HasSuffix(path, "/") {
+							path += "/"
+						}
+						for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
+							if rs = glblrsfs().CAT(path + "index" + "." + pth); rs == nil {
+								if rs = glblrsfs().CAT(path + "main" + "." + pth); rs == nil {
+									continue
+								} else {
+									mimetype, isactive = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
+									if rspns != nil {
+										rspns.SetHeader("Content-Type", mimetype)
+									}
+									break
+								}
+							} else {
+								mimetype, isactive = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
+								if rspns != nil {
+									rspns.SetHeader("Content-Type", mimetype)
+								}
+								break
+							}
+						}
+					}
+					if rs != nil {
+						if isactive {
+							if atv == nil {
+								atv = active.NewActive()
+							}
+							if atv.ObjectMapRef == nil {
+								var objref = map[string]interface{}{}
+								objref["_path"] = path
+								objref["_pathargs"] = args
+								objref["_in"] = rqst
+								objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
+								objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
+								objref["_out"] = rspns
+								objref["_fs"] = glblrsfs()
+								objref["_fsutils"] = glblutilsfs
+								objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
+								objref["_mqtting"] = glblmqttng
+								objref["_mqttmsg"] = mqttmsg
+								objref["_mqttevent"] = mqttevent
+								objref["_extMimetype"] = mimes.ExtMimeType
+								objref["_addpath"] = addNextPath
+								objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+									return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
+								}
+								objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+									return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
+								}
+								objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
+									return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
+								}
+								objref["_listen"] = func(addr ...string) {
+									lstnr.Listen("tcp", addr...)
+								}
+								atv.ObjectMapRef = func() (objrf map[string]interface{}) {
+									objrf = objref
+									return
+								}
+							}
+							func() {
+								var evalerr error = nil
+								evalerr = atv.Eval(rspns, rqst, path, convertactive, rs)
+								if evalerr != nil {
+									if rspns != nil {
+										rspns.SetHeader("Content-Type", "application/javascript")
+										rspns.SetStatus(500)
+										rspns.Print(evalerr)
+									} else {
+										println(evalerr.Error())
+									}
+								}
+							}()
+						} else if rspns != nil {
+							rspns.Print(rs)
+						}
+					}
+					return
+				}
+
+				rqstdpaths.Do(
+					func(nde *enumeration.Node, val interface{}) (donepath bool, doneerr error) {
+						if err == nil {
+							donepath = true
+							var expath, _ = val.(*exepath)
+							defer func() {
+								if expath != nil {
+									expath.args = nil
+									expath = nil
+								}
+							}()
+							if doneerr = processPath(expath.path, expath.args...); doneerr != nil && err == nil {
+								err = doneerr
+							}
+							nde.Set(nil)
+						} else {
+							donepath = true
+						}
+						return
+					}, nil, nil, nil)
+			}()
 		}
 		return
 	}
@@ -213,11 +282,7 @@ func send(atv *active.Active, fs *fsutils.FSUtils, rqst requesting.RequestAPI, r
 		go func() {
 			ctxcancel()
 			var pwerr error = nil
-			if convertactive {
-				pwerr = atv.Eval(pw, nil, rqstpath, "<@", "\r\n", rdr, "@>")
-			} else {
-				pwerr = atv.Eval(pw, nil, rqstpath, rdr)
-			}
+			pwerr = atv.Eval(pw, nil, rqstpath, convertactive, rdr)
 			defer func() {
 				if pwerr == nil {
 					pw.Close()

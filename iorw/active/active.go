@@ -360,9 +360,14 @@ func (atv *Active) atvrun(prsng *parsing) (err error) {
 }
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
-func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, a ...interface{}) (err error) {
+func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
 	var parsing = nextparsing(atv, nil, rin, wout, initpath)
 	defer parsing.dispose()
+	if len(a) > 0 {
+		if invertactpsv {
+			a = append(append([]interface{}{"<@"}, a...), "@>")
+		}
+	}
 	err = parseprsng(parsing, true, a...)
 	return
 }
@@ -1077,7 +1082,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 						}
 					}
 					if p, perr := goja.CompileAST(prsd, false); perr == nil {
-						_, err = atvrntme.lclvm().RunProgram(p)
+						_, err = atvrntme.lclvm(objmapref).RunProgram(p)
 						/*if err != nil {
 							fmt.Println(err.Error())
 						}*/
