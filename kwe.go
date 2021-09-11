@@ -149,11 +149,27 @@ func main() {
 						atv.Close()
 					}
 				}()
-
+				var crntexpths *enumeration.List = nil
+				defer func() {
+					if crntexpths != nil {
+						crntexpths.Dispose(nil, nil)
+						crntexpths = nil
+					}
+				}()
 				var processPath = func(expth *exepath) (err error) {
 					if expth == nil {
 						return
 					}
+					if crntexpths == nil {
+						crntexpths = enumeration.NewList()
+					}
+					crntexpths.Push(nil, nil, expth)
+					var cnrtextpthsnd = crntexpths.Tail()
+					defer func() {
+						if crntexpths != nil && cnrtextpthsnd != nil {
+							cnrtextpthsnd.Dispose(nil, nil)
+						}
+					}()
 					var path = expth.Path()
 					var convertactive bool = false
 					var israw = false
@@ -207,9 +223,11 @@ func main() {
 							if atv.ObjectMapRef == nil {
 								var objref = map[string]interface{}{}
 								objref["_path"] = func() *exepath {
-									if doingval := rqstdpaths.CurrentDoing(); doingval != nil {
-										if dngexpth, _ := doingval.Value().(*exepath); dngexpth != nil {
-											return dngexpth
+									if crntexpths != nil && crntexpths.Length() > 0 {
+										if val := crntexpths.Tail().Value(); val != nil {
+											if dngexpth, _ := val.(*exepath); dngexpth != nil {
+												return dngexpth
+											}
 										}
 									}
 									return expth
