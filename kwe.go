@@ -39,6 +39,24 @@ type exepath struct {
 	args []interface{}
 }
 
+func (expth *exepath) Path() string {
+	if expth != nil {
+		if strings.LastIndex(expth.path, "/") < strings.Index(expth.path, "?") {
+			return expth.path[:strings.Index(expth.path, "?")]
+		} else {
+			return expth.path
+		}
+	}
+	return ""
+}
+
+func (expth *exepath) Args() (args []interface{}) {
+	if expth != nil {
+		args = expth.args
+	}
+	return
+}
+
 func main() {
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
@@ -49,7 +67,6 @@ func main() {
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
 			"path":        "_path",
-			"pathargs":    "_pathargs",
 			"in":          "_in",
 			"dbms":        "_dbms",
 			"caching":     "_caching",
@@ -133,7 +150,11 @@ func main() {
 					}
 				}()
 
-				var processPath = func(path string, args ...interface{}) (err error) {
+				var processPath = func(expth *exepath) (err error) {
+					if expth == nil {
+						return
+					}
+					var path = expth.Path()
 					var convertactive bool = false
 					var israw = false
 					var mimetype, isactive = mimes.FindMimeType(path, "text/plain")
@@ -185,8 +206,14 @@ func main() {
 							}
 							if atv.ObjectMapRef == nil {
 								var objref = map[string]interface{}{}
-								objref["_path"] = path
-								objref["_pathargs"] = args
+								objref["_path"] = func() *exepath {
+									if doingval := rqstdpaths.CurrentDoing(); doingval != nil {
+										if dngexpth, _ := doingval.Value().(*exepath); dngexpth != nil {
+											return dngexpth
+										}
+									}
+									return expth
+								}
 								objref["_in"] = rqst
 								objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
 								objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
@@ -247,7 +274,7 @@ func main() {
 									expath = nil
 								}
 							}()
-							if doneerr = processPath(expath.path, expath.args...); doneerr != nil && err == nil {
+							if doneerr = processPath(expath); doneerr != nil && err == nil {
 								err = doneerr
 							}
 							nde.Set(nil)
