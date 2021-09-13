@@ -127,10 +127,6 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 												}
 											}
 											if fname != "" {
-												finame := fname
-												if strings.Contains(finame, "/") {
-													finame = finame[strings.Index(finame, "/")+1:]
-												}
 												fifi := f.FileInfo()
 												if finfos == nil {
 													finfos = []FileInfo{}
