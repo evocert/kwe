@@ -191,69 +191,15 @@ func (svr *Service) Execute(args ...string) (err error) {
 		if s, serr := service.New(svr, svr.svcConfig); serr == nil {
 			logger, serr = s.Logger(nil)
 			if svccmd == "" {
-				/*go func() {
-					b := false
-					//lck := &sync.Mutex{}
-					for {
-						time.Sleep(time.Second * 5)
-						func() {
-							//lck.Lock()
-							//defer lck.Unlock()
-							if !b {
-								b = true
-								go func() {
-									runtime.GC()
-									b = false
-								}()
-							}
-						}()
-					}
-				}()*/
 				err = s.Run()
 			} else {
 				err = service.Control(s, svccmd)
 			}
 		}
 	} else if svr.isConsole {
-		/*go func() {
-			b := false
-			lck := &sync.Mutex{}
-			for {
-				time.Sleep(time.Second * 5)
-				func() {
-					lck.Lock()
-					defer lck.Unlock()
-					if !b {
-						b = true
-						go func() {
-							runtime.GC()
-							b = false
-						}()
-					}
-				}()
-			}
-		}()*/
 		svr.Start(nil)
 		svr.Stop(nil)
 	} else if svr.isBroker {
-		/*go func() {
-			b := false
-			lck := &sync.Mutex{}
-			for {
-				time.Sleep(time.Second * 5)
-				func() {
-					lck.Lock()
-					defer lck.Unlock()
-					if !b {
-						b = true
-						go func() {
-							runtime.GC()
-							b = false
-						}()
-					}
-				}()
-			}
-		}()*/
 		svr.Start(nil)
 		svr.Stop(nil)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/evocert/kwe/database"
 	_ "github.com/evocert/kwe/datepicker"
 	"github.com/evocert/kwe/enumeration"
+	"github.com/evocert/kwe/env"
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
 	"github.com/evocert/kwe/fsutils"
@@ -64,8 +65,10 @@ func main() {
 	var glblrsfs = resources.GLOBALRSNG().FS
 	var glblchng = caching.GLOBALMAPHANDLER
 	var glblschdlng = scheduling.GLOBALSCHEDULES
+	var glblenv = env.Env()
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
+			"env":         "_env",
 			"path":        "_path",
 			"in":          "_in",
 			"dbms":        "_dbms",
@@ -232,6 +235,7 @@ func main() {
 									}
 									return expth
 								}
+								objref["_env"] = glblenv
 								objref["_in"] = rqst
 								objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
 								objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())

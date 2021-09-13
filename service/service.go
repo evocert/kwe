@@ -13,68 +13,79 @@ import (
 	"github.com/evocert/kwe/serving"
 )
 
-//LnkService LnkService
-type LnkService struct {
+//Service Service
+type Service struct {
 	*serving.Service
 	brkrfnc func(exenme string, exealias string, args ...string)
 }
 
-//NewLnkService NewLnkService
-func NewLnkService(name string, displayName string, description string, brokerfunc ...interface{}) (lnksrvs *LnkService, err error) {
-	lnksrvs = &LnkService{}
+//NewService NewService
+func NewService(name string, displayName string, description string, brokerfunc ...interface{}) (nwesrvs *Service, err error) {
+	nwesrvs = &Service{}
 	var srv, svrerr = serving.NewService(name, displayName, description, func(srvs *serving.Service, args ...string) {
-		lnksrvs.startLnkService(args...)
+		nwesrvs.startService(args...)
 	}, func(srvs *serving.Service, args ...string) {
-		lnksrvs.runLnkService(args...)
+		nwesrvs.runService(args...)
 	}, func(srvs *serving.Service, args ...string) {
-		lnksrvs.stopLnkService(args...)
+		nwesrvs.stopService(args...)
 	})
+	glblenv := env.Env()
+	glblenv.Set("APP-NAME", srv.ServiceName())
+	glblenv.Set("APP-DISPLAY-NAME", srv.ServiceDisplayName())
+	glblenv.Set("APP-DESCRIPTION", srv.ServiceDescription())
 	if len(brokerfunc) == 1 {
 		if brfnc, brfcnok := brokerfunc[0].(func(exenme string, exealias string, args ...string)); brfcnok {
-			lnksrvs.brkrfnc = brfnc
+			nwesrvs.brkrfnc = brfnc
 		}
 	}
 	if svrerr == nil {
-		lnksrvs.Service = srv
+		nwesrvs.Service = srv
 	} else {
 		err = svrerr
-		lnksrvs = nil
+		nwesrvs = nil
 	}
 	return
 }
 
-func (lnksrvs *LnkService) startLnkService(args ...string) {
+func (srvs *Service) startService(args ...string) {
 	var defaultroot = "./"
-	if lnksrvs.IsService() {
-		defaultroot = strings.Replace(lnksrvs.ServiceExeFolder(), "\\", "/", -1)
+	if srvs.IsService() {
+		defaultroot = strings.Replace(srvs.ServiceExeFolder(), "\\", "/", -1)
 	}
 	//network.MapRoots("/", defaultroot, "resources/", "./resources", "apps/", "./apps")
 	resources.GLOBALRSNG().RegisterEndpoint("/", defaultroot)
 	var out io.Writer = nil
 	var in io.Reader = nil
 	var conflabel = "conf"
-	if lnksrvs.IsConsole() || lnksrvs.IsBroker() {
+	if srvs.IsConsole() || srvs.IsBroker() {
 		out = os.Stdout
-		if lnksrvs.IsBroker() {
+		if srvs.IsBroker() {
 			in = os.Stdin
 			conflabel = "broker"
 		}
 	}
 
 	if ServeRequest != nil {
+		func() {
+			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+".init.js", in, out)
+			if rqst != nil {
+				defer rqst.Close()
+				ServeRequest(rqst)
+			}
+		}()
 
-		rqst := requesting.NewRequest(nil, "/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", in, out)
-		if rqst != nil {
-			defer rqst.Close()
-			ServeRequest(rqst)
-		}
+		func() {
+			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+"."+conflabel+".js", in, out)
+			if rqst != nil {
+				defer rqst.Close()
+				ServeRequest(rqst)
+			}
+		}()
 	}
-	//chnls.GLOBALCHNL().ServeReaderWriter("/active:"+lnksrvs.ServiceName()+"."+conflabel+".js", out, in)
-	//network.DefaultServeHttp(nil, "GET", "/@"+lnksrvs.ServiceName()+".conf@.js", nil)
 }
 
-func (lnksrvs *LnkService) runLnkService(args ...string) {
-	if lnksrvs.IsConsole() {
+func (srvs *Service) runService(args ...string) {
+	if srvs.IsConsole() {
 		cancelChan := make(chan os.Signal, 2)
 		signal.Notify(cancelChan, syscall.SIGTERM, syscall.SIGINT)
 		env.WrapupCall(func() {
@@ -82,15 +93,33 @@ func (lnksrvs *LnkService) runLnkService(args ...string) {
 			cancelChan <- syscall.SIGINT
 		})
 		<-cancelChan
-	} else if lnksrvs.IsBroker() {
-		if lnksrvs.brkrfnc != nil {
-			lnksrvs.brkrfnc(lnksrvs.ServiceExeName(), lnksrvs.ServiceName(), args...)
+	} else if srvs.IsBroker() {
+		if srvs.brkrfnc != nil {
+			srvs.brkrfnc(srvs.ServiceExeName(), srvs.ServiceName(), args...)
 		}
 	}
 }
 
-func (lnksrvs *LnkService) stopLnkService(args ...string) {
-	if lnksrvs.IsService() {
+func (srvs *Service) stopService(args ...string) {
+	var out io.Writer = nil
+	var in io.Reader = nil
+	var conflabel = "final"
+	if srvs.IsConsole() || srvs.IsBroker() {
+		out = os.Stdout
+		if srvs.IsBroker() {
+			in = os.Stdin
+			conflabel = "broker.final"
+		}
+	}
+	if srvs.IsService() {
+		if ServeRequest != nil {
+
+			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+"."+conflabel+".js", in, out)
+			if rqst != nil {
+				defer rqst.Close()
+				ServeRequest(rqst)
+			}
+		}
 		env.ShutdownEnvironment()
 	}
 }
@@ -100,9 +129,9 @@ func RunService(args ...string) {
 	if len(args) == 0 {
 		args = os.Args
 	}
-	var lnksrvs, err = NewLnkService("", "", "", RunBroker)
+	var srvs, err = NewService("", "", "", RunBroker)
 	if err == nil {
-		err = lnksrvs.Execute(args...)
+		err = srvs.Execute(args...)
 	}
 	if err != nil {
 		println(err)

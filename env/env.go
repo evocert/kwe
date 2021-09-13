@@ -21,6 +21,46 @@ func WrapupCall(wrpupcall ...func()) {
 	}
 }
 
+type envrmnt struct {
+	envsettions map[string]interface{}
+}
+
+func (env *envrmnt) Set(name string, val interface{}) {
+	if env != nil {
+		if env.envsettions[name] != nil {
+			env.envsettions[name] = nil
+		}
+		env.envsettions[name] = val
+	}
+}
+
+func (env *envrmnt) Get(name string) (val interface{}) {
+	if env != nil {
+		val = env.envsettions[name]
+	}
+	return
+}
+
+func (env *envrmnt) Keys() (keys []string) {
+	if env != nil {
+		if len(env.envsettions) > 0 {
+			keys = make([]string, len(env.envsettions))
+			keysi := 0
+			for key := range env.envsettions {
+				keys[keysi] = key
+				keysi++
+			}
+		}
+	}
+	return
+}
+
+var env *envrmnt = nil
+
+func Env() *envrmnt {
+	return env
+}
+
 func init() {
-	//network.RegisterShutdownEnv(ShutdownEnvironment)
+	env = &envrmnt{envsettions: map[string]interface{}{}}
 }
