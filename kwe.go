@@ -27,7 +27,7 @@ import (
 	"github.com/evocert/kwe/web"
 
 	_ "github.com/evocert/kwe/database/mysql"
-	_ "github.com/evocert/kwe/database/ora"
+	//_ "github.com/evocert/kwe/database/ora"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
 	"github.com/evocert/kwe/requesting"
