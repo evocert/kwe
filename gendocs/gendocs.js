@@ -1,5 +1,5 @@
 var base="./";
-var root=base+"";
+var root=(base=kwe.fsutils.ABS(base))+"";
 
 var lgndcodebase="golang";
 var lgndscopeglobal="/g/";
@@ -44,6 +44,7 @@ kwe.fsutils.FIND(root).filter(function(e){
          apath.localeCompare(bpath);    // sort by dictionary order
 }).forEach(function(e,ei,elines) {
     currentpath=e.AbsolutePath().substring(base.length+1);
+    
     if (currentpath.startsWith("/")) {
         currentpath=currentpath.substring(1)
     }
@@ -326,5 +327,5 @@ if (kwe.out!==undefined && kwe.out!==null) {
 }
 kwe.fsutils.SET("./gendocs/codedefs.json",JSON.stringify(prep))
 if (kwe.out!==undefined && kwe.out!==null) {
-    kwe.out.print(JSON.stringify(prep));
+    kwe.out.Print(JSON.stringify(prep));
 }

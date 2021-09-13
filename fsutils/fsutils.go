@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -281,6 +282,17 @@ func (finfo *fileInfo) JSON() (s string) {
 	buf = nil
 	if s != "" {
 		s = strings.TrimSpace(s)
+	}
+	return
+}
+
+//ABS return absolute patn from relative path
+func ABS(path string) (abspath string, err error) {
+	if path != "" {
+		path = strings.Replace(path, "\\", "/", -1)
+	}
+	if abspath, err = filepath.Abs(path); abspath != "" {
+		abspath = strings.Replace(abspath, "\\", "/", -1)
 	}
 	return
 }
@@ -583,6 +595,7 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 
 //FSUtils struct
 type FSUtils struct {
+	ABS            func(path string) string
 	LS             func(path ...string) (finfos []FileInfo)                                                                     `json:"ls"`
 	FIND           func(path ...string) (finfos []FileInfo)                                                                     `json:"find"`
 	MKDIR          func(path ...interface{}) bool                                                                               `json:"mkdir"`
@@ -603,6 +616,10 @@ type FSUtils struct {
 //NewFSUtils return instance of FSUtils
 func NewFSUtils() (fsutlsstrct FSUtils) {
 	fsutlsstrct = FSUtils{
+		ABS: func(path string) (abspath string) {
+			abspath, _ = ABS(path)
+			return
+		},
 		FIND: func(path ...string) (finfos []FileInfo) {
 			if len(path) == 1 {
 				finfos, _ = FIND(path[0])

@@ -19,6 +19,10 @@ type ResourcingManager struct {
 func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 	if rscngmngr.fsutils == nil {
 		rscngmngr.fsutils = &fsutils.FSUtils{
+			ABS: func(path string) (abspath string) {
+				abspath, _ = rscngmngr.fsabs(path)
+				return
+			},
 			FIND: func(path ...string) (finfos []fsutils.FileInfo) {
 				finfos, _ = rscngmngr.fsfind(path...)
 				return
@@ -331,6 +335,20 @@ func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
 		} else if pthl > 2 {
 			rscngmngr.RegisterEndpoint(pth1, pth2, path[2:]...)
 			mkd = true
+		}
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsabs(path string) (abspath string, err error) {
+	if path != "" {
+		path = strings.Replace(path, "\\", "/", -1)
+	}
+	if epnts, epntpaths, paths := rscngmngr.findrsendpntpaths(path); epnts != nil && paths != nil {
+		if len(epnts) > 0 && len(paths) == len(epnts) {
+
+			abspath, err = epnts[0].fsabs(epntpaths[0], paths[0])
+
 		}
 	}
 	return

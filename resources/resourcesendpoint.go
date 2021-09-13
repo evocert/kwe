@@ -278,6 +278,60 @@ func (rscngepnt *ResourcingEndpoint) fsmkdir(path string) bool {
 	return false
 }
 
+func (rscngepnt *ResourcingEndpoint) fsabs(path ...string) (abspath string, err error) {
+	if rscngepnt.isLocal {
+		lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
+		if strings.LastIndex(lklpath, "/") > 0 && strings.HasSuffix(lklpath, "/") {
+			lklpath = lklpath[:len(lklpath)-1]
+		}
+		if len(path) == 1 {
+			if path[0] != "" {
+				path[0] = strings.Replace(path[0], "\\", "/", -1)
+			}
+			abspath, err = fsutils.ABS(lklpath + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1)))
+			return
+		} else if len(path) == 2 {
+			if path[1] != "" {
+				path[1] = strings.Replace(path[1], "\\", "/", -1)
+			}
+			abspath, err = fsutils.ABS(lklpath + strings.TrimSpace(strings.Replace(path[1], "\\", "/", -1)))
+			return
+		}
+	}
+	if rscngepnt.embeddedResources != nil {
+		if pthl := len(path); pthl > 0 {
+			for embdrspth, emdbrs := range rscngepnt.embeddedResources {
+				if strings.HasPrefix(embdrspth, path[0]) && (embdrspth == path[0] || path[0] == "" && strings.LastIndex(embdrspth, "/") == -1 && strings.LastIndex(embdrspth, "/") < strings.LastIndex(embdrspth, ".")) {
+					lkppath := embdrspth
+					if pthl == 1 {
+
+						if finfo := fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified); finfo != nil {
+							abspath = finfo.AbsolutePath()
+							finfo = nil
+							break
+						}
+					} else if pthl == 2 {
+						if path[1] != "" {
+							path[1] = strings.Replace(path[0], "\\", "/", -1)
+						}
+						if path[0] == "" {
+							lkppath = path[1] + "/" + lkppath
+						} else {
+							lkppath = path[1][:len(path[1])-len(embdrspth)] + embdrspth
+						}
+						if finfo := fsutils.NewFSUtils().DUMMYFINFO(emdbrs.Name(), lkppath, lkppath, emdbrs.Size(), 0, emdbrs.modified); finfo != nil {
+							abspath = finfo.AbsolutePath()
+							finfo = nil
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.FileInfo) {
 	if rscngepnt.isLocal {
 		lklpath := rscngepnt.path + strings.TrimSpace(strings.Replace(path[0], "\\", "/", -1))
