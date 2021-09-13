@@ -91,7 +91,7 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 									}
 
 									if fname != "" {
-										if strings.HasPrefix(fname, "/") {
+										if fname[0:0] == "/" {
 											fname = fname[1:]
 										}
 										if fname != "" {
@@ -286,7 +286,7 @@ func (finfo *fileInfo) JSON() (s string) {
 	return
 }
 
-//ABS return absolute patn from relative path
+//ABS return absolute path from relative path
 func ABS(path string) (abspath string, err error) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
