@@ -30,6 +30,8 @@ import (
 	//_ "github.com/evocert/kwe/database/ora"
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
+
+	//_ "github.com/evocert/kwe/iorw/active/babel"
 	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
 	_ "github.com/evocert/kwe/webactions"
@@ -59,6 +61,22 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
+	/*babel.Init(4) // Setup 4 transformers (can be any number > 0)
+	res, err := babel.Transform(strings.NewReader(`let foo = 1;
+	<div>
+		Hello JSX!
+		The value of foo is {foo}.
+	</div>`), map[string]interface{}{
+		"plugins": []string{
+			"transform-react-jsx",
+			"transform-block-scoping",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	io.Copy(os.Stdout, res)
+	fmt.Println("")*/
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
 	var glbldbms = database.GLOBALDBMS
