@@ -1126,20 +1126,6 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 
 func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string, isrequired bool, err error) {
 	trsnfrmdcde = code
-	/*var vm *goja.Runtime = goja.New()
-	defer func() {
-		if vm != nil {
-			vm = nil
-		}
-	}()
-	if trf, trferr := babel.LoadBabel(vm); trferr == nil {
-		if vrf, vfrerr := trf(code, map[string]interface{}{
-			"plugins": []string{
-				"transform-react-jsx",
-				"transform-block-scoping"}}); vfrerr == nil {
-			code = vrf.ToObject(vm).Get("code").String()
-		}
-	}*/
 	isrequired = strings.Contains(code, "require(\"")
 	if isrequired {
 		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
@@ -1691,7 +1677,6 @@ func UnloadGlobalModule(modulepath string) (existed bool) {
 }
 
 func init() {
-	//babel.CompileBabel()
 	globalModules = map[string]*goja.Program{}
 	//globalModuleslck = &sync.RWMutex{}
 	var errpgrm error = nil
