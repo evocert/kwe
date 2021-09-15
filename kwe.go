@@ -23,6 +23,7 @@ import (
 	"github.com/evocert/kwe/mqtt"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
+	_ "github.com/evocert/kwe/sip"
 	_ "github.com/evocert/kwe/typescript"
 	"github.com/evocert/kwe/web"
 
