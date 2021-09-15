@@ -32,7 +32,6 @@ import (
 	_ "github.com/evocert/kwe/database/postgres"
 	_ "github.com/evocert/kwe/database/sqlserver"
 
-	//_ "github.com/evocert/kwe/iorw/active/babel"
 	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
 	_ "github.com/evocert/kwe/webactions"
