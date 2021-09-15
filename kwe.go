@@ -61,22 +61,6 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
-	/*babel.Init(4) // Setup 4 transformers (can be any number > 0)
-	res, err := babel.Transform(strings.NewReader(`let foo = 1;
-	<div>
-		Hello JSX!
-		The value of foo is {foo}.
-	</div>`), map[string]interface{}{
-		"plugins": []string{
-			"transform-react-jsx",
-			"transform-block-scoping",
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-	io.Copy(os.Stdout, res)
-	fmt.Println("")*/
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
 	var glbldbms = database.GLOBALDBMS
