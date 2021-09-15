@@ -13,10 +13,7 @@ func Register(vm *goja.Runtime) {
 }
 
 func init() {
-	Register_jsext_fsutils(localobjmap)
 	Register_jsext_osutils(localobjmap)
-	Register_jsext_httputils(localobjmap)
-	Register_jsext_gfxutils(localobjmap)
 	Register_jsext_executils(localobjmap)
 	Register_jsext_consoleutils(localobjmap)
 }

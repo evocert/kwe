@@ -18,20 +18,16 @@ func Register_jsext_osutils(lclobjmp map[string]interface{}) {
 	}
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
-	lclobjmp["osutils"] = struct {
-		Version Version       `json:"version"`
-		GOOS    func() string `json:"GOOS"`
-		Pwd     func() string `json:"pwd"`
-	}{
-		Version: Version{
+	lclobjmp["osutils"] = map[string]interface{}{
+		"version": Version{
 			Major: 0,
 			Minor: 0,
 			Bump:  2,
 		},
-		GOOS: func() string {
+		"goos": func() string {
 			return runtime.GOOS
 		},
-		Pwd: func() string {
+		"pwd": func() string {
 			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 			if err != nil {
 				panic("Failed to obtain root dir")

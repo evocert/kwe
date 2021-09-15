@@ -25,21 +25,14 @@ func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
 	//log.SetFlags(log.LstdFlags | log.Lmicroseconds) //global???
 	//todo: namespace everything kwe.fsutils.etcetcetc
 	//first test for kwe then do set fsutils on kwe
-	lclobjmp["console"] = struct {
-		Version Version              `json:"version"`
-		Log     func(...interface{}) `json:"log"`
-		Warn    func(...interface{}) `json:"warn"`
-		Error   func(...interface{}) `json:"error"`
-		Debug   func(...interface{}) `json:"debug"`
-		Trace   func(...interface{}) `json:"trace"`
-	}{
-		Version: Version{
+	lclobjmp["console"] = map[string]interface{}{
+		"version": Version{
 			Major: 0,
 			Minor: 0,
 			Bump:  1,
 		},
 		//todo: colors
-		Log: func(msg ...interface{}) {
+		"log": func(msg ...interface{}) {
 			//buf := iorw.NewBuffer()
 			//buf.Print(msg...)
 			//lgmsg := buf.String()
@@ -53,7 +46,7 @@ func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
 			logger.Output(2, fmt.Sprintln(msg...))
 			//rw.Println(msg)
 		},
-		Warn: func(msg ...interface{}) {
+		"warn": func(msg ...interface{}) {
 			//buf := iorw.NewBuffer()
 			//buf.Print(msg...)
 			//lgmsg := buf.String()
@@ -66,7 +59,7 @@ func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
 			logger.Output(2, fmt.Sprintln(msg...))
 			rw.Println(msg)
 		},
-		Error: func(msg ...interface{}) {
+		"error": func(msg ...interface{}) {
 			//buf := iorw.NewBuffer()
 			//buf.Print(msg...)
 			//lgmsg := buf.String()
@@ -79,7 +72,7 @@ func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
 			logger.Output(2, fmt.Sprintln(msg...))
 			//rw.Println(msg)
 		},
-		Debug: func(msg ...interface{}) {
+		"debug": func(msg ...interface{}) {
 			//buf := iorw.NewBuffer()
 			//buf.Print(msg...)
 			//lgmsg := buf.String()
@@ -92,7 +85,7 @@ func Register_jsext_consoleutils(lclobjmp map[string]interface{}) {
 			logger.Output(2, fmt.Sprintln(msg...))
 			//rw.Println(msg)
 		},
-		Trace: func(msg ...interface{}) {
+		"trace": func(msg ...interface{}) {
 			//buf := iorw.NewBuffer()
 			//buf.Print(msg...)
 			//lgmsg := buf.String()
