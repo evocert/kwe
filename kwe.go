@@ -61,12 +61,15 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
+	var serveRequest func(rqst requesting.RequestAPI, a ...interface{}) (err error) = nil
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
 	var glbldbms = database.GLOBALDBMS
 	var glblrsfs = resources.GLOBALRSNG().FS
 	var glblchng = caching.GLOBALMAPHANDLER
-	var glblschdlng = scheduling.GLOBALSCHEDULES
+	var glblschdlng = func() *scheduling.Schedules {
+		return scheduling.GLOBALSCHEDULES(serveRequest)
+	}
 	var glblenv = env.Env()
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
@@ -104,15 +107,22 @@ func main() {
 		}
 	}))
 
-	lstnr.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) (err error) {
+	serveRequest = func(rqst requesting.RequestAPI, a ...interface{}) (err error) {
 		var mqttmsg mqtt.Message = nil
 		var mqttevent mqtt.MqttEvent = nil
+		var atv *active.Active = nil
+		var exitingatv = false
 		if len(a) > 0 {
 			for _, d := range a {
 				if mqttmsgd, _ := d.(mqtt.Message); mqttmsgd != nil && mqttmsg == nil {
 					mqttmsg = mqttmsgd
 				} else if mqtteventd, _ := d.(mqtt.MqttEvent); mqtteventd != nil && mqttevent == nil {
 					mqttevent = mqtteventd
+				} else if atvd, _ := d.(*active.Active); atvd != nil {
+					if atv == nil {
+						atv = atvd
+						exitingatv = atv != nil
+					}
 				}
 			}
 		}
@@ -147,10 +157,9 @@ func main() {
 
 		if ppath := rqst.Path(); ppath != "" {
 			addNextPath(ppath)
-			var atv *active.Active = nil
 			func() {
 				defer func() {
-					if atv != nil {
+					if atv != nil && !exitingatv {
 						atv.Close()
 					}
 				}()
@@ -312,7 +321,8 @@ func main() {
 		return
 	}
 
-	service.ServeRequest = lstnr.ServeRequest
+	lstnr.ServeRequest = serveRequest
+	service.ServeRequest = serveRequest
 	service.RunService(os.Args...)
 }
 

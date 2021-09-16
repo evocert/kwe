@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/evocert/kwe/enumeration"
+	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/requesting"
 )
 
 type ScheduleAPI interface {
@@ -39,6 +41,8 @@ const (
 )
 
 type Schedule struct {
+	atv            *active.Active
+	serveRequest   func(requesting.RequestAPI, ...interface{}) (err error)
 	actnmde        scheduleactionsection
 	initstart      bool
 	schdlid        string
@@ -96,9 +100,8 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 				}
 				a = append(a[:ai], a[ai+1:]...)
 				al--
-				ai++
 				continue
-			} else if dmp, dmpok := a[0].(map[string]interface{}); dmpok {
+			} else if dmp, dmpok := d.(map[string]interface{}); dmpok {
 				for stngk, stngv := range dmp {
 					if strings.ToLower(stngk) == "start" {
 						start, _ = stngv.(func(...interface{}) error)
@@ -159,38 +162,40 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 		}
 	}
 
-	schdl = &Schedule{
-		wg:           &sync.WaitGroup{},
-		initstart:    true,
-		actnmde:      schdlactninit,
-		schdls:       schdls,
-		once:         once,
-		OnStart:      start,
-		StartArgs:    startargs,
-		OnStop:       stop,
-		StopArgs:     stopargs,
-		OnShutdown:   shutdown,
-		Milliseconds: milliseconds,
-		Seconds:      seconds,
-		Minutes:      minutes,
-		Hours:        hours,
-		From:         frm,
-		To:           to,
-		initactns:    enumeration.NewList(true), lckinitactns: &sync.RWMutex{},
-		actns: enumeration.NewList(true), lckactns: &sync.RWMutex{},
-		wrapupactns: enumeration.NewList(true), lckwrapupactns: &sync.RWMutex{}}
+	if milliseconds > 0 || seconds > 0 || hours > 0 {
+		schdl = &Schedule{
+			wg:           &sync.WaitGroup{},
+			initstart:    true,
+			actnmde:      schdlactninit,
+			schdls:       schdls,
+			once:         once,
+			OnStart:      start,
+			StartArgs:    startargs,
+			OnStop:       stop,
+			StopArgs:     stopargs,
+			OnShutdown:   shutdown,
+			Milliseconds: milliseconds,
+			Seconds:      seconds,
+			Minutes:      minutes,
+			Hours:        hours,
+			From:         frm,
+			To:           to,
+			initactns:    enumeration.NewList(true), lckinitactns: &sync.RWMutex{},
+			actns: enumeration.NewList(true), lckactns: &sync.RWMutex{},
+			wrapupactns: enumeration.NewList(true), lckwrapupactns: &sync.RWMutex{}}
 
-	if schdls != nil {
-		if schdls.Handler() != nil {
-			schdl.schdlhndlr = schdls.Handler().NewSchedule(schdl, a...)
-			if schdl.OnStart == nil {
-				schdl.OnStart = schdl.schdlhndlr.StartedSchedule
-			}
-			if schdl.OnStop == nil {
-				schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
-			}
-			if schdl.OnShutdown == nil {
-				schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
+		if schdls != nil {
+			if schdls.Handler() != nil {
+				schdl.schdlhndlr = schdls.Handler().NewSchedule(schdl, a...)
+				if schdl.OnStart == nil {
+					schdl.OnStart = schdl.schdlhndlr.StartedSchedule
+				}
+				if schdl.OnStop == nil {
+					schdl.OnStop = schdl.schdlhndlr.StoppedSchedule
+				}
+				if schdl.OnShutdown == nil {
+					schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
+				}
 			}
 		}
 	}

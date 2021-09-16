@@ -8,6 +8,7 @@ import (
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/parameters"
+	"github.com/evocert/kwe/requesting"
 )
 
 type SchedulesHandler interface {
@@ -17,7 +18,7 @@ type SchedulesHandler interface {
 
 type SchedulesAPI interface {
 	Handler() SchedulesHandler
-	Register(string, ...interface{}) error
+	Register(string, ...interface{}) (ScheduleAPI, error)
 	Get(string) ScheduleAPI
 	Unregister(string) error
 	Exists(string) bool
@@ -32,7 +33,7 @@ type SchedulesAPI interface {
 }
 
 type ActiveSchedulesAPI interface {
-	Register(string, ...interface{}) error
+	Register(string, ...interface{}) (ScheduleAPI, error)
 	Get(string) ScheduleAPI
 	Unregister(string) error
 	Exists(string) bool
@@ -61,10 +62,10 @@ func newActiveSchedules(schdls SchedulesAPI, rntme active.Runtime, prms ...param
 	return
 }
 
-func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (err error) {
+func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (schdl ScheduleAPI, err error) {
 	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
 		a = append([]interface{}{atvschdls.rntme}, a...)
-		err = atvschdls.schdls.Register(schdlid, a...)
+		schdl, err = atvschdls.schdls.Register(schdlid, a...)
 	}
 	return
 }
@@ -142,10 +143,11 @@ func (atvschdls *ActiveSchedules) Reader() (rdr iorw.Reader) {
 }
 
 type Schedules struct {
-	schdls      map[string]*Schedule
-	schdlsref   map[*Schedule]string
-	schdlslck   *sync.RWMutex
-	schdlshndlr SchedulesHandler
+	schdls       map[string]*Schedule
+	schdlsref    map[*Schedule]string
+	schdlslck    *sync.RWMutex
+	schdlshndlr  SchedulesHandler
+	serveRequest func(requesting.RequestAPI, ...interface{}) error
 }
 
 func NewSchedules(schdlshndlr ...SchedulesHandler) (schdls *Schedules) {
@@ -168,7 +170,7 @@ func (schdls *Schedules) Handler() (schdlshndlr SchedulesHandler) {
 	return
 }
 
-func (schdls *Schedules) Register(schdlid string, a ...interface{}) (err error) {
+func (schdls *Schedules) Register(schdlid string, a ...interface{}) (schdlapi ScheduleAPI, err error) {
 	if schdls != nil {
 		if schdlid = strings.TrimSpace(schdlid); schdlid != "" {
 			var schdl *Schedule = nil
@@ -176,6 +178,7 @@ func (schdls *Schedules) Register(schdlid string, a ...interface{}) (err error) 
 				schdls.schdlslck.RLock()
 				defer schdls.schdlslck.RUnlock()
 				schdl = schdls.schdls[schdlid]
+
 				return schdl == nil
 			}() {
 				func() {
@@ -201,6 +204,7 @@ func (schdls *Schedules) Register(schdlid string, a ...interface{}) (err error) 
 						schdls.schdls[schdlid] = schdl
 						schdls.schdlsref[schdl] = schdlid
 						schdl.schdlid = schdlid
+						schdl.serveRequest = schdls.serveRequest
 						if len(schdlactions) > 0 {
 							for schdlactntpe, actns := range schdlactions {
 								if len(actns) > 0 {
@@ -216,6 +220,7 @@ func (schdls *Schedules) Register(schdlid string, a ...interface{}) (err error) 
 						}
 					}
 				}()
+				schdlapi = schdl
 			}
 		}
 	}
@@ -351,7 +356,10 @@ func (schdls *Schedules) removeSchedule(schdl *Schedule) {
 
 var glblschdls *Schedules = nil
 
-func GLOBALSCHEDULES() *Schedules {
+func GLOBALSCHEDULES(serveRequest ...func(requesting.RequestAPI, ...interface{}) error) *Schedules {
+	if glblschdls != nil && glblschdls.serveRequest == nil && len(serveRequest) == 1 && serveRequest[0] != nil {
+		glblschdls.serveRequest = serveRequest[0]
+	}
 	return glblschdls
 }
 
