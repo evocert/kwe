@@ -33,8 +33,8 @@ func init() {
 	gblrs.FS().MKDIR("/goldenlayout/js", "")
 	gblrs.FS().SET("/goldenlayout/css/goldenlayout-base.css", GoldenlayoutBaseCSS())
 	gblrs.FS().SET("/goldenlayout/css/default-theme.css", DefaultThemeCSS())
-	gblrs.FS().SET("/goldenlayout/css/goldenlayout-light-theme.css", GoldenLayoutDarkThemeCSS())
-	gblrs.FS().SET("/goldenlayout/css/goldenlayout-dark-theme.css", GoldenLayoutLightThemeCSS())
+	gblrs.FS().SET("/goldenlayout/css/goldenlayout-light-theme.css", GoldenLayoutLightThemeCSS())
+	gblrs.FS().SET("/goldenlayout/css/goldenlayout-dark-theme.css", GoldenLayoutDarkThemeCSS())
 	gblrs.FS().SET("/goldenlayout/js/goldenlayout.min.js", GoldenLayoutJS())
 	gblrs.FS().SET("/goldenlayout/js/goldenlayout.js", GoldenLayoutJS())
 }
