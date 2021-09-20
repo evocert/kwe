@@ -15,7 +15,7 @@ func init() {
 	gblrs.FS().SET("/jspanel/js/jspanel.min.js", JSPanelJS())
 	gblrs.FS().SET("/jspanel/js/jspanel.js", JSPanelJS())
 	gblrs.FS().SET("/jspanel/css/jspanel.min.css", JSPanelJS())
-	gblrs.FS().SET("/jspanel/css/jspanel.css", JSPanelJS())
+	gblrs.FS().SET("/jspanel/css/jspanel.css", JSPanelCSS())
 
 	gblrs.FS().MKDIR("/jspanel/js/extensions/modal", "")
 	gblrs.FS().SET("/jspanel/js/extensions/modal/jspanel.modal.min.js", JSPanelModalJS())
