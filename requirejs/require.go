@@ -2007,12 +2007,12 @@ var requirejs, require, define;
                    }else{
                        eval(fsutilcode);
                        canLoadMod=true;
-           }
+                   }
                }
            }
            if (canLoadMod===false) {
                try {
-                   fsutilcode=fsutils.File2String(url);
+                   fsutilcode=kwe.fsutils.CATS(url);
                    if (fsutilcode!=='undefined' && fsutilcode!=='') {
                        eval(fsutilcode);
                        canLoadMod=true;

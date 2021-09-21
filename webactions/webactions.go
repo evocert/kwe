@@ -36,6 +36,8 @@ func init() {
 	gblrs.FS().SET("/jquery/jquery.js", JqueryJS())
 	gblrs.FS().MKDIR("/webactions", "")
 	gblrs.FS().SET("/webactions/parsing.js", ParsingJS())
+	gblrs.FS().SET("/webactions/parsing.min.js", ParsingJS())
 	gblrs.FS().SET("/webactions/webactions-core.js", WebactionsJS())
 	gblrs.FS().SET("/webactions/webactions.js", WebactionsBundleJS())
+	gblrs.FS().SET("/webactions/webactions.min.js", WebactionsBundleJS())
 }

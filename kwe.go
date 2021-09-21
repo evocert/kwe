@@ -23,6 +23,7 @@ import (
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/mqtt"
+	"github.com/evocert/kwe/requirejs"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
 	_ "github.com/evocert/kwe/sip"
@@ -68,6 +69,8 @@ func main() {
 	var glblutilsfs = fsutils.NewFSUtils()
 	var glbldbms = database.GLOBALDBMS
 	var glblrsfs = resources.GLOBALRSNG().FS
+	glblrsfs().MKDIR("/require/js", "")
+	glblrsfs().SET("/require/js/require.js", requirejs.RequireJS())
 	var glblchng = caching.GLOBALMAPHANDLER
 	var glblschdlng = func() *scheduling.Schedules {
 		return scheduling.GLOBALSCHEDULES(serveRequest)
@@ -128,6 +131,7 @@ func main() {
 				}
 			}
 		}
+
 		rspns := rqst.Response()
 
 		var rqstdpaths *enumeration.List = enumeration.NewList()
@@ -235,6 +239,16 @@ func main() {
 						if isactive {
 							if atv == nil {
 								atv = active.NewActive()
+							}
+							if atv.LookupTemplate == nil {
+								atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
+									if glblrsfs != nil {
+										if lkpr = glblrsfs().CAT(lkppath); lkpr == nil {
+											lkpr = glblutilsfs.CAT(lkppath)
+										}
+									}
+									return
+								}
 							}
 							if atv.ObjectMapRef == nil {
 								var objref = map[string]interface{}{}
