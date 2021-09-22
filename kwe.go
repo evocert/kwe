@@ -56,6 +56,17 @@ func (expth *exepath) Path() string {
 	return ""
 }
 
+func (expth *exepath) PathRoot() (pathroot string) {
+	if expth != nil {
+		if strings.LastIndex(expth.path, "/") > -1 {
+			pathroot = expth.path[0 : strings.LastIndex(expth.path, "/")+1]
+		} else {
+			pathroot = "/"
+		}
+	}
+	return
+}
+
 func (expth *exepath) Args() (args []interface{}) {
 	if expth != nil {
 		args = expth.args
@@ -243,8 +254,15 @@ func main() {
 							if atv.LookupTemplate == nil {
 								atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
 									if glblrsfs != nil {
-										if lkpr = glblrsfs().CAT(lkppath); lkpr == nil {
-											lkpr = glblutilsfs.CAT(lkppath)
+										if lkppath != "" && strings.HasSuffix(lkppath, ".js") {
+											if !strings.HasPrefix(lkppath, "/") {
+												if expth != nil {
+													lkppath = expth.PathRoot() + lkppath
+												}
+											}
+											if lkpr = glblrsfs().CAT(lkppath); lkpr == nil {
+												lkpr = glblutilsfs.CAT(lkppath)
+											}
 										}
 									}
 									return
