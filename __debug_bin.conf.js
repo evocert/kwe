@@ -12,6 +12,8 @@ if (kwe.caching.ExistsAt("a","b",2)) {
 	console.log(kwe.caching.String());
 }
 
+kwe.fs.MKDIR("/kweauth","C:/github/kweauth");
+
 kwe.fs.MKDIR("/gendocs","./gendocs");
 try {
 	eval(kwe.send("/gendocs/gendocs.js").ReadAll());

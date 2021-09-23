@@ -23,6 +23,7 @@ import (
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/mqtt"
+	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
@@ -90,6 +91,7 @@ func main() {
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
 			"env":         "_env",
+			"command":     "_command",
 			"path":        "_path",
 			"in":          "_in",
 			"dbms":        "_dbms",
@@ -128,6 +130,49 @@ func main() {
 		var mqttevent mqtt.MqttEvent = nil
 		var atv *active.Active = nil
 		var exitingatv = false
+
+		var invokeCommand func(execpath string, execargs ...string) (cmd *osprc.Command, err error) = nil
+
+		var cmnds map[int]*osprc.Command = nil
+
+		var closecmd = func(prcid int) {
+			if cmnds != nil {
+				if cmdf := cmnds[prcid]; cmdf != nil {
+					cmdf.OnClose = nil
+					delete(cmnds, prcid)
+				}
+			}
+		}
+
+		invokeCommand = func(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+			cmd, err = osprc.NewCommand(execpath, execargs...)
+
+			if err == nil && cmd != nil {
+				cmd.OnClose = closecmd
+				if cmnds == nil {
+					cmnds = map[int]*osprc.Command{}
+				}
+				cmnds[cmd.PrcID()] = cmd
+			}
+			return
+		}
+
+		defer func() {
+			if len(cmnds) > 0 {
+				prcsids := make([]int, len(cmnds))
+				prcsidsi := 0
+				for prcid := range cmnds {
+					prcsids[prcsidsi] = prcid
+					prcsidsi++
+				}
+
+				for _, prcid := range prcsids {
+					cmnds[prcid].Close()
+				}
+				cmnds = nil
+			}
+		}()
+
 		if len(a) > 0 {
 			for _, d := range a {
 				if mqttmsgd, _ := d.(mqtt.Message); mqttmsgd != nil && mqttmsg == nil {
@@ -279,6 +324,7 @@ func main() {
 							}
 							if atv.ObjectMapRef == nil {
 								var objref = map[string]interface{}{}
+								objref["_command"] = invokeCommand
 								objref["_path"] = func() *exepath {
 									if crntexpths != nil && crntexpths.Length() > 0 {
 										if val := crntexpths.Tail().Value(); val != nil {
