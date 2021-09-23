@@ -256,9 +256,18 @@ func main() {
 									if glblrsfs != nil {
 										if lkppath != "" && strings.HasSuffix(lkppath, ".js") {
 											if !strings.HasPrefix(lkppath, "/") {
-												if expth != nil {
-													lkppath = expth.PathRoot() + lkppath
+												if crntexpths != nil && crntexpths.Length() > 0 {
+													if val := crntexpths.Tail().Value(); val != nil {
+														if dngexpth, _ := val.(*exepath); dngexpth != nil {
+															lkppath = dngexpth.PathRoot() + lkppath
+														} else {
+															lkppath = expth.PathRoot() + lkppath
+														}
+													} else {
+														lkppath = expth.PathRoot() + lkppath
+													}
 												}
+												lkppath = expth.PathRoot() + lkppath
 											}
 											if lkpr = glblrsfs().CAT(lkppath); lkpr == nil {
 												lkpr = glblutilsfs.CAT(lkppath)
@@ -276,6 +285,8 @@ func main() {
 											if dngexpth, _ := val.(*exepath); dngexpth != nil {
 												return dngexpth
 											}
+										} else {
+											return expth
 										}
 									}
 									return expth
