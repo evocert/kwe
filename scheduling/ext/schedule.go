@@ -15,8 +15,12 @@ import (
 type ScheduleAPI interface {
 	Schedules() SchedulesAPI
 	Start(...interface{}) error
+	AddAction(...interface{}) error
+	AddInitAction(...interface{}) error
+	AddWrapupAction(...interface{}) error
 	Stop() error
 	Shutdown() error
+	Active(...interface{}) *active.Active
 }
 
 type ScheduleHandler interface {
@@ -41,14 +45,15 @@ const (
 )
 
 type Schedule struct {
-	atv            *active.Active
-	serveRequest   func(requesting.RequestAPI, ...interface{}) (err error)
-	actnmde        scheduleactionsection
-	initstart      bool
-	schdlid        string
-	once           bool
-	schdls         SchedulesAPI
-	schdlhndlr     ScheduleHandler
+	atv          *active.Active
+	serveRequest func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) (err error)
+	actnmde      scheduleactionsection
+	initstart    bool
+	schdlid      string
+	once         bool
+	schdls       SchedulesAPI
+	//schdlhndlr     ScheduleHandler
+	PrepActionArgs func(...interface{}) ([]interface{}, error)
 	From           time.Time
 	To             time.Time
 	initactns      *enumeration.List
@@ -165,6 +170,7 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 	if milliseconds > 0 || seconds > 0 || hours > 0 {
 		schdl = &Schedule{
 			wg:           &sync.WaitGroup{},
+			intrvl:       5,
 			initstart:    true,
 			actnmde:      schdlactninit,
 			schdls:       schdls,
@@ -184,7 +190,7 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 			actns: enumeration.NewList(true), lckactns: &sync.RWMutex{},
 			wrapupactns: enumeration.NewList(true), lckwrapupactns: &sync.RWMutex{}}
 
-		if schdls != nil {
+		/*if schdls != nil {
 			if schdls.Handler() != nil {
 				schdl.schdlhndlr = schdls.Handler().NewSchedule(schdl, a...)
 				if schdl.OnStart == nil {
@@ -197,7 +203,17 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 					schdl.OnShutdown = schdl.schdlhndlr.ShutdownSchedule
 				}
 			}
+		}*/
+	}
+	return
+}
+
+func (schdl *Schedule) Active(a ...interface{}) (atv *active.Active) {
+	if schdl != nil {
+		if schdl.atv == nil {
+			schdl.atv = active.NewActive()
 		}
+		atv = schdl.atv
 	}
 	return
 }
@@ -227,8 +243,8 @@ func internalAction(schdl *Schedule, actntpe scheduleactionsection, a ...interfa
 	var al = 0
 	var vldactions = []*schdlaction{}
 	var cactn func(...interface{}) error = nil
-	if schdl.schdlhndlr != nil && len(a) > 0 {
-		if preppedargs, preppederr := schdl.schdlhndlr.PrepActionArgs(a...); preppederr == nil {
+	if schdl.PrepActionArgs != nil {
+		if preppedargs, preppederr := schdl.PrepActionArgs(a...); preppederr == nil {
 			if len(preppedargs) > 0 {
 				a = preppedargs[:]
 			}

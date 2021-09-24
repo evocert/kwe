@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/dop251/goja"
 	_ "github.com/evocert/kwe/alertify"
 	_ "github.com/evocert/kwe/bootstrap"
 	"github.com/evocert/kwe/caching"
@@ -76,7 +78,13 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
-	var serveRequest func(rqst requesting.RequestAPI, a ...interface{}) (err error) = nil
+	var serveRequest func(
+		rqst requesting.RequestAPI,
+		mqttmsg mqtt.Message,
+		mqttevent mqtt.MqttEvent,
+		atv *active.Active,
+		schdl scheduling.ScheduleAPI,
+		a ...interface{}) (err error) = nil
 	lstnr := listen.NewListener()
 	var glblutilsfs = fsutils.NewFSUtils()
 	var glbldbms = database.GLOBALDBMS
@@ -84,8 +92,18 @@ func main() {
 	glblrsfs().MKDIR("/require/js", "")
 	glblrsfs().SET("/require/js/require.js", requirejs.RequireJS())
 	var glblchng = caching.GLOBALMAPHANDLER
+
+	var prepScheduleActionArgs func(scheduling.ScheduleAPI, ...interface{}) ([]interface{}, error) = nil
+
 	var glblschdlng = func() *scheduling.Schedules {
-		return scheduling.GLOBALSCHEDULES(serveRequest)
+		return scheduling.GLOBALSCHEDULES(func(schdl scheduling.ScheduleAPI, a ...interface{}) (nargs []interface{}, err error) {
+			if prepScheduleActionArgs != nil {
+				nargs, err = prepScheduleActionArgs(schdl, a...)
+			}
+			return
+		}, func(rqst requesting.RequestAPI, atv *active.Active, schdl scheduling.ScheduleAPI, a ...interface{}) error {
+			return serveRequest(rqst, nil, nil, atv, nil, a...)
+		})
 	}
 	var glblenv = env.Env()
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
@@ -125,11 +143,79 @@ func main() {
 		}
 	}))
 
-	serveRequest = func(rqst requesting.RequestAPI, a ...interface{}) (err error) {
-		var mqttmsg mqtt.Message = nil
-		var mqttevent mqtt.MqttEvent = nil
-		var atv *active.Active = nil
-		var exitingatv = false
+	prepScheduleActionArgs = func(scdl scheduling.ScheduleAPI, a ...interface{}) (preppedargs []interface{}, err error) {
+		if al := len(a); al > 0 {
+			ai := 0
+			regatvfnc := func(atvfnc func(goja.FunctionCall) goja.Value) bool {
+				if atvfnc != nil {
+					var prppdatvfnc scheduling.FuncArgsErrHandle = nil
+					prppdatvfnc = func(args ...interface{}) (rserr error) {
+						atv := scdl.Active()
+						if rslt := atv.InvokeFunction(atvfnc, args...); rslt != nil {
+							if dne, dneok := rslt.(bool); dneok && dne {
+								rserr = fmt.Errorf("DONE")
+							}
+						}
+						return
+					}
+					a[ai] = nil
+					a[ai] = prppdatvfnc
+					return true
+				}
+				return false
+			}
+			for ai < al {
+				d := a[ai]
+				if sfnc, sfncok := d.(string); sfncok {
+					if sfnc != "" {
+						if strings.HasPrefix(sfnc, "function(") {
+							scdl.Active().InvokeVM(func(vm *goja.Runtime) (vmerr error) {
+								atvfncval, _ := vm.RunString("(" + sfnc + ")")
+								var atvfncref func(goja.FunctionCall) goja.Value = nil
+								vm.ExportTo(atvfncval, &atvfncref)
+								if !regatvfnc(atvfncref) {
+
+								}
+								return
+							})
+						}
+					}
+				} else if rqstactnmap, rqstactnmapok := d.(map[string]interface{}); rqstactnmapok {
+					ignore := false
+					for rqstmk, rqstmv := range rqstactnmap {
+						if rqstmk != "" && strings.Contains("|request|dbms|command|script|", "|"+rqstmk+"|") {
+							if !ignore {
+								ignore = true
+							}
+							//a[ai] = scheduling.FuncArgsErrHandle(rqst.executeScheduleAction)
+							tmpa := a[ai+1:]
+							a = append(append(a[:ai+1], []interface{}{rqstmk, rqstmv}), tmpa...)
+							al = len(a)
+							ai++
+							ai++
+						}
+					}
+					if ignore {
+
+						continue
+					}
+				}
+				ai++
+			}
+			preppedargs = a[:]
+		}
+		return
+	}
+
+	serveRequest = func(
+		rqst requesting.RequestAPI,
+		mqttmsg mqtt.Message,
+		mqttevent mqtt.MqttEvent,
+		atv *active.Active,
+		schdl scheduling.ScheduleAPI,
+		a ...interface{}) (err error) {
+
+		var exitingatv = atv == nil
 
 		var invokeCommand func(execpath string, execargs ...string) (cmd *osprc.Command, err error) = nil
 
@@ -311,8 +397,9 @@ func main() {
 													} else {
 														lkppath = expth.PathRoot() + lkppath
 													}
+												} else {
+													lkppath = expth.PathRoot() + lkppath
 												}
-												lkppath = expth.PathRoot() + lkppath
 											}
 											if lkpr = glblrsfs().CAT(lkppath); lkpr == nil {
 												lkpr = glblutilsfs.CAT(lkppath)
@@ -412,8 +499,12 @@ func main() {
 		return
 	}
 
-	lstnr.ServeRequest = serveRequest
-	service.ServeRequest = serveRequest
+	lstnr.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
+		return serveRequest(rqst, nil, nil, nil, nil, a...)
+	}
+	service.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
+		return serveRequest(rqst, nil, nil, nil, nil, a...)
+	}
 	service.RunService(os.Args...)
 }
 

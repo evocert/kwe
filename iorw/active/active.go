@@ -309,7 +309,7 @@ func (atv *Active) readAll(r io.Reader) (s string, err error) {
 //InvokeVM invoke vm
 func (atv *Active) InvokeVM(callback func(vm *goja.Runtime) error) {
 	if callback != nil {
-		callback(atv.vm())
+		callback(atv.lclvm())
 	}
 }
 

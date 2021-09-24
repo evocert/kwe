@@ -143,11 +143,12 @@ func (atvschdls *ActiveSchedules) Reader() (rdr iorw.Reader) {
 }
 
 type Schedules struct {
-	schdls       map[string]*Schedule
-	schdlsref    map[*Schedule]string
-	schdlslck    *sync.RWMutex
-	schdlshndlr  SchedulesHandler
-	serveRequest func(requesting.RequestAPI, ...interface{}) error
+	schdls         map[string]*Schedule
+	schdlsref      map[*Schedule]string
+	schdlslck      *sync.RWMutex
+	schdlshndlr    SchedulesHandler
+	prepActionArgs func(ScheduleAPI, ...interface{}) ([]interface{}, error)
+	serveRequest   func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error
 }
 
 func NewSchedules(schdlshndlr ...SchedulesHandler) (schdls *Schedules) {
@@ -205,6 +206,14 @@ func (schdls *Schedules) Register(schdlid string, a ...interface{}) (schdlapi Sc
 						schdls.schdlsref[schdl] = schdlid
 						schdl.schdlid = schdlid
 						schdl.serveRequest = schdls.serveRequest
+
+						schdl.PrepActionArgs = func(a ...interface{}) (ra []interface{}, err error) {
+							if schdls.prepActionArgs != nil {
+								ra, err = schdls.prepActionArgs(schdl, a...)
+							}
+							return
+						}
+
 						if len(schdlactions) > 0 {
 							for schdlactntpe, actns := range schdlactions {
 								if len(actns) > 0 {
@@ -356,9 +365,34 @@ func (schdls *Schedules) removeSchedule(schdl *Schedule) {
 
 var glblschdls *Schedules = nil
 
-func GLOBALSCHEDULES(serveRequest ...func(requesting.RequestAPI, ...interface{}) error) *Schedules {
-	if glblschdls != nil && glblschdls.serveRequest == nil && len(serveRequest) == 1 && serveRequest[0] != nil {
-		glblschdls.serveRequest = serveRequest[0]
+func GLOBALSCHEDULES(a ...interface{}) *Schedules {
+	if glblschdls != nil {
+		var prepActionArgs func(ScheduleAPI, ...interface{}) ([]interface{}, error) = nil
+		var serveRequest func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error = nil
+
+		if len(a) > 0 {
+			for _, d := range a {
+				if d != nil {
+					if dprepActionArgs, _ := d.(func(ScheduleAPI, ...interface{}) ([]interface{}, error)); dprepActionArgs != nil {
+						if prepActionArgs == nil {
+							prepActionArgs = dprepActionArgs
+						}
+					} else if dserveRequest, _ := d.(func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error); dserveRequest != nil {
+						if serveRequest == nil {
+							serveRequest = dserveRequest
+						}
+					}
+				}
+			}
+		}
+
+		if glblschdls.serveRequest == nil && serveRequest != nil {
+			glblschdls.serveRequest = serveRequest
+		}
+
+		if glblschdls.prepActionArgs == nil && prepActionArgs != nil {
+			glblschdls.prepActionArgs = prepActionArgs
+		}
 	}
 	return glblschdls
 }

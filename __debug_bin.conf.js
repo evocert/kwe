@@ -24,7 +24,7 @@ try {
 kwe.fs.MKDIR("/movies","D:/movies");
 
 try {
-	eval(kwe.send("/movies/schedule.js").ReadAll());
+	//eval(kwe.send("/movies/schedule.js").ReadAll());
 } catch(e){
 	console.log(e.message);
 }
