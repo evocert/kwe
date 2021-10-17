@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/evocert/kwe/iorw"
@@ -22,17 +23,19 @@ type addressing interface {
 }
 
 type Request struct {
-	ctx       context.Context
-	path      string
-	prms      parameters.ParametersAPI
-	prtcl     string
-	prtclmthd string
-	headers   map[string]string
-	rdr       io.Reader
-	rqstr     iorw.Reader
-	rmtaddr   string
-	lcladdr   string
-	rspns     ResponseAPI
+	ctx         context.Context
+	path        string
+	prms        parameters.ParametersAPI
+	prtcl       string
+	prtclmthd   string
+	headers     map[string]string
+	rdr         io.Reader
+	rqstr       iorw.Reader
+	rmtaddr     string
+	lcladdr     string
+	rspns       ResponseAPI
+	rangeType   string
+	rangeOffset int64
 }
 
 var ConnContextKey = "http-con"
@@ -42,6 +45,9 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 	var path string = ""
 	var prtcl string = ""
 	var prtclmthd string = ""
+	var prtclrangetype = ""
+	var prtclrange = ""
+	var prtclrangeoffset = int64(-1)
 	var headers = map[string]string{}
 	var ctx context.Context = nil
 	var addrsng addressing = nil
@@ -94,6 +100,15 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 				}
 				for hdrk, hdrv := range httprd.Header {
 					headers[hdrk] = strings.Join(hdrv, "")
+					if hdrk == "Range" {
+						if prtclrange = headers[hdrk]; strings.Index(prtclrange, "=") > 0 {
+							if prtclrangetype = prtclrange[:strings.Index(prtclrange, "=")]; prtclrange != "" {
+								if prtclrange = prtclrange[strings.Index(prtclrange, "=")+1:]; strings.Index(prtclrange, "-") > 0 {
+									prtclrangeoffset, _ = strconv.ParseInt(prtclrange[:strings.Index(prtclrange, "-")], 10, 64)
+								}
+							}
+						}
+					}
 				}
 			} else {
 				if cntxtng, _ := d.(contexting); cntxtng != nil && ctx == nil {
@@ -130,11 +145,25 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 		lcladdr = addrsng.LocalAddr()
 	}
 
-	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, prms: prms}
+	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, prms: prms, rangeType: prtclrangetype, rangeOffset: prtclrangeoffset}
 
 	rqst.rspns = NewResponse(wtr, rqst, httpw)
 
 	rqstapi = rqst
+	return
+}
+
+func (rqst *Request) RangeType() (rangetype string) {
+	if rqst != nil {
+		rangetype = rqst.rangeType
+	}
+	return
+}
+
+func (rqst *Request) RangeOffset() (rangeoffset int64) {
+	if rqst != nil {
+		rangeoffset = rqst.rangeOffset
+	}
 	return
 }
 

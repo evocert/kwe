@@ -716,12 +716,12 @@ func ExtMimeType(ext string, defaultext string, defaulttype ...string) (mimetype
 	if ext = filepath.Ext(ext); ext == "" {
 		ext = filepath.Ext(defaultext)
 	}
-	mimetype, _ = FindMimeType(ext, defaulttpe)
+	mimetype, _, _ = FindMimeType(ext, defaulttpe)
 	return
 }
 
 //FindMimeType - ext or defaulttype
-func FindMimeType(ext string, defaulttype string) (mimetype string, texttype bool) {
+func FindMimeType(ext string, defaulttype string) (mimetype string, texttype bool, mediatype bool) {
 	if defaulttype == "" {
 		defaulttype = "text/plain"
 	}
@@ -759,6 +759,7 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	} else {
 		mimetype = defaulttype
 	}
+	mediatype = strings.Contains(mimetype, "video/") || strings.Contains(mimetype, "audio/")
 	return
 }
 

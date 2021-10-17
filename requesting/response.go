@@ -3,6 +3,7 @@ package requesting
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/ws"
@@ -79,6 +80,16 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 				}
 				if rspns.Header("Content-Length") == "" {
 					rspns.SetHeader("Connection", "close")
+				}
+				//MULTIMEDIA support for HTTP 1.1
+				if rspns.startw {
+					if strings.Contains(rspns.Header("Content-Type"), "video/") || strings.Contains(rspns.Header("Content-Type"), "audio/") {
+						if rspns.Header("Content-Range") == "" {
+							rspns.SetHeader("Accept-Ranges", "bytes")
+						} else {
+							rspns.SetStatus(206)
+						}
+					}
 				}
 				if len(rspns.headers) > 0 {
 					for hdr, hdv := range rspns.headers {

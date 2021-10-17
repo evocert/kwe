@@ -14,6 +14,8 @@ type RequestAPI interface {
 	Proto() string
 	Method() string
 	Path() string
+	RangeType() string
+	RangeOffset() int64
 	Headers() []string
 	Header(string) string
 	RemoteAddr() string

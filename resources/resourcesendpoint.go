@@ -496,7 +496,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 						}
 					}
 					remoteHeaders := map[string]string{}
-					mimetype, _ := mimes.FindMimeType(path, "text/plain")
+					mimetype, _, _ := mimes.FindMimeType(path, "text/plain")
 					var rqstr io.Reader = nil
 					var buf *iorw.Buffer = nil
 					if mimetype == "application/json" {

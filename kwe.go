@@ -351,6 +351,9 @@ func main() {
 
 		rspns := rqst.Response()
 
+		prtclrangetype := rqst.RangeType()
+		prtclrangeoffset := rqst.RangeOffset()
+
 		var rqstdpaths *enumeration.List = enumeration.NewList()
 		var addNextPath = func(nxtpth ...string) {
 			if nxtpthl := len(nxtpth); nxtpthl > 0 {
@@ -410,7 +413,7 @@ func main() {
 					var path = expth.Path()
 					var convertactive bool = false
 					var israw = false
-					var mimetype, isactive = mimes.FindMimeType(path, "text/plain")
+					var mimetype, isactive, ismedia = mimes.FindMimeType(path, "text/plain")
 					if israw = strings.Contains(path, "/raw:"); israw {
 						path = strings.Replace(path, "/raw:", "/", 1)
 						isactive = !israw
@@ -437,14 +440,14 @@ func main() {
 								if rs = glblrsfs().CAT(path + "main" + "." + pth); rs == nil {
 									continue
 								} else {
-									mimetype, isactive = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
+									mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
 									if rspns != nil {
 										rspns.SetHeader("Content-Type", mimetype)
 									}
 									break
 								}
 							} else {
-								mimetype, isactive = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
+								mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
 								if rspns != nil {
 									rspns.SetHeader("Content-Type", mimetype)
 								}
@@ -455,6 +458,7 @@ func main() {
 					if rs == nil && path == "dummy.js" {
 						rs = iorw.NewEOFCloseSeekReader(strings.NewReader("<@ /**/ @>"))
 					}
+
 					if rs != nil {
 						if isactive {
 							if atv == nil {
@@ -547,7 +551,30 @@ func main() {
 								}
 							}()
 						} else if rspns != nil {
-							rspns.Print(rs)
+							if ismedia && prtclrangetype == "bytes" && prtclrangeoffset > -1 {
+								if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
+									eofrs.Seek(prtclrangeoffset, 0)
+									if rssize := eofrs.Size(); rssize > 0 {
+										maxoffset := int64(0)
+										if maxoffset = rssize - prtclrangeoffset; maxoffset > 0 {
+											maxoffset--
+										}
+										if maxoffset < prtclrangeoffset {
+											maxoffset = prtclrangeoffset
+										}
+										contentrange := fmt.Sprintf("%s %d-%d/%d", rqst.RangeType(), prtclrangeoffset, maxoffset, rssize)
+										rspns.SetHeader("Content-Range", contentrange)
+										rspns.SetHeader("Content-Length", fmt.Sprintf("%d", rssize-prtclrangeoffset))
+										eofrs.MaxRead = rssize - prtclrangeoffset
+									}
+									rspns.Print(rs)
+								} else {
+									rspns.Print(rs)
+								}
+								prtclrangeoffset = -1
+							} else {
+								rspns.Print(rs)
+							}
 						}
 					}
 					return
