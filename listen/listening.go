@@ -8,9 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/requesting"
-	"github.com/evocert/kwe/typescript"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -207,12 +205,6 @@ func (connwrp *connwrap) SetReadDeadline(t time.Time) (err error) {
 func (connwrp *connwrap) SetWriteDeadline(t time.Time) (err error) {
 
 	return
-}
-
-var cachedjs *iorw.Buffer = iorw.NewBuffer()
-
-func init() {
-	cachedjs.Print(typescript.TypescriptJS())
 }
 
 func (lstn *listen) start() {
