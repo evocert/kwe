@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -78,6 +79,7 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
+	//runtime.GOMAXPROCS(runtime.NumCPU() * 100)
 	var serveRequest func(
 		rqst requesting.RequestAPI,
 		mqttmsg mqtt.Message,
@@ -118,6 +120,7 @@ func main() {
 			"fs":          "_fs",
 			"fsutils":     "_fsutils",
 			"scheduling":  "_scheduling",
+			"schdl":       "_schdl",
 			"mqtting":     "_mqtting",
 			"mqttmsg":     "_mqttmsg",
 			"mqttevent":   "_mqttevent",
@@ -143,14 +146,86 @@ func main() {
 		}
 	}))
 
+	var executeSchdlDbms = func(schdl scheduling.ScheduleAPI, a ...interface{}) (err error) {
+		if len(a) > 0 {
+			err = database.GLOBALDBMS().InOut(a[0], nil, a[1:]...)
+		}
+		return
+	}
+
+	var executeSchdlCommand = func(schdl scheduling.ScheduleAPI, a ...interface{}) (err error) {
+		if len(a) > 0 {
+
+		}
+		return
+	}
+
+	var executeSchdlRequest = func(schdl scheduling.ScheduleAPI, a ...interface{}) (err error) {
+		if serveRequest != nil {
+			rqst := requesting.NewRequest(nil, a...)
+			defer rqst.Close()
+			serveRequest(rqst, nil, nil, schdl.Active(), schdl)
+		}
+		return
+	}
+
+	var executeScheduleAction = func(a ...interface{}) (err error) {
+		scdl, _ := a[0].(scheduling.ScheduleAPI)
+		a = a[1:]
+		for len(a) > 1 {
+			if cmd, cmdok := a[0].(string); cmdok && cmd != "" {
+				a = a[1:]
+				var cmdfnctoexec func(scheduling.ScheduleAPI, ...interface{}) error = nil
+				if cmd == "dbms" {
+					cmdfnctoexec = executeSchdlDbms
+				} else if cmd == "request" {
+					cmdfnctoexec = executeSchdlRequest
+				} else if cmd == "command" {
+					cmdfnctoexec = executeSchdlCommand
+				} else if cmd == "script" {
+					//cmdfnctoexec = rqst.executeSchdlScript
+				}
+				if cmdfnctoexec != nil {
+					if cmdmap, cmdmapok := a[0].(map[string]interface{}); cmdmapok && len(cmdmap) > 0 {
+						cmdfnctoexec(scdl, cmdmap)
+					} else if cmdargs, cmdargsok := a[0].([]interface{}); cmdargsok && len(cmdargs) > 0 {
+						cmdfnctoexec(scdl, cmdargs)
+					} else if cmdarg := a[0]; cmdarg == nil || cmdarg != nil {
+						cmdfnctoexec(scdl, cmdarg)
+					} else {
+						break
+					}
+					a = a[1:]
+				} else {
+					break
+				}
+			} else {
+				break
+			}
+		}
+
+		return
+	}
+
 	prepScheduleActionArgs = func(scdl scheduling.ScheduleAPI, a ...interface{}) (preppedargs []interface{}, err error) {
 		if al := len(a); al > 0 {
 			ai := 0
+			var schdlatv = func() (atv *active.Active) {
+				atv = scdl.Active()
+				if atv.ObjectMapRef == nil {
+					if serveRequest != nil {
+						rqst := requesting.NewRequest(nil, "dummy.js")
+						defer rqst.Close()
+						serveRequest(rqst, nil, nil, atv, scdl)
+					}
+				}
+				return
+			}
 			regatvfnc := func(atvfnc func(goja.FunctionCall) goja.Value) bool {
 				if atvfnc != nil {
 					var prppdatvfnc scheduling.FuncArgsErrHandle = nil
 					prppdatvfnc = func(args ...interface{}) (rserr error) {
-						atv := scdl.Active()
+						atv := schdlatv()
 						if rslt := atv.InvokeFunction(atvfnc, args...); rslt != nil {
 							if dne, dneok := rslt.(bool); dneok && dne {
 								rserr = fmt.Errorf("DONE")
@@ -169,7 +244,7 @@ func main() {
 				if sfnc, sfncok := d.(string); sfncok {
 					if sfnc != "" {
 						if strings.HasPrefix(sfnc, "function(") {
-							scdl.Active().InvokeVM(func(vm *goja.Runtime) (vmerr error) {
+							schdlatv().InvokeVM(func(vm *goja.Runtime) (vmerr error) {
 								atvfncval, _ := vm.RunString("(" + sfnc + ")")
 								var atvfncref func(goja.FunctionCall) goja.Value = nil
 								vm.ExportTo(atvfncval, &atvfncref)
@@ -187,8 +262,8 @@ func main() {
 							if !ignore {
 								ignore = true
 							}
-							//a[ai] = scheduling.FuncArgsErrHandle(rqst.executeScheduleAction)
-							tmpa := a[ai+1:]
+							a[ai] = scheduling.FuncArgsErrHandle(executeScheduleAction)
+							tmpa := append([]interface{}{scdl}, a[ai+1:])
 							a = append(append(a[:ai+1], []interface{}{rqstmk, rqstmv}), tmpa...)
 							al = len(a)
 							ai++
@@ -214,8 +289,8 @@ func main() {
 		atv *active.Active,
 		schdl scheduling.ScheduleAPI,
 		a ...interface{}) (err error) {
-
-		var exitingatv = atv == nil
+		defer func() { runtime.GC() }()
+		var exitingatv = atv != nil
 
 		var invokeCommand func(execpath string, execargs ...string) (cmd *osprc.Command, err error) = nil
 
@@ -377,6 +452,9 @@ func main() {
 							}
 						}
 					}
+					if rs == nil && path == "dummy.js" {
+						rs = iorw.NewEOFCloseSeekReader(strings.NewReader("<@ /**/ @>"))
+					}
 					if rs != nil {
 						if isactive {
 							if atv == nil {
@@ -385,7 +463,7 @@ func main() {
 							if atv.LookupTemplate == nil {
 								atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
 									if glblrsfs != nil {
-										if lkppath != "" && strings.HasSuffix(lkppath, ".js") {
+										if lkppath != "" && (strings.HasSuffix(lkppath, ".js") || strings.HasSuffix(lkppath, ".html") || strings.HasSuffix(lkppath, ".xml") || strings.HasSuffix(lkppath, ".svg")) {
 											if !strings.HasPrefix(lkppath, "/") {
 												if crntexpths != nil && crntexpths.Length() > 0 {
 													if val := crntexpths.Tail().Value(); val != nil {
@@ -410,46 +488,47 @@ func main() {
 								}
 							}
 							if atv.ObjectMapRef == nil {
-								var objref = map[string]interface{}{}
-								objref["_command"] = invokeCommand
-								objref["_path"] = func() *exepath {
-									if crntexpths != nil && crntexpths.Length() > 0 {
-										if val := crntexpths.Tail().Value(); val != nil {
-											if dngexpth, _ := val.(*exepath); dngexpth != nil {
-												return dngexpth
-											}
-										} else {
-											return expth
-										}
-									}
-									return expth
-								}
-								objref["_env"] = glblenv
-								objref["_in"] = rqst
-								objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
-								objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
-								objref["_out"] = rspns
-								objref["_fs"] = glblrsfs()
-								objref["_fsutils"] = glblutilsfs
-								objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
-								objref["_mqtting"] = glblmqttng
-								objref["_mqttmsg"] = mqttmsg
-								objref["_mqttevent"] = mqttevent
-								objref["_extMimetype"] = mimes.ExtMimeType
-								objref["_addpath"] = addNextPath
-								objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-									return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
-								}
-								objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
-									return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
-								}
-								objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
-									return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
-								}
-								objref["_listen"] = func(addr ...string) {
-									lstnr.Listen("tcp", addr...)
-								}
 								atv.ObjectMapRef = func() (objrf map[string]interface{}) {
+									var objref = map[string]interface{}{}
+									objref["_command"] = invokeCommand
+									objref["_path"] = func() *exepath {
+										if crntexpths != nil && crntexpths.Length() > 0 {
+											if val := crntexpths.Tail().Value(); val != nil {
+												if dngexpth, _ := val.(*exepath); dngexpth != nil {
+													return dngexpth
+												}
+											} else {
+												return expth
+											}
+										}
+										return expth
+									}
+									objref["_env"] = glblenv
+									objref["_in"] = rqst
+									objref["_dbms"] = glbldbms().ActiveDBMS(atv, rqst.Parameters())
+									objref["_caching"] = glblchng().ActiveHandler(atv, rqst.Parameters())
+									objref["_out"] = rspns
+									objref["_fs"] = glblrsfs()
+									objref["_fsutils"] = glblutilsfs
+									objref["_scheduling"] = glblschdlng().ActiveSCHEDULING(atv, rqst.Parameters())
+									objref["_schdl"] = schdl
+									objref["_mqtting"] = glblmqttng
+									objref["_mqttmsg"] = mqttmsg
+									objref["_mqttevent"] = mqttevent
+									objref["_extMimetype"] = mimes.ExtMimeType
+									objref["_addpath"] = addNextPath
+									objref["_send"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+										return send(atv, glblrsfs(), rqst, rqstpath, false, a...)
+									}
+									objref["_sendeval"] = func(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
+										return send(atv, glblrsfs(), rqst, rqstpath, true, a...)
+									}
+									objref["_sendreceive"] = func(rqstpath string, a ...interface{}) (rdr iorw.PrinterReader, err error) {
+										return sendreceive(atv, glblrsfs(), rqst, rqstpath, a...)
+									}
+									objref["_listen"] = func(addr ...string) {
+										lstnr.Listen("tcp", addr...)
+									}
 									objrf = objref
 									return
 								}
