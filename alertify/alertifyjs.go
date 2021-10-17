@@ -26,10 +26,16 @@ func AlertifyCSS() io.Reader {
 	return strings.NewReader(alertifycss)
 }
 
+const alertifyheadhtml string = `<link rel="stylesheet" href="/alertify/css/alertify.css">
+<script type="appliaction/javascript" src="/alertify/js/alertify.js"></script>`
+
 func init() {
 	gblrs := resources.GLOBALRSNG()
+	gblrs.FS().MKDIR("/alertify/html", "")
 	gblrs.FS().MKDIR("/alertify/css", "")
 	gblrs.FS().MKDIR("/alertify/js", "")
 	gblrs.FS().SET("/alertify/css/alertify.css", AlertifyCSS())
 	gblrs.FS().SET("/alertify/js/alertify.js", AlertifyJS())
+
+	gblrs.FS().SET("/alertify/html/alertify.head.html", strings.NewReader(alertifyheadhtml))
 }
