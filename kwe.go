@@ -551,21 +551,35 @@ func main() {
 								}
 							}()
 						} else if rspns != nil {
-							if ismedia && prtclrangetype == "bytes" && prtclrangeoffset > -1 {
+							if ismedia {
 								if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
 									eofrs.Seek(prtclrangeoffset, 0)
 									if rssize := eofrs.Size(); rssize > 0 {
-										maxoffset := int64(0)
-										if maxoffset = rssize - prtclrangeoffset; maxoffset > 0 {
-											maxoffset--
+										if prtclrangetype == "bytes" && prtclrangeoffset > -1 {
+											maxoffset := int64(0)
+											maxlen := int64(0)
+											if maxoffset = prtclrangeoffset + (rssize - prtclrangeoffset); maxoffset > 0 {
+												maxlen = maxoffset - prtclrangeoffset
+												maxoffset--
+											}
+
+											if maxoffset < prtclrangeoffset {
+												maxoffset = prtclrangeoffset
+												maxlen = 0
+											}
+
+											if maxlen > 1024*1024 {
+												maxlen = 1024 * 1024
+												maxoffset = prtclrangeoffset + (maxlen - 1)
+											}
+											contentrange := fmt.Sprintf("%s %d-%d/%d", rqst.RangeType(), prtclrangeoffset, maxoffset, rssize)
+											rspns.SetHeader("Content-Range", contentrange)
+											rspns.SetHeader("Content-Length", fmt.Sprintf("%d", maxlen))
+											eofrs.MaxRead = maxlen
+										} else {
+											rspns.SetHeader("Content-Length", fmt.Sprintf("%d", rssize))
+											eofrs.MaxRead = rssize
 										}
-										if maxoffset < prtclrangeoffset {
-											maxoffset = prtclrangeoffset
-										}
-										contentrange := fmt.Sprintf("%s %d-%d/%d", rqst.RangeType(), prtclrangeoffset, maxoffset, rssize)
-										rspns.SetHeader("Content-Range", contentrange)
-										rspns.SetHeader("Content-Length", fmt.Sprintf("%d", rssize-prtclrangeoffset))
-										eofrs.MaxRead = rssize - prtclrangeoffset
 									}
 									rspns.Print(rs)
 								} else {

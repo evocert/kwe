@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/ws"
@@ -88,6 +89,7 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 							rspns.SetHeader("Accept-Ranges", "bytes")
 						} else {
 							rspns.SetStatus(206)
+							rspns.SetHeader("Connection", "keep-alive")
 						}
 					}
 				}
@@ -97,6 +99,10 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 					}
 				}
 				httpw.WriteHeader(rspns.status)
+				time.Sleep(5)
+				if flshr != nil {
+					flshr.Flush()
+				}
 				return
 			}
 		}
