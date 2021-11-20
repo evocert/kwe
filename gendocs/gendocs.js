@@ -44,7 +44,6 @@ kwe.FSUTILS().FIND(root).filter(function(e){
          apath.localeCompare(bpath);    // sort by dictionary order
 }).forEach(function(e,ei,elines) {
     currentpath=e.AbsolutePath().substring(base.length+1);
-    
     if (currentpath.startsWith("/")) {
         currentpath=currentpath.substring(1)
     }

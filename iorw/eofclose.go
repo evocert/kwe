@@ -173,7 +173,7 @@ func (eofclsr *EOFCloseSeekReader) SetMaxRead(maxlen int64) (err error) {
 	return
 }
 
-func (eofclsr *EOFCloseSeekReader) Readln() (s string, err error) {
+func (eofclsr *EOFCloseSeekReader) InternalReadln(keeperr bool) (s string, err error) {
 	rns := make([]rune, 1024)
 	rnsi := 0
 	for {
@@ -204,24 +204,28 @@ func (eofclsr *EOFCloseSeekReader) Readln() (s string, err error) {
 	}
 	s = strings.TrimSpace(s)
 	if err == io.EOF {
-		err = nil
+		if !keeperr {
+			err = nil
+		}
 	}
 	return
 }
 
+func (eofclsr *EOFCloseSeekReader) Readln() (s string, err error) {
+	return eofclsr.InternalReadln(false)
+}
+
 func (eofclsr *EOFCloseSeekReader) Readlines() (lines []string, err error) {
 	for {
-		ln, lnerr := eofclsr.Readln()
-		if lnerr == nil {
-			if ln != "" {
-				if lines == nil {
-					lines = []string{}
-				}
-				lines = append(lines, ln)
-			} else {
-				break
+		ln, lnerr := eofclsr.InternalReadln(true)
+		if lines == nil {
+			lines = []string{}
+		}
+		lines = append(lines, ln)
+		if lnerr != nil {
+			if lnerr != io.EOF {
+				err = lnerr
 			}
-		} else {
 			break
 		}
 	}
