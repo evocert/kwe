@@ -37,5 +37,5 @@ func init() {
 	gblrs.FS().SET("/alertify/css/alertify.css", AlertifyCSS())
 	gblrs.FS().SET("/alertify/js/alertify.js", AlertifyJS())
 
-	gblrs.FS().SET("/alertify/html/alertify.head.html", strings.NewReader(alertifyheadhtml))
+	gblrs.FS().SET("/alertify/html/head.html", strings.NewReader(alertifyheadhtml))
 }
