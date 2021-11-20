@@ -27,10 +27,17 @@ func GoldenLayoutJS() io.Reader {
 	return strings.NewReader(goldenlayoutjs)
 }
 
+const goldenlayoutheadhtml string = `<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-base.min.css">
+<link rel="stylesheet" href="/goldenlayout/css/default-theme.min.css">
+<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-dark-theme.min.css">
+<script type="application/javascript" src="/goldenlayout/js/goldenlayout.min.js"></script>`
+
 func init() {
 	gblrs := resources.GLOBALRSNG()
 	gblrs.FS().MKDIR("/goldenlayout/css", "")
 	gblrs.FS().MKDIR("/goldenlayout/js", "")
+	gblrs.FS().MKDIR("/goldenlayout/html", "")
+	gblrs.FS().SET("/goldenlayout/html/head.html", strings.NewReader(goldenlayoutheadhtml))
 	gblrs.FS().SET("/goldenlayout/css/goldenlayout-base.css", GoldenlayoutBaseCSS())
 	gblrs.FS().SET("/goldenlayout/css/goldenlayout-base.min.css", GoldenlayoutBaseCSS())
 	gblrs.FS().SET("/goldenlayout/css/default-theme.css", DefaultThemeCSS())

@@ -27,7 +27,7 @@ func AlertifyCSS() io.Reader {
 }
 
 const alertifyheadhtml string = `<link rel="stylesheet" href="/alertify/css/alertify.css">
-<script type="appliaction/javascript" src="/alertify/js/alertify.js"></script>`
+<script type="application/javascript" src="/alertify/js/alertify.js"></script>`
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
