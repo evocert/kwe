@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/evocert/kwe/api"
@@ -506,6 +507,7 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							ssn.pathfunc = nil
 						}()
 						var path = expth.Path()
+						var pathext = filepath.Ext(path)
 						var convertactive bool = false
 						var israw = false
 						var mimetype, isactive, ismedia = mimes.FindMimeType(path, "text/plain")
@@ -535,6 +537,7 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 									if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
 										continue
 									} else {
+										pathext = "." + pth
 										mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
 										if rspns != nil {
 											rspns.SetHeader("Content-Type", mimetype)
@@ -542,6 +545,7 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 										break
 									}
 								} else {
+									pathext = "." + pth
 									mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
 									if rspns != nil {
 										rspns.SetHeader("Content-Type", mimetype)
@@ -558,6 +562,38 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							if isactive {
 								if ssn.atv.LookupTemplate == nil {
 									ssn.atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
+										if lkppath != "" && strings.LastIndex(lkppath, ".") == -1 {
+											if crntexpths != nil && crntexpths.Length() > 0 {
+												if val := crntexpths.Tail().Value(); val != nil {
+													if dngexpth, _ := val.(*exepath); dngexpth != nil {
+														if dngext := dngexpth.Ext(); dngext != "" {
+															lkppath = lkppath + dngext
+														} else {
+															lkppath = lkppath + pathext
+														}
+
+													} else {
+														if dngext := expth.Ext(); dngext != "" {
+															lkppath = lkppath + dngext
+														} else {
+															lkppath = lkppath + pathext
+														}
+													}
+												} else {
+													if dngext := expth.Ext(); dngext != "" {
+														lkppath = lkppath + dngext
+													} else {
+														lkppath = lkppath + pathext
+													}
+												}
+											} else {
+												if dngext := expth.Ext(); dngext != "" {
+													lkppath = lkppath + dngext
+												} else {
+													lkppath = lkppath + pathext
+												}
+											}
+										}
 										if lkppath != "" && (strings.HasSuffix(lkppath, ".js") || strings.HasSuffix(lkppath, ".html") || strings.HasSuffix(lkppath, ".xml") || strings.HasSuffix(lkppath, ".svg")) {
 											if !strings.HasPrefix(lkppath, "/") {
 												if crntexpths != nil && crntexpths.Length() > 0 {
@@ -708,6 +744,15 @@ func init() {
 type exepath struct {
 	path string
 	args []interface{}
+}
+
+func (expth *exepath) Ext() (ext string) {
+	if expth != nil {
+		if pth := expth.Path(); pth != "" {
+			ext = filepath.Ext(pth)
+		}
+	}
+	return
 }
 
 func (expth *exepath) Path() string {

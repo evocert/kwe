@@ -46,6 +46,7 @@ type SessionAPI interface {
 
 type PathAPI interface {
 	Path() string
+	Ext() string
 	PathRoot() string
 	Args() []interface{}
 }
