@@ -125,7 +125,7 @@ func (ssn *Session) closecmd(prcid int) {
 	}
 }
 
-func (ssn *Session) InvokeCommand(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
+func (ssn *Session) Command(execpath string, execargs ...string) (cmd *osprc.Command, err error) {
 	if ssn != nil {
 		cmd, err = osprc.NewCommand(execpath, execargs...)
 		if err == nil && cmd != nil {

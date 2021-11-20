@@ -41,7 +41,7 @@ type SessionAPI interface {
 	Listen(network string, addr ...string) (err error)
 	Path() PathAPI
 	Active(...interface{}) *active.Active
-	InvokeCommand(execpath string, execargs ...string) (cmd *osprc.Command, err error)
+	Command(execpath string, execargs ...string) (cmd *osprc.Command, err error)
 }
 
 type PathAPI interface {
