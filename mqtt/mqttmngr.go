@@ -34,7 +34,7 @@ type MqttEvent interface {
 	Event() string
 	EventPath() string
 	MqttConnection() *MQTTConnection
-	MqttManager() *MQTTManager
+	MqttManager() MQTTManagerAPI
 	Args() map[string]interface{}
 }
 
@@ -58,7 +58,7 @@ func (mqttevnt *mqttEvent) MqttConnection() *MQTTConnection {
 	return mqttevnt.mqttcn
 }
 
-func (mqttevnt *mqttEvent) MqttManager() *MQTTManager {
+func (mqttevnt *mqttEvent) MqttManager() MQTTManagerAPI {
 	return mqttevnt.mqttmngr
 }
 
@@ -79,6 +79,27 @@ func (atvpc *activeTopic) processMessage(mqttmsng MqttMessaging, message Message
 		mqttmsng(message)
 	}
 	return
+}
+
+type MQTTManagerAPI interface {
+	ActivateTopic(topic string, topicpath ...string)
+	DeactivateTopic(topic string)
+	ActiveTopics() (atvtpcs map[string]string)
+	Connections() (aliases []string)
+	Connection(alias string) (mqttcn *MQTTConnection)
+	ConnectionInfo(alias string) (mqttcninfo string)
+	RegisterConnection(alias string, a ...interface{})
+	Fprint(w io.Writer)
+	String() (s string)
+	UnregisterConnection(alias ...string)
+	IsConnect(alias string) (connected bool)
+	Connect(alias string) (err error)
+	Disconnect(alias string, quiesce uint) (err error)
+	IsSubscribed(alias string, topic string) (issbscrbed bool)
+	Subscriptions(alias string) (subscrptns []*mqttsubscription)
+	Subscribe(alias string, topic string, qos byte) (err error)
+	Unsubscribe(alias string, topic string) (err error)
+	Publish(alias string, topic string, qos byte, retained bool, message string) (err error)
 }
 
 type MQTTManager struct {

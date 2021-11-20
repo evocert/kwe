@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
-	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/requesting"
 )
 
@@ -18,51 +18,22 @@ type SchedulesHandler interface {
 
 type SchedulesAPI interface {
 	Handler() SchedulesHandler
-	Register(string, ...interface{}) (ScheduleAPI, error)
-	Get(string) ScheduleAPI
-	Unregister(string) error
-	Exists(string) bool
-	Start(string, ...interface{}) error
-	Stop(string) error
-	Ammend(string, ...interface{}) error
-	Shutdown(string) error
-	InOut(io.Reader, io.Writer) error
-	Fprint(io.Writer) error
-	Reader() iorw.Reader
-	ActiveSCHEDULING(active.Runtime, ...parameters.ParametersAPI) ActiveSchedulesAPI
-}
-
-type ActiveSchedulesAPI interface {
-	Register(string, ...interface{}) (ScheduleAPI, error)
-	Get(string) ScheduleAPI
-	Unregister(string) error
-	Exists(string) bool
-	Start(string, ...interface{}) error
-	Stop(string) error
-	Ammend(string, ...interface{}) error
-	Shutdown(string) error
-	InOut(io.Reader, io.Writer) error
-	Fprint(io.Writer) error
-	Reader() iorw.Reader
+	api.SchedulesAPI
 }
 
 type ActiveSchedules struct {
-	schdls SchedulesAPI
+	schdls *Schedules
 	rntme  active.Runtime
-	prms   parameters.ParametersAPI
 }
 
-func newActiveSchedules(schdls SchedulesAPI, rntme active.Runtime, prms ...parameters.ParametersAPI) (atvschdls *ActiveSchedules) {
+func newActiveSchedules(schdls *Schedules, rntme active.Runtime) (atvschdls *ActiveSchedules) {
 	if rntme != nil && schdls != nil {
 		atvschdls = &ActiveSchedules{rntme: rntme, schdls: schdls}
-		if len(prms) > 0 && prms[0] != nil {
-			atvschdls.prms = prms[0]
-		}
 	}
 	return
 }
 
-func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (schdl ScheduleAPI, err error) {
+func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (schdl api.ScheduleAPI, err error) {
 	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
 		a = append([]interface{}{atvschdls.rntme}, a...)
 		schdl, err = atvschdls.schdls.Register(schdlid, a...)
@@ -70,7 +41,7 @@ func (atvschdls *ActiveSchedules) Register(schdlid string, a ...interface{}) (sc
 	return
 }
 
-func (atvschdls *ActiveSchedules) Get(schdlid string) (schdl ScheduleAPI) {
+func (atvschdls *ActiveSchedules) Get(schdlid string) (schdl api.ScheduleAPI) {
 	if atvschdls != nil && atvschdls.rntme != nil && atvschdls.schdls != nil {
 		schdl = atvschdls.schdls.Get(schdlid)
 	}
@@ -142,13 +113,24 @@ func (atvschdls *ActiveSchedules) Reader() (rdr iorw.Reader) {
 	return
 }
 
+func (atvschdls *ActiveSchedules) Dispose() {
+	if atvschdls != nil {
+		if atvschdls.rntme != nil {
+			atvschdls.rntme = nil
+		}
+		if atvschdls.schdls != nil {
+			atvschdls.schdls = nil
+		}
+	}
+}
+
 type Schedules struct {
 	schdls         map[string]*Schedule
 	schdlsref      map[*Schedule]string
 	schdlslck      *sync.RWMutex
 	schdlshndlr    SchedulesHandler
-	prepActionArgs func(ScheduleAPI, ...interface{}) ([]interface{}, error)
-	serveRequest   func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error
+	prepActionArgs func(api.ScheduleAPI, ...interface{}) ([]interface{}, error)
+	serveRequest   func(requesting.RequestAPI, *active.Active, api.ScheduleAPI, ...interface{}) error
 }
 
 func NewSchedules(schdlshndlr ...SchedulesHandler) (schdls *Schedules) {
@@ -159,8 +141,8 @@ func NewSchedules(schdlshndlr ...SchedulesHandler) (schdls *Schedules) {
 	return
 }
 
-func (schdls *Schedules) ActiveSCHEDULING(rntme active.Runtime, prms ...parameters.ParametersAPI) (atvschdlsapi ActiveSchedulesAPI) {
-	atvschdlsapi = newActiveSchedules(schdls, rntme, prms...)
+func (schdls *Schedules) ActiveSCHEDULING(rntme active.Runtime) (atvschdlsapi api.ActiveSchedulesAPI) {
+	atvschdlsapi = newActiveSchedules(schdls, rntme)
 	return
 }
 
@@ -171,7 +153,7 @@ func (schdls *Schedules) Handler() (schdlshndlr SchedulesHandler) {
 	return
 }
 
-func (schdls *Schedules) Register(schdlid string, a ...interface{}) (schdlapi ScheduleAPI, err error) {
+func (schdls *Schedules) Register(schdlid string, a ...interface{}) (schdlapi api.ScheduleAPI, err error) {
 	if schdls != nil {
 		if schdlid = strings.TrimSpace(schdlid); schdlid != "" {
 			var schdl *Schedule = nil
@@ -237,7 +219,7 @@ func (schdls *Schedules) Register(schdlid string, a ...interface{}) (schdlapi Sc
 }
 
 //Get - Scheduler by schdlname
-func (schdls *Schedules) Get(schdlname string) (schdl ScheduleAPI) {
+func (schdls *Schedules) Get(schdlname string) (schdl api.ScheduleAPI) {
 	if schdls != nil && schdlname != "" {
 		func() {
 			schdls.schdlslck.RLock()
@@ -367,17 +349,17 @@ var glblschdls *Schedules = nil
 
 func GLOBALSCHEDULES(a ...interface{}) *Schedules {
 	if glblschdls != nil {
-		var prepActionArgs func(ScheduleAPI, ...interface{}) ([]interface{}, error) = nil
-		var serveRequest func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error = nil
+		var prepActionArgs func(api.ScheduleAPI, ...interface{}) ([]interface{}, error) = nil
+		var serveRequest func(requesting.RequestAPI, *active.Active, api.ScheduleAPI, ...interface{}) error = nil
 
 		if len(a) > 0 {
 			for _, d := range a {
 				if d != nil {
-					if dprepActionArgs, _ := d.(func(ScheduleAPI, ...interface{}) ([]interface{}, error)); dprepActionArgs != nil {
+					if dprepActionArgs, _ := d.(func(api.ScheduleAPI, ...interface{}) ([]interface{}, error)); dprepActionArgs != nil {
 						if prepActionArgs == nil {
 							prepActionArgs = dprepActionArgs
 						}
-					} else if dserveRequest, _ := d.(func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) error); dserveRequest != nil {
+					} else if dserveRequest, _ := d.(func(requesting.RequestAPI, *active.Active, api.ScheduleAPI, ...interface{}) error); dserveRequest != nil {
 						if serveRequest == nil {
 							serveRequest = dserveRequest
 						}

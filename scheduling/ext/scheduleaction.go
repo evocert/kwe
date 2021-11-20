@@ -1,14 +1,16 @@
 package ext
 
+import "github.com/evocert/kwe/api"
+
 type ScheduleActionAPI interface {
-	Schedule() ScheduleAPI
+	Schedule() api.ScheduleAPI
 }
 
 type ScheduleAction struct {
-	schdl ScheduleAPI
+	schdl api.ScheduleAPI
 }
 
-func (schdlactn *ScheduleAction) Schedule() (schdl ScheduleAPI) {
+func (schdlactn *ScheduleAction) Schedule() (schdl api.ScheduleAPI) {
 	if schdlactn != nil {
 		schdl = schdlactn.schdl
 	}

@@ -222,13 +222,20 @@ type connkeyapi string
 
 var ConnContxtKey connkeyapi = "http-con"
 
-type Listener struct {
-	lstnrs       map[string]*listen
-	ServeRequest func(requesting.RequestAPI, ...interface{}) error
+type ListenerAPI interface {
+	Listen(string, ...string) error
 }
 
-func NewListener() (lstnr *Listener) {
+type Listener struct {
+	lstnrs       map[string]*listen
+	ServeRequest func(requesting.RequestAPI) error
+}
+
+func NewListener(srvrqst ...func(ra requesting.RequestAPI) error) (lstnr *Listener) {
 	lstnr = &Listener{lstnrs: map[string]*listen{}}
+	if len(srvrqst) == 1 && srvrqst[0] != nil {
+		lstnr.ServeRequest = srvrqst[0]
+	}
 	return
 }
 

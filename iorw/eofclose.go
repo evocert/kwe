@@ -6,6 +6,115 @@ import (
 	"strings"
 )
 
+type MultiEOFCloseSeekReader struct {
+	eofrdrs []*EOFCloseSeekReader
+	eofrdr  *EOFCloseSeekReader
+}
+
+func NewMultiEOFCloseSeekReader(r ...io.Reader) (mltieofclsr *MultiEOFCloseSeekReader) {
+	var eofrdrs []*EOFCloseSeekReader = nil
+	if rl := len(r); rl > 0 {
+		var eofrdrs = make([]*EOFCloseSeekReader, rl)
+		for rrn, rr := range r {
+			eofrdrs[rrn] = NewEOFCloseSeekReader(rr)
+		}
+	}
+	mltieofclsr = &MultiEOFCloseSeekReader{eofrdrs: eofrdrs}
+	return
+}
+
+func (mltieofclsr *MultiEOFCloseSeekReader) ReadRune() (r rune, size int, err error) {
+	if mltieofclsr.eofrdr == nil && len(mltieofclsr.eofrdrs) > 0 {
+		mltieofclsr.eofrdr = mltieofclsr.eofrdrs[0]
+		mltieofclsr.eofrdrs = mltieofclsr.eofrdrs[1:]
+	} else {
+		err = io.EOF
+		return
+	}
+	r, size, err = mltieofclsr.eofrdr.ReadRune()
+	if err != nil {
+		if err == io.EOF {
+			err = mltieofclsr.eofrdr.Close()
+			mltieofclsr.eofrdr = nil
+			if len(mltieofclsr.eofrdrs) > 0 {
+				err = nil
+			}
+		}
+	}
+	return
+}
+
+func (mltieofclsr *MultiEOFCloseSeekReader) Read(p []byte) (n int, err error) {
+	if mltieofclsr != nil {
+		if pl := len(p); pl > 0 {
+			for n < pl {
+				if mltieofclsr.eofrdr == nil && len(mltieofclsr.eofrdrs) > 0 {
+					mltieofclsr.eofrdr = mltieofclsr.eofrdrs[0]
+					mltieofclsr.eofrdrs = mltieofclsr.eofrdrs[1:]
+				} else {
+					err = io.EOF
+					break
+				}
+				eofn, eoferr := mltieofclsr.eofrdr.Read(p[n : n+(pl-n)])
+				if eofn > 0 {
+					n += eofn
+				}
+				if eoferr != nil {
+					if eoferr == io.EOF {
+						eoferr = mltieofclsr.eofrdr.Close()
+						mltieofclsr.eofrdr = nil
+						if eoferr == nil {
+							if len(mltieofclsr.eofrdrs) > 0 {
+								eoferr = nil
+							} else {
+								err = io.EOF
+								break
+							}
+						}
+					} else {
+						err = eoferr
+						break
+					}
+				}
+			}
+		}
+		if err == io.EOF {
+			mltieofclsr.Close()
+			mltieofclsr = nil
+		}
+	}
+	return
+}
+
+func (mltieofclsr *MultiEOFCloseSeekReader) Close() (err error) {
+	if mltieofclsr != nil {
+		if mltieofclsr.eofrdr != nil {
+			mltieofclsr.eofrdr = nil
+		}
+		if mltieofclsr.eofrdrs != nil {
+			eofrdrsl := len(mltieofclsr.eofrdrs)
+			for eofrdrsl > 0 {
+				mltieofclsr.eofrdrs[0].Close()
+				mltieofclsr.eofrdrs[0] = nil
+				mltieofclsr.eofrdrs = mltieofclsr.eofrdrs[1:]
+				eofrdrsl--
+			}
+			mltieofclsr.eofrdrs = nil
+		}
+		mltieofclsr = nil
+	}
+	return
+}
+
+/*Seek(int64, int) (int64, error)
+  SetMaxRead(int64) (err error)
+  Read([]byte) (int, error)
+  ReadRune() (rune, int, error)
+  Readln() (string, error)
+  Readlines() ([]string, error)
+  ReadAll() (string, error)
+*/
+
 type EOFCloseSeekReader struct {
 	r       io.Reader
 	rc      io.Closer
@@ -94,6 +203,9 @@ func (eofclsr *EOFCloseSeekReader) Readln() (s string, err error) {
 		}
 	}
 	s = strings.TrimSpace(s)
+	if err == io.EOF {
+		err = nil
+	}
 	return
 }
 
@@ -106,6 +218,8 @@ func (eofclsr *EOFCloseSeekReader) Readlines() (lines []string, err error) {
 					lines = []string{}
 				}
 				lines = append(lines, ln)
+			} else {
+				break
 			}
 		} else {
 			break

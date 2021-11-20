@@ -9,13 +9,12 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
-	"github.com/evocert/kwe/parameters"
 )
 
 type DBMSAPI interface {
 	Connections() (cns []string)
 	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
-	AliasExists(alias string) (exists bool)
+	Exists(alias string) (exists bool)
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
 	Execute(a interface{}, excargs ...interface{}) (exctr *Executor)
 	InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error)
@@ -24,7 +23,7 @@ type DBMSAPI interface {
 type ActiveDBMS struct {
 	dbms     *DBMS
 	atvrntme active.Runtime
-	prms     parameters.ParametersAPI
+	//prms     parameters.ParametersAPI
 }
 
 func (atvdbms *ActiveDBMS) Connections() (cns []string) {
@@ -32,6 +31,21 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 		cns = atvdbms.dbms.Connections()
 	}
 	return
+}
+
+func (atvdbms *ActiveDBMS) Dispose() {
+	if atvdbms != nil {
+		if atvdbms.atvrntme != nil {
+			atvdbms.atvrntme = nil
+		}
+		if atvdbms.dbms != nil {
+			atvdbms.dbms = nil
+		}
+		/*if atvdbms.prms != nil {
+			atvdbms.prms = nil
+		}*/
+		atvdbms = nil
+	}
 }
 
 func (atvdbms *ActiveDBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
@@ -81,12 +95,9 @@ func (atvdbms *ActiveDBMS) InOut(in interface{}, out io.Writer, ioargs ...interf
 	return
 }
 
-func newActiveDBMS(dbms *DBMS, rntme active.Runtime, prms ...parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
+func newActiveDBMS(dbms *DBMS, rntme active.Runtime) (atvdbms *ActiveDBMS) {
 	if dbms != nil && rntme != nil {
 		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme}
-		if len(prms) > 0 && prms[0] != nil {
-			atvdbms.prms = prms[0]
-		}
 	}
 	return
 }
@@ -98,8 +109,8 @@ type DBMS struct {
 }
 
 //ActiveDBMS return registered connections
-func (dbms *DBMS) ActiveDBMS(rntme active.Runtime, prms ...parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
-	return newActiveDBMS(dbms, rntme, prms...)
+func (dbms *DBMS) ActiveDBMS(rntme active.Runtime) (atvdbms *ActiveDBMS) {
+	return newActiveDBMS(dbms, rntme)
 }
 
 //Connection return registered connections

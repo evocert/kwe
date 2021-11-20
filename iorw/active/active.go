@@ -1083,9 +1083,6 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 					}
 					if p, perr := goja.CompileAST(prsd, false); perr == nil {
 						_, err = atvrntme.lclvm(objmapref).RunProgram(p)
-						/*if err != nil {
-							fmt.Println(err.Error())
-						}*/
 					} else {
 						err = perr
 					}

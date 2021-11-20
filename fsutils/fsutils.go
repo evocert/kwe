@@ -459,7 +459,51 @@ func CAT(path string) (r io.Reader, err error) {
 			}
 		}
 	}
+	return
+}
 
+//MULTICAT return file(s) content if file(s) exists else empty string
+func MULTICAT(path ...string) (r io.Reader, err error) {
+	if pl := len(path); pl > 0 {
+		var rdrs = []io.Reader{}
+		for _, pth := range path {
+			if statf, staterr := os.Stat(pth); staterr != nil {
+				err = staterr
+			} else if !statf.IsDir() {
+				if statf.Size() > 0 {
+					if f, ferr := os.Open(pth); ferr == nil {
+						pr, pw := io.Pipe()
+						ctx, ctxcancel := context.WithCancel(context.Background())
+						go func() {
+							var pwerr error = nil
+							defer func() {
+								f.Close()
+								if pwerr == nil {
+									pw.Close()
+								} else {
+									pw.CloseWithError(pwerr)
+								}
+							}()
+							ctxcancel()
+							if _, pwerr = io.Copy(pw, f); pwerr != nil {
+								if pwerr == io.EOF {
+									pwerr = nil
+								}
+							}
+						}()
+						<-ctx.Done()
+						ctx = nil
+						rdrs = append(rdrs, pr)
+					} else {
+						err = ferr
+					}
+				}
+			}
+		}
+		if len(rdrs) > 0 {
+			r = iorw.NewMultiEOFCloseSeekReader(rdrs...)
+		}
+	}
 	return
 }
 
@@ -480,6 +524,38 @@ func CATS(path string) (cntnt string, err error) {
 				}()
 				cntnt, err = iorw.ReaderToString(r)
 			}()
+		}
+	}
+	return
+}
+
+//MULTICATS return file(s) content if file(s) exists else empty string
+func MULTICATS(path ...string) (cntnt string, err error) {
+	if len(path) > 0 {
+		var s = ""
+		for _, pth := range path {
+			var r io.Reader = nil
+			if r, err = CAT(pth); err == nil {
+				if r != nil {
+					var rc io.Closer = nil
+					rc, _ = r.(io.Closer)
+					func() {
+						defer func() {
+							if rc != nil {
+								rc.Close()
+								rc = nil
+							}
+							r = nil
+						}()
+						if s, err = iorw.ReaderToString(r); s != "" {
+							cntnt += s
+						}
+					}()
+					if err != nil {
+						break
+					}
+				}
+			}
 		}
 	}
 	return
@@ -603,7 +679,9 @@ type FSUtils struct {
 	PIPE           func(path string) (r io.Reader)                                                                              `json:"pipe"`
 	PIPES          func(path string) (s string)                                                                                 `json:"pipes"`
 	CAT            func(path string) (r io.Reader)                                                                              `json:"cat"`
+	MULTICAT       func(path ...string) (r io.Reader)                                                                           `json:"multicat"`
 	CATS           func(path string) (s string)                                                                                 `json:"cats"`
+	MULTICATS      func(path ...string) (s string)                                                                              `json:"multicats"`
 	SET            func(path string, a ...interface{}) bool                                                                     `json:"set"`
 	APPEND         func(path string, a ...interface{}) bool                                                                     `json:"append"`
 	DUMMYFINFO     func(name string, path string, absolutepath string, size int64, mod os.FileMode, modtime time.Time) FileInfo `json:"dummyfino"`

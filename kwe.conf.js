@@ -1,2 +1,2 @@
-kwe.fs.MKDIR("/movies","D:/movies");
-kwe.fs.MKDIR("/kweauth","C:/github/kweauth");
+kwe.FS().MKDIR("/movies","D:/movies");
+kwe.FS().MKDIR("/kweauth","C:/github/kweauth");

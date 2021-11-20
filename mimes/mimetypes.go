@@ -241,6 +241,7 @@ Hydrostatix Master Suite	application/vnd.hydrostatix.sof-data	.sfd-hdstx	IANA: H
 Hyperstudio	application/hyperstudio	.stk	IANA - Hyperstudio
 Hypertext Application Language	application/vnd.hal+xml	.hal	IANA: HAL
 HyperText Markup Language (HTML)	text/html	.html	Wikipedia: HTML
+HyperText Markup Language (HTML)	text/html	.htm	Wikipedia: HTML
 IBM DB2 Rights Manager	application/vnd.ibm.rights-management	.irm	IANA: IBM DB2 Rights Manager
 IBM Electronic Media Management System - Secure Container	application/vnd.ibm.secure-container	.sc	IANA: EMMS
 iCalendar	text/calendar	.ics	Wikipedia: iCalendar

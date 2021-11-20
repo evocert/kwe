@@ -108,6 +108,11 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return rscngepnt.fsset(path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
 				return rscngepnt.fsappend(path, a...)
+			}, MULTICAT: func(path ...string) (r io.Reader) {
+				return rscngepnt.multicat(path...)
+			}, MULTICATS: func(path ...string) (s string) {
+				return rscngepnt.multicats(path...)
+				return
 			},
 		}
 	}
@@ -119,6 +124,36 @@ func isValidLocalPath(path string) bool {
 		return fi.IsDir()
 	}
 	return false
+}
+
+func (rscngepnt *ResourcingEndpoint) multicat(path ...string) (r io.Reader) {
+	var rdrs []io.Reader = nil
+	if pthl := len(path); pthl > 0 {
+		rdrs = []io.Reader{}
+		for _, pth := range path {
+			if nxtr := rscngepnt.fscat(pth); nxtr != nil {
+				rdrs = append(rdrs, nxtr)
+			}
+		}
+	}
+	r = iorw.NewMultiEOFCloseSeekReader(rdrs...)
+	return
+}
+
+func (rscngepnt *ResourcingEndpoint) multicats(path ...string) (cntnt string) {
+	if pthl := len(path); pthl > 0 {
+		for _, pth := range path {
+			if rs, _ := rscngepnt.findRS(pth); rs != nil {
+				func() {
+					defer rs.Close()
+					if s, _ := iorw.ReaderToString(rs); s != "" {
+						cntnt += s
+					}
+				}()
+			}
+		}
+	}
+	return
 }
 
 func (rscngepnt *ResourcingEndpoint) fsappend(path string, a ...interface{}) bool {

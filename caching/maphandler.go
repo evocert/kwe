@@ -8,14 +8,12 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
-	"github.com/evocert/kwe/parameters"
 )
 
 //ActiveHandler - struct
 type ActiveHandler struct {
 	mphndlr *MapHandler
 	rntme   active.Runtime
-	prms    parameters.ParametersAPI
 }
 
 func (atvmphndlr *ActiveHandler) Keys(ks ...interface{}) (keys []interface{}) {
@@ -64,7 +62,6 @@ func (atvmphndlr *ActiveHandler) Remove(ks ...interface{}) {
 	if atvmphndlr != nil && atvmphndlr.mphndlr != nil && atvmphndlr.rntme != nil {
 		atvmphndlr.mphndlr.Remove(ks...)
 	}
-	return
 }
 
 func (atvmphndlr *ActiveHandler) Fprint(w io.Writer, ks ...interface{}) (err error) {
@@ -125,9 +122,9 @@ func (atvmphndlr *ActiveHandler) Close(ks ...interface{}) (closed bool) {
 }
 
 //Array
-func (atvmphndlr *ActiveHandler) IsMapAt(ks ...interface{}) (ismap bool) {
+func (atvmphndlr *ActiveHandler) IsMapAt(ks interface{}, a ...interface{}) (ismap bool) {
 	if atvmphndlr != nil && atvmphndlr.mphndlr != nil && atvmphndlr.rntme != nil {
-		ismap = atvmphndlr.mphndlr.IsMap(ks...)
+		ismap = atvmphndlr.mphndlr.IsMapAt(ks, a...)
 	}
 	return
 }
@@ -200,16 +197,13 @@ func (atvmphndlr *ActiveHandler) CloseAt(ks interface{}, a ...interface{}) (clos
 }
 
 //ActiveHandler return ActiveHandler for active.Runtime
-func (mphndlr *MapHandler) ActiveHandler(rntme active.Runtime, prms ...parameters.ParametersAPI) *ActiveHandler {
-	return newActiveHandler(mphndlr, rntme, prms...)
+func (mphndlr *MapHandler) ActiveHandler(rntme active.Runtime) *ActiveHandler {
+	return newActiveHandler(mphndlr, rntme)
 }
 
-func newActiveHandler(mphndlr *MapHandler, rntme active.Runtime, prms ...parameters.ParametersAPI) (atvmphnldr *ActiveHandler) {
+func newActiveHandler(mphndlr *MapHandler, rntme active.Runtime) (atvmphnldr *ActiveHandler) {
 	if mphndlr != nil && rntme != nil {
 		atvmphnldr = &ActiveHandler{mphndlr: mphndlr, rntme: rntme}
-		if len(prms) > 0 && prms[0] != nil {
-			atvmphnldr.prms = prms[0]
-		}
 	}
 	return
 }

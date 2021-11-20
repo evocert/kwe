@@ -7,21 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evocert/kwe/api"
+	"github.com/evocert/kwe/channeling"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/requesting"
 )
-
-type ScheduleAPI interface {
-	Schedules() SchedulesAPI
-	Start(...interface{}) error
-	AddAction(...interface{}) error
-	AddInitAction(...interface{}) error
-	AddWrapupAction(...interface{}) error
-	Stop() error
-	Shutdown() error
-	Active(...interface{}) *active.Active
-}
 
 type ScheduleHandler interface {
 	StartedSchedule(...interface{}) error
@@ -45,13 +36,14 @@ const (
 )
 
 type Schedule struct {
-	atv          *active.Active
-	serveRequest func(requesting.RequestAPI, *active.Active, ScheduleAPI, ...interface{}) (err error)
+	//atv          *active.Active
+	ssn          api.SessionAPI
+	serveRequest func(requesting.RequestAPI, *active.Active, api.ScheduleAPI, ...interface{}) (err error)
 	actnmde      scheduleactionsection
 	initstart    bool
 	schdlid      string
 	once         bool
-	schdls       SchedulesAPI
+	schdls       *Schedules
 	//schdlhndlr     ScheduleHandler
 	PrepActionArgs func(...interface{}) ([]interface{}, error)
 	From           time.Time
@@ -79,7 +71,7 @@ type Schedule struct {
 }
 
 func NewSchedule(a ...interface{}) (schdl *Schedule) {
-	var schdls SchedulesAPI = nil
+	var schdls *Schedules = nil
 
 	var start func(a ...interface{}) error = nil
 	var startargs []interface{} = nil
@@ -94,12 +86,11 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 	var frm time.Time = time.Now()
 	frm = time.Date(frm.Year(), frm.Month(), frm.Day(), 0, 0, 0, 0, frm.Location())
 	var to time.Time = frm.Add(time.Hour * 24)
-
 	if al := len(a); al > 0 {
 		ai := 0
 		for ai < al {
 			d := a[ai]
-			if dschdls, dschdlsok := d.(SchedulesAPI); dschdlsok {
+			if dschdls, dschdlsok := d.(*Schedules); dschdlsok {
 				if dschdls != nil && schdls == nil {
 					schdls = dschdls
 				}
@@ -208,12 +199,19 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 	return
 }
 
+func (schdl *Schedule) Session() (ssn api.SessionAPI) {
+	if schdl != nil {
+		if schdl.ssn == nil {
+			schdl.ssn = channeling.InvokeSession(schdl)
+		}
+		ssn = schdl.ssn
+	}
+	return
+}
+
 func (schdl *Schedule) Active(a ...interface{}) (atv *active.Active) {
 	if schdl != nil {
-		if schdl.atv == nil {
-			schdl.atv = active.NewActive()
-		}
-		atv = schdl.atv
+		atv = schdl.Session().Active(a...)
 	}
 	return
 }
@@ -515,7 +513,7 @@ func (scdhlctn *schdlaction) execute() (err error) {
 	return
 }
 
-func (schdl *Schedule) Schedules() (schdls SchedulesAPI) {
+func (schdl *Schedule) Schedules() (schdls api.SchedulesAPI) {
 	if schdl != nil {
 		schdls = schdl.schdls
 	}
@@ -758,9 +756,37 @@ func (schdl *Schedule) Stop() (err error) {
 func (schdl *Schedule) Shutdown() (err error) {
 	if schdl != nil {
 		if schdl.schdls != nil {
-			if schdls, _ := schdl.schdls.(*Schedules); schdls != nil {
-				schdls.removeSchedule(schdl)
-			}
+			schdl.schdls.removeSchedule(schdl)
+			schdl.schdls = nil
+		}
+		if schdl.actns != nil {
+			func() {
+				schdl.lckactns.Lock()
+				defer schdl.lckactns.Unlock()
+				schdl.actns.Dispose(nil, nil)
+				schdl.actns = nil
+			}()
+		}
+		if schdl.initactns != nil {
+			func() {
+				schdl.lckinitactns.Lock()
+				defer schdl.lckinitactns.Unlock()
+				schdl.initactns.Dispose(nil, nil)
+				schdl.initactns = nil
+			}()
+		}
+		if schdl.wrapupactns != nil {
+			func() {
+				schdl.lckwrapupactns.Lock()
+				defer schdl.lckwrapupactns.Unlock()
+				schdl.wrapupactns.Dispose(nil, nil)
+				schdl.wrapupactns = nil
+			}()
+		}
+		schdl.running = false
+		if schdl.ssn != nil {
+			schdl.ssn.Close()
+			schdl.ssn = nil
 		}
 	}
 	return

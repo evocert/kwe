@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/evocert/kwe/fsutils"
+	"github.com/evocert/kwe/iorw"
 )
 
 //ResourcingManager - struct
@@ -53,6 +54,10 @@ func (rscngmngr *ResourcingManager) FS() *fsutils.FSUtils {
 				return rscngmngr.fsset(path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
 				return rscngmngr.fsappend(path, a...)
+			}, MULTICAT: func(path ...string) (r io.Reader) {
+				return rscngmngr.fsmulticat(path...)
+			}, MULTICATS: func(path ...string) string {
+				return rscngmngr.fsmulticats(path...)
 			},
 		}
 	}
@@ -161,6 +166,40 @@ func (rscngmngr *ResourcingManager) fscat(path string) (r io.Reader) {
 		epnts = nil
 		paths = nil
 	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsmulticats(path ...string) (cntnt string) {
+	if len(path) > 0 {
+		for _, pth := range path {
+			if pth != "" {
+				cntnt += rscngmngr.fscats(pth)
+			}
+		}
+	}
+	return
+}
+
+func (rscngmngr *ResourcingManager) fsmulticat(path ...string) (r io.Reader) {
+	var rdrs []io.Reader = nil
+	if pthl := len(path); pthl > 0 {
+		for _, pth := range path {
+
+			if nxtpth := pth; nxtpth != "" {
+				if nxtpth != "" && !strings.HasPrefix(nxtpth, "/") {
+					nxtpth = "/" + nxtpth
+				}
+				if epnts, paths, _ := rscngmngr.findrsendpntpaths(nxtpth); epnts != nil && paths != nil {
+					if len(epnts) == 1 && len(pth) == 1 {
+						rdrs = append(rdrs, epnts[0].fscat(paths[0]))
+					}
+					epnts = nil
+					paths = nil
+				}
+			}
+		}
+	}
+	r = iorw.NewMultiEOFCloseSeekReader(rdrs...)
 	return
 }
 

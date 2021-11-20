@@ -224,7 +224,7 @@ type Message interface {
 	Payload() []byte
 	Connection() *MQTTConnection
 	TopicPath() string
-	Manager() *MQTTManager
+	Manager() MQTTManagerAPI
 	Ack()
 }
 
@@ -335,7 +335,7 @@ func (mqttmsg *mqttMessage) Connection() *MQTTConnection {
 	return mqttmsg.mqttcn
 }
 
-func (mqttmsg *mqttMessage) Manager() *MQTTManager {
+func (mqttmsg *mqttMessage) Manager() MQTTManagerAPI {
 	return mqttmsg.mqttmmng
 }
 

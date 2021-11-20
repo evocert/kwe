@@ -21,6 +21,12 @@ func WrapupCall(wrpupcall ...func()) {
 	}
 }
 
+type EnvAPI interface {
+	Set(name string, val interface{})
+	Get(name string) (val interface{})
+	Keys() (keys []string)
+}
+
 type envrmnt struct {
 	envsettions map[string]interface{}
 }
