@@ -717,6 +717,40 @@ var glblenv = env.Env()
 
 func init() {
 	fslcl = fsutils.NewFSUtils()
+	active.LoadGlobalModule("kwesession.js", `function kwefields(obj){
+		let properties = new Set()
+		let currentObj = obj
+		Object.entries(currentObj).forEach((key)=>{
+			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
+			if (typeof currentObj[key] !== 'function') {
+				var item=key;
+				properties.add(item);
+			}
+		});
+		if (properties.size===0) {
+			do {
+				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+			} while ((currentObj = Object.getPrototypeOf(currentObj)))
+		}
+		return [...properties.keys()].filter(item => item!=='__proto__' && typeof obj[item] !== 'function')
+	}
+	function kwemethods(obj){
+		let properties = new Set()
+		let currentObj = obj
+		Object.entries(currentObj).forEach((key)=>{
+			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
+			if (typeof currentObj[key] === 'function') {
+				var item=key;
+				properties.add(item);
+			}
+		});
+		if (properties.size===0) {
+			do {
+				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+			} while ((currentObj = Object.getPrototypeOf(currentObj)))
+		}
+		return [...properties.keys()].filter(item => typeof obj[item] === 'function')
+	}`)
 	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
 		map[string]interface{}{
 			"listen":      "_listen",
