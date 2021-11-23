@@ -18,28 +18,10 @@ func parseatvrune(prsng *parsing, rn rune) (err error) {
 		if prsng.cdetxt == rune(0) {
 			if (rn == '\'' || rn == '"' || rn == '`') && prsng.prslblprv[1] != '\\' {
 				prsng.cdetxt = rn
-				if rn == '`' {
-					prsng.cder[prsng.cderi] = '"'
-					prsng.cderi++
-					if prsng.cderi == len(prsng.cder) {
-						prsng.cderi = 0
-						err = prsng.writeCde(prsng.cder)
-					}
-					return
-				}
 			}
 		} else if prsng.cdetxt > rune(0) && prsng.cdetxt == rn {
 			if (rn == '\'' || rn == '"' || rn == '`') && prsng.prslblprv[1] != '\\' {
 				prsng.cdetxt = rune(0)
-				if rn == '`' {
-					prsng.cder[prsng.cderi] = '"'
-					prsng.cderi++
-					if prsng.cderi == len(prsng.cder) {
-						prsng.cderi = 0
-						err = prsng.writeCde(prsng.cder)
-					}
-					return
-				}
 			}
 		}
 		if prsng.cdetxt == '`' {
