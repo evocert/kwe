@@ -21,6 +21,7 @@ import (
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/requesting"
+	"github.com/evocert/kwe/requirejs"
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/web"
 )
@@ -773,6 +774,9 @@ func init() {
 			"send":        "_send",
 			"sendEval":    "_sendeval",
 			"sendreceive": "_sendreceive"}))
+	var rsmngr = resources.GLOBALRSNG()
+	rsmngr.FS().MKDIR("/require/js", "")
+	rsmngr.FS().SET("/require/js/require.js", requirejs.RequireJS())
 }
 
 type exepath struct {

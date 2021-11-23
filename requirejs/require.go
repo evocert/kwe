@@ -2012,7 +2012,7 @@ var requirejs, require, define;
            }
            if (canLoadMod===false) {
                try {
-                   fsutilcode=kwe.fsutils.CATS(url);
+                   fsutilcode=kwe.FSUTILS().CATS(url);
                    if (fsutilcode!=='undefined' && fsutilcode!=='') {
                        eval(fsutilcode);
                        canLoadMod=true;
@@ -4385,3 +4385,10 @@ func RequireMinJS() io.Reader {
 func RequireMinJSString() string {
 	return requireminjs
 }
+
+//RequireHeadHTMLString return string of html to ref require.js in head code
+func RequireHeadHTML() io.Reader {
+	return strings.NewReader(requireheadhtml)
+}
+
+const requireheadhtml string = `<script src="/require/js/require.js"></script>`
