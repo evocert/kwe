@@ -6,7 +6,7 @@ func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
 	gblrsngfs.MKDIR("/ffmpeg/js", "")
 	gblrsngfs.MKDIR("/ffmpeg/html", "")
-	gblrsngfs.SET("/ffmpeg/html/head.html", `<script src="/ffmpeg/html/head.html"></script>`)
+	gblrsngfs.SET("/ffmpeg/html/head.html", `<script src="/ffmpeg/js/ffmpeg.min.js"></script>`)
 	gblrsngfs.SET("/ffmpeg/js/ffmpeg.min.js", ffmpegjs)
 	gblrsngfs.SET("/ffmpeg/js/ffmpeg.js", ffmpegjs)
 }
