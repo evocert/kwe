@@ -29,6 +29,7 @@ import (
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/requirejs"
+	_ "github.com/evocert/kwe/requirejs/html"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
 	_ "github.com/evocert/kwe/sip"

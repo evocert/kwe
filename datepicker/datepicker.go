@@ -26,6 +26,10 @@ func init() {
 	gblrs := resources.GLOBALRSNG()
 	gblrs.FS().MKDIR("/datepicker/css", "")
 	gblrs.FS().MKDIR("/datepicker/js", "")
+	gblrs.FS().MKDIR("/datepicker/html", "")
+	gblrs.FS().SET("/datepicker/html/head.html",
+		`<link rel="stylesheet" type="ext/css" href="/datepicker/css/datepicker.css">
+<script type="application/javascript" src="/datepicker/js/datepicker.js"></script>`)
 	gblrs.FS().SET("/datepicker/css/datepicker.css", DatepickerCSS())
 	gblrs.FS().SET("/datepicker/js/datepicker.js", DatepickerJS())
 }

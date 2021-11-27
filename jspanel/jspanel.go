@@ -8,18 +8,24 @@ import (
 )
 
 func init() {
-	gblrs := resources.GLOBALRSNG()
+	gblrsfs := resources.GLOBALRSNG().FS()
 
-	gblrs.FS().MKDIR("/jspanel/css", "")
-	gblrs.FS().MKDIR("/jspanel/js", "")
-	gblrs.FS().SET("/jspanel/js/jspanel.min.js", JSPanelJS())
-	gblrs.FS().SET("/jspanel/js/jspanel.js", JSPanelJS())
-	gblrs.FS().SET("/jspanel/css/jspanel.min.css", JSPanelJS())
-	gblrs.FS().SET("/jspanel/css/jspanel.css", JSPanelCSS())
+	gblrsfs.MKDIR("/jspanel/css", "")
+	gblrsfs.MKDIR("/jspanel/js", "")
+	gblrsfs.SET("/jspanel/js/jspanel.min.js", JSPanelJS())
+	gblrsfs.SET("/jspanel/js/jspanel.js", JSPanelJS())
+	gblrsfs.SET("/jspanel/css/jspanel.min.css", JSPanelJS())
+	gblrsfs.SET("/jspanel/css/jspanel.css", JSPanelCSS())
 
-	gblrs.FS().MKDIR("/jspanel/js/extensions/modal", "")
-	gblrs.FS().SET("/jspanel/js/extensions/modal/jspanel.modal.min.js", JSPanelModalJS())
-	gblrs.FS().SET("/jspanel/js/extensions/modal/jspanel.modal.js", JSPanelModalJS())
+	gblrsfs.MKDIR("/jspanel/js/extensions/modal", "")
+	gblrsfs.SET("/jspanel/js/extensions/modal/jspanel.modal.min.js", JSPanelModalJS())
+	gblrsfs.SET("/jspanel/js/extensions/modal/jspanel.modal.js", JSPanelModalJS())
+
+	gblrsfs.MKDIR("/jspanel/html", "")
+	gblrsfs.SET("/jspanel/html/head.html",
+		`<link rel="stylesheet" type="text/css" href="/jspanel/css/jspanel.min.css">
+<script type="application/javascript" src="/jspanel/js/jspanel.min.js"></script>
+<script type="application/javascript" src="/jspanel/js/extensions/modal/jspanel.modal.min.js"></script>`)
 }
 
 func JSPanelCSS() io.Reader {

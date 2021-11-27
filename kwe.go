@@ -4,9 +4,11 @@ import (
 	"os"
 
 	_ "github.com/evocert/kwe/alertify"
+	_ "github.com/evocert/kwe/babylon"
 	_ "github.com/evocert/kwe/bootstrap"
 	"github.com/evocert/kwe/channeling"
 	_ "github.com/evocert/kwe/datepicker"
+	_ "github.com/evocert/kwe/ffmpeg"
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
 	_ "github.com/evocert/kwe/goldenlayout"
@@ -14,10 +16,12 @@ import (
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/requesting"
+	_ "github.com/evocert/kwe/requirejs/html"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
 	_ "github.com/evocert/kwe/sip"
-	_ "github.com/evocert/kwe/typescript"
+
+	//_ "github.com/evocert/kwe/typescript"
 
 	_ "github.com/evocert/kwe/database/mysql"
 	//To use ora import use go 1.6+
