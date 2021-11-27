@@ -52,6 +52,7 @@ Applixware	application/applixware	.aw	Vistasource
 Archipelago Lesson Player	application/vnd.hhe.lesson-player	.les	IANA: Archipelago Lesson Player
 Arista Networks Software Image	application/vnd.aristanetworks.swi	.swi	IANA: Arista Networks Software Image
 Assembler Source File	text/x-asm	.s	Wikipedia: Assembly
+Web Assembler Source File	application/wasm	.wasm	Wikipedia: Assembly
 Atom Publishing Protocol	application/atomcat+xml	.atomcat	RFC 5023
 Atom Publishing Protocol Service Document	application/atomsvc+xml	.atomsvc	RFC 5023
 Atom Syndication Format	application/atom+xml	.atom, .xml	RFC 4287
