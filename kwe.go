@@ -14,6 +14,7 @@ import (
 	_ "github.com/evocert/kwe/goldenlayout"
 	_ "github.com/evocert/kwe/jspanel"
 	"github.com/evocert/kwe/listen"
+	_ "github.com/evocert/kwe/luxon"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/requesting"
 	_ "github.com/evocert/kwe/requirejs/html"
