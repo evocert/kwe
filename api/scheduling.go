@@ -39,6 +39,8 @@ type SessionAPI interface {
 	Execute(...interface{}) error
 	Env() env.EnvAPI
 	Listen(network string, addr ...string) (err error)
+	UnCertifyAddr(...string)
+	CertifyAddr(string, string, ...string) error
 	Path() PathAPI
 	Active(...interface{}) *active.Active
 	Command(execpath string, execargs ...string) (cmd *osprc.Command, err error)

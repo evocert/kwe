@@ -198,6 +198,19 @@ func (ssn *Session) Env() (env env.EnvAPI) {
 	return
 }
 
+func (ssn *Session) UnCertifyAddr(addr ...string) {
+	if ssn != nil && ssn.lstnr != nil {
+		ssn.lstnr.UnCertifyAddr(addr...)
+	}
+}
+
+func (ssn *Session) CertifyAddr(servercert string, serverkey string, addr ...string) (err error) {
+	if ssn != nil && ssn.lstnr != nil {
+		err = ssn.lstnr.CertifyAddr(servercert, serverkey, addr...)
+	}
+	return
+}
+
 func (ssn *Session) Listen(network string, addr ...string) (err error) {
 	if ssn != nil && ssn.lstnr != nil {
 		err = ssn.lstnr.Listen(network, addr...)

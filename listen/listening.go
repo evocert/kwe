@@ -1,6 +1,7 @@
 package listen
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
@@ -224,15 +225,18 @@ var ConnContxtKey connkeyapi = "http-con"
 
 type ListenerAPI interface {
 	Listen(string, ...string) error
+	UnCertifyAddr(...string)
+	CertifyAddr(string, string, ...string) error
 }
 
 type Listener struct {
 	lstnrs       map[string]*listen
+	tlscertsconf map[string]*tls.Config
 	ServeRequest func(requesting.RequestAPI) error
 }
 
 func NewListener(srvrqst ...func(ra requesting.RequestAPI) error) (lstnr *Listener) {
-	lstnr = &Listener{lstnrs: map[string]*listen{}}
+	lstnr = &Listener{lstnrs: map[string]*listen{}, tlscertsconf: map[string]*tls.Config{}}
 	if len(srvrqst) == 1 && srvrqst[0] != nil {
 		lstnr.ServeRequest = srvrqst[0]
 	}
@@ -246,6 +250,46 @@ func (lstnr *Listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			lstnr.ServeRequest(rqst)
 		}
 	}
+}
+
+func (lstnr *Listener) CertifyAddr(servercert string, serverkey string, addr ...string) (err error) {
+	if lstnr != nil && serverkey != "" && servercert != "" {
+		cer, cererr := tls.X509KeyPair([]byte(servercert), []byte(serverkey))
+		if cererr != nil {
+			err = cererr
+		} else if addrl := len(addr); addrl > 0 {
+			for _, adr := range addr {
+				if cnfg := lstnr.tlscertsconf[adr]; cnfg != nil {
+					cnfg = nil
+				}
+				lstnr.tlscertsconf[adr] = &tls.Config{Certificates: []tls.Certificate{cer}}
+			}
+		}
+	}
+	return
+}
+
+func (lstnr *Listener) UnCertifyAddr(addr ...string) {
+	if lstnr != nil {
+		if addrl := len(addr); addrl > 0 {
+			for _, adr := range addr {
+				if cnfg := lstnr.tlscertsconf[adr]; cnfg != nil {
+					lstnr.tlscertsconf[adr] = nil
+				}
+			}
+		}
+	}
+}
+
+func (lstnr *Listener) accepts(addr string, cn net.Conn) (preppedcn net.Conn, err error) {
+	if lstnr != nil {
+		if adrcn := lstnr.tlscertsconf[addr]; adrcn != nil {
+			preppedcn = tls.Server(cn, adrcn)
+		} else {
+			preppedcn = cn
+		}
+	}
+	return
 }
 
 func (lstnr *Listener) Listen(network string, addr ...string) (err error) {
@@ -295,8 +339,11 @@ func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err 
 			addr: func() net.Addr {
 				return lstn.ln.Addr()
 			},
-			accpt: func() (net.Conn, error) {
-				return lstn.ln.Accept()
+			accpt: func() (cn net.Conn, err error) {
+				if cn, err = lstn.ln.Accept(); err == nil {
+					cn, err = lstnr.accepts(lstn.addr, cn)
+				}
+				return
 			}}
 	} else if lnerr != nil {
 		err = lnerr
