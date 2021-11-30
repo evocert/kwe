@@ -900,3 +900,8 @@ if (typeof this.` + nmspace + `==="function") {
 `
 	return
 }
+
+func ObjToScriptObject(objname string, orgobj interface{}) (objscriptcode string, objscriptmap map[string]interface{}) {
+
+	return
+}
