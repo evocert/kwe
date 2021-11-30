@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 
@@ -1517,10 +1518,58 @@ func newatvruntime(atv *Active) (atvrntme *atvruntime, err error) {
 	return
 }
 
+type fieldmapper struct {
+	fldmppr goja.FieldNameMapper
+}
+
+// FieldName returns a JavaScript name for the given struct field in the given type.
+// If this method returns "" the field becomes hidden.
+func (fldmppr *fieldmapper) FieldName(t reflect.Type, f reflect.StructField) (fldnme string) {
+	if f.Tag != "" {
+		fldnme = f.Tag.Get("json")
+	} else {
+		fldnme = uncapitalize(t.Name()) // fldmppr.fldmppr.FieldName(t, f)
+	}
+	return
+}
+
+// MethodName returns a JavaScript name for the given method in the given type.
+// If this method returns "" the method becomes hidden.
+func (fldmppr *fieldmapper) MethodName(t reflect.Type, m reflect.Method) (mthdnme string) {
+	mthdnme = uncapitalize(m.Name)
+	return
+}
+
+func uncapitalize(s string) (nme string) {
+	if sl := len(s); sl > 0 {
+		var nrxtsr = rune(0)
+		for sn, sr := range s {
+			if 'A' <= sr && sr <= 'Z' {
+				sr += 'a' - 'A'
+				nme += string(sr)
+			} else {
+				nme += string(sr)
+			}
+			if sn <= (sl-1)-1 {
+				nrxtsr = rune(s[sn+1])
+			} else {
+				nrxtsr = rune(0)
+			}
+			if 'a' <= nrxtsr && nrxtsr <= 'z' {
+				nme += s[sn+1:]
+				break
+			}
+		}
+	}
+	return nme
+}
+
 func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja.Runtime) {
 	if atvrntme != nil {
 		if atvrntme.vm == nil {
 			atvrntme.vm = goja.New()
+			var fldmppr = &fieldmapper{fldmppr: goja.UncapFieldNameMapper()}
+			atvrntme.vm.SetFieldNameMapper(fldmppr)
 			var dne = make(chan bool, 1)
 			go func(vm *goja.Runtime) {
 				defer func() { dne <- true }()
