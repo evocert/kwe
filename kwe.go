@@ -16,6 +16,7 @@ import (
 	"github.com/evocert/kwe/listen"
 	_ "github.com/evocert/kwe/luxon"
 	"github.com/evocert/kwe/mqtt"
+	_ "github.com/evocert/kwe/raphael"
 	"github.com/evocert/kwe/requesting"
 	_ "github.com/evocert/kwe/requirejs/html"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
