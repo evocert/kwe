@@ -1,22 +1,22 @@
-kwe.Caching().Put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
-console.log(kwe.Caching().String());
-if (kwe.Caching().ExistsAt("a","b",2)) {
-	console.log(kwe.Caching().At("a","b",2).String());
-	kwe.Caching().ClearAt("a","b",2)
-	console.log(kwe.Caching().At("a","b",2).String());
+kwe.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
+console.log(kwe.caching().string());
+if (kwe.caching().existsAt("a","b",2)) {
+	console.log(kwe.caching().at("a","b",2).string());
+	kwe.caching().clearAt("a","b",2)
+	console.log(kwe.caching().at("a","b",2).string());
 }
-console.log(kwe.Caching().String());
-if (kwe.Caching().ExistsAt("a","b",2)) {
-	kwe.Caching().CloseAt("a","b",2)
-	console.log(kwe.Caching().At("a","b",2));
-	console.log(kwe.Caching().String());
+console.log(kwe.caching().string());
+if (kwe.caching().existsAt("a","b",2)) {
+	kwe.caching().closeAt("a","b",2)
+	console.log(kwe.caching().at("a","b",2));
+	console.log(kwe.caching().string());
 }
 
-kwe.FS().MKDIR("/kweauth","C:/github/kweauth");
+kwe.fs().mkdir("/kweauth","C:/github/kweauth");
 
-kwe.FS().MKDIR("/gendocs","./gendocs");
+kwe.fs().mkdir("/gendocs","./gendocs");
 try {
-	eval(kwe.Send("/gendocs/gendocs.js").ReadAll());
+	eval(kwe.send("/gendocs/gendocs.js").readAll());
 } catch(e){
 	console.log(e.message);
 }
@@ -48,7 +48,7 @@ try {
 	console.log(e.message);
 }*/
 
-kwe.FS().MKDIR("/movies","D:/movies");
+kwe.fs().mkdir("/movies","D:/movies");
 
 try {
 	//eval(kwe.Send("/movies/schedule.js").ReadAll());

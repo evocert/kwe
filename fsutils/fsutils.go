@@ -667,7 +667,7 @@ func FINFOPATHSJSON(a ...FileInfo) (s string) {
 
 //FSUtils struct
 type FSUtils struct {
-	ABS            func(path string) string
+	ABS            func(path string) string                                                                                     `json:"abs"`
 	LS             func(path ...string) (finfos []FileInfo)                                                                     `json:"ls"`
 	FIND           func(path ...string) (finfos []FileInfo)                                                                     `json:"find"`
 	MKDIR          func(path ...interface{}) bool                                                                               `json:"mkdir"`

@@ -1,5 +1,5 @@
 var base="./";
-var root=(base=kwe.FSUTILS().ABS(base))+"";
+var root=(base=kwe.fsutils().abs(base))+"";
 
 var lgndcodebase="golang";
 var lgndscopeglobal="/g/";
@@ -35,15 +35,15 @@ var preppath="";
 var currentpath="";
 var lastpreppath=".";
 
-kwe.FSUTILS().FIND(root).filter(function(e){
-    return e.AbsolutePath().endsWith(".go");
+kwe.fsutils().find(root).filter(function(e){
+    return e.absolutePath().endsWith(".go");
 }).sort(function(a,b){
-    var apath=a.AbsolutePath().substring(base.length+1);
-    var bpath=b.AbsolutePath().substring(base.length+1);
+    var apath=a.absolutePath().substring(base.length+1);
+    var bpath=b.absolutePath().substring(base.length+1);
     return apath.split("/").length-bpath.split("/").length || // sort by length, if equal then
          apath.localeCompare(bpath);    // sort by dictionary order
 }).forEach(function(e,ei,elines) {
-    currentpath=e.AbsolutePath().substring(base.length+1);
+    currentpath=e.absolutePath().substring(base.length+1);
     if (currentpath.startsWith("/")) {
         currentpath=currentpath.substring(1)
     }
@@ -62,7 +62,7 @@ kwe.FSUTILS().FIND(root).filter(function(e){
     var typedefln="";
     var typedeflni=-1;
 
-    var srclines=kwe.FSUTILS().CAT(root+"/"+currentpath).Readlines();
+    var srclines=kwe.fsutils().cat(root+"/"+currentpath).readlines();
     srclines.forEach(function(ln,lni,lns){
         if ((ln=ln.trim())!==""){
             if(package==="" && ln.startsWith("package ")&&(ln=ln.substring("package ".length).trim())!=="") {
@@ -321,10 +321,10 @@ kwe.FSUTILS().FIND(root).filter(function(e){
         }
     });
 }.bind(this));
-if (kwe.Out()!==undefined && kwe.Out()!==null) {
-    kwe.Out().SetHeader("Content-Type","application/json");
+if (kwe.out()!==undefined && kwe.out()!==null) {
+    kwe.out().setHeader("Content-Type","application/json");
 }
-kwe.FSUTILS().SET("./gendocs/codedefs.json",JSON.stringify(prep))
-if (kwe.Out()!==undefined && kwe.Out()!==null) {
-    kwe.Out().Print(JSON.stringify(prep));
+kwe.fsutils().set("./gendocs/codedefs.json",JSON.stringify(prep))
+if (kwe.out()!==undefined && kwe.out()!==null) {
+    kwe.out().print(JSON.stringify(prep));
 }
