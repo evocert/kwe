@@ -82,6 +82,7 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 				if rspns.Header("Content-Length") == "" {
 					rspns.SetHeader("Connection", "close")
 				}
+				rspns.SetHeader("Access-Control-Allow-Origin", "*")
 				rspns.SetHeader("Cross-Origin-Embedder-Policy", "require-corp")
 				rspns.SetHeader("Cross-Origin-Opener-Policy", "same-origin")
 				//MULTIMEDIA support for HTTP 1.1
