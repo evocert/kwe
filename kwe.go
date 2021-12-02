@@ -8,6 +8,7 @@ import (
 	_ "github.com/evocert/kwe/bootstrap"
 	"github.com/evocert/kwe/channeling"
 	_ "github.com/evocert/kwe/crypto"
+	_ "github.com/evocert/kwe/datatables"
 	_ "github.com/evocert/kwe/datepicker"
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
