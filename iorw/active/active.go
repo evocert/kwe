@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja/parser"
@@ -1314,15 +1315,9 @@ func (atvrntme *atvruntime) dispose(clear ...bool) {
 			}
 		}
 		if atvrntme.vm != nil {
-			if vmgbl := atvrntme.vm.GlobalObject(); vmgbl != nil {
-				var ks = vmgbl.Keys()
-				if len(ks) > 0 {
-					for _, k := range ks {
-						atvrntme.vm.GlobalObject().Delete(k)
-					}
-				}
-			}
+			resetvm(atvrntme.vm)
 			if !clearonly {
+				vmpool.Put(atvrntme.vm)
 				atvrntme.vm = nil
 			}
 		}
@@ -1564,18 +1559,41 @@ func uncapitalize(s string) (nme string) {
 	return nme
 }
 
+var vmpool = &sync.Pool{New: func() interface{} { return newvm() }}
+
+func newvm() (vm *goja.Runtime) {
+	vm = goja.New()
+	var fldmppr = &fieldmapper{fldmppr: goja.UncapFieldNameMapper()}
+	vm.SetFieldNameMapper(fldmppr)
+	jsext.Register(vm)
+	return
+}
+
+func resetvm(vm *goja.Runtime) {
+	if vm != nil {
+		if vmgbl := vm.GlobalObject(); vmgbl != nil {
+			var ks = vmgbl.Keys()
+			if len(ks) > 0 {
+				for _, k := range ks {
+					vm.GlobalObject().Delete(k)
+				}
+			}
+		}
+	}
+}
+
 func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja.Runtime) {
 	if atvrntme != nil {
 		if atvrntme.vm == nil {
-			atvrntme.vm = goja.New()
-			var fldmppr = &fieldmapper{fldmppr: goja.UncapFieldNameMapper()}
-			atvrntme.vm.SetFieldNameMapper(fldmppr)
+			if atvrntme.vm, _ = vmpool.Get().(*goja.Runtime); atvrntme.vm == nil {
+				atvrntme.vm = newvm()
+			}
 			var dne = make(chan bool, 1)
-			go func(vm *goja.Runtime) {
-				defer func() { dne <- true }()
-				jsext.Register(vm)
-			}(atvrntme.vm)
-			<-dne
+			//go func(vm *goja.Runtime) {
+			//	defer func() { dne <- true }()
+			//jsext.Register(vm)
+			//}(atvrntme.vm)
+			//<-dne
 			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
 				if len(definternmapref) > 0 {
 					for k, ref := range definternmapref {
