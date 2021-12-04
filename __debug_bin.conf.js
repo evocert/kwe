@@ -24,7 +24,7 @@ try {
 kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
 
 var a=kwe.dbms().query({"alias":"b1","query":"select 42"});
-println(kwemethods(a));
+//println(JSON.stringify(kwemethods(a)));
 console.log(a.json());
 
 
