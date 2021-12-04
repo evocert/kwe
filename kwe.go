@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"time"
 
 	_ "github.com/evocert/kwe/alertify"
 	_ "github.com/evocert/kwe/babylon"
@@ -22,10 +20,8 @@ import (
 	_ "github.com/evocert/kwe/raphael"
 	"github.com/evocert/kwe/requesting"
 	_ "github.com/evocert/kwe/requirejs/html"
-	"github.com/evocert/kwe/resources"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
-	"github.com/evocert/kwe/web"
 
 	_ "github.com/evocert/kwe/sip"
 
@@ -72,21 +68,6 @@ func main() {
 			}
 		}
 	}))
-
-	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/testws", "")
-	gblrsngfs.SET("/testws/test.js", `kwe.out().print("hello there");`)
-
-	go func() {
-		time.Sleep(time.Second * 10)
-		clnt := web.NewClient()
-		if rw, rwerr := clnt.SendReceive("ws://localhost/testws/test.js"); rw != nil {
-			fmt.Println(rw.ReadAll())
-		} else if rwerr != nil {
-			fmt.Println(rwerr)
-		}
-
-	}()
 
 	service.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
 		return serveRequest(rqst, mqttmngr, glblschdls, lstnr)
