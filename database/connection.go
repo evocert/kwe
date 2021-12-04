@@ -78,7 +78,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 			prmnme := "p" + fmt.Sprintf("%d", argi)
 			exctr.qryArgs[argi] = sql.Named(prmnme, prmval)
 		}
-	} else if exctr.cn.driverName == "postgres" {
+	} else if exctr.cn.driverName == "postgres" || exctr.cn.driverName == "sqlite3" || exctr.cn.driverName == "kwesqlite" {
 		if argi == -1 {
 			s = ("$" + fmt.Sprintf("%d", len(exctr.qryArgs)+1))
 		}
