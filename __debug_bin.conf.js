@@ -1,4 +1,4 @@
-kwe.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
+/*kwe.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.log(kwe.caching().string());
 if (kwe.caching().existsAt("a","b",2)) {
 	console.log(kwe.caching().at("a","b",2).string());
@@ -19,7 +19,12 @@ try {
 	eval(kwe.send("/gendocs/gendocs.js").readAll());
 } catch(e){
 	console.log(e.message);
-}
+}*/
+
+kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
+var a=kwe.dbms().query({"alias":"b1","query":"select 42"});
+console.log(a.json());
+
 
 //Capture bible
 /*try {

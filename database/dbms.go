@@ -137,6 +137,12 @@ func (dbms *DBMS) Connections() (cns []string) {
 	return
 }
 
+//UnegisterConnection - alias
+func (dbms *DBMS) UnregisterConnection(alias string) (unregistered bool) {
+
+	return
+}
+
 //RegisterConnection - alias, driverName, dataSourceName
 func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if alias != "" && driver != "" && datasource != "" {

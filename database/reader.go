@@ -311,7 +311,7 @@ func (rdr *Reader) JSONReader() (jsnrdr *JSONReader) {
 	return
 }
 
-//JSON readall *Readee and return json as string
+//JSON readall *Reader and return json as string
 func (rdr *Reader) JSON() (s string, err error) {
 	bufr := iorw.NewBuffer()
 	func() {
