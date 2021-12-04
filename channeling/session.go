@@ -80,7 +80,10 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 		}
 	}
 	var ssn = &Session{atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager()}
-	ssn.atvdbms = database.GLOBALDBMS().ActiveDBMS(ssn.atv)
+	ssn.atvdbms = database.GLOBALDBMS().ActiveDBMS(ssn.atv, func() (prms parameters.ParametersAPI) {
+		prms = ssn.Parameters()
+		return
+	})
 	ssn.chnghndlr = caching.GLOBALMAPHANDLER().ActiveHandler(ssn.atv)
 	ssn.mqttevent = mqttevent
 	ssn.mqttmsg = mqttmsg

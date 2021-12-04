@@ -28,6 +28,29 @@ func (cn *Connection) IsRemote() bool {
 	return (strings.HasPrefix(cn.dataSourceName, "http://") || strings.HasPrefix(cn.dataSourceName, "https://") || strings.HasPrefix(cn.dataSourceName, "ws://") || strings.HasPrefix(cn.dataSourceName, "wss://"))
 }
 
+func (cn *Connection) Dispose() (err error) {
+	if cn != nil {
+		if cn.db != nil {
+			err = cn.db.Close()
+			cn.db = nil
+		}
+		if cn.args != nil {
+			cn.args = nil
+		}
+		if cn.dbi != nil {
+			cn.dbi = nil
+		}
+		if cn.dbinvoker != nil {
+			cn.dbinvoker = nil
+		}
+		if cn.dbms != nil {
+			cn.dbms = nil
+		}
+		cn = nil
+	}
+	return
+}
+
 func runeReaderToString(rnr io.RuneReader) (s string) {
 	return
 }

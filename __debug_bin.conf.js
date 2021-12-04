@@ -22,10 +22,10 @@ try {
 }*/
 
 kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
-
-var a=kwe.dbms().query({"alias":"b1","query":"select 42"});
-//println(JSON.stringify(kwemethods(a)));
+var a=kwe.dbms().query({"alias":"b1","query":"select @@prm1@@"},{"prm1":42});
+console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());
+kwe.dbms().unregisterConnection("b1");
 
 
 //Capture bible

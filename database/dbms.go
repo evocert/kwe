@@ -9,10 +9,12 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/parameters"
 )
 
 type DBMSAPI interface {
 	Connections() (cns []string)
+	UnregisterConnection(alias string) (unregistered bool)
 	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
 	Exists(alias string) (exists bool)
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
@@ -23,7 +25,7 @@ type DBMSAPI interface {
 type ActiveDBMS struct {
 	dbms     *DBMS
 	atvrntme active.Runtime
-	//prms     parameters.ParametersAPI
+	prmsfnc  func() parameters.ParametersAPI
 }
 
 func (atvdbms *ActiveDBMS) Connections() (cns []string) {
@@ -41,11 +43,18 @@ func (atvdbms *ActiveDBMS) Dispose() {
 		if atvdbms.dbms != nil {
 			atvdbms.dbms = nil
 		}
-		/*if atvdbms.prms != nil {
-			atvdbms.prms = nil
-		}*/
+		if atvdbms.prmsfnc != nil {
+			atvdbms.prmsfnc = nil
+		}
 		atvdbms = nil
 	}
+}
+
+func (atvdbms *ActiveDBMS) UnregisterConnection(alias string) (unregistered bool) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		unregistered = atvdbms.dbms.UnregisterConnection(alias)
+	}
+	return
 }
 
 func (atvdbms *ActiveDBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
@@ -69,6 +78,11 @@ func (atvdbms *ActiveDBMS) Query(a interface{}, qryargs ...interface{}) (reader 
 	if atvdbms != nil && atvdbms.dbms != nil {
 		if atvdbms.atvrntme != nil {
 			qryargs = append([]interface{}{atvdbms.atvrntme}, qryargs...)
+		}
+		if atvdbms.prmsfnc != nil {
+			if prms := atvdbms.prmsfnc(); prms != nil {
+				qryargs = append([]interface{}{prms}, qryargs...)
+			}
 		}
 		reader = atvdbms.dbms.Query(a, qryargs...)
 	}
@@ -95,9 +109,9 @@ func (atvdbms *ActiveDBMS) InOut(in interface{}, out io.Writer, ioargs ...interf
 	return
 }
 
-func newActiveDBMS(dbms *DBMS, rntme active.Runtime) (atvdbms *ActiveDBMS) {
+func newActiveDBMS(dbms *DBMS, rntme active.Runtime, prmsfnc func() parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
 	if dbms != nil && rntme != nil {
-		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme}
+		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme, prmsfnc: prmsfnc}
 	}
 	return
 }
@@ -109,8 +123,8 @@ type DBMS struct {
 }
 
 //ActiveDBMS return registered connections
-func (dbms *DBMS) ActiveDBMS(rntme active.Runtime) (atvdbms *ActiveDBMS) {
-	return newActiveDBMS(dbms, rntme)
+func (dbms *DBMS) ActiveDBMS(rntme active.Runtime, prmsfnc func() parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
+	return newActiveDBMS(dbms, rntme, prmsfnc)
 }
 
 //Connection return registered connections
@@ -139,7 +153,13 @@ func (dbms *DBMS) Connections() (cns []string) {
 
 //UnegisterConnection - alias
 func (dbms *DBMS) UnregisterConnection(alias string) (unregistered bool) {
-
+	if alias != "" {
+		if cn, cnok := dbms.cnctns[alias]; cnok {
+			cn.Dispose()
+			dbms.cnctns[alias] = nil
+			delete(dbms.cnctns, alias)
+		}
+	}
 	return
 }
 

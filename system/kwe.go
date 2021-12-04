@@ -28,6 +28,7 @@ import (
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
+	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/requirejs"
 	_ "github.com/evocert/kwe/requirejs/html"
 	scheduling "github.com/evocert/kwe/scheduling/ext"
@@ -511,7 +512,7 @@ func main() {
 									}
 									objref["_env"] = glblenv
 									objref["_in"] = rqst
-									objref["_dbms"] = glbldbms().ActiveDBMS(atv)
+									objref["_dbms"] = glbldbms().ActiveDBMS(atv, func() parameters.ParametersAPI { return rqst.Parameters() })
 									objref["_caching"] = glblchng().ActiveHandler(atv)
 									objref["_out"] = rspns
 									objref["_fs"] = glblrsfs()
