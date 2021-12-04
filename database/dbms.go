@@ -158,6 +158,7 @@ func (dbms *DBMS) UnregisterConnection(alias string) (unregistered bool) {
 			cn.Dispose()
 			dbms.cnctns[alias] = nil
 			delete(dbms.cnctns, alias)
+			unregistered = true
 		}
 	}
 	return
