@@ -36,6 +36,19 @@ func (w *responseWriter) Flush() {
 	}
 }
 
+func (w *responseWriter) Hijack() (con net.Conn, bufrw *bufio.ReadWriter, err error) {
+	if w != nil {
+		if con, _ = w.orgwtr.(net.Conn); con != nil {
+			bufrw = bufio.NewReadWriter(bufio.NewReader(con), bufio.NewWriter(con))
+		} else {
+			err = fmt.Errorf("unable to hijack connection")
+		}
+	} else {
+		err = fmt.Errorf("unable to hijack connection")
+	}
+	return con, bufrw, err
+}
+
 func (w *responseWriter) Close() (err error) {
 	if w != nil {
 		w.Flush()
