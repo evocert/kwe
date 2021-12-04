@@ -30,18 +30,20 @@ type ReaderWriter struct {
 //NewServerReaderWriter - instance
 func NewServerReaderWriter(w http.ResponseWriter, r *http.Request) (wsrw *ReaderWriter, err error) {
 	if w != nil && r != nil {
-		wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
-			// don't return errors to maintain backwards compatibility
-		}, CheckOrigin: func(r *http.Request) bool {
-			// allow all connections by default
-			return true
-		}}
-		if ws, wserr := wsu.Upgrade(w, r, nil); wserr == nil {
-			wsrw = &ReaderWriter{ws: ws, lcladdr: ws.LocalAddr().String(), rmtaddr: ws.RemoteAddr().String(), isText: false, isBinary: false, rerr: nil, werr: nil, MaxRead: -1}
-		} else {
-			err = wserr
+		if websocket.IsWebSocketUpgrade(r) && r.Method == "GET" {
+			wsu := &websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096, Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
+				// don't return errors to maintain backwards compatibility
+			}, CheckOrigin: func(r *http.Request) bool {
+				// allow all connections by default
+				return true
+			}}
+			if ws, wserr := wsu.Upgrade(w, r, nil); wserr == nil {
+				wsrw = &ReaderWriter{ws: ws, lcladdr: ws.LocalAddr().String(), rmtaddr: ws.RemoteAddr().String(), isText: false, isBinary: false, rerr: nil, werr: nil, MaxRead: -1}
+			} else {
+				err = wserr
+			}
+			wsu = nil
 		}
-		wsu = nil
 	}
 	return
 }
