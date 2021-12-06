@@ -764,11 +764,11 @@ func calibrateConnection(cn *Connection, a ...interface{}) {
 			if d != nil {
 				if mpcnsttngs, _ := d.(map[string]interface{}); mpcnsttngs != nil && len(mpcnsttngs) > 0 {
 					for k, v := range mpcnsttngs {
-						if k == "idle-cons" {
+						if k == "max-idle-cons" {
 							if vidlecons, _ := v.(int); vidlecons != idlecons {
 								idlecons = vidlecons
 							}
-						} else if k == "open-cons" {
+						} else if k == "max-open-cons" {
 							if vopencons, _ := v.(int); vopencons != opencons {
 								opencons = vopencons
 							}

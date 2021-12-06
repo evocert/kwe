@@ -21,12 +21,11 @@ try {
 	console.log(e.message);
 }
 
-kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
+kwe.dbms().registerConnection("b1","kwesqlite",":memory:",{"max-open-cons":1});
 var a=kwe.dbms().query({"alias":"b1","query":"select @@prm1@@"},{"prm1":42});
 console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());
 kwe.dbms().unregisterConnection("b1");
-
 
 //Capture bible
 /*try {
