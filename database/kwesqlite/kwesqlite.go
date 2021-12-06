@@ -10,6 +10,7 @@ import (
 )
 
 //Open -wrap sql.Open("sqlite", datasource)
+// when registering driver "kwesqlite"
 func Open(datasource string) (*sql.DB, error) {
 	return sql.Open("sqlite", datasource)
 }
