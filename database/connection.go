@@ -22,6 +22,26 @@ type Connection struct {
 	db                         *sql.DB
 	args                       []interface{}
 	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
+	maxidlecons                int
+	maxopencons                int
+}
+
+func (cn *Connection) SetMaxIdleConns(idlcons int) {
+	if cn != nil {
+		cn.maxidlecons = idlcons
+		if cn.db != nil {
+			cn.db.SetMaxIdleConns(cn.maxidlecons)
+		}
+	}
+}
+
+func (cn *Connection) SetMaxOpenConns(idlcons int) {
+	if cn != nil {
+		cn.maxopencons = idlcons
+		if cn.db != nil {
+			cn.db.SetMaxOpenConns(cn.maxopencons)
+		}
+	}
 }
 
 func (cn *Connection) IsRemote() bool {
@@ -721,6 +741,30 @@ func NewConnection(dbms *DBMS, driverName, dataSourceName string) (cn *Connectio
 
 func calibrateConnection(cn *Connection, a ...interface{}) {
 	if cn != nil && len(a) > 0 {
-
+		var idlecons = cn.maxidlecons
+		var opencons = cn.maxopencons
+		for _, d := range a {
+			if d != nil {
+				if mpcnsttngs, _ := d.(map[string]interface{}); mpcnsttngs != nil && len(mpcnsttngs) > 0 {
+					for k, v := range mpcnsttngs {
+						if k == "idle-cons" {
+							if vidlecons, _ := v.(int); vidlecons != idlecons {
+								idlecons = vidlecons
+							}
+						} else if k == "open-cons" {
+							if vopencons, _ := v.(int); vopencons != opencons {
+								opencons = vopencons
+							}
+						}
+					}
+				}
+			}
+		}
+		if idlecons != cn.maxidlecons {
+			cn.SetMaxIdleConns(idlecons)
+		}
+		if opencons != cn.maxopencons {
+			cn.SetMaxOpenConns(opencons)
+		}
 	}
 }
