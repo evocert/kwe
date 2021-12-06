@@ -13,13 +13,13 @@ if (kwe.caching().existsAt("a","b",2)) {
 }
 
 kwe.fs().mkdir("/kweauth","C:/github/kweauth");
-
+*/
 kwe.fs().mkdir("/gendocs","./gendocs");
 try {
 	eval(kwe.send("/gendocs/gendocs.js").readAll());
 } catch(e){
 	console.log(e.message);
-}*/
+}
 
 kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
 var a=kwe.dbms().query({"alias":"b1","query":"select @@prm1@@"},{"prm1":42});

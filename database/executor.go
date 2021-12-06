@@ -306,7 +306,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 				}
 			}()
 			<-cntxexec.Done()
-			if cntxerr := cntxexec.Err(); cntxerr != nil && exctr != nil && exctr.lasterr == nil {
+			if cntxerr := cntxexec.Err(); cntxerr != nil && cntxerr.Error() != "context canceled" && exctr != nil && exctr.lasterr == nil {
 				exctr.lasterr = cntxerr
 				exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
 				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
