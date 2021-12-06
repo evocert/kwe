@@ -27,7 +27,7 @@ import (
 
 	_ "github.com/evocert/kwe/typescript"
 
-	_ "github.com/evocert/kwe/database/kwesqlte"
+	_ "github.com/evocert/kwe/database/kwesqlite"
 	_ "github.com/evocert/kwe/database/mysql"
 	_ "github.com/evocert/kwe/database/sqlite"
 

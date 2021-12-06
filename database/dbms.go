@@ -239,6 +239,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			var canRepeat = false
 			var stngok = false
 			var args []interface{} = nil
+			var execargs []map[string]interface{} = nil
 			var argsmap map[string]interface{} = nil
 			for stngk, stngv := range sttngs {
 				if stngk == "alias" {
@@ -249,6 +250,19 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 					if canRepeat, stngok = stngv.(bool); stngok {
 						if canRepeat {
 							prms = append(prms, stngv)
+						}
+					}
+				} else if stngk == "exec" {
+					if execargsv, _ := stngv.([]interface{}); len(execargsv) > 0 {
+						for _, execstngv := range execargsv {
+							if execstngv != nil {
+								if execmpv, _ := execstngv.(map[string]interface{}); execmpv != nil && len(execmpv) > 0 {
+									if execargs == nil {
+										execargs = []map[string]interface{}{}
+									}
+									execargs = append(execargs, execmpv)
+								}
+							}
 						}
 					}
 				} else if stngk == "success" {
@@ -274,7 +288,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			}
 			if exists, dbcn := dbms.Exists(alias); exists {
 				var err error = nil
-				reader, _, err = internquery(dbcn, query, false, onsuccess, onerror, onfinalize, prms...)
+				reader, _, err = internquery(dbcn, query, false, execargs, onsuccess, onerror, onfinalize, prms...)
 				if err != nil && reader == nil {
 
 				}
@@ -286,7 +300,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 
 func (dbms *DBMS) QueryJSON(query interface{}, prms ...interface{}) (reader *Reader) {
 	var err error = nil
-	reader, _, err = internquery(nil, query, false, nil, nil, nil, prms...)
+	reader, _, err = internquery(nil, query, false, nil, nil, nil, nil, prms...)
 	if err != nil && reader == nil {
 
 	}
@@ -544,7 +558,7 @@ func (dbms *DBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executo
 		}
 		if exists, dbcn := dbms.Exists(alias); exists {
 			var err error = nil
-			if _, exctr, err = internquery(dbcn, query, true, onsuccess, onerror, onfinalize, prms...); err != nil {
+			if _, exctr, err = internquery(dbcn, query, true, nil, onsuccess, onerror, onfinalize, prms...); err != nil {
 
 			}
 		}

@@ -404,7 +404,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 //GblExecute - public for query()*Executor
 func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr *Executor, err error) {
-	if _, exctr, err = internquery(cn, query, true, nil, nil, nil, prms...); err != nil {
+	if _, exctr, err = internquery(cn, query, true, nil, nil, nil, nil, prms...); err != nil {
 
 	}
 	return
@@ -412,7 +412,7 @@ func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr 
 
 //GblQuery - public for query() *Reader
 func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *Reader, err error) {
-	reader, _, err = internquery(cn, query, false, nil, nil, nil, prms...)
+	reader, _, err = internquery(cn, query, false, nil, nil, nil, nil, prms...)
 	if err != nil && reader == nil {
 
 	}
@@ -545,7 +545,7 @@ func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}
 	}
 }
 
-func internquery(cn *Connection, query interface{}, noreader bool, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
+func internquery(cn *Connection, query interface{}, noreader bool, execargs []map[string]interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
 	var argsn = 0
 	var script active.Runtime = nil
 	var canRepeat = false
@@ -663,6 +663,13 @@ func internquery(cn *Connection, query interface{}, noreader bool, onsuccess, on
 				}
 			} else {
 				reader = newReader(exctr)
+				if len(execargs) > 0 {
+					for _, execmp := range execargs {
+						if len(execmp) > 0 {
+
+						}
+					}
+				}
 				reader.execute()
 				if err = reader.lasterr; err != nil {
 					invokeError(reader.script, err, onerror)

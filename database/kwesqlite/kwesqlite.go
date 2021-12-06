@@ -1,4 +1,4 @@
-package kwesqlte
+package kwesqlite
 
 import (
 	"database/sql"
