@@ -22,7 +22,9 @@ type Connection struct {
 	db                         *sql.DB
 	args                       []interface{}
 	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
+	lastmaxidecons             int
 	maxidlecons                int
+	lastmaxopencons            int
 	maxopencons                int
 }
 
@@ -30,16 +32,22 @@ func (cn *Connection) SetMaxIdleConns(idlcons int) {
 	if cn != nil {
 		cn.maxidlecons = idlcons
 		if cn.db != nil {
-			cn.db.SetMaxIdleConns(cn.maxidlecons)
+			if cn.lastmaxidecons != cn.maxidlecons {
+				cn.db.SetMaxIdleConns(cn.maxidlecons)
+				cn.lastmaxidecons = cn.maxidlecons
+			}
 		}
 	}
 }
 
-func (cn *Connection) SetMaxOpenConns(idlcons int) {
+func (cn *Connection) SetMaxOpenConns(opencons int) {
 	if cn != nil {
-		cn.maxopencons = idlcons
+		cn.maxopencons = opencons
 		if cn.db != nil {
-			cn.db.SetMaxOpenConns(cn.maxopencons)
+			if cn.lastmaxidecons != cn.maxopencons {
+				cn.db.SetMaxOpenConns(cn.maxopencons)
+				cn.lastmaxidecons = cn.maxopencons
+			}
 		}
 	}
 }
@@ -625,6 +633,15 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 		}
 	}
 	if cn.db != nil {
+		if cn.lastmaxidecons != cn.maxidlecons {
+			cn.db.SetMaxIdleConns(cn.maxidlecons)
+			cn.lastmaxidecons = cn.maxidlecons
+		}
+		if cn.lastmaxopencons != cn.maxopencons {
+			cn.db.SetMaxOpenConns(cn.maxopencons)
+			cn.lastmaxopencons = cn.maxopencons
+		}
+
 		if err = cn.db.Ping(); err != nil {
 			cn.db.Close()
 			cn.db = nil
@@ -735,7 +752,7 @@ func invokeFinalize(script active.Runtime, onfinalize interface{}) {
 
 //NewConnection - dbms,driver name and datasource name (cn-string)
 func NewConnection(dbms *DBMS, driverName, dataSourceName string) (cn *Connection) {
-	cn = &Connection{dbms: dbms, driverName: driverName, dataSourceName: dataSourceName}
+	cn = &Connection{dbms: dbms, driverName: driverName, dataSourceName: dataSourceName, lastmaxopencons: -1, lastmaxidecons: -1, maxopencons: -1, maxidlecons: -1}
 	return
 }
 
