@@ -1591,7 +1591,7 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			var dne = make(chan bool, 1)
 			//go func(vm *goja.Runtime) {
 			//	defer func() { dne <- true }()
-			//jsext.Register(vm)
+			jsext.Register(atvrntme.vm)
 			//}(atvrntme.vm)
 			//<-dne
 			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
