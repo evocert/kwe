@@ -172,10 +172,12 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 				if cn.driverName != driver {
 					cn.driverName = driver
 					cn.dataSourceName = datasource
+					calibrateConnection(cn)
 					registered = true
 				}
 			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
 				dbms.cnctns[alias] = cn
+				calibrateConnection(cn)
 				registered = true
 			}
 		} else if _, drvinvok := dbms.drivers[driver]; drvinvok {
@@ -184,6 +186,7 @@ func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource str
 					cn.driverName = driver
 					cn.dataSourceName = datasource
 					registered = true
+					calibrateConnection(cn)
 				}
 			} else if cn := NewConnection(dbms, driver, datasource); cn != nil {
 				dbms.cnctns[alias] = cn

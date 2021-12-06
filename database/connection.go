@@ -718,3 +718,9 @@ func NewConnection(dbms *DBMS, driverName, dataSourceName string) (cn *Connectio
 	cn = &Connection{dbms: dbms, driverName: driverName, dataSourceName: dataSourceName}
 	return
 }
+
+func calibrateConnection(cn *Connection, a ...interface{}) {
+	if cn != nil && len(a) > 0 {
+
+	}
+}

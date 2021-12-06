@@ -258,49 +258,58 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 					}
 				}
 			}
-
-			if len(forrows) >= 1 && forrows[0] {
-				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
-					cltps, _ := rws.ColumnTypes()
-					cls, _ = rws.Columns()
-					if len(cls) > 0 {
-						clsdstnc := map[string]int{}
-						clsdstncorg := map[string]int{}
-						cltpes = columnTypes(cltps, cls)
-						for cn, c := range cls {
-							if ci, ciok := clsdstnc[c]; ciok {
-								if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
-									cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+			cntxexec, cntxexeccancal := context.WithCancel(context.Background())
+			go func() {
+				defer cntxexeccancal()
+				if len(forrows) >= 1 && forrows[0] {
+					if rws, exctr.lasterr = exctr.stmt.QueryContext(cntxexec, exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
+						cltps, _ := rws.ColumnTypes()
+						cls, _ = rws.Columns()
+						if len(cls) > 0 {
+							clsdstnc := map[string]int{}
+							clsdstncorg := map[string]int{}
+							cltpes = columnTypes(cltps, cls)
+							for cn, c := range cls {
+								if ci, ciok := clsdstnc[c]; ciok {
+									if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
+										cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+									}
+									clsdstnc[c]++
+									c = fmt.Sprintf("%s%d", c, ci+1)
+								} else {
+									if _, orgok := clsdstncorg[c]; !orgok {
+										clsdstncorg[c] = cn
+									}
+									clsdstnc[c] = 0
 								}
-								clsdstnc[c]++
-								c = fmt.Sprintf("%s%d", c, ci+1)
-							} else {
-								if _, orgok := clsdstncorg[c]; !orgok {
-									clsdstncorg[c] = cn
-								}
-								clsdstnc[c] = 0
+								cls[cn] = c
 							}
-							cls[cn] = c
 						}
+					} else if exctr.lasterr != nil {
+						exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+						invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 					}
-				} else if exctr.lasterr != nil {
-					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
-					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
-				}
-			} else {
-				if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
-					if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
-						exctr.lastInsertID = -1
-					}
-					if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
-						exctr.rowsAffected = -1
-					}
-					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
 				} else {
-					exctr.lasterr = rslterr
-					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
-					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
+					if rslt, rslterr := exctr.stmt.ExecContext(cntxexec, exctr.qryArgs...); rslterr == nil {
+						if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
+							exctr.lastInsertID = -1
+						}
+						if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
+							exctr.rowsAffected = -1
+						}
+						invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
+					} else {
+						exctr.lasterr = rslterr
+						exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+						invokeError(exctr.script, exctr.lasterr, exctr.OnError)
+					}
 				}
+			}()
+			<-cntxexec.Done()
+			if cntxerr := cntxexec.Err(); cntxerr != nil && exctr != nil && exctr.lasterr == nil {
+				exctr.lasterr = cntxerr
+				exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+				invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 			}
 		}
 	}
