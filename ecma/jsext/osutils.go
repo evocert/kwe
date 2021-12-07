@@ -27,6 +27,18 @@ func Register_jsext_osutils(lclobjmp map[string]interface{}) {
 		"goos": func() string {
 			return runtime.GOOS
 		},
+		"setEnv": func(name string, val string) {
+			os.Setenv(name, val)
+		},
+		"getEnv": func(name string) string {
+			return os.Getenv(name)
+		},
+		"clearEnv": func() {
+			os.Clearenv()
+		},
+		"env": func() []string {
+			return os.Environ()
+		},
 		"goarch": func() string {
 			return runtime.GOARCH
 		},

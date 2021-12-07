@@ -67,10 +67,10 @@ for (const [key, value] of Object.entries(goosgoarch)) {
 	var cmd=kwe.command("cmd");
 	cmd.readAll();
 	console.log(`${key}: ${value}`);
-	var s="";
-	s+=("SET GOOS="+key+"\n");
-	s+=("SET GOARCH="+value+"\n");
-	s+=(`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n");
+	
+	osutils().setEnvVar("GOOS",key);
+	osutils().setEnvVar("GOARCH",value);
+	var s=`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n";
 	cmd.print(s);
 	cmd.println("echo finit");
 	for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
