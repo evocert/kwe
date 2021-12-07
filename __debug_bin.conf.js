@@ -64,16 +64,15 @@ var goosgoarch={"android":"arm",
 
 for (const [key, value] of Object.entries(goosgoarch)) {
 	sleep(10);
-	var cmd=kwe.command("cmd");
-	cmd.readAll();
+	
+	
 	console.log(`${key}: ${value}`);
 	
-	osutils().setEnvVar("GOOS",key);
-	osutils().setEnvVar("GOARCH",value);
-	var s=`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n";
-	cmd.print(s);
-	cmd.println("echo finit");
-	for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
+	osutils.setEnv("GOOS",key);
+	osutils.setEnv("GOARCH",value);
+	//var s=`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n";
+	var cmd=kwe.command("go","build","-ldflags",`"-w -s"`,"-o",`D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":""),"C:/GitHub/kwe/kwe.go");
+	for(var ln = cmd.readln();ln!=="";ln= cmd.readln()){
 		if (ln!=="") {
 			console.log(ln);
 		}
@@ -81,8 +80,6 @@ for (const [key, value] of Object.entries(goosgoarch)) {
 	console.log("kla-",key,":",value);
 	cmd.close();
 }
-
-console.log(s);
 
 /*goosgoarch.array.forEach(element => {
 	var goosv=element;

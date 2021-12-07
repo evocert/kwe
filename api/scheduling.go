@@ -44,7 +44,6 @@ type SessionAPI interface {
 	Path() PathAPI
 	Active(...interface{}) *active.Active
 	Command(execpath string, execargs ...string) (cmd *osprc.Command, err error)
-	OS()
 }
 
 type OSApi interface {
