@@ -1573,10 +1573,13 @@ func resetvm(vm *goja.Runtime) {
 	if vm != nil {
 		if vmgbl := vm.GlobalObject(); vmgbl != nil {
 			var ks = vmgbl.Keys()
+			var rsetcode = ""
 			if len(ks) > 0 {
 				for _, k := range ks {
 					vm.GlobalObject().Delete(k)
+					rsetcode += "k=undefined;\n"
 				}
+				vm.RunString(rsetcode)
 			}
 		}
 	}

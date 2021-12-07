@@ -19,17 +19,16 @@ type Command struct {
 	ctx        context.Context
 	ctxcancel  context.CancelFunc
 	cmdin      io.WriteCloser
-	bfr        *bufio.Reader
+	//cmdinbufw  *bufio.Writer
 	cmdout     io.ReadCloser
-	cmdoutp    chan []byte
-	cmdouterr  chan error
+	cmdoutbufr *bufio.Reader
 	cmdtmpp    []byte
 	cmdtmppi   int
 	cmdtmppl   int
 	stdinpark  []byte
+	stdinerr   chan error
 	stdinparkl int
 	stdinparki int
-	cancmdout  bool
 	milseconds int64
 }
 
@@ -40,31 +39,19 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 	if cmdout, cmdouterr := excmd.StdoutPipe(); cmdouterr == nil {
 		if cmdin, cmdinerr := excmd.StdinPipe(); cmdinerr == nil {
 			if err = excmd.Start(); err == nil {
-				cmd = &Command{excmd: excmd, excmdprcid: -1, milseconds: 100, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cancmdout: false, cmdtmpp: make([]byte, 1024), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0, cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1), cmdout: cmdout}
+				cmd = &Command{excmd: excmd, excmdprcid: -1, milseconds: 100, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cmdtmpp: make([]byte, 1024), stdinerr: make(chan error, 1), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0 /* cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1),*/, cmdout: cmdout}
 				cmd.excmdprcid = excmd.Process.Pid
+				cmd.cmdoutbufr = bufio.NewReader(cmd)
+
 				go func() {
-					p := make([]byte, 1024)
-					n := 0
-					err := error(nil)
 					running := true
 					for running {
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									running = false
-								}
-							}()
-							n, err = cmd.cmdout.Read(p)
-							var bts []byte = make([]byte, n)
-							if n > 0 {
-								copy(bts, p)
-							}
-							cmd.cmdoutp <- bts
-							cmd.cmdouterr <- err
-							if err != nil && err != io.EOF {
-								running = false
-							}
-						}()
+						var stdinerr error = nil
+						cmd.stdinparkl, stdinerr = cmd.cmdout.Read(cmd.stdinpark)
+						cmd.stdinerr <- stdinerr
+						if stdinerr != nil && stdinerr != io.EOF {
+							running = false
+						}
 					}
 				}()
 			} else {
@@ -121,10 +108,7 @@ func (cmd *Command) Seek(offset int64, whence int) (n int64, err error) {
 
 //Readln - read line from cmd and return s string or err error
 func (cmd *Command) Readln() (s string, err error) {
-	if cmd.bfr == nil {
-		cmd.bfr = bufio.NewReader(cmd)
-	}
-	s, err = iorw.ReadLine(cmd.bfr)
+	s, err = iorw.ReadLine(cmd)
 	if err == io.EOF {
 		err = nil
 	}
@@ -135,7 +119,7 @@ func (cmd *Command) Readln() (s string, err error) {
 func (cmd *Command) Readlines() (lines []string, err error) {
 	s := ""
 	for err == nil {
-		if s, err = iorw.ReadLine(cmd.bfr); err == nil || err == io.EOF {
+		if s, err = cmd.Readln(); err == nil || err == io.EOF {
 			if lines == nil {
 				lines = []string{}
 			}
@@ -150,10 +134,7 @@ func (cmd *Command) Readlines() (lines []string, err error) {
 
 //ReadAll read and return content as s string or err error
 func (cmd *Command) ReadAll() (s string, err error) {
-	if cmd.bfr == nil {
-		cmd.bfr = bufio.NewReader(cmd)
-	}
-	s, err = iorw.ReaderToString(cmd.bfr)
+	s, err = iorw.ReaderToString(cmd)
 	return
 }
 
@@ -186,17 +167,12 @@ func (cmd *Command) Close() (err error) {
 			}
 			cmd.excmd = nil
 		}
-		if cmd.cmdoutp != nil {
-			close(cmd.cmdoutp)
-			cmd.cmdoutp = nil
+		if cmd.cmdoutbufr != nil {
+			cmd.cmdoutbufr = nil
 		}
-		if cmd.cmdouterr != nil {
-			close(cmd.cmdouterr)
-			cmd.cmdouterr = nil
-		}
-		if cmd.bfr != nil {
-			cmd.bfr = nil
-		}
+		/*if cmd.cmdinbufw != nil {
+			cmd.cmdinbufw = nil
+		}*/
 		cmd = nil
 	}
 	return
@@ -204,10 +180,7 @@ func (cmd *Command) Close() (err error) {
 
 //ReadRune - refer to io.RuneReader
 func (cmd *Command) ReadRune() (r rune, size int, err error) {
-	if cmd.bfr == nil {
-		cmd.bfr = bufio.NewReader(cmd)
-	}
-	r, size, err = cmd.bfr.ReadRune()
+	r, size, err = cmd.cmdoutbufr.ReadRune()
 	return
 }
 
@@ -215,7 +188,7 @@ func (cmd *Command) ReadRune() (r rune, size int, err error) {
 func (cmd *Command) Dir() string {
 	if cmd != nil && cmd.excmd != nil {
 		if pth := strings.Replace(cmd.excmd.Path, "\\", "/", -1); pth != "" {
-			if strings.Index(pth, "/") > -1 {
+			if strings.Contains(pth, "/") {
 				return pth[:strings.LastIndex(pth, "/")+1]
 			}
 		}
@@ -223,102 +196,119 @@ func (cmd *Command) Dir() string {
 	return ""
 }
 
+//Flush return error
+//flush wrapping *bufio.Writer if buffered
+func (cmd *Command) Flush() (err error) {
+	/*if cmd.cmdinbufw.Buffered() > 0 {
+		err = cmd.cmdinbufw.Flush()
+	}*/
+	return
+}
+
+func (cmd *Command) Reset() {
+	cmd.ResetRead()
+	cmd.ResetWrite()
+}
+
+func (cmd *Command) ResetRead() {
+	cmd.cmdoutbufr.Reset(cmd)
+	cmd.stdinerr = nil
+	cmd.stdinparki = 0
+	cmd.stdinparkl = 0
+}
+
+func (cmd *Command) ResetWrite() {
+	//cmd.cmdinbufw.Reset(cmd)
+}
+
 //Read - refer to io.Reader
 func (cmd *Command) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		lststderr := error(nil)
-		for n < pl {
-			if cmd.cmdtmppl == 0 || (cmd.cmdtmppl > 0 && cmd.cmdtmppl == cmd.cmdtmppi) {
-				if cmd.cmdtmppi > 0 {
-					cmd.cmdtmppi = 0
-				}
-				if cmd.cmdtmppl > 0 {
-					cmd.cmdtmppl = 0
-				}
-				canCapture := true
-				for canCapture {
-					if cmd.stdinparkl == 0 || (cmd.stdinparkl > 0 && cmd.stdinparki == cmd.stdinparkl) {
-						if cmd.stdinparki > 0 {
-							cmd.stdinparki = 0
-						}
-						if cmd.stdinparkl > 0 {
-							cmd.stdinparkl = 0
-						}
-						tmelpsed := time.After(time.Duration(cmd.milseconds) * time.Millisecond)
-						select {
-						case stdin, ok := <-cmd.cmdoutp:
-							if !ok {
+		if err = cmd.Flush(); err == nil {
+			for n < pl {
+				if cmd.cmdtmppl == 0 || (cmd.cmdtmppl > 0 && cmd.cmdtmppl == cmd.cmdtmppi) {
+					if cmd.cmdtmppi > 0 {
+						cmd.cmdtmppi = 0
+					}
+					if cmd.cmdtmppl > 0 {
+						cmd.cmdtmppl = 0
+					}
+					canCapture := true
+					for canCapture {
+						if cmd.stdinparkl == 0 || (cmd.stdinparkl > 0 && cmd.stdinparki == cmd.stdinparkl) {
+							if cmd.stdinparki > 0 {
+								cmd.stdinparki = 0
+							}
+							if cmd.stdinparkl > 0 {
+								cmd.stdinparkl = 0
+							}
+
+							tmelpsed := time.After(time.Duration(cmd.milseconds) * time.Millisecond)
+							var stdinerr error = nil
+							var stdok = false
+							select {
+							case <-tmelpsed:
 								canCapture = false
-							} else {
-								lststderr = <-cmd.cmdouterr
-								if cmd.stdinparkl = len(stdin); cmd.stdinparkl > 0 {
-									cmd.stdinparkl = copy(cmd.stdinpark[:cmd.stdinparkl], stdin)
-									canCapture = true
-								} else {
+							case stdinerr, stdok = <-cmd.stdinerr:
+								if !stdok {
 									canCapture = false
 								}
+								if stdinerr != nil {
+									if stdinerr != io.EOF {
+										err = stdinerr
+										canCapture = false
+									}
+								}
 							}
-						case <-tmelpsed:
-							canCapture = false
+						}
+						if canCapture {
+							for {
+								if cmdl := len(cmd.cmdtmpp); cmd.cmdtmppi < cmdl {
+									if cl := (cmd.stdinparkl - cmd.stdinparki); cl <= (cmdl - cmd.cmdtmppi) {
+										copy(cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl], cmd.stdinpark[cmd.stdinparki:cmd.stdinparki+cl])
+										cmd.cmdtmppl += cl
+										cmd.cmdtmppi += cl
+										cmd.stdinparki += cl
+									} else if cl := (cmdl - cmd.cmdtmppi); cl < (cmd.stdinparkl - cmd.stdinparki) {
+										copy(cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl], cmd.stdinpark[cmd.stdinparki:cmd.stdinparki+cl])
+										cmd.cmdtmppl += cl
+										cmd.cmdtmppi += cl
+										cmd.stdinparki += cl
+									}
+									if cmdl == cmd.cmdtmppi {
+										canCapture = false
+										break
+									}
+									if cmd.stdinparki == cmd.stdinparkl {
+										break
+									}
+								}
+							}
 						}
 					}
-					if canCapture {
-						for {
-							if cmdl := len(cmd.cmdtmpp); cmd.cmdtmppi < cmdl {
-								if cl := (cmd.stdinparkl - cmd.stdinparki); cl <= (cmdl - cmd.cmdtmppi) {
-									copy(cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl], cmd.stdinpark[cmd.stdinparki:cmd.stdinparki+cl])
-									cmd.cmdtmppl += cl
-									cmd.cmdtmppi += cl
-									cmd.stdinparki += cl
-								} else if cl := (cmdl - cmd.cmdtmppi); cl < (cmd.stdinparkl - cmd.stdinparki) {
-									copy(cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl], cmd.stdinpark[cmd.stdinparki:cmd.stdinparki+cl])
-									cmd.cmdtmppl += cl
-									cmd.cmdtmppi += cl
-									cmd.stdinparki += cl
-								}
-								if cmdl == cmd.cmdtmppi {
-									canCapture = false
-									break
-								}
-								if cmd.stdinparki == cmd.stdinparkl {
-									break
-								}
-							}
-						}
+					if cmd.cmdtmppl == 0 {
+						break
+					} else {
+						cmd.cmdtmppi = 0
 					}
 				}
-				if cmd.cmdtmppl == 0 {
+				for n < pl && cmd.cmdtmppi < cmd.cmdtmppl {
+					if cl := (cmd.cmdtmppl - cmd.cmdtmppi); cl <= (pl - n) {
+						copy(p[n:n+cl], cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl])
+						cmd.cmdtmppi += cl
+						n += cl
+					} else if cl := (pl - n); cl < (cmd.cmdtmppl - cmd.cmdtmppi) {
+						copy(p[n:n+cl], cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl])
+						cmd.cmdtmppi += cl
+						n += cl
+					}
+				}
+				if cmd.cmdtmppi == cmd.cmdtmppl {
 					break
-				} else {
-					cmd.cmdtmppi = 0
 				}
-			}
-			for n < pl && cmd.cmdtmppi < cmd.cmdtmppl {
-				if cl := (cmd.cmdtmppl - cmd.cmdtmppi); cl <= (pl - n) {
-					copy(p[n:n+cl], cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl])
-					cmd.cmdtmppi += cl
-					n += cl
-				} else if cl := (pl - n); cl < (cmd.cmdtmppl - cmd.cmdtmppi) {
-					copy(p[n:n+cl], cmd.cmdtmpp[cmd.cmdtmppi:cmd.cmdtmppi+cl])
-					cmd.cmdtmppi += cl
-					n += cl
-				}
-			}
-			if cmd.cmdtmppi == cmd.cmdtmppl {
-				break
 			}
 		}
-		//if !cmd.cancmdout {
-		//	go func() {
-		//n, err = cmd.cmdout.Read(p)
-		//		cmd.cancmdout = false
-		//		cmd.cmdoutdne <- true
-		//	}()
-		//}
-		//select {
-		//case <-cmd.cmdoutdne:
-		//case <-time.After(500 * time.Millisecond):
-		//}
 		if lststderr != nil && lststderr != io.EOF {
 
 		}

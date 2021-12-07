@@ -27,6 +27,9 @@ func Register_jsext_osutils(lclobjmp map[string]interface{}) {
 		"goos": func() string {
 			return runtime.GOOS
 		},
+		"goarch": func() string {
+			return runtime.GOARCH
+		},
 		"pwd": func() string {
 			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 			if err != nil {

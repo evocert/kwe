@@ -27,34 +27,71 @@ console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());
 kwe.dbms().unregisterConnection("b1");
 
-//Capture bible
-/*try {
-	
-	var translationsr=kwe.Send("https://getbible.net/v2/translations");
-
-	var translationline="";
-	kwe.FS().MKDIR("/bible/"+translationkey,"")
-	kwe.FS().SET("/bible/translations.json",kwe.Send("https://getbible.net/v2/translations.json"));
-	while((translationline=translationsr.Readln())!==""){
-		if(!(translationline=translationline.trim()).startsWith("#")&&translationline!=="") {
-			var translationkey=translationline.split('\t')[5];
-			console.log(translationkey);
-			
-			kwe.FS().SET("/bible/"+translationkey+"/books.json",kwe.Send("https://getbible.net/v2/"+translationkey+"/books.json"));
-			for(var i=1;i<=66;i++){
-				kwe.FS().SET("/bible/"+translationkey+"/"+i+".json",kwe.Send("https://getbible.net/v2/"+translationkey+"/"+i+".json"));
-			}
-		}
-		if (translationkey==="aov")	{
-			break;
-		}	
-	}
-	
-} catch(e){
-	console.log(e.message);
-}*/
-
 kwe.fs().mkdir("/movies","D:/movies");
+
+
+var goosgoarch={"android":"arm",
+"darwin":"386",
+"darwin":"amd64",
+"darwin":"arm",
+"darwin":"arm64",
+"dragonfly":"amd64",
+"freebsd":"386",
+"freebsd":"amd64",
+"freebsd":"arm",
+"linux":"386",
+"linux":"amd64",
+"linux":"arm",
+"linux":"arm64",
+"linux":"ppc64",
+"linux":"ppc64le",
+"linux":"mips",
+"linux":"mipsle",
+"linux":"mips64",
+"linux":"mips64le",
+"netbsd":"386",
+"netbsd":"amd64",
+"netbsd":"arm",
+"openbsd":"386",
+"openbsd":"amd64",
+"openbsd":"arm",
+"plan9":"386",
+"plan9":"amd64",
+"solaris":"amd64",
+"windows":"386",
+"windows":"amd64"};
+
+
+for (const [key, value] of Object.entries(goosgoarch)) {
+	sleep(10);
+	var cmd=kwe.command("cmd");
+	cmd.readAll();
+	console.log(`${key}: ${value}`);
+	var s="";
+	s+=("SET GOOS="+key+"\n");
+	s+=("SET GOARCH="+value+"\n");
+	s+=(`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n");
+	cmd.print(s);
+	cmd.println("echo finit");
+	for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
+		if (ln!=="") {
+			console.log(ln);
+		}
+	}
+	console.log("kla-",key,":",value);
+	cmd.close();
+}
+
+console.log(s);
+
+/*goosgoarch.array.forEach(element => {
+	var goosv=element;
+	var goarchv=goosgoarch[goosv];
+	console.log(goosv,":",goarchv);
+});*/
+
+//cmd.setReadTimeout(1000*60*5);
+
 
 try {
 	//eval(kwe.Send("/movies/schedule.js").ReadAll());
