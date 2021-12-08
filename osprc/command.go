@@ -20,16 +20,18 @@ type Command struct {
 	ctxcancel  context.CancelFunc
 	cmdin      io.WriteCloser
 	//cmdinbufw  *bufio.Writer
-	cmdout     io.ReadCloser
-	cmdoutbufr *bufio.Reader
-	cmdtmpp    []byte
-	cmdtmppi   int
-	cmdtmppl   int
-	stdinpark  []byte
-	stdinerr   chan error
-	stdinparkl int
-	stdinparki int
-	milseconds int64
+	cmdout          io.ReadCloser
+	cmdoutbufr      *bufio.Reader
+	cmdtmpp         []byte
+	cmdtmppi        int
+	cmdtmppl        int
+	stdinpark       []byte
+	stdinerr        chan error
+	stdinparkl      int
+	stdinparki      int
+	milseconds      int64
+	initmilseconds  int64
+	curntmilseconds int64
 }
 
 //NewCommand return cmd *Command instance or err error
@@ -39,7 +41,7 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 	if cmdout, cmdouterr := excmd.StdoutPipe(); cmdouterr == nil {
 		if cmdin, cmdinerr := excmd.StdinPipe(); cmdinerr == nil {
 			if err = excmd.Start(); err == nil {
-				cmd = &Command{excmd: excmd, excmdprcid: -1, milseconds: 100, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cmdtmpp: make([]byte, 1024), stdinerr: make(chan error, 1), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0 /* cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1),*/, cmdout: cmdout}
+				cmd = &Command{excmd: excmd, excmdprcid: -1, curntmilseconds: 100, initmilseconds: 100, milseconds: 100, OnClose: nil, ctx: ctx, ctxcancel: ctxcancel, cmdin: cmdin, cmdtmpp: make([]byte, 1024), stdinerr: make(chan error, 1), stdinparkl: 0, stdinparki: 0, stdinpark: make([]byte, 1024), cmdtmppi: 0, cmdtmppl: 0 /* cmdoutp: make(chan []byte, 1), cmdouterr: make(chan error, 1),*/, cmdout: cmdout}
 				cmd.excmdprcid = excmd.Process.Pid
 				cmd.cmdoutbufr = bufio.NewReader(cmd)
 
@@ -71,11 +73,24 @@ func NewCommand(execpath string, execargs ...string) (cmd *Command, err error) {
 }
 
 //SetReadTimeout set read timeout in milliseconds int64
-func (cmd *Command) SetReadTimeout(milseconds int64) {
-	if milseconds < 100 {
-		milseconds = 100
+func (cmd *Command) SetReadTimeout(milseconds ...int64) {
+	if milscsl := len(milseconds); milscsl > 0 {
+		if milseconds[0] < 100 {
+			milseconds[0] = 100
+		}
+		cmd.initmilseconds = milseconds[0]
+		if milscsl == 2 {
+			if milseconds[1] < 100 {
+				milseconds[1] = 100
+			}
+			cmd.milseconds = milseconds[1]
+		} else {
+			cmd.milseconds = cmd.initmilseconds
+		}
+	} else {
+		cmd.milseconds = 100
+		cmd.initmilseconds = 100
 	}
-	cmd.milseconds = milseconds
 }
 
 //PrcID underlying os Process ID
@@ -243,8 +258,15 @@ func (cmd *Command) Read(p []byte) (n int, err error) {
 							if cmd.stdinparkl > 0 {
 								cmd.stdinparkl = 0
 							}
-
-							tmelpsed := time.After(time.Duration(cmd.milseconds) * time.Millisecond)
+							if cmd.curntmilseconds == 0 {
+								cmd.curntmilseconds = cmd.initmilseconds
+							} else if cmd.curntmilseconds == cmd.initmilseconds {
+								cmd.curntmilseconds = cmd.milseconds
+							}
+							if cmd.curntmilseconds < 100 {
+								cmd.curntmilseconds = 100
+							}
+							tmelpsed := time.After(time.Duration(cmd.curntmilseconds) * time.Millisecond)
 							var stdinerr error = nil
 							var stdok = false
 							select {
