@@ -29,57 +29,81 @@ kwe.dbms().unregisterConnection("b1");
 
 kwe.fs().mkdir("/movies","D:/movies");
 
+var goosgoarchsarr=`aix/ppc64
+android/386
+android/amd64
+android/arm
+android/arm64
+darwin/amd64
+darwin/arm64
+dragonfly/amd64
+freebsd/386
+freebsd/amd64
+freebsd/arm
+freebsd/arm64
+illumos/amd64
+ios/amd64
+ios/arm64
+js/wasm
+linux/386
+linux/amd64
+linux/arm
+linux/arm64
+linux/mips
+linux/mips64
+linux/mips64le
+linux/mipsle
+linux/ppc64
+linux/ppc64le
+linux/riscv64
+linux/s390x
+netbsd/386
+netbsd/amd64
+netbsd/arm
+netbsd/arm64
+openbsd/386
+openbsd/amd64
+openbsd/arm
+openbsd/arm64
+openbsd/mips64
+plan9/386
+plan9/amd64
+plan9/arm
+solaris/amd64
+windows/386
+windows/amd64
+windows/arm
+windows/arm64`.split("\n");
 
-var goosgoarch={"android":"arm",
-"darwin":"386",
-"darwin":"amd64",
-"darwin":"arm",
-"darwin":"arm64",
-"dragonfly":"amd64",
-"freebsd":"386",
-"freebsd":"amd64",
-"freebsd":"arm",
-"linux":"386",
-"linux":"amd64",
-"linux":"arm",
-"linux":"arm64",
-"linux":"ppc64",
-"linux":"ppc64le",
-"linux":"mips",
-"linux":"mipsle",
-"linux":"mips64",
-"linux":"mips64le",
-"netbsd":"386",
-"netbsd":"amd64",
-"netbsd":"arm",
-"openbsd":"386",
-"openbsd":"amd64",
-"openbsd":"arm",
-"plan9":"386",
-"plan9":"amd64",
-"solaris":"amd64",
-"windows":"386",
-"windows":"amd64"};
 
+goosgoarchsarr.forEach((goosarch)=>{
+	var keyvalue=goosarch.trim().split("/");
+	var key=keyvalue[0].trim();
+	var value=keyvalue[1].trim();
+	if (value==="" || key==="") return;
 
-for (const [key, value] of Object.entries(goosgoarch)) {
-	sleep(10);
-	
-	
 	console.log(`${key}: ${value}`);
 	
-	osutils.setEnv("GOOS",key);
-	osutils.setEnv("GOARCH",value);
-	//var s=`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":"")+` C:/GitHub/kwe/kwe.go`+"\n";
-	var cmd=kwe.command("go","build","-ldflags",`"-w -s"`,"-o",`D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":""),"C:/GitHub/kwe/kwe.go");
-	for(var ln = cmd.readln();ln!=="";ln= cmd.readln()){
-		if (ln!=="") {
-			console.log(ln);
+	var cmd=kwe.command("cmd");
+	try {
+		cmd.setReadTimeout(100);
+		cmd.readAll();
+		cmd.println("SET GOOS="+key);
+		cmd.println("SET GOARCH="+value);
+		cmd.println(`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":""))+` C:/GitHub/kwe/kwe.go`);
+		cmd.println("echo finit");
+		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
+			if (ln!=="") {
+				console.log(ln);
+			}
 		}
+	} catch (error) {
+		console.log("error[",key,":",value,"]:",error.toString());
 	}
-	console.log("kla-",key,":",value);
 	cmd.close();
-}
+	console.log("done -",key,":",value);	
+});
+
 
 /*goosgoarch.array.forEach(element => {
 	var goosv=element;

@@ -39,6 +39,9 @@ func Register_jsext_osutils(lclobjmp map[string]interface{}) {
 		"env": func() []string {
 			return os.Environ()
 		},
+		"args": func() []string {
+			return os.Args[1:]
+		},
 		"goarch": func() string {
 			return runtime.GOARCH
 		},
