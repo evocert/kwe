@@ -98,6 +98,24 @@ func (srvs *Service) runService(args ...string) {
 			srvs.brkrfnc(srvs.ServiceExeName(), srvs.ServiceName(), args...)
 		}
 	}
+	if ServeRequest != nil {
+		var out io.Writer = nil
+		var in io.Reader = nil
+		if srvs.IsConsole() || srvs.IsBroker() {
+			out = os.Stdout
+			if srvs.IsBroker() {
+				in = os.Stdin
+			}
+		}
+
+		func() {
+			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+".finit.js", in, out)
+			if rqst != nil {
+				defer rqst.Close()
+				ServeRequest(rqst)
+			}
+		}()
+	}
 }
 
 func (srvs *Service) stopService(args ...string) {

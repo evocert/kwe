@@ -76,7 +76,7 @@ windows/arm
 windows/arm64`.split("\n");
 
 
-goosgoarchsarr.forEach((goosarch)=>{
+/*goosgoarchsarr.forEach((goosarch)=>{
 	var keyvalue=goosarch.trim().split("/");
 	var key=keyvalue[0].trim();
 	var value=keyvalue[1].trim();
@@ -102,7 +102,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 	}
 	cmd.close();
 	console.log("done -",key,":",value);	
-});
+});*/
 
 
 /*goosgoarch.array.forEach(element => {

@@ -29,13 +29,17 @@ type Service struct {
 func (svr *Service) Start(s service.Service) error {
 	if svr.start != nil {
 		if svr.isService {
-			go svr.start(svr, svr.args...)
+			go func() {
+				svr.start(svr, svr.args...)
+			}()
 		} else if svr.isConsole || svr.isBroker {
 			svr.start(svr, svr.args...)
 		}
 	}
 	if svr.isService {
-		go svr.exec()
+		go func() {
+			svr.exec()
+		}()
 	} else if svr.isConsole || svr.isBroker {
 		svr.exec()
 	}
@@ -132,8 +136,6 @@ func NewService(name string, displayName string, description string, start func(
 		if description == "" {
 			description = strings.ToUpper(displayName)
 		}
-		//svcargs := []string{}
-
 		svcConfig := &service.Config{
 			Name:        name,
 			DisplayName: displayName,
