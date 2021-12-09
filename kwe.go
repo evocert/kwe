@@ -13,6 +13,7 @@ import (
 	_ "github.com/evocert/kwe/fonts/material"
 	_ "github.com/evocert/kwe/fonts/robotov27latin"
 	_ "github.com/evocert/kwe/goldenlayout"
+	_ "github.com/evocert/kwe/jqueryui"
 	_ "github.com/evocert/kwe/jspanel"
 	"github.com/evocert/kwe/listen"
 	_ "github.com/evocert/kwe/luxon"
