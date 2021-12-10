@@ -46,9 +46,6 @@ type SessionAPI interface {
 	Command(execpath string, execargs ...string) (cmd *osprc.Command, err error)
 }
 
-type OSApi interface {
-}
-
 type PathAPI interface {
 	Path() string
 	Ext() string
