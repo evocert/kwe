@@ -37,6 +37,7 @@ type SessionAPI interface {
 	Schedule() ScheduleAPI
 	Close() error
 	Execute(...interface{}) error
+	FAFExecute(...interface{}) error
 	Env() env.EnvAPI
 	Listen(network string, addr ...string) (err error)
 	UnCertifyAddr(...string)
@@ -97,3 +98,5 @@ type ActiveSchedulesAPI interface {
 	Reader() iorw.Reader
 	Dispose()
 }
+
+var FAFExecute func(ssn SessionAPI, a ...interface{}) (err error) = nil

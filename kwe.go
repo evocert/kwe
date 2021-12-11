@@ -4,6 +4,7 @@ import (
 	"os"
 
 	_ "github.com/evocert/kwe/alertify"
+	"github.com/evocert/kwe/api"
 	_ "github.com/evocert/kwe/babylon"
 	_ "github.com/evocert/kwe/bootstrap"
 	"github.com/evocert/kwe/channeling"
@@ -84,6 +85,16 @@ func main() {
 		}
 
 	}()*/
+
+	api.FAFExecute = func(ssn api.SessionAPI, a ...interface{}) (err error) {
+		if rqst := requesting.NewRequest(nil, a...); rqst != nil {
+			defer rqst.Close()
+			if serveRequest != nil {
+				serveRequest(rqst, mqttmngr, glblschdls, lstnr)
+			}
+		}
+		return
+	}
 
 	service.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
 		return serveRequest(rqst, mqttmngr, glblschdls, lstnr)
