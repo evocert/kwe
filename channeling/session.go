@@ -422,6 +422,15 @@ func (ssn *Session) AddPath(nxtpth ...string) {
 	}
 }
 
+func (ssn *Session) FAFExecute(a ...interface{}) (err error) {
+	if fafexec := api.FAFExecute; fafexec != nil {
+		go func() {
+			err = fafexec(ssn, a...)
+		}()
+	}
+	return
+}
+
 func (ssn *Session) Execute(a ...interface{}) (err error) {
 	if ssn != nil {
 		var ai = 0
