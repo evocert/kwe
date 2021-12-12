@@ -17,8 +17,7 @@ type DBMSAPI interface {
 	UnregisterConnection(alias string) (unregistered bool)
 	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
 	Exists(alias string) (exists bool)
-	ConnectionInfo(alias string) map[string]interface{}
-	Info() map[string]interface{}
+	Info(alias ...string) map[string]interface{}
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
 	Execute(a interface{}, excargs ...interface{}) (exctr *Executor)
 	InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error)
@@ -37,14 +36,7 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 	return
 }
 
-func (atvdbms *ActiveDBMS) ConnectionInfo(alias string) (coninfo map[string]interface{}) {
-	if atvdbms != nil && atvdbms.dbms != nil {
-		coninfo = atvdbms.dbms.ConnectionInfo(alias)
-	}
-	return
-}
-
-func (atvdbms *ActiveDBMS) Info() (info map[string]interface{}) {
+func (atvdbms *ActiveDBMS) Info(alias ...string) (info map[string]interface{}) {
 	if atvdbms != nil && atvdbms.dbms != nil {
 		info = atvdbms.dbms.Info()
 	}
@@ -177,13 +169,24 @@ func (dbms *DBMS) Connections() (cns []string) {
 	return
 }
 
-func (dbms *DBMS) Info() (info map[string]interface{}) {
+//Info return status info of all aliases or alias... provided
+func (dbms *DBMS) Info(alias ...string) (info map[string]interface{}) {
 	if dbms != nil {
 		if cnsl := len(dbms.cnctns); cnsl > 0 {
 			info = map[string]interface{}{}
-			for cnsk := range dbms.cnctns {
-				if cn := dbms.cnctns[cnsk]; cn != nil {
-					info[cnsk] = cn.Info()
+			if aliasln := len(alias); aliasln > 0 {
+				for _, cnsk := range alias {
+					if cnsk != "" {
+						if cn := dbms.cnctns[cnsk]; cn != nil {
+							info[cnsk] = cn.Info()
+						}
+					}
+				}
+			} else {
+				for cnsk := range dbms.cnctns {
+					if cn := dbms.cnctns[cnsk]; cn != nil {
+						info[cnsk] = cn.Info()
+					}
 				}
 			}
 		}
