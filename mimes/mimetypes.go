@@ -2,6 +2,7 @@ package mimes
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"path/filepath"
 	"strings"
@@ -739,25 +740,30 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 				}
 			} else {
 				//var bufr = bufio.NewReader(MimeTypesCSV())
-				var bufr = bufio.NewReader(MimeTypesCSV())
-				for {
-					lineb, lineberr := iorw.ReadLine(bufr)
-					if len(lineb) > 0 {
-						var lines = strings.Split(string(lineb), "\t")
-						if len(lines) == 4 && lines[2] == ext {
-							mimetype = lines[1]
-							mtypesfound[ext] = mimetype
-							if _, textextok := mtextexts[ext]; textextok {
-								texttype = mtextexts[ext]
+				ctx, ctxcancel := context.WithCancel(context.Background())
+				go func() {
+					defer ctxcancel()
+					var bufr = bufio.NewReader(MimeTypesCSV())
+					for {
+						lineb, lineberr := iorw.ReadLine(bufr)
+						if len(lineb) > 0 {
+							var lines = strings.Split(string(lineb), "\t")
+							if len(lines) == 4 && lines[2] == ext {
+								mimetype = lines[1]
+								mtypesfound[ext] = mimetype
+								if _, textextok := mtextexts[ext]; textextok {
+									texttype = mtextexts[ext]
+								}
+								break
 							}
+						}
+						if lineberr != nil {
 							break
 						}
 					}
-					if lineberr != nil {
-						break
-					}
-				}
-				bufr = nil
+					bufr = nil
+				}()
+				<-ctx.Done()
 			}
 		}()
 	} else {

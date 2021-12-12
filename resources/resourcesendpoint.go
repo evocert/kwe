@@ -112,7 +112,6 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return rscngepnt.multicat(path...)
 			}, MULTICATS: func(path ...string) (s string) {
 				return rscngepnt.multicats(path...)
-				return
 			},
 		}
 	}

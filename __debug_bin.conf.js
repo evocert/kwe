@@ -28,15 +28,23 @@ kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
     v2 VARCHAR(1000)
 );`});
 
-/*for (let index = 0; index < 1000; index++) {
+kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t2(
+	v1 INT,
+    v2 VARCHAR(1000)
+);`});
+
+for (let index = 0; index < 100000; index++) {
 	var vt="b"+index;
 	kwe.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
 	
-}*/
+}
+console.log(JSON.stringify(kwe.dbms().info()));
 
-var a=kwe.dbms().query({"alias":"b1","query":"select count(*) from t1"},{"prm1":42});
-console.log(JSON.stringify(kwemethods(a)));
-console.log(a.json());
+var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
+	{"alias":"b1","query":"insert into t2 (v1,v2) values(@@p1@@,@@p2@@);"}
+]},{"prm1":42});
+//console.log(JSON.stringify(kwemethods(a)));
+//console.log(a.json());
 //kwe.dbms().unregisterConnection("b1");
 
 kwe.fs().mkdir("/movies","D:/movies");

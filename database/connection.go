@@ -28,6 +28,20 @@ type Connection struct {
 	maxopencons                int
 }
 
+func (cn *Connection) Info() (info map[string]interface{}) {
+	if cn != nil {
+		info = map[string]interface{}{}
+		info["driver"] = cn.Driver()
+		info["connected"] = cn.IsConnected()
+		info["datasource"] = cn.dataSourceName
+		if db := cn.db; db != nil {
+			var dbstats = db.Stats()
+			info["stats"] = dbstats
+		}
+	}
+	return
+}
+
 func (cn *Connection) SetMaxIdleConns(idlcons int) {
 	if cn != nil {
 		cn.maxidlecons = idlcons

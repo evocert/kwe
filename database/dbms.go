@@ -17,6 +17,8 @@ type DBMSAPI interface {
 	UnregisterConnection(alias string) (unregistered bool)
 	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
 	Exists(alias string) (exists bool)
+	ConnectionInfo(alias string) map[string]interface{}
+	Info() map[string]interface{}
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
 	Execute(a interface{}, excargs ...interface{}) (exctr *Executor)
 	InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error)
@@ -31,6 +33,20 @@ type ActiveDBMS struct {
 func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 	if atvdbms != nil && atvdbms.dbms != nil {
 		cns = atvdbms.dbms.Connections()
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) ConnectionInfo(alias string) (coninfo map[string]interface{}) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		coninfo = atvdbms.dbms.ConnectionInfo(alias)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) Info() (info map[string]interface{}) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		info = atvdbms.dbms.Info()
 	}
 	return
 }
@@ -135,6 +151,16 @@ func (dbms *DBMS) Connection(alias string) (cn *Connection) {
 	return
 }
 
+//ConnectionInfo return registered connection status info
+func (dbms *DBMS) ConnectionInfo(alias string) (coninfo map[string]interface{}) {
+	if alias = strings.TrimSpace(alias); alias != "" {
+		if cn := dbms.cnctns[alias]; cn != nil {
+			coninfo = cn.Info()
+		}
+	}
+	return
+}
+
 //Connections return list of registered connection aliases
 func (dbms *DBMS) Connections() (cns []string) {
 	if cnsl := len(dbms.cnctns); cnsl > 0 {
@@ -145,6 +171,20 @@ func (dbms *DBMS) Connections() (cns []string) {
 			cnsi++
 			if cnsi == cnsl {
 				break
+			}
+		}
+	}
+	return
+}
+
+func (dbms *DBMS) Info() (info map[string]interface{}) {
+	if dbms != nil {
+		if cnsl := len(dbms.cnctns); cnsl > 0 {
+			info = map[string]interface{}{}
+			for cnsk := range dbms.cnctns {
+				if cn := dbms.cnctns[cnsk]; cn != nil {
+					info[cnsk] = cn.Info()
+				}
 			}
 		}
 	}
