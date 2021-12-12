@@ -258,9 +258,6 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 					}
 				}
 			}
-			//cntxexec, cntxexeccancal := context.WithCancel(context.Background())
-			//go func() {
-			//	defer cntxexeccancal()
 			if len(forrows) >= 1 && forrows[0] {
 				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
 					cltps, _ := rws.ColumnTypes()
@@ -304,13 +301,6 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			}
-			//}()
-			//<-cntxexec.Done()
-			//if cntxerr := cntxexec.Err(); cntxerr != nil && cntxerr.Error() != "context canceled" && exctr != nil && exctr.lasterr == nil {
-			//	exctr.lasterr = cntxerr
-			//	exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
-			//	invokeError(exctr.script, exctr.lasterr, exctr.OnError)
-			//}
 		}
 	}
 	return
