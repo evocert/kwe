@@ -28,7 +28,7 @@ func newRS(rsngepnt *ResourcingEndpoint, rspath string, r io.Reader) (rs *Resour
 
 //Seek - refer to io.Seeker
 func (rs *Resource) Seek(offset int64, whence int) (n int64, err error) {
-	if rs.rs != nil {
+	if rs != nil && rs.rs != nil {
 		n, err = rs.rs.Seek(offset, whence)
 	}
 	return

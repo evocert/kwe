@@ -29,6 +29,8 @@ console.log(a.json());
 kwe.dbms().unregisterConnection("b1");
 
 kwe.fs().mkdir("/movies","D:/movies");
+
+kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
 /*
 var goosgoarchsarr=`aix/ppc64
 android/386
