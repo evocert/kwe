@@ -38,7 +38,7 @@ for (let index = 0; index < 100000; index++) {
 	kwe.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
 	
 }
-console.log(JSON.stringify(kwe.dbms().info()));
+console.log(JSON.stringify(kwe.dbms().info("b2")));
 
 var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
 	{"alias":"b1","query":"insert into t2 (v1,v2) values(@@p1@@,@@p2@@);"}

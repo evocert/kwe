@@ -38,7 +38,7 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 
 func (atvdbms *ActiveDBMS) Info(alias ...string) (info map[string]interface{}) {
 	if atvdbms != nil && atvdbms.dbms != nil {
-		info = atvdbms.dbms.Info()
+		info = atvdbms.dbms.Info(alias...)
 	}
 	return
 }
@@ -139,16 +139,6 @@ func (dbms *DBMS) ActiveDBMS(rntme active.Runtime, prmsfnc func() parameters.Par
 func (dbms *DBMS) Connection(alias string) (cn *Connection) {
 	if alias = strings.TrimSpace(alias); alias != "" {
 		cn = dbms.cnctns[alias]
-	}
-	return
-}
-
-//ConnectionInfo return registered connection status info
-func (dbms *DBMS) ConnectionInfo(alias string) (coninfo map[string]interface{}) {
-	if alias = strings.TrimSpace(alias); alias != "" {
-		if cn := dbms.cnctns[alias]; cn != nil {
-			coninfo = cn.Info()
-		}
 	}
 	return
 }
