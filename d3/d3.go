@@ -8,7 +8,7 @@ import (
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/d3")
+	gblrsngfs.MKDIR("/d3", "")
 	gblrsngfs.SET("/d3/d3.js", strings.Replace(d3js, "|'|", "`", -1))
 	gblrsngfs.SET("/d3/d3.min.js", strings.Replace(d3js, "|'|", "`", -1))
 	gblrsngfs.MKDIR("/d3/html")
