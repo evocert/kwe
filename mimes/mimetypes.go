@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/evocert/kwe/iorw"
 )
 
 const mimetypescsv string = `3D Crossword Plugin	application/vnd.hzn-3d-crossword	.x3d	IANA: 3D Crossword Plugin
@@ -736,10 +738,10 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 					texttype = mtextexts[ext]
 				}
 			} else {
-
+				//var bufr = bufio.NewReader(MimeTypesCSV())
 				var bufr = bufio.NewReader(MimeTypesCSV())
 				for {
-					lineb, _, lineberr := bufr.ReadLine()
+					lineb, lineberr := iorw.ReadLine(bufr)
 					if len(lineb) > 0 {
 						var lines = strings.Split(string(lineb), "\t")
 						if len(lines) == 4 && lines[2] == ext {
