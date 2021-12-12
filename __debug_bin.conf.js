@@ -21,12 +21,23 @@ try {
 	console.log(e.message);
 }
 
-kwe.dbms().registerConnection("b1","kwesqlite",":memory:");
+kwe.dbms().registerConnection("b1","kwesqlite","file::memory:?cache=shared");
 
-var a=kwe.dbms().query({"alias":"b1","query":"select @@prm1@@"},{"prm1":42});
+kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
+	v1 INT,
+    v2 VARCHAR(1000)
+);`});
+
+/*for (let index = 0; index < 1000; index++) {
+	var vt="b"+index;
+	kwe.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
+	
+}*/
+
+var a=kwe.dbms().query({"alias":"b1","query":"select count(*) from t1"},{"prm1":42});
 console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());
-kwe.dbms().unregisterConnection("b1");
+//kwe.dbms().unregisterConnection("b1");
 
 kwe.fs().mkdir("/movies","D:/movies");
 

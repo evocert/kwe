@@ -42,7 +42,11 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 				for cn, c := range rdr.cls {
 					iorw.Fprint(jsnr.pw, "{")
 					t := rdr.cltpes[cn]
-					var ctpm = map[string]interface{}{"title": c, "name": c, "dbtype": t.DatabaseType(), "type": t.Type().Name(), "length": t.Length(), "numeric": t.Numeric(), "scale": t.Scale(), "precision": t.Precision()}
+					var ctypename = ""
+					if ctpe := t.Type(); ctpe != nil {
+						ctypename = ctpe.Name()
+					}
+					var ctpm = map[string]interface{}{"title": c, "name": c, "dbtype": t.DatabaseType(), "type": ctypename, "length": t.Length(), "numeric": t.Numeric(), "scale": t.Scale(), "precision": t.Precision()}
 					var ctpml = len(ctpm)
 					for ctpmk, ctpmv := range ctpm {
 						ctpml--
