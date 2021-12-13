@@ -50,7 +50,7 @@ kwe.fs().mkdir("/movies","D:/movies");
 
 kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
 kwe.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
-/*
+
 var goosgoarchsarr=`aix/ppc64
 android/386
 android/amd64
@@ -124,7 +124,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 	}
 	cmd.close();
 	console.log("done -",key,":",value);	
-});*/
+});
 
 
 /*goosgoarch.array.forEach(element => {
