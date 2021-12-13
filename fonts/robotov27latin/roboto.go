@@ -2,6 +2,7 @@ package robotov27latin
 
 import (
 	"bytes"
+	_ "embed"
 
 	"github.com/evocert/kwe/resources"
 )
