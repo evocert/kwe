@@ -49,6 +49,7 @@ var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1",
 kwe.fs().mkdir("/movies","D:/movies");
 
 kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
+kwe.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
 /*
 var goosgoarchsarr=`aix/ppc64
 android/386
