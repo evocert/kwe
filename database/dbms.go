@@ -21,6 +21,7 @@ type DBMSAPI interface {
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
 	Execute(a interface{}, excargs ...interface{}) (exctr *Executor)
 	InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error)
+	DriverName(alias string) string
 }
 
 type ActiveDBMS struct {
@@ -39,6 +40,13 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 func (atvdbms *ActiveDBMS) Info(alias ...string) (info map[string]interface{}) {
 	if atvdbms != nil && atvdbms.dbms != nil {
 		info = atvdbms.dbms.Info(alias...)
+	}
+	return
+}
+
+func (atvdbms *ActiveDBMS) DriverName(alias string) (driver string) {
+	if atvdbms != nil && atvdbms.dbms != nil {
+		driver = atvdbms.dbms.DriverName(alias)
 	}
 	return
 }
@@ -179,6 +187,15 @@ func (dbms *DBMS) Info(alias ...string) (info map[string]interface{}) {
 					}
 				}
 			}
+		}
+	}
+	return
+}
+
+func (dbms *DBMS) DriverName(alias string) (driver string) {
+	if dbms != nil {
+		if cn, cnok := dbms.cnctns[alias]; cnok {
+			driver = cn.driverName
 		}
 	}
 	return
