@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	_ "embed"
+
 	"github.com/evocert/kwe/resources"
 )
 
@@ -25,5 +27,5 @@ func init() {
 //go:embed js/bootstrap.bundle.min.js
 var bootstrapjs string
 
-//go:embed css/boostrap.min.css
+//go:embed css/bootstrap.min.css
 var bootstrapcss string
