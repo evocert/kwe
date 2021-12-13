@@ -36,7 +36,6 @@ kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t2(
 for (let index = 0; index < 100000; index++) {
 	var vt="b"+index;
 	kwe.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
-	
 }
 console.log(JSON.stringify(kwe.dbms().info("b2")));
 
