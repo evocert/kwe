@@ -11,7 +11,7 @@ func init() {
 	gblrsngfs.MKDIR("/d3", "")
 	gblrsngfs.SET("/d3/d3.js", strings.Replace(d3js, "|'|", "`", -1))
 	gblrsngfs.SET("/d3/d3.min.js", strings.Replace(d3js, "|'|", "`", -1))
-	gblrsngfs.MKDIR("/d3/html")
+	gblrsngfs.MKDIR("/d3/html", "")
 	gblrsngfs.SET("/d3/html/head.html", `<script type="application/javascript" src="/d3/d3.js"></script>`)
 }
 
