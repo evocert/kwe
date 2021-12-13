@@ -40,6 +40,7 @@ type Active struct {
 	FBinRead       func(io.Reader, int) ([]byte, error)
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	ObjectMapRef   func() map[string]interface{}
+	CleanupValue   func(vali interface{}, valt reflect.Type)
 	//lckprnt        *sync.Mutex
 	InterruptVM func(v interface{})
 	*atvruntime
@@ -387,7 +388,7 @@ func (atv *Active) Dispose() (err error) {
 		atv.lckprnt = nil
 	}*/
 	if atv.atvruntime != nil {
-		atv.atvruntime.dispose()
+		atv.atvruntime.dispose(atv.CleanupValue)
 		atv.atvruntime = nil
 	}
 	return
@@ -396,7 +397,7 @@ func (atv *Active) Dispose() (err error) {
 //Clear
 func (atv *Active) Clear() (err error) {
 	if atv.atvruntime != nil {
-		atv.atvruntime.dispose(true)
+		atv.atvruntime.dispose(atv.CleanupValue, true)
 	}
 	return
 }
@@ -1302,7 +1303,7 @@ func (atvrntme *atvruntime) passiveout(i int) {
 	}
 }
 
-func (atvrntme *atvruntime) dispose(clear ...bool) {
+func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt reflect.Type), clear ...bool) {
 	if atvrntme != nil {
 		var clearonly = len(clear) > 0 && clear[0]
 		if atvrntme.prsng != nil {
@@ -1315,7 +1316,7 @@ func (atvrntme *atvruntime) dispose(clear ...bool) {
 			}
 		}
 		if atvrntme.vm != nil {
-			resetvm(atvrntme.vm)
+			resetvm(atvrntme.vm, cleanupVal)
 			if !clearonly {
 				vmpool.Put(atvrntme.vm)
 				atvrntme.vm = nil
@@ -1569,13 +1570,21 @@ func newvm() (vm *goja.Runtime) {
 	return
 }
 
-func resetvm(vm *goja.Runtime) {
+func resetvm(vm *goja.Runtime, cleanupVal func(vali interface{}, valt reflect.Type)) {
 	if vm != nil {
 		if vmgbl := vm.GlobalObject(); vmgbl != nil {
 			var ks = vmgbl.Keys()
 			var rsetcode = ""
+
 			if len(ks) > 0 {
 				for _, k := range ks {
+					if vmgblval := vm.GlobalObject().Get(k); vmgblval != nil {
+						var vali = vmgblval.Export()
+						var valt = vmgblval.ExportType()
+						if vali != nil && valt != nil && cleanupVal != nil {
+							cleanupVal(vali, valt)
+						}
+					}
 					vm.GlobalObject().Delete(k)
 					rsetcode += k + "=undefined;\n"
 				}

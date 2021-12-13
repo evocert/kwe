@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/evocert/kwe/api"
@@ -146,6 +147,15 @@ func (ssn *Session) Active(a ...interface{}) (atv *active.Active) {
 	if ssn != nil {
 		if ssn.atv == nil {
 			ssn.atv = active.NewActive()
+			ssn.atv.CleanupValue = func(vali interface{}, valt reflect.Type) {
+				if vali != nil && valt != nil {
+					if vaireader, _ := vali.(*database.Reader); vaireader != nil {
+						vaireader.Close()
+					} else if vaiexec, _ := vali.(*database.Executor); vaiexec != nil {
+						vaiexec.Close()
+					}
+				}
+			}
 		}
 		atv = ssn.atv
 	}
