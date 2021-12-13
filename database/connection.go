@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/evocert/kwe/iorw"
@@ -200,7 +199,7 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 		}
 		if argvs, argvsok := prmval.(string); argvsok {
 			argvs = strings.TrimSpace(argvs)
-			if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
+			/*if fltval, nrerr := strconv.ParseFloat(argvs, 64); nrerr == nil {
 				if tstintval := int64(fltval); float64(tstintval) == fltval {
 					if argi == -1 {
 						exctr.qryArgs = append(exctr.qryArgs, tstintval)
@@ -226,6 +225,11 @@ func parseParam(exctr *Executor, prmval interface{}, argi int) (s string) {
 				} else {
 					exctr.qryArgs[argi] = argvs
 				}
+			}*/
+			if argi == -1 {
+				exctr.qryArgs = append(exctr.qryArgs, argvs)
+			} else {
+				exctr.qryArgs[argi] = argvs
 			}
 		} else if argvb, argvsok := prmval.(bool); argvsok {
 			if argi == -1 {
