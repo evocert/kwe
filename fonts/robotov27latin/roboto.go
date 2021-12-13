@@ -7,7 +7,7 @@ import (
 	"github.com/evocert/kwe/resources"
 )
 
-// go:embed index.css
+//go:embed index.css
 var indexcss string
 
 //go:embed roboto-v27-latin-regular.woff
