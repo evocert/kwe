@@ -2012,7 +2012,7 @@ var requirejs, require, define;
            }
            if (canLoadMod===false) {
                try {
-                   fsutilcode=kwe.FSUTILS().CATS(url);
+                   fsutilcode=kweT.fsutils().cats(url);
                    if (fsutilcode!=='undefined' && fsutilcode!=='') {
                        eval(fsutilcode);
                        canLoadMod=true;
