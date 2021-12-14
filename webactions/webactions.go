@@ -34,6 +34,7 @@ func init() {
 	gblrs := resources.GLOBALRSNG()
 	gblrs.FS().MKDIR("/jquery", "")
 	gblrs.FS().SET("/jquery/jquery.js", JqueryJS())
+	gblrs.FS().SET("/jquery/jquery.min.js", JqueryJS())
 	gblrs.FS().MKDIR("/webactions", "")
 	gblrs.FS().SET("/webactions/parsing.js", ParsingJS())
 	gblrs.FS().SET("/webactions/parsing.min.js", ParsingJS())
