@@ -24,6 +24,7 @@ func WrapupCall(wrpupcall ...func()) {
 type EnvAPI interface {
 	Set(name string, val interface{})
 	Get(name string) (val interface{})
+	Del(name string)
 	Keys() (keys []string)
 }
 
@@ -45,6 +46,17 @@ func (env *envrmnt) Get(name string) (val interface{}) {
 		val = env.envsettions[name]
 	}
 	return
+}
+
+func (env *envrmnt) Del(name string) {
+	if env != nil && name != "" {
+		if len(env.envsettions) > 0 {
+			if _, nmeok := env.envsettions[name]; nmeok {
+				env.envsettions[name] = nil
+				delete(env.envsettions, name)
+			}
+		}
+	}
 }
 
 func (env *envrmnt) Keys() (keys []string) {
