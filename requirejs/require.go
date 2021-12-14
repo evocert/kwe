@@ -2012,6 +2012,9 @@ var requirejs, require, define;
            }
            if (canLoadMod===false) {
                try {
+                   if (typeof url === "string" && url!=="" && !url.endsWith(".js")) {
+                       url+=".js"
+                   }
                    fsutilcode=kwe.fsutils().cats(url);
                    if (fsutilcode!=='undefined' && fsutilcode!=='') {
                        eval(fsutilcode);
