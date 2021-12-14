@@ -585,7 +585,7 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 					psvsctn.chcdbf.Clear()
 				}
 			}
-			parseprsng(prsng, false, "<@(function(){@>")
+			parseprsng(prsng, false, "<@((...arguments)=>{@>")
 
 			if rnrdr != nil {
 				psvsctn.canphrs = true
