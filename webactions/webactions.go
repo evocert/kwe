@@ -42,5 +42,5 @@ func init() {
 	gblrs.FS().SET("/webactions/webactions.js", WebactionsBundleJS())
 	gblrs.FS().SET("/webactions/webactions.min.js", WebactionsBundleJS())
 	gblrs.FS().MKDIR("/webactions/html", "")
-	gblrs.FS().SET("/webactions/html/head", `<script type="application/javascript" src="/webactions/webactions.min.js"></script>`)
+	gblrs.FS().SET("/webactions/html/head.html", `<script type="application/javascript" src="/webactions/webactions.min.js"></script>`)
 }
