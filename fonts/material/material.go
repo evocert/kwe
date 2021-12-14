@@ -47,4 +47,7 @@ func init() {
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.ttf", readFile("fonts/materialdesignicons-webfont.ttf"))     // MaterialdesigniconsWebfontTTF())
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff", readFile("fonts/materialdesignicons-webfont.woff"))   // MaterialdesigniconsWebfontWOFF())
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff2", readFile("fonts/materialdesignicons-webfont.woff2")) // MaterialdesigniconsWebfontWOFF2())
+
+	gblrs.FS().MKDIR("/materialdesign/html", "")
+	gblrs.FS().SET("/materialdesign/html/head.html", `<link rel="stylesheet" type="text/css" href="/materialdesign/css/materialdesignicons.min.css">`)
 }
