@@ -14,6 +14,11 @@ if (kwe.caching().existsAt("a","b",2)) {
 
 kwe.fs().mkdir("/kweauth","C:/github/kweauth");
 */
+
+kwe.fs().mkdir("/kweauth","C:/github/kweauth");
+kwe.fs().mkdir("kwetl","C:/GitHub/kwetl");
+kwe.env().set("kwetl-path","/kwetl");
+
 kwe.fs().mkdir("/gendocs","./gendocs");
 try {
 	eval(kwe.send("/gendocs/gendocs.js").readAll());

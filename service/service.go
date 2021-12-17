@@ -52,7 +52,6 @@ func (srvs *Service) startService(args ...string) {
 	if srvs.IsService() {
 		defaultroot = strings.Replace(srvs.ServiceExeFolder(), "\\", "/", -1)
 	}
-	//network.MapRoots("/", defaultroot, "resources/", "./resources", "apps/", "./apps")
 	resources.GLOBALRSNG().RegisterEndpoint("/", defaultroot)
 	var out io.Writer = nil
 	var in io.Reader = nil
