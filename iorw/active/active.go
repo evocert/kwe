@@ -1621,6 +1621,9 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 								_, sourceerr = buf.ReadFrom(lkprdr)
 								if sourcebytes = buf.Bytes(); len(sourcebytes) > 0 && (sourceerr == nil || sourceerr == io.EOF) {
 									sourceerr = nil
+								} else if len(sourcebytes) == 0 && sourceerr == nil {
+									sourcebytes = nil
+									sourceerr = require.InvalidModuleError
 								}
 								if sourceerr != nil && sourceerr != io.EOF {
 									sourcebytes = nil
