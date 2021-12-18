@@ -1618,8 +1618,14 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 						if lkprdr, lkprdrerr := atvrntme.atv.LookupTemplate(path); lkprdr != nil || lkprdrerr != nil {
 							if lkprdrerr == nil && lkprdr != nil {
 								buf := new(bytes.Buffer)
-								buf.ReadFrom(lkprdr)
-								return buf.Bytes(), nil
+								_, sourceerr = buf.ReadFrom(lkprdr)
+								if sourcebytes = buf.Bytes(); len(sourcebytes) > 0 && (sourceerr == nil || sourceerr == io.EOF) {
+									sourceerr = nil
+								}
+								if sourceerr != nil && sourceerr != io.EOF {
+									sourcebytes = nil
+								}
+								return sourcebytes, sourceerr
 							} else if lkprdr == nil && lkprdrerr == nil {
 								return require.DefaultSourceLoader(path)
 							}
