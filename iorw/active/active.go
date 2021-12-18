@@ -2,6 +2,7 @@ package active
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,9 +14,9 @@ import (
 	"github.com/dop251/goja/parser"
 
 	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/require"
 
 	"github.com/evocert/kwe/ecma/jsext"
-	"github.com/evocert/kwe/requirejs"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -973,6 +974,8 @@ type atvruntime struct {
 	prsng         *parsing
 	atv           *Active
 	vm            *goja.Runtime
+	vmregister    *require.Registry
+	vmreq         *require.RequireModule
 	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
 	includedpgrms map[string]*goja.Program
 	rntmeche      map[int]map[string]interface{}
@@ -1128,7 +1131,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 	trsnfrmdcde = code
 	isrequired = strings.Contains(code, "require(\"")
 	if isrequired {
-		trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
+		//trsnfrmdcde = strings.Replace(trsnfrmdcde, "require(\"", "_vmrequire(\"", -1)
 	}
 	return
 }
@@ -1321,6 +1324,14 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 				vmpool.Put(atvrntme.vm)
 				atvrntme.vm = nil
 			}
+		}
+		if atvrntme.vmregister != nil {
+			if !clearonly {
+				atvrntme.vmregister = nil
+			}
+		}
+		if atvrntme.vmreq != nil {
+			atvrntme.vmreq = nil
 		}
 		if atvrntme.includedpgrms != nil {
 			if il := len(atvrntme.includedpgrms); il > 0 {
@@ -1566,7 +1577,6 @@ func newvm() (vm *goja.Runtime) {
 	vm = goja.New()
 	var fldmppr = &fieldmapper{fldmppr: goja.UncapFieldNameMapper()}
 	vm.SetFieldNameMapper(fldmppr)
-	jsext.Register(vm)
 	return
 }
 
@@ -1597,13 +1607,38 @@ func resetvm(vm *goja.Runtime, cleanupVal func(vali interface{}, valt reflect.Ty
 func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja.Runtime) {
 	if atvrntme != nil {
 		if atvrntme.vm == nil {
-			if atvrntme.vm, _ = vmpool.Get().(*goja.Runtime); atvrntme.vm == nil {
-				atvrntme.vm = newvm()
+			vm, _ := vmpool.Get().(*goja.Runtime)
+			if vm == nil {
+				vm = newvm()
 			}
 			var dne = make(chan bool, 1)
+			if atvrntme.vmregister == nil {
+				vmregister := require.NewRegistryWithLoader(func(path string) (sourcebytes []byte, sourceerr error) {
+					if atvrntme != nil && atvrntme.atv != nil && atvrntme.atv.LookupTemplate != nil {
+						if lkprdr, lkprdrerr := atvrntme.atv.LookupTemplate(path); lkprdr != nil || lkprdrerr != nil {
+							if lkprdrerr == nil && lkprdr != nil {
+								buf := new(bytes.Buffer)
+								buf.ReadFrom(lkprdr)
+								return buf.Bytes(), nil
+							} else if lkprdr == nil && lkprdrerr == nil {
+								return require.DefaultSourceLoader(path)
+							}
+						} else {
+							return nil, lkprdrerr
+						}
+					}
+					return nil, require.ModuleFileDoesNotExistError
+				})
+				atvrntme.vmregister = vmregister
+			}
+			if atvrntme.vmreq == nil {
+				vmreq := atvrntme.vmregister.Enable(vm)
+				atvrntme.vmreq = vmreq
+			}
 			//go func(vm *goja.Runtime) {
 			//	defer func() { dne <- true }()
-			jsext.Register(atvrntme.vm)
+			jsext.Register(vm)
+			atvrntme.vm = vm
 			//}(atvrntme.vm)
 			//<-dne
 			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
@@ -1755,8 +1790,8 @@ func UnloadGlobalModule(modulepath string) (existed bool) {
 func init() {
 	globalModules = map[string]*goja.Program{}
 	//globalModuleslck = &sync.RWMutex{}
-	var errpgrm error = nil
+	/*var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
 		fmt.Println(errpgrm.Error())
-	}
+	}*/
 }
