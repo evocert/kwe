@@ -377,13 +377,6 @@ func (atv *Active) InvokeVM(callback func(vm *goja.Runtime) error) {
 	}
 }
 
-func (atv *Active) vm() (vm *goja.Runtime) {
-	if atv != nil && atv.atvruntime != nil && atv.atvruntime.vm != nil {
-		vm = atv.atvruntime.vm
-	}
-	return
-}
-
 type CodeException struct {
 	cde      string
 	err      error
