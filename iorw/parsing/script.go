@@ -1,10 +1,10 @@
-package active
+package parsing
 
 import (
 	"strings"
 )
 
-func parseatvrune(prsng *parsing, rn rune) (err error) {
+func parseatvrune(prsng *Parsing, rn rune) (err error) {
 	if !prsng.hascde {
 		prsng.flushPsv()
 		if strings.TrimSpace(string(rn)) != "" {

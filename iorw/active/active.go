@@ -1,9 +1,7 @@
 package active
 
 import (
-	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -14,9 +12,10 @@ import (
 	"github.com/dop251/goja/parser"
 
 	"github.com/dop251/goja"
-	"github.com/evocert/kwe/iorw/active/require"
 
 	"github.com/evocert/kwe/ecma/jsext"
+	"github.com/evocert/kwe/iorw/active/require"
+	"github.com/evocert/kwe/iorw/parsing"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -350,7 +349,7 @@ func (cdeerr *CodeException) ExecPath() string {
 	return cdeerr.execpath
 }
 
-func (atv *Active) atvrun(prsng *parsing) (err error) {
+func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 	if prsng != nil {
 		if atv.atvruntime == nil {
 			atv.atvruntime, err = newatvruntime(atv)
@@ -365,14 +364,19 @@ func (atv *Active) atvrun(prsng *parsing) (err error) {
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
-	var parsing = nextparsing(atv, nil, rin, wout, initpath)
-	defer parsing.dispose()
+	var prsng = parsing.NextParsing(atv.LookupTemplate, atv.print, atv.println, atv.binwrite, atv.readln, atv.seek, atv.readlines, atv.readAll, atv.binread, nil, rin, wout, initpath)
+	defer prsng.Dispose()
 	if len(a) > 0 {
 		if invertactpsv {
 			a = append(append([]interface{}{"<@"}, a...), "@>")
 		}
 	}
-	err = parseprsng(parsing, true, a...)
+	err = parsing.ParsePrsng(prsng, true, atv.processParsing, a...)
+	return
+}
+
+func (atv *Active) processParsing(prsng *parsing.Parsing) (err error) {
+	err = atv.atvrun(prsng)
 	return
 }
 
@@ -410,568 +414,8 @@ func (atv *Active) Interrupt() {
 	}
 }
 
-var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
-var elmlbl = [][]rune{[]rune("<#"), []rune(">"), []rune("</#"), []rune(">"), []rune("<#"), []rune("/>")}
-var phrslbl = [][]rune{[]rune("{#"), []rune("#}")}
-
-type parsing struct {
-	*iorw.Buffer
-	tmpltbuf       *iorw.Buffer
-	tmpltmap       map[string][]int64
-	atv            *Active
-	wout           io.Writer
-	woutbytes      []byte
-	woutbytesi     int
-	rin            io.Reader
-	prntrs         []io.Writer
-	rdrs           []io.Reader
-	prslbli        []int
-	prslblprv      []rune
-	prntprsng      *parsing
-	foundcde       bool
-	hascde         bool
-	cdetxt         rune
-	cdebuf         *iorw.Buffer
-	cdeoffsetstart int64
-	cdeoffsetend   int64
-	cdemap         map[int][]int64
-	cder           []rune
-	cderi          int
-	psvoffsetstart int64
-	psvoffsetend   int64
-	psvmap         map[int][]int64
-	psvr           []rune
-	psvri          int
-	//psvsection
-	tmpbuf    *iorw.Buffer
-	elmlbli   []int
-	elmoffset int
-	elmprvrns []rune
-	//elmType     elemtype
-	prvelmrn    rune
-	crntpsvsctn *psvsection
-	headpsvsctn *psvsection
-	tailpsvsctn *psvsection
-	//psvctrl        *passivectrl
-	//prvpsvctrls    map[*passivectrl]*passivectrl
-	prsvpth string
-}
-
-func (prsng *parsing) tempbuf() *iorw.Buffer {
-	if prsng.tmpbuf == nil {
-		prsng.tmpbuf = iorw.NewBuffer()
-	}
-	return prsng.tmpbuf
-}
-
-func (prsng *parsing) cdeBuff() *iorw.Buffer {
-	if prsng.cdebuf == nil {
-		prsng.cdebuf = iorw.NewBuffer()
-	}
-	return prsng.cdebuf
-}
-
-func (prsng *parsing) tmpltBuf() *iorw.Buffer {
-	if prsng != nil {
-		if prsng.tmpltbuf == nil {
-			prsng.tmpltbuf = iorw.NewBuffer()
-		}
-		return prsng.tmpltbuf
-	}
-	return nil
-}
-
-func (prsng *parsing) tmpltMap() map[string][]int64 {
-	if prsng != nil {
-		if prsng.tmpltmap == nil {
-			prsng.tmpltmap = map[string][]int64{}
-		}
-		return prsng.tmpltmap
-	}
-	return nil
-}
-
-func (prsng *parsing) tmpltrdr(tmpltnme string) (rdr *iorw.BuffReader, mxlen int64) {
-	mxlen = -1
-	if prsng != nil && prsng.tmpltmap != nil && prsng.tmpltbuf != nil {
-		if strtend, strtendok := prsng.tmpltmap[tmpltnme]; strtendok {
-			if s := prsng.tmpltbuf.Size(); s > 0 && len(strtend) > 0 && strtend[0] >= 0 && strtend[1] <= s {
-				if mxlen = (strtend[1] - strtend[0]); mxlen > 0 {
-					rdr = prsng.tmpltbuf.Reader()
-					rdr.Seek(strtend[0], io.SeekStart)
-					rdr.MaxRead = mxlen
-				}
-			}
-		}
-	}
-	return
-}
-
-func (prsng *parsing) print(a ...interface{}) {
-	if prsng.atv != nil {
-		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.atv.print(prsng.prntrs[pl-1], a...)
-		} else {
-			prsng.atv.print(prsng.wout, a...)
-		}
-	}
-}
-
-func (prsng *parsing) println(a ...interface{}) {
-	if prsng.atv != nil {
-		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.atv.println(prsng.prntrs[pl-1], a...)
-		} else {
-			prsng.atv.println(prsng.wout, a...)
-		}
-	}
-}
-
-func (prsng *parsing) binwrite(b ...byte) (n int, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.prntrs); pl > 0 {
-			n, err = prsng.atv.binwrite(prsng.prntrs[pl-1], b...)
-		} else {
-			n, err = prsng.atv.binwrite(prsng.wout, b...)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) incprint(w io.Writer) {
-	if prsng != nil {
-		prsng.prntrs = append(prsng.prntrs, w)
-	}
-}
-
-func (prsng *parsing) resetprint() {
-	if prsng.prntrs != nil {
-		for len(prsng.prntrs) > 0 {
-			prsng.prntrs[len(prsng.prntrs)-1] = nil
-			prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
-		}
-	}
-}
-
-func (prsng *parsing) decprint() {
-	if prsng.prntrs != nil {
-		if len(prsng.prntrs) > 0 {
-			prsng.prntrs[len(prsng.prntrs)-1] = nil
-			prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
-		}
-	}
-}
-
-func (prsng *parsing) readLn() (ln string, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.rdrs); pl > 0 {
-			ln, err = prsng.atv.readln(prsng.rdrs[pl-1])
-		} else {
-			ln, err = prsng.atv.readln(prsng.rin)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) seek(offset int64, whence int) (n int64, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.rdrs); pl > 0 {
-			n, err = prsng.atv.seek(prsng.rdrs[pl-1], offset, whence)
-		} else {
-			n, err = prsng.atv.seek(prsng.rin, offset, whence)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) readLines() (lines []string, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.rdrs); pl > 0 {
-			lines, err = prsng.atv.readlines(prsng.rdrs[pl-1])
-		} else {
-			lines, err = prsng.atv.readlines(prsng.rin)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) readAll() (s string, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.rdrs); pl > 0 {
-			s, err = prsng.atv.readAll(prsng.rdrs[pl-1])
-		} else {
-			s, err = prsng.atv.readAll(prsng.rin)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) incread(r io.Reader) {
-	if prsng != nil {
-		prsng.rdrs = append(prsng.rdrs, r)
-	}
-}
-
-func (prsng *parsing) binread(size int) (b []byte, err error) {
-	if prsng.atv != nil {
-		if pl := len(prsng.rdrs); pl > 0 {
-			b, err = prsng.atv.binread(prsng.rdrs[pl-1], size)
-		} else {
-			b, err = prsng.atv.binread(prsng.rin, size)
-		}
-	}
-	return
-}
-
-func (prsng *parsing) resetread() {
-	if prsng.rdrs != nil {
-		for len(prsng.rdrs) > 0 {
-			prsng.rdrs[len(prsng.rdrs)-1] = nil
-			prsng.rdrs = prsng.rdrs[:len(prsng.rdrs)-1]
-		}
-	}
-}
-
-func (prsng *parsing) decread() {
-	if prsng.rdrs != nil {
-		if len(prsng.rdrs) > 0 {
-			prsng.rdrs[len(prsng.rdrs)-1] = nil
-			prsng.rdrs = prsng.rdrs[:len(prsng.rdrs)-1]
-		}
-	}
-}
-
-func (prsng *parsing) dispose() {
-	if prsng != nil {
-		if prsng.cdemap != nil {
-			if len(prsng.cdemap) > 0 {
-				var cdeks = make([]int, len(prsng.cdemap))
-				var cdeksi = 0
-				for cdek := range prsng.cdemap {
-					cdeks[cdeksi] = cdek
-					prsng.cdemap[cdek] = nil
-				}
-				for len(cdeks) > 0 {
-					delete(prsng.cdemap, cdeks[0])
-					cdeks = cdeks[1:]
-				}
-				cdeks = nil
-			}
-			prsng.cdemap = nil
-		}
-		if prsng.cdebuf != nil {
-			prsng.cdebuf.Close()
-			prsng.cdebuf = nil
-		}
-		if prsng.prntrs != nil {
-			for len(prsng.prntrs) > 0 {
-				prsng.prntrs[len(prsng.prntrs)-1] = nil
-				prsng.prntrs = prsng.prntrs[:len(prsng.prntrs)-1]
-			}
-			prsng.prntrs = nil
-		}
-		if prsng.atv != nil {
-			prsng.atv = nil
-		}
-		if prsng.prntprsng != nil {
-			prsng.prntprsng = nil
-		}
-		if prsng.prslbli != nil {
-			prsng.prslbli = nil
-		}
-		if prsng.prslblprv != nil {
-			prsng.prslblprv = nil
-		}
-		if prsng.Buffer != nil {
-			prsng.Buffer.Close()
-			prsng.Buffer = nil
-		}
-		if prsng.wout != nil {
-			prsng.wout = nil
-		}
-		if prsng.woutbytes != nil {
-			prsng.woutbytes = nil
-		}
-		if prsng.tmpltmap != nil {
-			for k := range prsng.tmpltmap {
-				prsng.tmpltmap[k] = nil
-				delete(prsng.tmpltmap, k)
-			}
-			prsng.tmpltmap = nil
-		}
-		if prsng.tmpltbuf != nil {
-			prsng.tmpltbuf.Close()
-			prsng.tmpltbuf = nil
-		}
-		if prsng.tmpbuf != nil {
-			prsng.tmpbuf.Close()
-			prsng.tmpbuf = nil
-		}
-		for prsng.tailpsvsctn != nil {
-			prsng.tailpsvsctn.dispose()
-		}
-		if prsng.headpsvsctn != nil {
-			prsng.headpsvsctn.dispose()
-		}
-		if prsng.crntpsvsctn != nil {
-			prsng.crntpsvsctn = nil
-		}
-		if prsng.elmlbli != nil {
-			prsng.elmlbli = nil
-		}
-		prsng = nil
-	}
-}
-
-func (prsng *parsing) topprsng() *parsing {
-	if prsng.prntprsng == nil {
-		return prsng
-	}
-	return prsng.prntprsng.topprsng()
-}
-
-func (prsng *parsing) setcdepos(startoffset int64, endoffset int64) {
-	if prsng.cdemap == nil {
-		prsng.cdemap = map[int][]int64{}
-	}
-	prsng.cdemap[len(prsng.cdemap)] = []int64{startoffset, endoffset}
-}
-
-func (prsng *parsing) setpsvpos(startoffset int64, endoffset int64) (pos int) {
-	if prsng.psvmap == nil {
-		prsng.psvmap = map[int][]int64{}
-	}
-	pos = len(prsng.psvmap)
-	prsng.psvmap[pos] = []int64{startoffset, endoffset}
-	return
-}
-
-func (prsng *parsing) flushWritePsv() (err error) {
-	if prsng != nil && prsng.woutbytesi > 0 {
-		_, err = prsng.wout.Write(prsng.woutbytes[0:prsng.woutbytesi])
-		prsng.woutbytesi = 0
-	}
-	return
-}
-
-func (prsng *parsing) writePsv(p ...rune) (err error) {
-	if pl := len(p); pl > 0 {
-		if prsng.crntpsvsctn == nil {
-			if prsng.foundCode() {
-				if prsng.psvoffsetstart == -1 {
-					prsng.psvoffsetstart = prsng.Size()
-				}
-				err = prsng.WriteRunes(p[:pl]...)
-			} else {
-				if bs := iorw.RunesToUTF8(p[:pl]); len(bs) > 0 {
-					for _, bsb := range bs {
-						prsng.woutbytes[prsng.woutbytesi] = bsb
-						prsng.woutbytesi++
-						if prsng.woutbytesi == len(prsng.woutbytes) {
-							if err = prsng.flushWritePsv(); err != nil {
-								break
-							}
-						}
-					}
-				}
-			}
-		} else {
-			if prsng.crntpsvsctn.canphrs {
-				for _, phrsr := range p[:pl] {
-					if err = parsepsvphrase(prsng, prsng.crntpsvsctn, prsng.crntpsvsctn.phrslbli, phrsr); err != nil {
-						return
-					}
-				}
-			} else {
-				err = prsng.crntpsvsctn.CachedBuf().WriteRunes(p[:pl]...)
-			}
-		}
-	}
-	return
-}
-
-func (prsng *parsing) writeCde(p []rune) (err error) {
-	if pl := len(p); pl > 0 {
-		if prsng.cdeoffsetstart == -1 {
-			prsng.cdeoffsetstart = prsng.cdeBuff().Size()
-		}
-		err = prsng.cdeBuff().WriteRunes(p[:pl]...)
-	}
-	return
-}
-
-func (prsng *parsing) foundCode() bool {
-	return prsng.foundcde
-}
-
-func (prsng *parsing) flushPsv() (err error) {
-	if pi := prsng.psvri; pi > 0 {
-		prsng.psvri = 0
-		err = prsng.writePsv(prsng.psvr[:pi]...)
-	}
-	if err == nil {
-		err = prsng.flushWritePsv()
-	}
-	if err == nil && prsng.crntpsvsctn == nil && prsng.foundCode() {
-		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
-			prsng.psvoffsetstart = -1
-			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
-			err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
-		}
-	}
-	return
-}
-
-func parsepsvrunes(prsng *parsing, p []rune) (err error) {
-	if len(p) > 0 {
-		for _, rn := range p {
-			if err = parsepsvrune(prsng, rn); err != nil {
-				break
-			}
-		}
-	}
-	return
-}
-
-func parseatvrunes(prsng *parsing, p []rune) (err error) {
-	if len(p) > 0 {
-		for _, rn := range p {
-			if err = parseatvrune(prsng, rn); err != nil {
-				break
-			}
-		}
-	}
-	return
-}
-
-func (prsng *parsing) flushCde() (err error) {
-	if pi := prsng.cderi; pi > 0 {
-		prsng.cderi = 0
-		prsng.writeCde(prsng.cder[:pi])
-	}
-	if cdeoffsetstart := prsng.cdeoffsetstart; cdeoffsetstart > -1 {
-		prsng.cdeoffsetstart = -1
-		prsng.setcdepos(cdeoffsetstart, prsng.cdeBuff().Size())
-	}
-	return
-}
-
-func parseprsng(prsng *parsing, canexec bool, a ...interface{}) (err error) {
-	var rnr = iorw.NewMultiArgsReader(a...)
-	func() {
-		defer rnr.Close()
-		for err == nil {
-			r, rsize, rerr := rnr.ReadRune()
-			if rsize > 0 {
-				if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
-					break
-				}
-			}
-			if rerr != nil {
-				err = rerr
-			}
-		}
-	}()
-	if err == io.EOF || err == nil {
-		if err == io.EOF {
-			err = nil
-		}
-		prsng.flushPsv()
-		if canexec {
-			prsng.flushCde()
-			if prsng.foundCode() {
-				err = prsng.atv.atvrun(prsng)
-			} else {
-				if rdr := prsng.Reader(); rdr != nil {
-					io.Copy(prsng.wout, rdr)
-					rdr.Close()
-					rdr = nil
-				}
-			}
-		}
-	}
-	return
-}
-
-func parseprsngrune(prsng *parsing, prslbli []int, prslblprv []rune, pr rune) (err error) {
-	if prsng.cdetxt == rune(0) && prslbli[1] == 0 && prslbli[0] < len(prslbl[0]) {
-		if prslbli[0] > 0 && prslbl[0][prslbli[0]-1] == prslblprv[0] && prslbl[0][prslbli[0]] != pr {
-			if psvl := prslbli[0]; psvl > 0 {
-				prslbli[0] = 0
-				prslblprv[0] = 0
-				err = parsepsvrunes(prsng, prslbl[0][0:psvl])
-			}
-		}
-		if prslbl[0][prslbli[0]] == pr {
-			prslbli[0]++
-			if prslbli[0] == len(prslbl[0]) {
-				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[0]...); err != nil {
-						return
-					}
-				}
-				prslblprv[0] = 0
-			} else {
-				prslblprv[0] = pr
-			}
-		} else {
-			if psvl := prslbli[0]; psvl > 0 {
-				prslbli[0] = 0
-				prslblprv[0] = 0
-				if err = parsepsvrunes(prsng, prslbl[0][0:psvl]); err != nil {
-					return
-				}
-			}
-			err = parsepsvrune(prsng, pr)
-			prslblprv[0] = pr
-		}
-	} else if prslbli[0] == len(prslbl[0]) && prslbli[1] < len(prslbl[1]) {
-		if prsng.cdetxt == rune(0) && prslbl[1][prslbli[1]] == pr {
-			prslbli[1]++
-			if prslbli[1] == len(prslbl[1]) {
-				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1]...); err != nil {
-						return
-					}
-				}
-				prslbli[0] = 0
-				prslblprv[1] = 0
-				prslbli[1] = 0
-			} else {
-				prslblprv[1] = pr
-			}
-		} else {
-			if prsl := prslbli[1]; prsl > 0 {
-				prslbli[1] = 0
-				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1][:prsl]...); err != nil {
-						return
-					}
-				} else {
-					if err = parseatvrunes(prsng, prslbl[1][:prsl]); err != nil {
-						return
-					}
-				}
-			}
-			if prsng.crntpsvsctn != nil {
-				err = prsng.crntpsvsctn.CachedBuf().WriteRune(pr)
-			} else {
-				err = parseatvrune(prsng, pr)
-			}
-			prslblprv[1] = pr
-		}
-	}
-	return
-}
-
-func nextparsing(atv *Active, prntprsng *parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *parsing) {
-	prsng = &parsing{Buffer: iorw.NewBuffer(), prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, atv: atv, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
-		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
-	return
-}
-
 type atvruntime struct {
-	prsng         *parsing
+	prsng         *parsing.Parsing
 	atv           *Active
 	vm            *goja.Runtime
 	vmregister    *require.Registry
@@ -1041,7 +485,7 @@ func (atvrntme *atvruntime) run() (val interface{}, err error) {
 	if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
 		objmapref = atvrntme.atv.ObjectMapRef()
 	}
-	val, err = atvrntme.corerun(atvrntme.code(), objmapref)
+	val, err = atvrntme.corerun(parsing.Code(atvrntme.prsng), objmapref)
 	return
 }
 
@@ -1116,7 +560,7 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 		cde := ""
 		excpath := ""
 		if atvrntme.prsng != nil {
-			excpath = atvrntme.prsng.prsvpth
+			excpath = atvrntme.prsng.Prsvpth
 		}
 		for cdn, cd := range strings.Split(code, "\n") {
 			cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
@@ -1137,103 +581,7 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 }
 
 func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val interface{}, err error) {
-	var prsng = atvrntme.prsng
-	if forceCode {
-		prsng.prslbli[0] = len(prslbl[0])
-		prsng.prslbli[1] = 0
-		prsng.prslblprv[0] = 0
-		prsng.prslblprv[1] = 0
-	} else {
-		prsng.prslbli[0] = 0
-		prsng.prslbli[1] = 0
-		prsng.prslblprv[0] = 0
-		prsng.prslblprv[1] = 0
-	}
-	var cdecoords []int64 = nil
-	orgcdemapl := len(prsng.cdemap)
-	pr, pw := io.Pipe()
-	ctx, ctxcancel := context.WithCancel(context.Background())
-	go func(args ...interface{}) {
-		defer func() {
-			pw.Close()
-		}()
-		ctxcancel()
-		if len(args) > 0 {
-			iorw.Fprint(pw, args...)
-		}
-	}(a...)
-	rnr := bufio.NewReader(pr)
-	<-ctx.Done()
-	ctx = nil
-	var crunes = make([]rune, 4096)
-	var crunesi = 0
-	var cdetestbuf = iorw.NewBuffer()
-	func() {
-		defer func() {
-			if cdetestbuf != nil {
-				if cdetestbuf.Size() > 0 {
-					fmt.Println(cdetestbuf.String())
-				}
-				cdetestbuf.Close()
-				cdetestbuf = nil
-			}
-		}()
-		canprcss := false
-		for err == nil {
-			r, rsize, rerr := rnr.ReadRune()
-			if rsize > 0 {
-				if !canprcss {
-					canprcss = true
-				}
-				crunes[crunesi] = r
-				crunesi++
-				if crunesi == len(crunes) {
-					cl := crunesi
-					crunesi = 0
-					cdetestbuf.Print(string(crunes[:cl]))
-					for _, cr := range crunes[:cl] {
-						parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, cr)
-					}
-				}
-			}
-			if rerr != nil {
-				err = rerr
-			}
-		}
-		if err == io.EOF || err == nil {
-			if err == io.EOF {
-				err = nil
-			}
-			if crunesi > 0 {
-				cl := crunesi
-				crunesi = 0
-				cdetestbuf.Print(string(crunes[:cl]))
-				for _, cr := range crunes[:cl] {
-					parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, cr)
-				}
-			}
-			prsng.flushPsv()
-			if canprcss {
-				prsng.flushCde()
-				if prsng.foundCode() {
-					if cdemapl := len(prsng.cdemap); cdemapl > orgcdemapl {
-						cdecoords = []int64{prsng.cdemap[orgcdemapl][0], prsng.cdemap[cdemapl-1][1]}
-					}
-					cde := atvrntme.code(cdecoords...)
-					val, err = atvrntme.corerun(cde, nil)
-				} else {
-					if rdr := prsng.Reader(); rdr != nil {
-						io.Copy(prsng.wout, rdr)
-						rdr.Close()
-						rdr = nil
-					}
-				}
-				cdetestbuf.Close()
-				cdetestbuf = nil
-			}
-		}
-	}()
-	return
+	return parsing.ParseEval(atvrntme.prsng, forceCode, atvrntme.corerun, a...)
 }
 
 func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
@@ -1245,64 +593,9 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 	}
 }
 
-func (atvrntme *atvruntime) code(coords ...int64) (c string) {
-	if atvrntme != nil && atvrntme.prsng != nil {
-		if cdel := len(atvrntme.prsng.cdemap); cdel > 0 {
-			var cdei = 0
-			var rdr *iorw.BuffReader = nil
-			if len(coords) == 0 {
-				coords = []int64{atvrntme.prsng.cdemap[cdei][0], atvrntme.prsng.cdemap[cdel-1][1]}
-			}
-			var mxdcde int64 = int64(0)
-			if len(coords) == 2 && coords[0] <= coords[1] {
-				mxdcde = coords[1] - coords[0]
-			}
-			if mxdcde > 0 {
-				for cdei < cdel && mxdcde > 0 {
-					if cdecrds, cdecrdsok := atvrntme.prsng.cdemap[cdei]; cdecrdsok && (cdecrds[0] <= coords[1] && cdecrds[1] >= coords[0]) {
-						if strti := cdecrds[0]; strti >= 0 {
-							if strti < coords[0] {
-								strti = coords[0]
-							}
-							if endi := cdecrds[1]; endi >= 0 {
-								if endi > coords[1] {
-									endi = coords[1]
-								}
-								if endi-strti > 0 {
-									if rdr == nil {
-										rdr = atvrntme.prsng.cdeBuff().Reader()
-									}
-									rdr.Seek(strti, 0)
-									rdr.MaxRead = endi - strti
-									if rs, rserr := iorw.ReaderToString(rdr); rs != "" {
-										c += rs
-										mxdcde -= (endi - strti)
-									} else if rserr != nil {
-										break
-									}
-								}
-							}
-						}
-					}
-					cdei++
-				}
-
-			}
-		}
-	}
-	return c
-}
-
 func (atvrntme *atvruntime) passiveout(i int) {
 	if atvrntme != nil && atvrntme.prsng != nil {
-		if psvl := len(atvrntme.prsng.psvmap); psvl > 0 && i >= 0 && i < psvl {
-			psvcoors := atvrntme.prsng.psvmap[i]
-			if psvcoors[1] > psvcoors[0] {
-				rdr := atvrntme.prsng.Reader()
-				rdr.Seek(psvcoors[0], 0)
-				io.CopyN(atvrntme.prsng.wout, rdr, psvcoors[1]-psvcoors[0])
-			}
-		}
+		parsing.Passiveout(atvrntme.prsng, i)
 	}
 }
 
@@ -1310,7 +603,7 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 	if atvrntme != nil {
 		var clearonly = len(clear) > 0 && clear[0]
 		if atvrntme.prsng != nil {
-			atvrntme.prsng.dispose()
+			atvrntme.prsng.Dispose()
 			atvrntme.prsng = nil
 		}
 		if atvrntme.atv != nil {
@@ -1408,36 +701,36 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		//WRITER
 		"incprint": func(w io.Writer) {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.incprint(w)
+				atvrntme.prsng.IncPrint(w)
 			}
 		},
 		"resetprint": func() {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.resetprint()
+				atvrntme.prsng.ResetPrint()
 			}
 		},
 		"decprint": func() {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.decprint()
+				atvrntme.prsng.DecPrint()
 			}
 		},
 		"print": func(a ...interface{}) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				atvrntme.prsng.print(a...)
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.Print(a...)
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.print(nil, a...)
 			}
 		},
 		"println": func(a ...interface{}) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				atvrntme.prsng.println(a...)
+			if atvrntme.prsng != nil {
+				atvrntme.prsng.Println(a...)
 			} else if atvrntme.atv != nil {
 				atvrntme.atv.println(nil, a...)
 			}
 		},
 		"binwrite": func(b ...byte) (n int, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				n, err = atvrntme.prsng.binwrite(b...)
+			if atvrntme.prsng != nil {
+				n, err = atvrntme.prsng.BinWrite(b...)
 			} else if atvrntme.atv != nil {
 				n, err = atvrntme.atv.binwrite(nil, b...)
 			}
@@ -1446,59 +739,59 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		//READER
 		"incread": func(r io.Reader) {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.incread(r)
+				atvrntme.prsng.IncRead(r)
 			}
 		},
 		"resetread": func() {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.resetread()
+				atvrntme.prsng.ResetRead()
 			}
 		},
 		"decread": func() {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.decread()
+				atvrntme.prsng.DecRead()
 			}
 		},
 		"seek": func(offset int64, whence int) (n int64, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				n, err = atvrntme.prsng.seek(offset, whence)
+			if atvrntme.prsng != nil {
+				n, err = atvrntme.prsng.Seek(offset, whence)
 			} else if atvrntme.atv != nil {
 				n, err = atvrntme.atv.seek(nil, offset, whence)
 			}
 			return
 		},
 		"readln": func() (ln string, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				ln, err = atvrntme.prsng.readLn()
+			if atvrntme.prsng != nil {
+				ln, err = atvrntme.prsng.ReadLn()
 			} else if atvrntme.atv != nil {
 				ln, err = atvrntme.atv.readln(nil)
 			}
 			return
 		},
 		"readLines": func() (lines []string, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				lines, err = atvrntme.prsng.readLines()
+			if atvrntme.prsng != nil {
+				lines, err = atvrntme.prsng.ReadLines()
 			} else if atvrntme.atv != nil {
 				lines, err = atvrntme.atv.readlines(nil)
 			}
 			return
 		}, "readAll": func() (s string, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				s, err = atvrntme.prsng.readAll()
+			if atvrntme.prsng != nil {
+				s, err = atvrntme.prsng.ReadAll()
 			} else if atvrntme.atv != nil {
 				s, err = atvrntme.atv.readAll(nil)
 			}
 			return
 		}, "binread": func(size int) (b []byte, err error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				b, err = atvrntme.prsng.binread(size)
+			if atvrntme.prsng != nil {
+				b, err = atvrntme.prsng.BinRead(size)
 			} else if atvrntme.atv != nil {
 				b, err = atvrntme.atv.binread(nil, size)
 			}
 			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.atv != nil {
-				if lkpr, lkprerr := atvrntme.prsng.atv.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
+			if atvrntme.prsng != nil && atvrntme.prsng.LookupTemplate != nil {
+				if lkpr, lkprerr := atvrntme.prsng.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
 					if s, _ := iorw.ReaderToString(lkpr); s != "" {
 						src = strings.TrimSpace(s)
 					} else {

@@ -1,4 +1,4 @@
-package active
+package parsing
 
 import (
 	"io"
@@ -8,7 +8,20 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-func parsepsvrune(prsng *parsing, rn rune) (err error) {
+func Passiveout(prsng *Parsing, i int) {
+	if prsng != nil {
+		if psvl := len(prsng.psvmap); psvl > 0 && i >= 0 && i < psvl {
+			psvcoors := prsng.psvmap[i]
+			if psvcoors[1] > psvcoors[0] {
+				rdr := prsng.Reader()
+				rdr.Seek(psvcoors[0], 0)
+				io.CopyN(prsng.wout, rdr, psvcoors[1]-psvcoors[0])
+			}
+		}
+	}
+}
+
+func parsepsvrune(prsng *Parsing, rn rune) (err error) {
 	prsng.flushCde()
 	if prsng.hascde {
 		prsng.hascde = false
@@ -17,7 +30,7 @@ func parsepsvrune(prsng *parsing, rn rune) (err error) {
 	return
 }
 
-func parsepsvphrase(prsng *parsing, psvsctn *psvsection, phrslbli []int, rn rune) (err error) {
+func parsepsvphrase(prsng *Parsing, psvsctn *psvsection, phrslbli []int, rn rune) (err error) {
 	if phrslbli[1] == 0 && phrslbli[0] < len(phrslbl[0]) {
 		if phrslbli[0] > 0 && phrslbl[0][phrslbli[0]-1] == psvsctn.phrsprvrn && phrslbl[0][phrslbli[0]] != rn {
 			phrsi := phrslbli[0]
@@ -61,7 +74,7 @@ func parsepsvphrase(prsng *parsing, psvsctn *psvsection, phrslbli []int, rn rune
 									}()
 									phrsrdr.Seek(phrscoord[0], io.SeekStart)
 									phrsrdr.MaxRead = phrscoord[1] - phrscoord[0]
-									err = parseprsng(psvsctn.prsng, false, phrsrdr)
+									err = ParsePrsng(psvsctn.prsng, false, nil, phrsrdr)
 								}()
 								return
 							}
@@ -113,7 +126,7 @@ func parsepsvphrase(prsng *parsing, psvsctn *psvsection, phrslbli []int, rn rune
 	return
 }
 
-func parseelmpsvrrune(prsng *parsing, elmoffset int, elmlbli []int, elmprvrns []rune, rn rune) (err error) {
+func parseelmpsvrrune(prsng *Parsing, elmoffset int, elmlbli []int, elmprvrns []rune, rn rune) (err error) {
 	if elmoffset == -1 {
 		elmoffset = 0
 		prsng.elmoffset = elmoffset
@@ -229,7 +242,7 @@ func parseelmpsvrrune(prsng *parsing, elmoffset int, elmlbli []int, elmprvrns []
 	return
 }
 
-func validElemParsing(prsng *parsing, elmoffset int, crntpsvsctn *psvsection) (valid bool, elmTpe elemtype, psvsctn *psvsection, err error) {
+func validElemParsing(prsng *Parsing, elmoffset int, crntpsvsctn *psvsection) (valid bool, elmTpe elemtype, psvsctn *psvsection, err error) {
 	if prsng.tmpbuf == nil || prsng.tmpbuf.Size() == 0 {
 		return
 	}
@@ -274,7 +287,7 @@ func (elmtpe elemtype) String() (s string) {
 }
 
 type psvsection struct {
-	prsng        *parsing
+	prsng        *Parsing
 	elmtpe       elemtype
 	tmpbuf       *iorw.Buffer
 	prvsctn      *psvsection
@@ -291,7 +304,7 @@ type psvsection struct {
 	tmpendi      int16
 }
 
-func removePsvSection(prsng *parsing, psvsctn *psvsection) {
+func removePsvSection(prsng *Parsing, psvsctn *psvsection) {
 	if prsng != nil && psvsctn != nil && psvsctn.prsng == prsng {
 		prvsctn := psvsctn.prvsctn
 		nxtsctn := psvsctn.nxtsctn
@@ -363,7 +376,7 @@ func (psvsctn *psvsection) PhraseTemplateBuf() *iorw.Buffer {
 
 func (psvsctn *psvsection) path() (path string) {
 	path = strings.Replace(psvsctn.tmpltpath, "|", "/", -1)
-	prsngext := filepath.Ext(psvsctn.prsng.prsvpth)
+	prsngext := filepath.Ext(psvsctn.prsng.Prsvpth)
 	prvsctnext := ""
 	if strings.HasPrefix(path, ".") {
 		if psvsctn.prvsctn != nil {
@@ -371,11 +384,11 @@ func (psvsctn *psvsection) path() (path string) {
 			prvsctnext = filepath.Ext(prvsctnpth)
 			path = prvsctnpth[:strings.LastIndex(prvsctnpth, "/")+1] + path[1:]
 		} else {
-			prsngpth := psvsctn.prsng.prsvpth
+			prsngpth := psvsctn.prsng.Prsvpth
 			path = prsngpth[:strings.LastIndex(prsngpth, "/")+1] + path[1:]
 		}
 	} else if !strings.HasPrefix(path, "/") {
-		prsngpth := psvsctn.prsng.prsvpth
+		prsngpth := psvsctn.prsng.Prsvpth
 		path = prsngpth[:strings.LastIndex(prsngpth, "/")+1] + path
 	}
 	if pthext := filepath.Ext(path); pthext == "" {
@@ -392,7 +405,7 @@ func (psvsctn *psvsection) path() (path string) {
 	return
 }
 
-func newPsvSection(prsng *parsing, elmtpe elemtype, tmpbuf *iorw.Buffer, crntsctn *psvsection) (psvsctn *psvsection) {
+func newPsvSection(prsng *Parsing, elmtpe elemtype, tmpbuf *iorw.Buffer, crntsctn *psvsection) (psvsctn *psvsection) {
 	if tmpbuf != nil && tmpbuf.Size() > 0 {
 
 		var tmpltpath = ""
@@ -548,8 +561,8 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 		if tmpltpath := psvsctn.path(); tmpltpath != "" {
 			var tmpltcoordsok bool = false
 			if _, tmpltcoordsok = psvsctn.prsng.tmpltMap()[tmpltpath]; !tmpltcoordsok {
-				if psvsctn.prsng.atv != nil && psvsctn.prsng.atv.atv.LookupTemplate != nil {
-					lkprdr, lkperr := psvsctn.prsng.atv.atv.LookupTemplate(tmpltpath)
+				if psvsctn.prsng.LookupTemplate != nil {
+					lkprdr, lkperr := psvsctn.prsng.LookupTemplate(tmpltpath)
 					if lkperr != nil {
 						err = lkperr
 					} else if lkprdr != nil {
@@ -585,25 +598,25 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 					psvsctn.chcdbf.Clear()
 				}
 			}
-			parseprsng(prsng, false, "<@((...arguments)=>{@>")
+			ParsePrsng(prsng, false, nil, "<@((...arguments)=>{@>")
 
 			if rnrdr != nil {
 				psvsctn.canphrs = true
-				parseprsng(prsng, false, rnrdr)
+				ParsePrsng(prsng, false, nil, rnrdr)
 				psvsctn.canphrs = false
 			}
 			if psvsctn.tmpbuf != nil && psvsctn.tmpbuf.Size() > 0 {
-				parseprsng(prsng, false, "<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")
+				ParsePrsng(prsng, false, nil, "<@})(@>"+psvsctn.tmpbuf.String()+"<@);@>")
 				psvsctn.tmpbuf.Clear()
 			} else {
-				parseprsng(prsng, false, "<@})();@>")
+				ParsePrsng(prsng, false, nil, "<@})();@>")
 			}
 
 			decpsvcsection(psvsctn)
 			if psvsctn.chcdbf != nil && psvsctn.chcdbf.Size() > 0 {
 				rnrdr = psvsctn.chcdbf.Reader()
 				psvsctn.canphrs = true
-				parseprsng(prsng, false, rnrdr)
+				ParsePrsng(prsng, false, nil, rnrdr)
 				psvsctn.canphrs = false
 				rnrdr = nil
 			}
