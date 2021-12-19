@@ -57,14 +57,12 @@ func (atv *Active) AltPrint(w io.Writer, a ...interface{}) {
 	if atv != nil {
 		atv.print(w, a...)
 	}
-	return
 }
 
 func (atv *Active) AltPrintln(w io.Writer, a ...interface{}) {
 	if atv != nil {
 		atv.println(w, a...)
 	}
-	return
 }
 
 func (atv *Active) AltBinWrite(w io.Writer, b ...byte) (n int, err error) {
@@ -487,6 +485,17 @@ type atvruntime struct {
 	includedpgrms map[string]*goja.Program
 }
 
+func (atvrntme *atvruntime) AltActv() (atvactv parsing.AltActiveAPI) {
+	if atvrntme != nil {
+		if atvrntme != nil && atvrntme.prsng.AtvActv != nil {
+			atvactv = atvrntme.prsng.AtvActv
+		} else {
+			atvactv = atvrntme.atv
+		}
+	}
+	return
+}
+
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if functocall != nil {
 		if atvrntme.vm != nil {
@@ -817,10 +826,8 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
 			if atvrntme.prsng != nil {
 				var lookupTemplate func(string, ...interface{}) (io.Reader, error) = nil
-				if atvrntme.prsng.AtvActv != nil {
-					lookupTemplate = atvrntme.prsng.AtvActv.AltLookupTemplate
-				} else if atvrntme.atv != nil {
-					lookupTemplate = atvrntme.atv.LookupTemplate
+				if atvactv := atvrntme.AltActv(); atvactv != nil {
+					lookupTemplate = atvactv.AltLookupTemplate
 				}
 				if lookupTemplate != nil {
 					if lkpr, lkprerr := lookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
