@@ -13,16 +13,20 @@ var prslbl = [][]rune{[]rune("<@"), []rune("@>")}
 var elmlbl = [][]rune{[]rune("<#"), []rune(">"), []rune("</#"), []rune(">"), []rune("<#"), []rune("/>")}
 var phrslbl = [][]rune{[]rune("{#"), []rune("#}")}
 
+type AltActiveAPI interface {
+	AltLookupTemplate(string, ...interface{}) (io.Reader, error)
+	AltPrint(w io.Writer, a ...interface{})
+	AltPrintln(w io.Writer, a ...interface{})
+	AltBinWrite(w io.Writer, b ...byte) (n int, err error)
+	AltReadln(r io.Reader) (ln string, err error)
+	AltSeek(r io.Reader, offset int64, whence int) (n int64, err error)
+	AltReadlines(r io.Reader) (lines []string, err error)
+	AltReadAll(r io.Reader) (s string, err error)
+	AltBinRead(r io.Reader, size int) (b []byte, err error)
+}
+
 type Parsing struct {
-	LookupTemplate func(string, ...interface{}) (io.Reader, error)
-	AltPrint       func(w io.Writer, a ...interface{})
-	AltPrintln     func(w io.Writer, a ...interface{})
-	AltBinWrite    func(w io.Writer, b ...byte) (n int, err error)
-	AltReadln      func(r io.Reader) (ln string, err error)
-	AltSeek        func(r io.Reader, offset int64, whence int) (n int64, err error)
-	AltReadlines   func(r io.Reader) (lines []string, err error)
-	AltReadAll     func(r io.Reader) (s string, err error)
-	AltBinRead     func(r io.Reader, size int) (b []byte, err error)
+	AtvActv AltActiveAPI
 	*iorw.Buffer
 	tmpltbuf       *iorw.Buffer
 	tmpltmap       map[string][]int64
@@ -266,31 +270,31 @@ func (prsng *Parsing) tmpltrdr(tmpltnme string) (rdr *iorw.BuffReader, mxlen int
 }
 
 func (prsng *Parsing) Print(a ...interface{}) {
-	if prsng.AltPrint != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.AltPrint(prsng.prntrs[pl-1], a...)
+			prsng.AtvActv.AltPrint(prsng.prntrs[pl-1], a...)
 		} else {
-			prsng.AltPrint(prsng.wout, a...)
+			prsng.AtvActv.AltPrint(prsng.wout, a...)
 		}
 	}
 }
 
 func (prsng *Parsing) Println(a ...interface{}) {
-	if prsng.AltPrintln != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.AltPrintln(prsng.prntrs[pl-1], a...)
+			prsng.AtvActv.AltPrintln(prsng.prntrs[pl-1], a...)
 		} else {
-			prsng.AltPrintln(prsng.wout, a...)
+			prsng.AtvActv.AltPrintln(prsng.wout, a...)
 		}
 	}
 }
 
 func (prsng *Parsing) BinWrite(b ...byte) (n int, err error) {
-	if prsng.AltBinWrite != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.prntrs); pl > 0 {
-			n, err = prsng.AltBinWrite(prsng.prntrs[pl-1], b...)
+			n, err = prsng.AtvActv.AltBinWrite(prsng.prntrs[pl-1], b...)
 		} else {
-			n, err = prsng.AltBinWrite(prsng.wout, b...)
+			n, err = prsng.AtvActv.AltBinWrite(prsng.wout, b...)
 		}
 	}
 	return
@@ -321,44 +325,44 @@ func (prsng *Parsing) DecPrint() {
 }
 
 func (prsng *Parsing) ReadLn() (ln string, err error) {
-	if prsng.AltReadln != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.rdrs); pl > 0 {
-			ln, err = prsng.AltReadln(prsng.rdrs[pl-1])
+			ln, err = prsng.AtvActv.AltReadln(prsng.rdrs[pl-1])
 		} else {
-			ln, err = prsng.AltReadln(prsng.rin)
+			ln, err = prsng.AtvActv.AltReadln(prsng.rin)
 		}
 	}
 	return
 }
 
 func (prsng *Parsing) Seek(offset int64, whence int) (n int64, err error) {
-	if prsng.AltSeek != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.rdrs); pl > 0 {
-			n, err = prsng.AltSeek(prsng.rdrs[pl-1], offset, whence)
+			n, err = prsng.AtvActv.AltSeek(prsng.rdrs[pl-1], offset, whence)
 		} else {
-			n, err = prsng.AltSeek(prsng.rin, offset, whence)
+			n, err = prsng.AtvActv.AltSeek(prsng.rin, offset, whence)
 		}
 	}
 	return
 }
 
 func (prsng *Parsing) ReadLines() (lines []string, err error) {
-	if prsng.AltReadlines != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.rdrs); pl > 0 {
-			lines, err = prsng.AltReadlines(prsng.rdrs[pl-1])
+			lines, err = prsng.AtvActv.AltReadlines(prsng.rdrs[pl-1])
 		} else {
-			lines, err = prsng.AltReadlines(prsng.rin)
+			lines, err = prsng.AtvActv.AltReadlines(prsng.rin)
 		}
 	}
 	return
 }
 
 func (prsng *Parsing) ReadAll() (s string, err error) {
-	if prsng.AltReadAll != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.rdrs); pl > 0 {
-			s, err = prsng.AltReadAll(prsng.rdrs[pl-1])
+			s, err = prsng.AtvActv.AltReadAll(prsng.rdrs[pl-1])
 		} else {
-			s, err = prsng.AltReadAll(prsng.rin)
+			s, err = prsng.AtvActv.AltReadAll(prsng.rin)
 		}
 	}
 	return
@@ -371,11 +375,11 @@ func (prsng *Parsing) IncRead(r io.Reader) {
 }
 
 func (prsng *Parsing) BinRead(size int) (b []byte, err error) {
-	if prsng.AltBinRead != nil {
+	if prsng.AtvActv != nil {
 		if pl := len(prsng.rdrs); pl > 0 {
-			b, err = prsng.AltBinRead(prsng.rdrs[pl-1], size)
+			b, err = prsng.AtvActv.AltBinRead(prsng.rdrs[pl-1], size)
 		} else {
-			b, err = prsng.AltBinRead(prsng.rin, size)
+			b, err = prsng.AtvActv.AltBinRead(prsng.rin, size)
 		}
 	}
 	return
@@ -428,29 +432,8 @@ func (prsng *Parsing) Dispose() {
 			}
 			prsng.prntrs = nil
 		}
-		if prsng.AltBinRead != nil {
-			prsng.AltBinRead = nil
-		}
-		if prsng.AltBinWrite != nil {
-			prsng.AltBinWrite = nil
-		}
-		if prsng.AltPrint != nil {
-			prsng.AltPrint = nil
-		}
-		if prsng.AltPrintln != nil {
-			prsng.AltPrintln = nil
-		}
-		if prsng.AltReadAll != nil {
-			prsng.AltReadAll = nil
-		}
-		if prsng.AltReadlines != nil {
-			prsng.AltReadlines = nil
-		}
-		if prsng.AltReadln != nil {
-			prsng.AltReadln = nil
-		}
-		if prsng.AltSeek != nil {
-			prsng.AltSeek = nil
+		if prsng.AtvActv != nil {
+			prsng.AtvActv = nil
 		}
 		if prsng.prntprsng != nil {
 			prsng.prntprsng = nil
@@ -745,9 +728,9 @@ func parseprsngrune(prsng *Parsing, prslbli []int, prslblprv []rune, pr rune) (e
 	return
 }
 
-func NextParsing(LookupTemplate func(string, ...interface{}) (io.Reader, error), altprint func(w io.Writer, a ...interface{}), altprintln func(w io.Writer, a ...interface{}), altbinwrite func(w io.Writer, b ...byte) (n int, err error), altReadln func(r io.Reader) (ln string, err error), altseek func(r io.Reader, offset int64, whence int) (n int64, err error), altreadlines func(r io.Reader) (lines []string, err error), altreadAll func(r io.Reader) (s string, err error), altbinread func(r io.Reader, size int) (b []byte, err error), prntprsng *Parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *Parsing) {
-	prsng = &Parsing{LookupTemplate: LookupTemplate,
-		AltPrint: altprint, AltPrintln: altprintln, AltBinWrite: altbinwrite, AltReadln: altReadln, AltSeek: altseek, AltReadlines: altreadlines, AltReadAll: altreadAll, AltBinRead: altbinread, Buffer: iorw.NewBuffer(), Prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+func NextParsing(atvActv AltActiveAPI, prntprsng *Parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *Parsing) {
+	prsng = &Parsing{
+		AtvActv: atvActv, Buffer: iorw.NewBuffer(), Prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
 		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
 	return
 }

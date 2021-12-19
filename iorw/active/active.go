@@ -46,6 +46,69 @@ type Active struct {
 	*atvruntime
 }
 
+func (atv *Active) AltLookupTemplate(path string, a ...interface{}) (r io.Reader, err error) {
+	if atv != nil && atv.LookupTemplate != nil {
+		r, err = atv.LookupTemplate(path, a...)
+	}
+	return
+}
+
+func (atv *Active) AltPrint(w io.Writer, a ...interface{}) {
+	if atv != nil {
+		atv.print(w, a...)
+	}
+	return
+}
+
+func (atv *Active) AltPrintln(w io.Writer, a ...interface{}) {
+	if atv != nil {
+		atv.println(w, a...)
+	}
+	return
+}
+
+func (atv *Active) AltBinWrite(w io.Writer, b ...byte) (n int, err error) {
+	if atv != nil {
+		n, err = atv.binwrite(w, b...)
+	}
+	return
+}
+
+func (atv *Active) AltReadln(r io.Reader) (ln string, err error) {
+	if atv != nil {
+		ln, err = atv.readln(r)
+	}
+	return
+}
+
+func (atv *Active) AltSeek(r io.Reader, offset int64, whence int) (n int64, err error) {
+	if atv != nil {
+		n, err = atv.seek(r, offset, whence)
+	}
+	return
+}
+
+func (atv *Active) AltReadlines(r io.Reader) (lines []string, err error) {
+	if atv != nil {
+		lines, err = atv.readlines(r)
+	}
+	return
+}
+
+func (atv *Active) AltReadAll(r io.Reader) (s string, err error) {
+	if atv != nil {
+		s, err = atv.readAll(r)
+	}
+	return
+}
+
+func (atv *Active) AltBinRead(r io.Reader, size int) (b []byte, err error) {
+	if atv != nil {
+		b, err = atv.binread(r, size)
+	}
+	return
+}
+
 func (atv *Active) LockPrint() {
 	/*if atv != nil && atv.lckprnt != nil {
 		atv.lckprnt.Lock()
@@ -364,7 +427,7 @@ func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
-	var prsng = parsing.NextParsing(atv.LookupTemplate, atv.print, atv.println, atv.binwrite, atv.readln, atv.seek, atv.readlines, atv.readAll, atv.binread, nil, rin, wout, initpath)
+	var prsng = parsing.NextParsing(atv, nil, rin, wout, initpath)
 	defer prsng.Dispose()
 	if len(a) > 0 {
 		if invertactpsv {
@@ -790,8 +853,8 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			}
 			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.LookupTemplate != nil {
-				if lkpr, lkprerr := atvrntme.prsng.LookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
+			if atvrntme.prsng != nil && atvrntme.prsng.AtvActv != nil {
+				if lkpr, lkprerr := atvrntme.prsng.AtvActv.AltLookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
 					if s, _ := iorw.ReaderToString(lkpr); s != "" {
 						src = strings.TrimSpace(s)
 					} else {

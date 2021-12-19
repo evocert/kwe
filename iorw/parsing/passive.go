@@ -561,8 +561,8 @@ func processPsvSection(psvsctn *psvsection) (err error) {
 		if tmpltpath := psvsctn.path(); tmpltpath != "" {
 			var tmpltcoordsok bool = false
 			if _, tmpltcoordsok = psvsctn.prsng.tmpltMap()[tmpltpath]; !tmpltcoordsok {
-				if psvsctn.prsng.LookupTemplate != nil {
-					lkprdr, lkperr := psvsctn.prsng.LookupTemplate(tmpltpath)
+				if psvsctn.prsng.AtvActv != nil {
+					lkprdr, lkperr := psvsctn.prsng.AtvActv.AltLookupTemplate(tmpltpath)
 					if lkperr != nil {
 						err = lkperr
 					} else if lkprdr != nil {
