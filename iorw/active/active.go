@@ -663,10 +663,12 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 		}
 		if atvrntme.vmregister != nil {
 			if !clearonly {
+				atvrntme.vmregister.Dispose()
 				atvrntme.vmregister = nil
 			}
 		}
 		if atvrntme.vmreq != nil {
+			atvrntme.vmreq.Dispose()
 			atvrntme.vmreq = nil
 		}
 		if atvrntme.includedpgrms != nil {

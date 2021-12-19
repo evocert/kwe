@@ -86,6 +86,44 @@ func WithGlobalFolders(globalFolders ...string) Option {
 	}
 }
 
+func (r *Registry) Dispose() {
+	if r != nil {
+		if r.compiled != nil {
+			func() {
+				r.Lock()
+				defer r.Unlock()
+				if len(r.compiled) > 0 {
+					for k := range r.compiled {
+						r.compiled[k] = nil
+						delete(r.compiled, k)
+					}
+				}
+			}()
+			r.compiled = nil
+		}
+		if r.native != nil {
+			func() {
+				r.Lock()
+				defer r.Unlock()
+				if len(r.native) > 0 {
+					for k := range r.native {
+						r.native[k] = nil
+						delete(r.native, k)
+					}
+				}
+			}()
+			r.compiled = nil
+		}
+		if r.globalFolders != nil {
+			r.globalFolders = nil
+		}
+		if r.srcLoader != nil {
+			r.srcLoader = nil
+		}
+		r = nil
+	}
+}
+
 // Enable adds the require() function to the specified runtime.
 func (r *Registry) Enable(runtime *js.Runtime) *RequireModule {
 	rrt := &RequireModule{
@@ -160,6 +198,29 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 		return prg, err
 	}
 	return prg, nil
+}
+
+func (r *RequireModule) Dispose() {
+	if r != nil {
+		if r.modules != nil {
+			for k := range r.modules {
+				r.modules[k] = nil
+				delete(r.modules, k)
+			}
+		}
+		if r.nodeModules != nil {
+			for k := range r.nodeModules {
+				r.nodeModules[k] = nil
+				delete(r.nodeModules, k)
+			}
+		}
+		if r.runtime != nil {
+			r.runtime = nil
+		}
+		if r.r != nil {
+			r.r = nil
+		}
+	}
 }
 
 func (r *RequireModule) require(call js.FunctionCall) js.Value {
