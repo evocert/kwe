@@ -485,35 +485,6 @@ type atvruntime struct {
 	vmreq         *require.RequireModule
 	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
 	includedpgrms map[string]*goja.Program
-	rntmeche      map[int]map[string]interface{}
-	//glblobjstoremove []string
-}
-
-func (atvrntme *atvruntime) decrntimecache() {
-	if mpl := len(atvrntme.rntmeche); mpl > 0 {
-		mp := atvrntme.rntmeche[mpl-1]
-		for k := range mp {
-			mp[k] = nil
-			delete(mp, k)
-		}
-		delete(atvrntme.rntmeche, mpl-1)
-	}
-}
-
-func (atvrntme *atvruntime) incrntimecache() map[string]interface{} {
-	if atvrntme.rntmeche == nil {
-		atvrntme.rntmeche = map[int]map[string]interface{}{}
-	}
-	mpi := len(atvrntme.rntmeche)
-	atvrntme.rntmeche[mpi] = map[string]interface{}{}
-	return atvrntme.rntmeche[mpi]
-}
-
-func (atvrntme *atvruntime) rntimecache() map[string]interface{} {
-	if mpl := len(atvrntme.rntmeche); mpl > 0 {
-		return atvrntme.rntmeche[mpl-1]
-	}
-	return atvrntme.incrntimecache()
 }
 
 func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
@@ -745,15 +716,6 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		},
 		"_psvout": func(i int) {
 			atvrntme.passiveout(i)
-		},
-		"_cache": func() map[string]interface{} {
-			return atvrntme.rntimecache()
-		},
-		"_inccache": func() map[string]interface{} {
-			return atvrntme.incrntimecache()
-		},
-		"_deccache": func() map[string]interface{} {
-			return atvrntme.incrntimecache()
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(true, a...)
