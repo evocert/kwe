@@ -815,15 +815,23 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			}
 			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
-			if atvrntme.prsng != nil && atvrntme.prsng.AtvActv != nil {
-				if lkpr, lkprerr := atvrntme.prsng.AtvActv.AltLookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
-					if s, _ := iorw.ReaderToString(lkpr); s != "" {
-						src = strings.TrimSpace(s)
-					} else {
-						src = s
+			if atvrntme.prsng != nil {
+				var lookupTemplate func(string, ...interface{}) (io.Reader, error) = nil
+				if atvrntme.prsng.AtvActv != nil {
+					lookupTemplate = atvrntme.prsng.AtvActv.AltLookupTemplate
+				} else if atvrntme.atv != nil {
+					lookupTemplate = atvrntme.atv.LookupTemplate
+				}
+				if lookupTemplate != nil {
+					if lkpr, lkprerr := lookupTemplate(url, a...); lkpr != nil && lkprerr == nil {
+						if s, _ := iorw.ReaderToString(lkpr); s != "" {
+							src = strings.TrimSpace(s)
+						} else {
+							src = s
+						}
+					} else if lkprerr != nil {
+						srcerr = lkprerr
 					}
-				} else if lkprerr != nil {
-					srcerr = lkprerr
 				}
 			}
 			if src == nil {
