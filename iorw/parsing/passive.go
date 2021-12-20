@@ -8,17 +8,11 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-func Passiveout(prsng *Parsing, i int) {
+func PassiveoutSubString(prsng *Parsing, offs int64, offe int64) (s string) {
 	if prsng != nil {
-		if psvl := len(prsng.psvmap); psvl > 0 && i >= 0 && i < psvl {
-			psvcoors := prsng.psvmap[i]
-			if psvcoors[1] > psvcoors[0] {
-				rdr := prsng.Reader()
-				rdr.Seek(psvcoors[0], 0)
-				io.CopyN(prsng.wout, rdr, psvcoors[1]-psvcoors[0])
-			}
-		}
+		s = prsng.SubString(offs, offe)
 	}
+	return
 }
 
 func parsepsvrune(prsng *Parsing, rn rune) (err error) {

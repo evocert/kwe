@@ -26,7 +26,7 @@ try {
 	console.log(e.message);
 }
 
-kwe.dbms().registerConnection("b1","kwesqlite","file::memory:?cache=shared");
+/*kwe.dbms().registerConnection("b1","kwesqlite","file::memory:?cache=shared");
 
 kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
 	v1 INT,
@@ -47,6 +47,7 @@ console.log(JSON.stringify(kwe.dbms().info("b2")));
 var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
 	{"alias":"b1","query":"insert into t2 (v1,v2) values(@@p1@@,@@p2@@);"}
 ]},{"prm1":42});
+*/
 //console.log(JSON.stringify(kwemethods(a)));
 //console.log(a.json());
 //kwe.dbms().unregisterConnection("b1");

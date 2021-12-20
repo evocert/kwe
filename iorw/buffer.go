@@ -65,15 +65,23 @@ func (buff *Buffer) SubString(offset ...int64) (s string) {
 		if len(offset) > 0 && len(offset)%2 == 0 {
 			if sl := buff.Size(); sl > 0 {
 				var bufr *BuffReader = nil
+				var offs int64 = offset[0]
+				if offs == -1 {
+					offs = 0
+				}
+				var offe int64 = offset[1]
+				if offe == -1 {
+					offe = sl - 1
+				}
 				rns := make([]rune, 1024)
 				rnsi := 0
 				busy := true
 				for len(offset) > 0 && busy {
-					if offset[0] <= sl && offset[1] < sl {
+					if offs <= sl && offe <= sl {
 						if bufr == nil {
 							bufr = buff.Reader()
 						}
-						bufr.Seek(offset[0], 0)
+						bufr.Seek(offs, 0)
 						for {
 							r, rs, rerr := bufr.ReadRune()
 							if rs > 0 {
@@ -88,8 +96,8 @@ func (buff *Buffer) SubString(offset ...int64) (s string) {
 								busy = false
 								break
 							}
-							offset[0]++
-							if offset[0] >= offset[1] {
+							offs++
+							if offs >= offe {
 								break
 							}
 						}
@@ -103,6 +111,9 @@ func (buff *Buffer) SubString(offset ...int64) (s string) {
 				if bufr != nil {
 					bufr.Close()
 					bufr = nil
+				}
+				if rnsi > 0 {
+					s += string(rns[:rnsi])
 				}
 			}
 		}
@@ -668,18 +679,20 @@ func (bufr *BuffReader) SubString(offset ...int64) (s string) {
 	if bufr != nil && bufr.buffer != nil {
 		if len(offset) > 0 && len(offset)%2 == 0 {
 			if sl := bufr.buffer.Size(); sl > 0 {
-				if offset[0] == -1 {
-					offset[0] = 0
+				var offs int64 = offset[0]
+				if offs == -1 {
+					offs = 0
 				}
-				if offset[1] == -1 {
-					offset[1] = sl - 1
+				var offe int64 = offset[1]
+				if offe == -1 {
+					offe = sl - 1
 				}
 				rns := make([]rune, 1024)
 				rnsi := 0
 				busy := true
 				for len(offset) > 0 && busy {
-					if offset[0] <= sl && offset[1] < sl {
-						bufr.Seek(offset[0], 0)
+					if offs <= sl && offe <= sl {
+						bufr.Seek(offs, 0)
 						for {
 							r, rs, rerr := bufr.ReadRune()
 							if rs > 0 {
@@ -694,8 +707,8 @@ func (bufr *BuffReader) SubString(offset ...int64) (s string) {
 								busy = false
 								break
 							}
-							offset[0]++
-							if offset[0] >= offset[1] {
+							offs++
+							if offs >= offe {
 								busy = false
 								break
 							}

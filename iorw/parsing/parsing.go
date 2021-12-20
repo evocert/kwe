@@ -52,9 +52,9 @@ type Parsing struct {
 	cderi          int
 	psvoffsetstart int64
 	psvoffsetend   int64
-	psvmap         map[int][]int64
-	psvr           []rune
-	psvri          int
+	//psvmap         map[int][]int64
+	psvr  []rune
+	psvri int
 	//psvsection
 	tmpbuf    *iorw.Buffer
 	elmlbli   []int
@@ -81,7 +81,11 @@ func EvalParsing(prsng *Parsing, atv AltActiveAPI, wout io.Writer, rin io.Reader
 				a = append(append([]interface{}{"<@"}, a...), "@>")
 			}
 		}
-		err = ParsePrsng(prsng, canexec, atv.ProcessParsing, a...)
+		var prcssprsng func(prsng *Parsing) (err error) = nil
+		if atv != nil {
+			prcssprsng = atv.ProcessParsing
+		}
+		err = ParsePrsng(prsng, canexec, prcssprsng, a...)
 	}()
 	return
 }
@@ -516,15 +520,6 @@ func (prsng *Parsing) setcdepos(startoffset int64, endoffset int64) {
 	prsng.cdemap[len(prsng.cdemap)] = []int64{startoffset, endoffset}
 }
 
-func (prsng *Parsing) setpsvpos(startoffset int64, endoffset int64) (pos int) {
-	if prsng.psvmap == nil {
-		prsng.psvmap = map[int][]int64{}
-	}
-	pos = len(prsng.psvmap)
-	prsng.psvmap[pos] = []int64{startoffset, endoffset}
-	return
-}
-
 func (prsng *Parsing) flushWritePsv() (err error) {
 	if prsng != nil && prsng.woutbytesi > 0 {
 		_, err = prsng.wout.Write(prsng.woutbytes[0:prsng.woutbytesi])
@@ -593,9 +588,19 @@ func (prsng *Parsing) flushPsv() (err error) {
 	}
 	if err == nil && prsng.crntpsvsctn == nil && prsng.foundCode() {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
+			psvoffsetend := prsng.Size()
 			prsng.psvoffsetstart = -1
-			pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
-			err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
+			err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(_psvsub(%d,%d));", psvoffsetstart, psvoffsetend)))
+			//pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
+			//err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
+			//if psvouts := PassiveoutS(prsng, pos); psvouts != "" {
+			//	err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
+			//}
+
+			//if psvouts := PassiveoutSubString(prsng, psvoffsetstart, psvoffsetend); psvouts != "" {
+			//	err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
+			//}
+
 		}
 	}
 	return

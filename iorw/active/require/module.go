@@ -12,6 +12,7 @@ import (
 
 	js "github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
+	"github.com/evocert/kwe/iorw/parsing"
 )
 
 type ModuleLoader func(*js.Runtime, *js.Object)
@@ -33,9 +34,9 @@ var native map[string]ModuleLoader
 // Registry contains a cache of compiled modules which can be used by multiple Runtimes
 type Registry struct {
 	sync.Mutex
-	native   map[string]ModuleLoader
-	compiled map[string]*js.Program
-
+	native        map[string]ModuleLoader
+	compiled      map[string]*js.Program
+	parsed        map[string]*parsing.Parsing
 	srcLoader     SourceLoader
 	globalFolders []string
 }
@@ -88,31 +89,44 @@ func WithGlobalFolders(globalFolders ...string) Option {
 
 func (r *Registry) Dispose() {
 	if r != nil {
-		if r.compiled != nil {
+		if r.compiled != nil || r.native != nil || r.parsed != nil {
 			func() {
 				r.Lock()
 				defer r.Unlock()
-				if len(r.compiled) > 0 {
-					for k := range r.compiled {
-						r.compiled[k] = nil
-						delete(r.compiled, k)
+				if r.compiled != nil {
+
+					if len(r.compiled) > 0 {
+						for k := range r.compiled {
+							r.compiled[k] = nil
+							delete(r.compiled, k)
+						}
 					}
+					r.compiled = nil
+				}
+				if r.native != nil {
+					func() {
+						r.Lock()
+						defer r.Unlock()
+						if len(r.native) > 0 {
+							for k := range r.native {
+								r.native[k] = nil
+								delete(r.native, k)
+							}
+						}
+					}()
+					r.compiled = nil
+				}
+				if r.parsed != nil {
+					if len(r.parsed) > 0 {
+						for k := range r.parsed {
+							r.parsed[k].Dispose()
+							r.parsed[k] = nil
+							delete(r.parsed, k)
+						}
+					}
+					r.parsed = nil
 				}
 			}()
-			r.compiled = nil
-		}
-		if r.native != nil {
-			func() {
-				r.Lock()
-				defer r.Unlock()
-				if len(r.native) > 0 {
-					for k := range r.native {
-						r.native[k] = nil
-						delete(r.native, k)
-					}
-				}
-			}()
-			r.compiled = nil
 		}
 		if r.globalFolders != nil {
 			r.globalFolders = nil
@@ -170,32 +184,54 @@ func (r *Registry) getSource(p string) ([]byte, error) {
 func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 	r.Lock()
 	defer r.Unlock()
-
+	prsng := r.parsed[p]
 	prg := r.compiled[p]
 	if prg == nil {
-		buf, err := r.getSource(p)
-		if err != nil {
-			return nil, err
-		}
-		s := string(buf)
-
-		if path.Ext(p) == ".json" {
-			s = "module.exports = JSON.parse('" + template.JSEscapeString(s) + "')"
-		}
-
-		source := "(function(exports, require, module) {" + s + "\n})"
-		parsed, err := js.Parse(p, source, parser.WithSourceMapLoader(r.srcLoader))
-		if err != nil {
-			return nil, err
-		}
-		prg, err = js.CompileAST(parsed, false)
-		if err == nil {
-			if r.compiled == nil {
-				r.compiled = make(map[string]*js.Program)
+		if buf, err := r.getSource(p); len(buf) > 0 {
+			if err != nil {
+				return nil, err
 			}
-			r.compiled[p] = prg
+			s := string(buf)
+
+			if path.Ext(p) == ".json" {
+				s = "module.exports = JSON.parse('" + template.JSEscapeString(s) + "')"
+			} else {
+				if prsng == nil {
+					prsng = parsing.NextParsing(nil, nil, nil, nil, p)
+					if prsrngerr := parsing.EvalParsing(prsng, nil, nil, nil, p, true, true, s); prsrngerr == nil {
+						s = parsing.Code(prsng)
+					} else {
+						return nil, prsrngerr
+					}
+				}
+			}
+
+			source := "(function(exports, require, module) {" + s + "\n})"
+			parsed, err := js.Parse(p, source, parser.WithSourceMapLoader(
+				func(path string) (bytes []byte, byteserr error) {
+					if bytes, byteserr = r.srcLoader(path); byteserr == nil {
+						if len(bytes) > 0 {
+							if prsng == nil {
+								prsng = parsing.NextParsing(nil, nil, nil, nil, path)
+								parsing.EvalParsing(prsng, nil, nil, nil, path, false, true, string(bytes))
+							}
+						}
+					}
+					return
+				}))
+			if err != nil {
+				return nil, err
+			}
+			prg, err = js.CompileAST(parsed, false)
+			if err == nil {
+				if r.compiled == nil {
+					r.compiled = make(map[string]*js.Program)
+				}
+				r.compiled[p] = prg
+			}
+			return prg, err
 		}
-		return prg, err
+		return nil, InvalidModuleError
 	}
 	return prg, nil
 }

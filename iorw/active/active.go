@@ -631,10 +631,11 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 	}
 }
 
-func (atvrntme *atvruntime) passiveout(i int) {
+func (atvrntme *atvruntime) passiveoutsubstring(offsets int64, offsete int64) string {
 	if atvrntme != nil && atvrntme.prsng != nil {
-		parsing.Passiveout(atvrntme.prsng, i)
+		return parsing.PassiveoutSubString(atvrntme.prsng, offsets, offsete)
 	}
+	return ""
 }
 
 func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt reflect.Type), clear ...bool) {
@@ -722,8 +723,8 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		"sleep": func(mils int64) {
 			time.Sleep(time.Millisecond * time.Duration(mils))
 		},
-		"_psvout": func(i int) {
-			atvrntme.passiveout(i)
+		"_psvsub": func(offsets int64, offsete int64) string {
+			return atvrntme.passiveoutsubstring(offsets, offsete)
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(true, a...)
