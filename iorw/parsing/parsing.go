@@ -70,15 +70,19 @@ type Parsing struct {
 	Prsvpth string
 }
 
-func EvalParsing(atv AltActiveAPI, wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
-	var prsng = NextParsing(atv, nil, rin, wout, initpath)
-	defer prsng.Dispose()
-	if len(a) > 0 {
-		if invertactpsv {
-			a = append(append([]interface{}{"<@"}, a...), "@>")
+func EvalParsing(prsng *Parsing, atv AltActiveAPI, wout io.Writer, rin io.Reader, initpath string, canexec bool, invertactpsv bool, a ...interface{}) (err error) {
+	func() {
+		if prsng == nil {
+			prsng = NextParsing(atv, nil, rin, wout, initpath)
+			defer prsng.Dispose()
 		}
-	}
-	err = ParsePrsng(prsng, true, atv.ProcessParsing, a...)
+		if len(a) > 0 {
+			if invertactpsv {
+				a = append(append([]interface{}{"<@"}, a...), "@>")
+			}
+		}
+		err = ParsePrsng(prsng, canexec, atv.ProcessParsing, a...)
+	}()
 	return
 }
 func ParseEval(prsng *Parsing, forceCode bool, callcode func(string, map[string]interface{}, ...string) (val interface{}, err error), a ...interface{}) (val interface{}, err error) {

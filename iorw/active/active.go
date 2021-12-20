@@ -427,7 +427,7 @@ func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
-	err = parsing.EvalParsing(atv, wout, rin, initpath, invertactpsv, a...)
+	err = parsing.EvalParsing(nil, atv, wout, rin, initpath, true, invertactpsv, a...)
 	return
 }
 
