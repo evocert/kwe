@@ -107,6 +107,15 @@ func (atv *Active) AltBinRead(r io.Reader, size int) (b []byte, err error) {
 	return
 }
 
+func (atv *Active) AltObjectRef() (objref map[string]interface{}) {
+	if atv != nil {
+		if atv.ObjectMapRef != nil {
+			objref = atv.ObjectMapRef()
+		}
+	}
+	return
+}
+
 func (atv *Active) LockPrint() {
 	/*if atv != nil && atv.lckprnt != nil {
 		atv.lckprnt.Lock()
@@ -175,7 +184,7 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 //NewActive - instance
 func NewActive() (atv *Active) {
 	atv = &Active{atvruntime: nil}
-	atv.atvruntime, _ = newatvruntime(atv)
+	atv.atvruntime, atv.InterruptVM, _ = newatvruntime(atv)
 	return
 }
 
@@ -406,7 +415,7 @@ func (cdeerr *CodeException) ExecPath() string {
 func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 	if prsng != nil {
 		if atv.atvruntime == nil {
-			atv.atvruntime, err = newatvruntime(atv)
+			atv.atvruntime, atv.InterruptVM, err = newatvruntime(atv)
 		}
 		if atv.atvruntime != nil {
 			atv.atvruntime.prsng = prsng
@@ -418,18 +427,11 @@ func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 
 //Eval - parse a ...interface{} arguments, execute if neaded and output to wou io.Writer
 func (atv *Active) Eval(wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
-	var prsng = parsing.NextParsing(atv, nil, rin, wout, initpath)
-	defer prsng.Dispose()
-	if len(a) > 0 {
-		if invertactpsv {
-			a = append(append([]interface{}{"<@"}, a...), "@>")
-		}
-	}
-	err = parsing.ParsePrsng(prsng, true, atv.processParsing, a...)
+	err = parsing.EvalParsing(atv, wout, rin, initpath, invertactpsv, a...)
 	return
 }
 
-func (atv *Active) processParsing(prsng *parsing.Parsing) (err error) {
+func (atv *Active) ProcessParsing(prsng *parsing.Parsing) (err error) {
 	err = atv.atvrun(prsng)
 	return
 }
@@ -470,7 +472,7 @@ func (atv *Active) Interrupt() {
 
 type atvruntime struct {
 	prsng         *parsing.Parsing
-	atv           *Active
+	atv           parsing.AltActiveAPI //*Active
 	vm            *goja.Runtime
 	vmregister    *require.Registry
 	vmreq         *require.RequireModule
@@ -518,8 +520,8 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 
 func (atvrntme *atvruntime) run() (val interface{}, err error) {
 	var objmapref map[string]interface{} = nil
-	if atvrntme.atv != nil && atvrntme.atv.ObjectMapRef != nil {
-		objmapref = atvrntme.atv.ObjectMapRef()
+	if atvrntme.atv != nil {
+		objmapref = atvrntme.atv.AltObjectRef()
 	}
 	val, err = atvrntme.corerun(parsing.Code(atvrntme.prsng), objmapref)
 	return
@@ -749,21 +751,21 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.Print(a...)
 			} else if atvrntme.atv != nil {
-				atvrntme.atv.print(nil, a...)
+				atvrntme.atv.AltPrint(nil, a...)
 			}
 		},
 		"println": func(a ...interface{}) {
 			if atvrntme.prsng != nil {
 				atvrntme.prsng.Println(a...)
 			} else if atvrntme.atv != nil {
-				atvrntme.atv.println(nil, a...)
+				atvrntme.atv.AltPrintln(nil, a...)
 			}
 		},
 		"binwrite": func(b ...byte) (n int, err error) {
 			if atvrntme.prsng != nil {
 				n, err = atvrntme.prsng.BinWrite(b...)
 			} else if atvrntme.atv != nil {
-				n, err = atvrntme.atv.binwrite(nil, b...)
+				n, err = atvrntme.atv.AltBinWrite(nil, b...)
 			}
 			return
 		},
@@ -787,7 +789,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			if atvrntme.prsng != nil {
 				n, err = atvrntme.prsng.Seek(offset, whence)
 			} else if atvrntme.atv != nil {
-				n, err = atvrntme.atv.seek(nil, offset, whence)
+				n, err = atvrntme.atv.AltSeek(nil, offset, whence)
 			}
 			return
 		},
@@ -795,7 +797,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			if atvrntme.prsng != nil {
 				ln, err = atvrntme.prsng.ReadLn()
 			} else if atvrntme.atv != nil {
-				ln, err = atvrntme.atv.readln(nil)
+				ln, err = atvrntme.atv.AltReadln(nil)
 			}
 			return
 		},
@@ -803,21 +805,21 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			if atvrntme.prsng != nil {
 				lines, err = atvrntme.prsng.ReadLines()
 			} else if atvrntme.atv != nil {
-				lines, err = atvrntme.atv.readlines(nil)
+				lines, err = atvrntme.atv.AltReadlines(nil)
 			}
 			return
 		}, "readAll": func() (s string, err error) {
 			if atvrntme.prsng != nil {
 				s, err = atvrntme.prsng.ReadAll()
 			} else if atvrntme.atv != nil {
-				s, err = atvrntme.atv.readAll(nil)
+				s, err = atvrntme.atv.AltReadAll(nil)
 			}
 			return
 		}, "binread": func(size int) (b []byte, err error) {
 			if atvrntme.prsng != nil {
 				b, err = atvrntme.prsng.BinRead(size)
 			} else if atvrntme.atv != nil {
-				b, err = atvrntme.atv.binread(nil, size)
+				b, err = atvrntme.atv.AltBinRead(nil, size)
 			}
 			return
 		}, "_scriptinclude": func(url string, a ...interface{}) (src interface{}, srcerr error) {
@@ -847,9 +849,9 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 	return
 }
 
-func newatvruntime(atv *Active) (atvrntme *atvruntime, err error) {
+func newatvruntime(atv *Active) (atvrntme *atvruntime, interruptvm func(v interface{}), err error) {
 	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
-	atvrntme.atv.InterruptVM = func(v interface{}) {
+	interruptvm = func(v interface{}) {
 		atvrntme.lclvm().Interrupt(v)
 	}
 	return
@@ -944,8 +946,8 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			var dne = make(chan bool, 1)
 			if atvrntme.vmregister == nil {
 				vmregister := require.NewRegistryWithLoader(func(path string) (sourcebytes []byte, sourceerr error) {
-					if atvrntme != nil && atvrntme.atv != nil && atvrntme.atv.LookupTemplate != nil {
-						if lkprdr, lkprdrerr := atvrntme.atv.LookupTemplate(path); lkprdr != nil || lkprdrerr != nil {
+					if atvrntme != nil && atvrntme.atv != nil {
+						if lkprdr, lkprdrerr := atvrntme.atv.AltLookupTemplate(path); lkprdr != nil || lkprdrerr != nil {
 							if lkprdrerr == nil && lkprdr != nil {
 								buf := new(bytes.Buffer)
 								_, sourceerr = buf.ReadFrom(lkprdr)

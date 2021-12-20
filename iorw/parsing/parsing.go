@@ -23,6 +23,8 @@ type AltActiveAPI interface {
 	AltReadlines(r io.Reader) (lines []string, err error)
 	AltReadAll(r io.Reader) (s string, err error)
 	AltBinRead(r io.Reader, size int) (b []byte, err error)
+	AltObjectRef() map[string]interface{}
+	ProcessParsing(prsng *Parsing) (err error)
 }
 
 type Parsing struct {
@@ -68,6 +70,17 @@ type Parsing struct {
 	Prsvpth string
 }
 
+func EvalParsing(atv AltActiveAPI, wout io.Writer, rin io.Reader, initpath string, invertactpsv bool, a ...interface{}) (err error) {
+	var prsng = NextParsing(atv, nil, rin, wout, initpath)
+	defer prsng.Dispose()
+	if len(a) > 0 {
+		if invertactpsv {
+			a = append(append([]interface{}{"<@"}, a...), "@>")
+		}
+	}
+	err = ParsePrsng(prsng, true, atv.ProcessParsing, a...)
+	return
+}
 func ParseEval(prsng *Parsing, forceCode bool, callcode func(string, map[string]interface{}, ...string) (val interface{}, err error), a ...interface{}) (val interface{}, err error) {
 	if prsng != nil {
 		if forceCode {
