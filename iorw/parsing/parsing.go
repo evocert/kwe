@@ -82,6 +82,23 @@ func EvalParsing(prsng *Parsing, atv AltActiveAPI, wout io.Writer, rin io.Reader
 			}
 		}
 		var prcssprsng func(prsng *Parsing) (err error) = nil
+		if al := len(a); al > 0 {
+			var ai = 0
+
+			for ai < al {
+				if d := a[ai]; d != nil {
+					if dprcssprsng, _ := d.(func(prsng *Parsing) (err error)); dprcssprsng != nil {
+						if prcssprsng == nil {
+							prcssprsng = dprcssprsng
+						}
+						a = append(a[:ai], a[ai+1:]...)
+						al--
+						continue
+					}
+				}
+				ai++
+			}
+		}
 		if atv != nil {
 			prcssprsng = atv.ProcessParsing
 		}
@@ -590,16 +607,16 @@ func (prsng *Parsing) flushPsv() (err error) {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
 			psvoffsetend := prsng.Size()
 			prsng.psvoffsetstart = -1
-			err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(_psvsub(%d,%d));", psvoffsetstart, psvoffsetend)))
+			//err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(_psvsub(%d,%d));", psvoffsetstart, psvoffsetend)))
 			//pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
 			//err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
 			//if psvouts := PassiveoutS(prsng, pos); psvouts != "" {
 			//	err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
 			//}
 
-			//if psvouts := PassiveoutSubString(prsng, psvoffsetstart, psvoffsetend); psvouts != "" {
-			//	err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
-			//}
+			if psvouts := PassiveoutSubString(prsng, psvoffsetstart, psvoffsetend); psvouts != "" {
+				err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
+			}
 
 		}
 	}

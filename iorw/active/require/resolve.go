@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	js "github.com/dop251/goja"
+	"github.com/evocert/kwe/iorw/parsing"
 )
 
 // NodeJS module search algorithm described by
@@ -200,12 +201,23 @@ func (r *RequireModule) loadModule(path string) (*js.Object, error) {
 
 func (r *RequireModule) loadModuleFile(path string, jsModule *js.Object) error {
 
-	prg, err := r.r.getCompiledSource(path)
+	prg, prsng, err := r.r.getCompiledSource(path)
 
 	if err != nil {
 		return err
 	}
-
+	var prvprsng = r.Lstprsng
+	defer func() {
+		if prvprsng != nil {
+			r.Lstprsng = prvprsng
+		}
+	}()
+	if prsng != nil {
+		if r.parsings == nil {
+			r.parsings = make(map[*parsing.Parsing]*parsing.Parsing)
+		}
+		r.Lstprsng = prsng
+	}
 	f, err := r.runtime.RunProgram(prg)
 	if err != nil {
 		return err

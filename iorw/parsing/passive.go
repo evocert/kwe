@@ -396,6 +396,9 @@ func (psvsctn *psvsection) path() (path string) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
+	if path != "" && strings.Index(path, "//") > 0 {
+		path = path[:strings.Index(path, "//")] + path[strings.Index(path, "//")+1:]
+	}
 	return
 }
 

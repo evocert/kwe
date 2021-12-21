@@ -633,7 +633,11 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 
 func (atvrntme *atvruntime) passiveoutsubstring(offsets int64, offsete int64) string {
 	if atvrntme != nil && atvrntme.prsng != nil {
-		return parsing.PassiveoutSubString(atvrntme.prsng, offsets, offsete)
+		if atvrntme.vmreq != nil && atvrntme.vmreq.Lstprsng != nil {
+			parsing.PassiveoutSubString(atvrntme.vmreq.Lstprsng, offsets, offsete)
+		} else {
+			return parsing.PassiveoutSubString(atvrntme.prsng, offsets, offsete)
+		}
 	}
 	return ""
 }
@@ -971,6 +975,7 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 					}
 					return nil, require.ModuleFileDoesNotExistError
 				})
+				vmregister.Actv = atvrntme.atv
 				atvrntme.vmregister = vmregister
 			}
 			if atvrntme.vmreq == nil {

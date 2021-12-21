@@ -39,6 +39,7 @@ type Registry struct {
 	parsed        map[string]*parsing.Parsing
 	srcLoader     SourceLoader
 	globalFolders []string
+	Actv          parsing.AltActiveAPI
 }
 
 type RequireModule struct {
@@ -46,6 +47,8 @@ type RequireModule struct {
 	runtime     *js.Runtime
 	modules     map[string]*js.Object
 	nodeModules map[string]*js.Object
+	parsings    map[*parsing.Parsing]*parsing.Parsing
+	Lstprsng    *parsing.Parsing
 }
 
 func NewRegistry(opts ...Option) *Registry {
@@ -134,6 +137,9 @@ func (r *Registry) Dispose() {
 		if r.srcLoader != nil {
 			r.srcLoader = nil
 		}
+		if r.Actv != nil {
+			r.Actv = nil
+		}
 		r = nil
 	}
 }
@@ -181,7 +187,7 @@ func (r *Registry) getSource(p string) ([]byte, error) {
 	return srcLoader(p)
 }
 
-func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
+func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, error) {
 	r.Lock()
 	defer r.Unlock()
 	prsng := r.parsed[p]
@@ -189,21 +195,24 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 	if prg == nil {
 		if buf, err := r.getSource(p); len(buf) > 0 {
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			s := string(buf)
 
+			if prsng == nil {
+				prsng = parsing.NextParsing(r.Actv, nil, nil, nil, p)
+				if prsrngerr := parsing.EvalParsing(prsng, nil, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {
+
+					return
+				}); prsrngerr == nil {
+					s = parsing.Code(prsng)
+				} else {
+					return nil, nil, prsrngerr
+				}
+			}
+
 			if path.Ext(p) == ".json" {
 				s = "module.exports = JSON.parse('" + template.JSEscapeString(s) + "')"
-			} else {
-				if prsng == nil {
-					prsng = parsing.NextParsing(nil, nil, nil, nil, p)
-					if prsrngerr := parsing.EvalParsing(prsng, nil, nil, nil, p, true, true, s); prsrngerr == nil {
-						s = parsing.Code(prsng)
-					} else {
-						return nil, prsrngerr
-					}
-				}
 			}
 
 			source := "(function(exports, require, module) {" + s + "\n})"
@@ -212,28 +221,35 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 					if bytes, byteserr = r.srcLoader(path); byteserr == nil {
 						if len(bytes) > 0 {
 							if prsng == nil {
-								prsng = parsing.NextParsing(nil, nil, nil, nil, path)
-								parsing.EvalParsing(prsng, nil, nil, nil, path, false, true, string(bytes))
+								prsng = parsing.NextParsing(r.Actv, nil, nil, nil, path)
+								parsing.EvalParsing(prsng, nil, nil, nil, path, false, true, string(bytes), func(prsng *parsing.Parsing) (err error) {
+
+									return
+								})
 							}
 						}
 					}
 					return
 				}))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			prg, err = js.CompileAST(parsed, false)
 			if err == nil {
 				if r.compiled == nil {
 					r.compiled = make(map[string]*js.Program)
 				}
+				if r.parsed == nil {
+					r.parsed = make(map[string]*parsing.Parsing)
+				}
+				r.parsed[p] = prsng
 				r.compiled[p] = prg
 			}
-			return prg, err
+			return prg, nil, err
 		}
-		return nil, InvalidModuleError
+		return nil, nil, InvalidModuleError
 	}
-	return prg, nil
+	return prg, prsng, nil
 }
 
 func (r *RequireModule) Dispose() {
@@ -257,6 +273,13 @@ func (r *RequireModule) Dispose() {
 			r.r = nil
 		}
 	}
+}
+
+func (r *RequireModule) substring(offsets int64, offsete int64) string {
+	if r.Lstprsng != nil {
+		return r.Lstprsng.SubString(offsets, offsete)
+	}
+	return ""
 }
 
 func (r *RequireModule) require(call js.FunctionCall) js.Value {
