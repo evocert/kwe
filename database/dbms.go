@@ -14,8 +14,8 @@ import (
 
 type DBMSAPI interface {
 	Connections() (cns []string)
-	UnregisterConnection(alias string) (unregistered bool)
-	RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool)
+	Unregister(alias string) (unregistered bool)
+	Register(alias string, driver string, datasource string, a ...interface{}) (registered bool)
 	Exists(alias string) (exists bool)
 	Info(alias ...string) map[string]interface{}
 	Query(a interface{}, qryargs ...interface{}) (reader *Reader)
@@ -102,19 +102,19 @@ func (atvdbms *ActiveDBMS) Dispose() {
 	}
 }
 
-func (atvdbms *ActiveDBMS) UnregisterConnection(alias string) (unregistered bool) {
+func (atvdbms *ActiveDBMS) Unregister(alias string) (unregistered bool) {
 	if atvdbms != nil && atvdbms.dbms != nil {
-		unregistered = atvdbms.dbms.UnregisterConnection(alias)
+		unregistered = atvdbms.dbms.Unregister(alias)
 	}
 	return
 }
 
-func (atvdbms *ActiveDBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
+func (atvdbms *ActiveDBMS) Register(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if atvdbms != nil && atvdbms.dbms != nil {
 		if atvdbms.atvrntme != nil {
 			a = append([]interface{}{atvdbms.atvrntme}, a...)
 		}
-		registered = atvdbms.dbms.RegisterConnection(alias, driver, datasource, a...)
+		registered = atvdbms.dbms.Register(alias, driver, datasource, a...)
 	}
 	return
 }
@@ -242,8 +242,8 @@ func (dbms *DBMS) DriverName(alias string) (driver string) {
 	return
 }
 
-//UnegisterConnection - alias
-func (dbms *DBMS) UnregisterConnection(alias string) (unregistered bool) {
+//Unegister connection aliase
+func (dbms *DBMS) Unregister(alias string) (unregistered bool) {
 	if alias != "" {
 		if cn, cnok := dbms.cnctns[alias]; cnok {
 			cn.Dispose()
@@ -255,8 +255,8 @@ func (dbms *DBMS) UnregisterConnection(alias string) (unregistered bool) {
 	return
 }
 
-//RegisterConnection - alias, driverName, dataSourceName
-func (dbms *DBMS) RegisterConnection(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
+//Register - new connection alias, driverName, dataSourceName
+func (dbms *DBMS) Register(alias string, driver string, datasource string, a ...interface{}) (registered bool) {
 	if alias != "" && driver != "" && datasource != "" {
 		if strings.HasPrefix(datasource, "http://") || strings.HasPrefix(datasource, "https://") || strings.HasPrefix(datasource, "ws://") || strings.HasPrefix(datasource, "wss://") {
 			if cn, cnok := dbms.cnctns[alias]; cnok {

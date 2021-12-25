@@ -52,7 +52,7 @@ var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1",
 //console.log(a.json());
 //kwe.dbms().unregisterConnection("b1");
 
-kwe.dbms().registerConnection("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
+kwe.dbms().register("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
 
 kwe.fs().mkdir("/movies","D:/movies");
 
