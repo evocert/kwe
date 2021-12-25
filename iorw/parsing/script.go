@@ -15,6 +15,11 @@ func parseatvrune(prsng *Parsing, rn rune) (err error) {
 		if !prsng.foundcde {
 			prsng.foundcde = true
 		}
+		if strings.TrimSpace(string(rn)+"") != "" {
+			prsng.lstcder = rn
+		} else {
+			prsng.lstcder = rune(0)
+		}
 		if prsng.cdetxt == rune(0) {
 			if (rn == '\'' || rn == '"' || rn == '`') && prsng.prslblprv[1] != '\\' {
 				prsng.cdetxt = rn

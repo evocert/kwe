@@ -201,7 +201,7 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, e
 
 			if prsng == nil {
 				prsng = parsing.NextParsing(r.Actv, nil, nil, nil, p)
-				if prsrngerr := parsing.EvalParsing(prsng, nil, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {
+				if prsrngerr := parsing.EvalParsing(prsng, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {
 
 					return
 				}); prsrngerr == nil {
@@ -222,7 +222,7 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, e
 						if len(bytes) > 0 {
 							if prsng == nil {
 								prsng = parsing.NextParsing(r.Actv, nil, nil, nil, path)
-								parsing.EvalParsing(prsng, nil, nil, nil, path, false, true, string(bytes), func(prsng *parsing.Parsing) (err error) {
+								parsing.EvalParsing(prsng, nil, nil, path, false, true, string(bytes), func(prsng *parsing.Parsing) (err error) {
 
 									return
 								})

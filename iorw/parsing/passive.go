@@ -20,7 +20,7 @@ func parsepsvrune(prsng *Parsing, rn rune) (err error) {
 	if prsng.hascde {
 		prsng.hascde = false
 	}
-	err = parseelmpsvrrune(prsng, prsng.elmoffset, prsng.elmlbli, prsng.elmprvrns, rn)
+	err = parseelmpsvrrune(prsng, prsng.elmoffset, prsng.elmlbli, prsng.argsbli, prsng.elmprvrns, rn)
 	return
 }
 
@@ -120,7 +120,7 @@ func parsepsvphrase(prsng *Parsing, psvsctn *psvsection, phrslbli []int, rn rune
 	return
 }
 
-func parseelmpsvrrune(prsng *Parsing, elmoffset int, elmlbli []int, elmprvrns []rune, rn rune) (err error) {
+func parseelmpsvrrune(prsng *Parsing, elmoffset int, elmlbli []int, argsbli []int, elmprvrns []rune, rn rune) (err error) {
 	if elmoffset == -1 {
 		elmoffset = 0
 		prsng.elmoffset = elmoffset
@@ -404,14 +404,13 @@ func (psvsctn *psvsection) path() (path string) {
 
 func newPsvSection(prsng *Parsing, elmtpe elemtype, tmpbuf *iorw.Buffer, crntsctn *psvsection) (psvsctn *psvsection) {
 	if tmpbuf != nil && tmpbuf.Size() > 0 {
-
 		var tmpltpath = ""
 
 		tmprdr := tmpbuf.Reader()
 		var nxttmpbuf *iorw.Buffer = nil
 		var rnferr error = nil
 		tmpclbli := []int{0, 0}
-		tmpclbl := [][]rune{[]rune("{@"), []rune("@}")}
+		tmpclbl := [][]rune{argslbl[0], argslbl[1]}
 		tmpclprnrn := rune(0)
 		foundtmltnme := false
 		for !foundtmltnme {
