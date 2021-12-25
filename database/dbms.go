@@ -28,6 +28,8 @@ type ActiveDBMS struct {
 	dbms     *DBMS
 	atvrntme active.Runtime
 	prmsfnc  func() parameters.ParametersAPI
+	readers  map[*Reader]*Reader
+	exctrs   map[*Executor]*Executor
 }
 
 func (atvdbms *ActiveDBMS) Connections() (cns []string) {
@@ -35,6 +37,28 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 		cns = atvdbms.dbms.Connections()
 	}
 	return
+}
+
+func (atvdbms *ActiveDBMS) closeReader(rdr *Reader) {
+	if atvdbms != nil {
+		if atvdbms.readers != nil {
+			if mprdr, _ := atvdbms.readers[rdr]; mprdr == rdr {
+				atvdbms.readers[rdr] = nil
+				delete(atvdbms.readers, rdr)
+			}
+		}
+	}
+}
+
+func (atvdbms *ActiveDBMS) closeExecutor(exctr *Executor) {
+	if atvdbms != nil {
+		if atvdbms.exctrs != nil {
+			if mpexctr, _ := atvdbms.exctrs[exctr]; mpexctr == exctr {
+				atvdbms.exctrs[exctr] = nil
+				delete(atvdbms.exctrs, exctr)
+			}
+		}
+	}
 }
 
 func (atvdbms *ActiveDBMS) Info(alias ...string) (info map[string]interface{}) {
@@ -61,6 +85,18 @@ func (atvdbms *ActiveDBMS) Dispose() {
 		}
 		if atvdbms.prmsfnc != nil {
 			atvdbms.prmsfnc = nil
+		}
+		if atvdbms.readers != nil {
+			for rdr := range atvdbms.readers {
+				rdr.Close()
+			}
+			atvdbms.readers = nil
+		}
+		if atvdbms.exctrs != nil {
+			for exctr := range atvdbms.exctrs {
+				exctr.Close()
+			}
+			atvdbms.readers = nil
 		}
 		atvdbms = nil
 	}
@@ -100,7 +136,10 @@ func (atvdbms *ActiveDBMS) Query(a interface{}, qryargs ...interface{}) (reader 
 				qryargs = append([]interface{}{prms}, qryargs...)
 			}
 		}
-		reader = atvdbms.dbms.Query(a, qryargs...)
+		if reader = atvdbms.dbms.Query(a, qryargs...); reader != nil {
+			reader.OnClose = atvdbms.closeReader
+			atvdbms.readers[reader] = reader
+		}
 	}
 	return
 }
@@ -110,7 +149,9 @@ func (atvdbms *ActiveDBMS) Execute(a interface{}, excargs ...interface{}) (exctr
 		if atvdbms.atvrntme != nil {
 			excargs = append([]interface{}{atvdbms.atvrntme}, excargs...)
 		}
-		exctr = atvdbms.dbms.Execute(a, excargs...)
+		if exctr = atvdbms.dbms.Execute(a, excargs...); exctr != nil {
+			exctr.OnClose = atvdbms.closeExecutor
+		}
 	}
 	return
 }
@@ -127,7 +168,7 @@ func (atvdbms *ActiveDBMS) InOut(in interface{}, out io.Writer, ioargs ...interf
 
 func newActiveDBMS(dbms *DBMS, rntme active.Runtime, prmsfnc func() parameters.ParametersAPI) (atvdbms *ActiveDBMS) {
 	if dbms != nil && rntme != nil {
-		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme, prmsfnc: prmsfnc}
+		atvdbms = &ActiveDBMS{dbms: dbms, atvrntme: rntme, prmsfnc: prmsfnc, readers: map[*Reader]*Reader{}, exctrs: map[*Executor]*Executor{}}
 	}
 	return
 }

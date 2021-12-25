@@ -35,6 +35,7 @@ type Executor struct {
 	OnSuccess    interface{}
 	OnError      interface{}
 	OnFinalize   interface{}
+	OnClose      func(*Executor)
 	script       active.Runtime
 	canRepeat    bool
 }
@@ -529,6 +530,10 @@ func (exctr *Executor) Close() (err error) {
 				exctr.qryArgs = exctr.qryArgs[1:]
 			}
 			exctr.qryArgs = nil
+		}
+		if exctr.OnClose != nil {
+			exctr.OnClose(exctr)
+			exctr.OnClose = nil
 		}
 	}
 	return

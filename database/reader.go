@@ -48,6 +48,7 @@ type Reader struct {
 	OnColumns   interface{}
 	OnRow       interface{}
 	OnValidData interface{}
+	OnClose     func(*Reader)
 }
 
 //ColumnTypes return Column types in form of a slice, 'array', of []*ColumnType values
@@ -360,6 +361,10 @@ func (rdr *Reader) Close() (err error) {
 			err = rdr.Executor.Close()
 		}
 		rdr.Executor = nil
+	}
+	if rdr.OnClose != nil {
+		rdr.OnClose(rdr)
+		rdr.OnClose = nil
 	}
 	return
 }
