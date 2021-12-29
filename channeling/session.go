@@ -16,6 +16,7 @@ import (
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
+	"github.com/evocert/kwe/iorw/active/require"
 	"github.com/evocert/kwe/listen"
 	"github.com/evocert/kwe/mimes"
 	"github.com/evocert/kwe/mqtt"
@@ -752,62 +753,12 @@ var glblenv = env.Env()
 
 func init() {
 	fslcl = fsutils.NewFSUtils()
-	active.LoadGlobalModule("kwesession.js", `function kwefields(obj){
-		let properties = new Set()
-		let currentObj = obj
-		Object.entries(currentObj).forEach((key)=>{
-			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
-			if (typeof currentObj[key] !== 'function') {
-				var item=key;
-				properties.add(item);
-			}
-		});
-		if (properties.size===0) {
-			do {
-				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
-			} while ((currentObj = Object.getPrototypeOf(currentObj)))
+	active.DefaulLookupTemplate = func(p string, a ...interface{}) (rdr io.Reader, rdrerr error) {
+		if rdr = resources.GLOBALRSNG().FS().CAT(p); rdr == nil {
+			rdrerr = require.ErrorModuleFileDoesNotExist
 		}
-		return [...properties.keys()].filter(item => item!=='__proto__' && typeof obj[item] !== 'function')
+		return
 	}
-	function kwemethods(obj){
-		let properties = new Set()
-		let currentObj = obj
-		Object.entries(currentObj).forEach((key)=>{
-			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
-			if (typeof currentObj[key] === 'function') {
-				var item=key;
-				properties.add(item);
-			}
-		});
-		if (properties.size===0) {
-			do {
-				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
-			} while ((currentObj = Object.getPrototypeOf(currentObj)))
-		}
-		return [...properties.keys()].filter(item => typeof obj[item] === 'function')
-	}`)
-	active.LoadGlobalModule("kwe.js", sysjsTemplate("kwe",
-		map[string]interface{}{
-			"listen":      "_listen",
-			"env":         "_env",
-			"command":     "_command",
-			"path":        "_path",
-			"in":          "_in",
-			"dbms":        "_dbms",
-			"caching":     "_caching",
-			"out":         "_out",
-			"fs":          "_fs",
-			"fsutils":     "_fsutils",
-			"scheduling":  "_scheduling",
-			"schdl":       "_schdl",
-			"mqtting":     "_mqtting",
-			"mqttmsg":     "_mqttmsg",
-			"mqttevent":   "_mqttevent",
-			"extMimetype": "_extMimetype",
-			"addPath":     "_addpath",
-			"send":        "_send",
-			"sendEval":    "_sendeval",
-			"sendreceive": "_sendreceive"}))
 }
 
 type exepath struct {
