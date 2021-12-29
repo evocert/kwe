@@ -733,12 +733,17 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	texttype = false
 	if ext = filepath.Ext(ext); ext != "" {
 		func() {
+			mtypesfoundlck.RLock()
 			if _, mimetypeok := mtypesfound[ext]; mimetypeok {
+				defer mtypesfoundlck.RUnlock()
 				mimetype = mtypesfound[ext]
 				if _, textextok := mtextexts[ext]; textextok {
 					texttype = mtextexts[ext]
 				}
 			} else {
+				mtypesfoundlck.RUnlock()
+				mtypesfoundlck.Lock()
+				defer mtypesfoundlck.Unlock()
 				//var bufr = bufio.NewReader(MimeTypesCSV())
 				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
