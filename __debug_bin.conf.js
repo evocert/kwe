@@ -26,7 +26,7 @@ try {
 	console.log(e.message);
 }
 
-/*kwe.dbms().registerConnection("b1","kwesqlite","file::memory:?cache=shared");
+/*kwe.dbms().register("b1","kwesqlite",":memory:");
 
 kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
 	v1 INT,
