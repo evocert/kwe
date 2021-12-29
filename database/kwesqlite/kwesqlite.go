@@ -17,6 +17,9 @@ func Open(datasource string) (*sql.DB, error) {
 
 func init() {
 	database.GLOBALDBMS().RegisterDriver("kwesqlite", func(datasource string, a ...interface{}) (db *sql.DB, err error) {
+		if datasource == ":memory:" {
+			datasource = "file::memory:?mode=memory"
+		}
 		db, err = Open(datasource)
 		return
 	})
