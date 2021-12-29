@@ -647,7 +647,9 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 												}
 											}
 											if lkpr = ssn.FS().CAT(lkppath); lkpr == nil {
-												lkpr = ssn.FSUTILS().CAT(lkppath)
+												if lkpr = ssn.FSUTILS().CAT(lkppath); lkpr == nil && active.DefaulLookupTemplate != nil {
+													lkpr, lkperr = active.DefaulLookupTemplate(lkppath)
+												}
 											}
 										}
 										return
