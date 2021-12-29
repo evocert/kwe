@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	js "github.com/dop251/goja"
-	"github.com/evocert/kwe/iorw/parsing"
 )
 
 // NodeJS module search algorithm described by
@@ -15,7 +14,7 @@ import (
 func (r *RequireModule) resolve(modpath string) (module *js.Object, err error) {
 	origPath, modpath := modpath, filepathClean(modpath)
 	if modpath == "" {
-		return nil, IllegalModuleNameError
+		return nil, ErrorIllegalModuleName
 	}
 
 	module, err = r.loadNative(modpath)
@@ -53,7 +52,7 @@ func (r *RequireModule) resolve(modpath string) (module *js.Object, err error) {
 	}
 
 	if module == nil && err == nil {
-		err = InvalidModuleError
+		err = ErrorInvalidModule
 	}
 	return
 }
@@ -76,7 +75,7 @@ func (r *RequireModule) loadNative(path string) (*js.Object, error) {
 		return module, nil
 	}
 
-	return nil, InvalidModuleError
+	return nil, ErrorInvalidModule
 }
 
 func (r *RequireModule) loadAsFileOrDirectory(path string) (module *js.Object, err error) {
@@ -163,7 +162,7 @@ func (r *RequireModule) loadNodeModules(modpath, start string) (module *js.Objec
 		start = parent
 	}
 
-	return nil, InvalidModuleError
+	return nil, ErrorInvalidModule
 }
 
 func (r *RequireModule) getCurrentModulePath() string {
@@ -190,7 +189,7 @@ func (r *RequireModule) loadModule(path string) (*js.Object, error) {
 		if err != nil {
 			module = nil
 			delete(r.modules, path)
-			if errors.Is(err, ModuleFileDoesNotExistError) {
+			if errors.Is(err, ErrorModuleFileDoesNotExist) {
 				err = nil
 			}
 		}
@@ -201,22 +200,10 @@ func (r *RequireModule) loadModule(path string) (*js.Object, error) {
 
 func (r *RequireModule) loadModuleFile(path string, jsModule *js.Object) error {
 
-	prg, prsng, err := r.r.getCompiledSource(path)
+	prg, err := r.r.getCompiledSource(path)
 
 	if err != nil {
 		return err
-	}
-	var prvprsng = r.Lstprsng
-	defer func() {
-		if prvprsng != nil {
-			r.Lstprsng = prvprsng
-		}
-	}()
-	if prsng != nil {
-		if r.parsings == nil {
-			r.parsings = make(map[*parsing.Parsing]*parsing.Parsing)
-		}
-		r.Lstprsng = prsng
 	}
 	f, err := r.runtime.RunProgram(prg)
 	if err != nil {
@@ -236,7 +223,7 @@ func (r *RequireModule) loadModuleFile(path string, jsModule *js.Object) error {
 			return err
 		}
 	} else {
-		return InvalidModuleError
+		return ErrorInvalidModule
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package require
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -23,10 +24,10 @@ type ModuleLoader func(*js.Runtime, *js.Object)
 type SourceLoader func(path string) ([]byte, error)
 
 var (
-	InvalidModuleError     = errors.New("Invalid module")
-	IllegalModuleNameError = errors.New("Illegal module name")
+	ErrorInvalidModule     = errors.New("invalid module")
+	ErrorIllegalModuleName = errors.New("illegal module name")
 
-	ModuleFileDoesNotExistError = errors.New("module file does not exist")
+	ErrorModuleFileDoesNotExist = errors.New("module file does not exist")
 )
 
 var native map[string]ModuleLoader
@@ -34,12 +35,13 @@ var native map[string]ModuleLoader
 // Registry contains a cache of compiled modules which can be used by multiple Runtimes
 type Registry struct {
 	sync.Mutex
-	native        map[string]ModuleLoader
-	compiled      map[string]*js.Program
-	parsed        map[string]*parsing.Parsing
-	srcLoader     SourceLoader
-	globalFolders []string
-	Actv          parsing.AltActiveAPI
+	native   map[string]ModuleLoader
+	compiled map[string]*js.Program
+	//parsed        map[string]*parsing.Parsing
+	LookupTemplate func(string, ...interface{}) (io.Reader, error)
+	srcLoader      SourceLoader
+	globalFolders  []string
+	//Actv           parsing.AltActiveAPI
 }
 
 type RequireModule struct {
@@ -47,8 +49,8 @@ type RequireModule struct {
 	runtime     *js.Runtime
 	modules     map[string]*js.Object
 	nodeModules map[string]*js.Object
-	parsings    map[*parsing.Parsing]*parsing.Parsing
-	Lstprsng    *parsing.Parsing
+	//parsings    map[*parsing.Parsing]*parsing.Parsing
+	//Lstprsng    *parsing.Parsing
 }
 
 func NewRegistry(opts ...Option) *Registry {
@@ -92,7 +94,7 @@ func WithGlobalFolders(globalFolders ...string) Option {
 
 func (r *Registry) Dispose() {
 	if r != nil {
-		if r.compiled != nil || r.native != nil || r.parsed != nil {
+		if r.compiled != nil || r.native != nil {
 			func() {
 				r.Lock()
 				defer r.Unlock()
@@ -119,16 +121,6 @@ func (r *Registry) Dispose() {
 					}()
 					r.compiled = nil
 				}
-				if r.parsed != nil {
-					if len(r.parsed) > 0 {
-						for k := range r.parsed {
-							r.parsed[k].Dispose()
-							r.parsed[k] = nil
-							delete(r.parsed, k)
-						}
-					}
-					r.parsed = nil
-				}
 			}()
 		}
 		if r.globalFolders != nil {
@@ -137,8 +129,11 @@ func (r *Registry) Dispose() {
 		if r.srcLoader != nil {
 			r.srcLoader = nil
 		}
-		if r.Actv != nil {
-			r.Actv = nil
+		//if r.Actv != nil {
+		//	r.Actv = nil
+		//}
+		if r.LookupTemplate != nil {
+			r.LookupTemplate = nil
 		}
 		r = nil
 	}
@@ -173,7 +168,7 @@ func DefaultSourceLoader(filename string) ([]byte, error) {
 	data, err := ioutil.ReadFile(filepath.FromSlash(filename))
 	if err != nil {
 		if os.IsNotExist(err) || errors.Is(err, syscall.EISDIR) {
-			err = ModuleFileDoesNotExistError
+			err = ErrorModuleFileDoesNotExist
 		}
 	}
 	return data, err
@@ -187,29 +182,29 @@ func (r *Registry) getSource(p string) ([]byte, error) {
 	return srcLoader(p)
 }
 
-func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, error) {
+func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 	r.Lock()
 	defer r.Unlock()
-	prsng := r.parsed[p]
 	prg := r.compiled[p]
 	if prg == nil {
 		if buf, err := r.getSource(p); len(buf) > 0 {
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			s := string(buf)
 
-			if prsng == nil {
-				prsng = parsing.NextParsing(r.Actv, nil, nil, nil, p)
-				if prsrngerr := parsing.EvalParsing(prsng, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {
+			//if prsng == nil {
+			var prsng = parsing.NextParsing(nil, nil, nil, nil, p, r.LookupTemplate)
+			defer prsng.Dispose()
+			if prsrngerr := parsing.EvalParsing(prsng, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {
 
-					return
-				}); prsrngerr == nil {
-					s = parsing.Code(prsng)
-				} else {
-					return nil, nil, prsrngerr
-				}
+				return
+			}); prsrngerr == nil {
+				s = parsing.Code(prsng)
+			} else {
+				return nil, prsrngerr
 			}
+			//}
 
 			if path.Ext(p) == ".json" {
 				s = "module.exports = JSON.parse('" + template.JSEscapeString(s) + "')"
@@ -221,7 +216,7 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, e
 					if bytes, byteserr = r.srcLoader(path); byteserr == nil {
 						if len(bytes) > 0 {
 							if prsng == nil {
-								prsng = parsing.NextParsing(r.Actv, nil, nil, nil, path)
+								prsng = parsing.NextParsing(nil, nil, nil, nil, path, r.LookupTemplate)
 								parsing.EvalParsing(prsng, nil, nil, path, false, true, string(bytes), func(prsng *parsing.Parsing) (err error) {
 
 									return
@@ -232,24 +227,20 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, *parsing.Parsing, e
 					return
 				}))
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			prg, err = js.CompileAST(parsed, false)
 			if err == nil {
 				if r.compiled == nil {
 					r.compiled = make(map[string]*js.Program)
 				}
-				if r.parsed == nil {
-					r.parsed = make(map[string]*parsing.Parsing)
-				}
-				r.parsed[p] = prsng
 				r.compiled[p] = prg
 			}
-			return prg, nil, err
+			return prg, err
 		}
-		return nil, nil, InvalidModuleError
+		return nil, ErrorInvalidModule
 	}
-	return prg, prsng, nil
+	return prg, nil
 }
 
 func (r *RequireModule) Dispose() {
@@ -273,13 +264,6 @@ func (r *RequireModule) Dispose() {
 			r.r = nil
 		}
 	}
-}
-
-func (r *RequireModule) substring(offsets int64, offsete int64) string {
-	if r.Lstprsng != nil {
-		return r.Lstprsng.SubString(offsets, offsete)
-	}
-	return ""
 }
 
 func (r *RequireModule) require(call js.FunctionCall) js.Value {

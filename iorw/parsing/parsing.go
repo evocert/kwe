@@ -30,7 +30,8 @@ type AltActiveAPI interface {
 }
 
 type Parsing struct {
-	AtvActv AltActiveAPI
+	AtvActv        AltActiveAPI
+	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	*iorw.Buffer
 	tmpltbuf   *iorw.Buffer
 	tmpltmap   map[string][]int64
@@ -77,6 +78,7 @@ type Parsing struct {
 
 func EvalParsing(prsng *Parsing, wout io.Writer, rin io.Reader, initpath string, canexec bool, invertactpsv bool, a ...interface{}) (err error) {
 	var atv AltActiveAPI = nil
+	var lookupTemplate func(string, ...interface{}) (io.Reader, error) = nil
 	if al := len(a); al > 0 {
 		ai := 0
 		for ai < al {
@@ -88,6 +90,13 @@ func EvalParsing(prsng *Parsing, wout io.Writer, rin io.Reader, initpath string,
 					a = append(a[:ai], a[ai+1:]...)
 					al--
 					continue
+				} else if dlookupTemplate, _ := d.(func(string, ...interface{}) (io.Reader, error)); dlookupTemplate != nil {
+					if lookupTemplate == nil {
+						lookupTemplate = dlookupTemplate
+					}
+					a = append(a[:ai], a[ai+1:]...)
+					al--
+					continue
 				}
 			}
 			ai++
@@ -95,7 +104,7 @@ func EvalParsing(prsng *Parsing, wout io.Writer, rin io.Reader, initpath string,
 	}
 	func() {
 		if prsng == nil {
-			prsng = NextParsing(atv, nil, rin, wout, initpath)
+			prsng = NextParsing(atv, nil, rin, wout, initpath, lookupTemplate)
 			defer prsng.Dispose()
 		}
 		if len(a) > 0 {
@@ -797,9 +806,9 @@ func parseprsngrune(prsng *Parsing, prslbli []int, prslblprv []rune, pr rune) (e
 	return
 }
 
-func NextParsing(atvActv AltActiveAPI, prntprsng *Parsing, rin io.Reader, wout io.Writer, initpath string) (prsng *Parsing) {
+func NextParsing(atvActv AltActiveAPI, prntprsng *Parsing, rin io.Reader, wout io.Writer, initpath string, lookupTemplate func(string, ...interface{}) (io.Reader, error)) (prsng *Parsing) {
 	prsng = &Parsing{
-		AtvActv: atvActv, Buffer: iorw.NewBuffer(), Prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
+		AtvActv: atvActv, Buffer: iorw.NewBuffer(), LookupTemplate: lookupTemplate, Prsvpth: initpath, rin: rin, wout: wout, woutbytes: make([]byte, 8192), woutbytesi: 0, prntprsng: prntprsng, cdetxt: rune(0), prslbli: []int{0, 0}, prslblprv: []rune{0, 0}, cdeoffsetstart: -1, cdeoffsetend: -1, psvoffsetstart: -1, psvoffsetend: -1, psvr: make([]rune, 8192), cder: make([]rune, 8192), prntrs: []io.Writer{},
 		crntpsvsctn: nil, prvelmrn: rune(0), elmoffset: -1, elmlbli: []int{0, 0}, argsbli: []int{0, 0}, elmprvrns: []rune{rune(0), rune(0)}}
 	return
 }

@@ -48,7 +48,12 @@ type Active struct {
 
 func (atv *Active) AltLookupTemplate(path string, a ...interface{}) (r io.Reader, err error) {
 	if atv != nil && atv.LookupTemplate != nil {
-		r, err = atv.LookupTemplate(path, a...)
+		if r, err = atv.LookupTemplate(path, a...); r == nil {
+			if DefaulLookupTemplate != nil {
+				r, err = DefaulLookupTemplate(path, a...)
+			}
+		}
+
 	}
 	return
 }
@@ -472,13 +477,14 @@ func (atv *Active) Interrupt() {
 }
 
 type atvruntime struct {
-	prsng         *parsing.Parsing
-	atv           parsing.AltActiveAPI //*Active
-	vm            *goja.Runtime
-	vmregister    *require.Registry
-	vmreq         *require.RequireModule
-	intrnbuffs    map[*iorw.Buffer]*iorw.Buffer
-	includedpgrms map[string]*goja.Program
+	prsng          *parsing.Parsing
+	atv            parsing.AltActiveAPI //*Active
+	LookupTemplate func(string, ...interface{}) (io.Reader, error)
+	vm             *goja.Runtime
+	vmregister     *require.Registry
+	vmreq          *require.RequireModule
+	intrnbuffs     map[*iorw.Buffer]*iorw.Buffer
+	includedpgrms  map[string]*goja.Program
 }
 
 func (atvrntme *atvruntime) AltActv() (atvactv parsing.AltActiveAPI) {
@@ -634,11 +640,11 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 
 func (atvrntme *atvruntime) passiveoutsubstring(offsets int64, offsete int64) string {
 	if atvrntme != nil && atvrntme.prsng != nil {
-		if atvrntme.vmreq != nil && atvrntme.vmreq.Lstprsng != nil {
-			parsing.PassiveoutSubString(atvrntme.vmreq.Lstprsng, offsets, offsete)
-		} else {
-			return parsing.PassiveoutSubString(atvrntme.prsng, offsets, offsete)
-		}
+		//if atvrntme.vmreq != nil && atvrntme.vmreq.Lstprsng != nil {
+		//	parsing.PassiveoutSubString(atvrntme.vmreq.Lstprsng, offsets, offsete)
+		//} else {
+		return parsing.PassiveoutSubString(atvrntme.prsng, offsets, offsete)
+		//}
 	}
 	return ""
 }
@@ -660,6 +666,11 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 			if !clearonly {
 				vmpool.Put(atvrntme.vm)
 				atvrntme.vm = nil
+			}
+		}
+		if atvrntme.LookupTemplate != nil {
+			if !clearonly {
+				atvrntme.LookupTemplate = nil
 			}
 		}
 		if atvrntme.vmregister != nil {
@@ -857,6 +868,9 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 
 func newatvruntime(atv *Active) (atvrntme *atvruntime, interruptvm func(v interface{}), err error) {
 	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+	if atv != nil {
+		atvrntme.LookupTemplate = atv.AltLookupTemplate
+	}
 	interruptvm = func(v interface{}) {
 		atvrntme.lclvm().Interrupt(v)
 	}
@@ -961,7 +975,7 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 									sourceerr = nil
 								} else if len(sourcebytes) == 0 && sourceerr == nil {
 									sourcebytes = nil
-									sourceerr = require.InvalidModuleError
+									sourceerr = require.ErrorInvalidModule
 								}
 								if sourceerr != nil && sourceerr != io.EOF {
 									sourcebytes = nil
@@ -974,10 +988,15 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 							return nil, lkprdrerr
 						}
 					}
-					return nil, require.ModuleFileDoesNotExistError
+					return nil, require.ErrorModuleFileDoesNotExist
 				})
-				vmregister.Actv = atvrntme.atv
+				//vmregister.Actv = atvrntme.atv
 				atvrntme.vmregister = vmregister
+				if atvrntme.atv != nil {
+					vmregister.LookupTemplate = atvrntme.atv.AltLookupTemplate
+				} else if atvrntme.LookupTemplate != nil {
+					vmregister.LookupTemplate = atvrntme.LookupTemplate
+				}
 			}
 			if atvrntme.vmreq == nil {
 				vmreq := atvrntme.vmregister.Enable(vm)
@@ -1135,8 +1154,39 @@ func UnloadGlobalModule(modulepath string) (existed bool) {
 	return
 }
 
+var gblregister = require.NewRegistryWithLoader(func(path string) (cdebts []byte, cdeerr error) {
+	if DefaulLookupTemplate != nil {
+		if cderdr, cderdrerr := DefaulLookupTemplate(path); cderdrerr == nil {
+			if cderdr == nil {
+				cderdrerr = require.ErrorModuleFileDoesNotExist
+			} else {
+				if cdes, cdeserr := iorw.ReaderToString(cderdr); cdeserr != nil {
+					cdeerr = cdeserr
+				} else if cdes == "" {
+					cdeerr = require.ErrorInvalidModule
+				} else {
+					cdebts = []byte(cdes)
+				}
+			}
+		} else {
+			cdeerr = cderdrerr
+		}
+
+	}
+	return
+})
+
+var DefaulLookupTemplate func(string, ...interface{}) (io.Reader, error) = nil
+
 func init() {
 	globalModules = map[string]*goja.Program{}
+	gblregister.LookupTemplate = func(p string, a ...interface{}) (rdr io.Reader, err error) {
+		if DefaulLookupTemplate != nil {
+			rdr, err = DefaulLookupTemplate(p, a...)
+		}
+		return
+	}
+
 	//globalModuleslck = &sync.RWMutex{}
 	/*var errpgrm error = nil
 	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
