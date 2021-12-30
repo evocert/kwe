@@ -13,6 +13,9 @@ type ParametersAPI interface {
 	StandardKeys() []string
 	FileKeys() []string
 	SetParameter(string, bool, ...string)
+	AppendPhrase(...string)
+	Phrases() []string
+	ContainsPhrase(...string) bool
 	ContainsParameter(string) bool
 	RemoveParameter(string) []string
 	SetFileParameter(string, bool, ...interface{})
@@ -28,12 +31,40 @@ type ParametersAPI interface {
 
 //Parameters -> structure containing parameters
 type Parameters struct {
+	phrases   []string
 	standard  map[string][]string
 	filesdata map[string][]interface{}
 }
 
 var emptyParmVal = []string{}
 var emptyParamFile = []interface{}{}
+
+func (params *Parameters) AppendPhrase(phrases ...string) {
+	if params != nil {
+		if len(phrases) > 0 {
+			for _, phrs := range phrases {
+				if phrs != "" {
+					if params.phrases == nil {
+						params.phrases = []string{}
+					}
+					params.phrases = append(params.phrases, phrs)
+				}
+			}
+		}
+	}
+}
+
+func (params *Parameters) Phrases() (phrases []string) {
+	if params != nil && len(params.phrases) > 0 {
+		phrases = params.phrases[:]
+	}
+	return
+}
+
+func (params *Parameters) ContainsPhrase(...string) (exists bool) {
+
+	return
+}
 
 //StandardKeys - list of standard parameters names (keys)
 func (params *Parameters) StandardKeys() (keys []string) {
@@ -365,6 +396,16 @@ func (params *Parameters) CleanupParameters() {
 		}
 		params.filesdata = nil
 	}
+	if params != nil {
+		if phrsl := len(params.phrases); phrsl > 0 {
+			for phrsl > 0 {
+				params.phrases[0] = ""
+				params.phrases = params.phrases[1:]
+				phrsl--
+			}
+			params.phrases = nil
+		}
+	}
 }
 
 //NewParameters return new instance of Paramaters container
@@ -375,10 +416,24 @@ func NewParameters() *Parameters {
 //LoadParametersFromRawURL - populate paramaters just from raw url
 func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 	if params != nil && rawURL != "" {
-		if urlvals, e := url.ParseQuery(rawURL); e == nil {
-			if urlvals != nil {
-				for pname, pvalue := range urlvals {
-					params.SetParameter(pname, false, pvalue...)
+		if rawURL != "" {
+			var phrases = []string{}
+			var rawUrls = strings.Split(rawURL, "&")
+			rawURL = ""
+			for _, rwurl := range rawUrls {
+				if rwurl != "" {
+					if strings.Contains(rwurl, "=") {
+						rawURL += rwurl + "&"
+					} else {
+						phrases = append(phrases, rawURL)
+					}
+				}
+			}
+			if urlvals, e := url.ParseQuery(rawURL); e == nil {
+				if urlvals != nil {
+					for pname, pvalue := range urlvals {
+						params.SetParameter(pname, false, pvalue...)
+					}
 				}
 			}
 		}
