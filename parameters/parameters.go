@@ -429,6 +429,9 @@ func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 					}
 				}
 			}
+			if len(rawURL) > 1 && strings.HasSuffix(rawURL, "&") {
+				rawURL = rawURL[:len(rawURL)-1]
+			}
 			if urlvals, e := url.ParseQuery(rawURL); e == nil {
 				if len(urlvals) > 0 {
 					for pname, pvalue := range urlvals {
