@@ -52,8 +52,8 @@ func keysFound(ksmp *Map) (keys []interface{}) {
 		if ksmp != nil && len(ksmp.imp) > 0 {
 			keys = make([]interface{}, len(ksmp.imp))
 			keysi := 0
-			for _, v := range ksmp.imp {
-				keys[keysi] = v
+			for vn := range ksmp.imp {
+				keys[keysi] = ksmp.imp[vn]
 				keysi++
 			}
 		}
@@ -92,8 +92,8 @@ func valuesFound(ksmp *Map) (values []interface{}) {
 		if ksmp != nil && len(ksmp.imp) > 0 {
 			values = make([]interface{}, len(ksmp.imp))
 			valsi := 0
-			for _, v := range ksmp.imp {
-				values[valsi] = v
+			for vn := range ksmp.imp {
+				values[valsi] = ksmp.imp[vn]
 				valsi++
 			}
 		}
@@ -176,13 +176,13 @@ func mapPut(mp *Map, mphndlr *MapHandler, candispose bool, a ...interface{}) (pu
 					} else {
 						if m, mok := a[0].(map[string]interface{}); mok && len(m) > 0 {
 							a = a[1:]
-							for k, v := range m {
-								a = append(a, k, v)
+							for k := range m {
+								a = append(a, k, m[k])
 							}
 						} else if mi, miok := a[0].(map[interface{}]interface{}); miok && len(mi) > 0 {
 							a = a[1:]
-							for k, v := range mi {
-								a = append(a, k, v)
+							for k := range mi {
+								a = append(a, k, mi[k])
 							}
 						} else {
 							a = a[1:]
@@ -201,13 +201,13 @@ func prepNewVal(v interface{}) (vn interface{}) {
 	if v != nil {
 		if m, mok := v.(map[string]interface{}); mok && len(m) > 0 {
 			vmp := NewMap()
-			for k, v := range m {
-				vmp.Put(k, v)
+			for k := range m {
+				vmp.Put(k, m[k])
 			}
 			vn = vmp
 		} else if arv, arvok := v.([]interface{}); arvok {
-			for an, av := range arv {
-				arv[an] = prepNewVal(av)
+			for an := range arv {
+				arv[an] = prepNewVal(arv[an])
 			}
 			vn = arv
 		} else {
@@ -220,8 +220,8 @@ func prepNewVal(v interface{}) (vn interface{}) {
 func disposeMapVal(mp *Map, mphndlr *MapHandler, valdispose interface{}) {
 	if valdispose != nil {
 		if arr, arrok := valdispose.([]interface{}); arrok && len(arr) > 0 {
-			for _, d := range arr {
-				disposeMapVal(mp, mphndlr, d)
+			for dn := range arr {
+				disposeMapVal(mp, mphndlr, arr[dn])
 			}
 		} else if buf, bufok := valdispose.(*iorw.Buffer); bufok && buf != nil {
 			buf.Close()
@@ -356,12 +356,12 @@ func (mp *Map) Remove(name ...interface{}) {
 func mapRemove(mp *Map, mphndlr *MapHandler, name ...interface{}) {
 	if len(name) > 0 {
 		if len(mp.imp) > 0 {
-			for _, nme := range name {
-				if nmv, nmok := mp.imp[nme]; nmok {
+			for nmen := range name {
+				if nmv, nmok := mp.imp[name[nmen]]; nmok {
 					if nmv != nil {
 						disposeMapVal(mp, mphndlr, nmv)
 					}
-					delete(mp.imp, nme)
+					delete(mp.imp, name[nmen])
 				}
 			}
 		}
@@ -683,8 +683,8 @@ func mapIsMapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (ismap bool) {
 			for ksi < ksl {
 				if valf, found := subfind(); found {
 					if arv, arrvok := valf.([]interface{}); arrvok {
-						for an, ad := range arrv {
-							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+						for an := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(arrv[an]), 0, 64); aierr == nil && adi > -1 {
 								if ai := int(adi); ai > -1 && ai < len(arv) {
 									if (an + 1) < len(arrv) {
 										if arv, arrvok = arv[ai].([]interface{}); arrvok {
@@ -763,8 +763,8 @@ func mapExistsAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (exists bool) {
 			for ksi < ksl {
 				if valf, found := subfind(); found {
 					if arv, arrvok := valf.([]interface{}); arrvok {
-						for an, ad := range arrv {
-							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+						for an := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(arrv[an]), 0, 64); aierr == nil && adi > -1 {
 								if ai := int(adi); ai > -1 && ai < len(arv) {
 									if (an + 1) < len(arrv) {
 										if arv, arrvok = arv[ai].([]interface{}); arrvok {
@@ -843,8 +843,8 @@ func mapAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (av interface{}) {
 			for ksi < ksl {
 				if valf, found := subfind(); found {
 					if arv, arrvok := valf.([]interface{}); arrvok {
-						for an, ad := range arrv {
-							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+						for an := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(arrv[an]), 0, 64); aierr == nil && adi > -1 {
 								if ai := int(adi); ai > -1 && ai < len(arv) {
 									if (an + 1) < len(arrv) {
 										if arv, arrvok = arv[ai].([]interface{}); arrvok {
@@ -951,8 +951,8 @@ func mapCloseAt(mp *Map, mphndlr *MapHandler, a ...interface{}) (closed bool) {
 			for ksi < ksl {
 				if valf, found := subfind(); found {
 					if arv, arrvok := valf.([]interface{}); arrvok {
-						for an, ad := range arrv {
-							if adi, aierr := strconv.ParseInt(fmt.Sprint(ad), 0, 64); aierr == nil && adi > -1 {
+						for an := range arrv {
+							if adi, aierr := strconv.ParseInt(fmt.Sprint(arrv[an]), 0, 64); aierr == nil && adi > -1 {
 								if ai := int(adi); ai > -1 && ai < len(arv) {
 									if (an + 1) < len(arrv) {
 										if arv, arrvok = arv[ai].([]interface{}); arrvok {
@@ -1045,10 +1045,10 @@ func mapFPrint(mp *Map, mphndlr *MapHandler, w io.Writer) (err error) {
 			enc.SetIndent("", "")
 			enc.SetEscapeHTML(false)
 			lnimp := len(mp.imp)
-			for k, v := range mp.imp {
+			for k := range mp.imp {
 				enc.Encode(k)
 				iorw.Fprint(w, ":")
-				writeMapVal(w, enc, mphndlr, v)
+				writeMapVal(w, enc, mphndlr, mp.imp[k])
 				lnimp--
 				if lnimp > 0 {
 					iorw.Fprint(w, ",")
@@ -1067,8 +1067,8 @@ func writeMapVal(w io.Writer, enc *json.Encoder, mphndlr *MapHandler, v interfac
 		if arr, arrok := v.([]interface{}); arrok {
 			iorw.Fprint(w, "[")
 			if al := len(arr); al > 0 {
-				for an, a := range arr {
-					writeMapVal(w, enc, mphndlr, a)
+				for an := range arr {
+					writeMapVal(w, enc, mphndlr, arr[an])
 					if an < al-1 {
 						iorw.Fprint(w, ",")
 					}
