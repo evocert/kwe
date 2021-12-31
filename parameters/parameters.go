@@ -42,8 +42,8 @@ var emptyParamFile = []interface{}{}
 func (params *Parameters) AppendPhrase(phrases ...string) {
 	if params != nil {
 		if len(phrases) > 0 {
-			for _, phrs := range phrases {
-				if phrs != "" {
+			for phrsn := range phrases {
+				if phrs := phrases[phrsn]; phrs != "" {
 					if params.phrases == nil {
 						params.phrases = []string{}
 					}
@@ -173,7 +173,7 @@ func (params *Parameters) SetFileParameter(pname string, clear bool, pfile ...in
 			val = []interface{}{}
 		}
 		if len(pfile) > 0 {
-			for _, pf := range pfile {
+			for pf := range pfile {
 				/*if fheader, fheaderok := pf.(multipart.FileHeader); fheaderok {
 					fheader.
 					if fv, fverr := fheader.Open(); fverr == nil {
@@ -182,7 +182,7 @@ func (params *Parameters) SetFileParameter(pname string, clear bool, pfile ...in
 						}
 					}
 				} else {*/
-				val = append(val, pf)
+				val = append(val, pfile[pf])
 				//}
 			}
 		}
@@ -190,15 +190,15 @@ func (params *Parameters) SetFileParameter(pname string, clear bool, pfile ...in
 	} else {
 		if len(pfile) > 0 {
 			val = []interface{}{}
-			for _, pf := range pfile {
-				if fheader, fheaderok := pf.(multipart.FileHeader); fheaderok {
+			for pf := range pfile {
+				if fheader, fheaderok := pfile[pf].(multipart.FileHeader); fheaderok {
 					if fv, fverr := fheader.Open(); fverr == nil {
 						if rval, rvalok := fv.(io.Reader); rvalok {
 							val = append(val, rval)
 						}
 					}
 				} else {
-					val = append(val, pf)
+					val = append(val, pfile[pf])
 				}
 			}
 			params.filesdata[pname] = val
@@ -229,15 +229,15 @@ func (params *Parameters) Parameter(pname string, index ...int) []string {
 				if stdl := len(stdv); stdl > 0 {
 					if il := len(index); il > 0 {
 						idx := []int{}
-						for _, id := range index {
-							if id >= 0 && id < stdl {
+						for idn := range index {
+							if id := index[idn]; id >= 0 && id < stdl {
 								idx = append(idx, id)
 							}
 						}
 						if len(idx) > 0 {
 							stdvls := make([]string, len(idx))
-							for in, id := range idx {
-								stdvls[in] = stdv[id]
+							for in := range idx {
+								stdvls[in] = stdv[idx[in]]
 							}
 							return stdvls
 						}
@@ -286,8 +286,8 @@ func (params *Parameters) StringParameter(pname string, sep string, index ...int
 			return
 		}
 		var bfr *bufio.Reader = nil
-		for rn, r := range pval {
-			if r != nil {
+		for rn := range pval {
+			if r := pval[rn]; r != nil {
 				if bfr == nil {
 					bfr = bufio.NewReader(r)
 				} else {
@@ -328,8 +328,8 @@ func (params *Parameters) FileReader(pname string, index ...int) (rdrs []io.Read
 func (params *Parameters) FileName(pname string, index ...int) (nmes []string) {
 	if flsv := params.FileParameter(pname, index...); len(flsv) > 0 {
 		nmes = make([]string, len(flsv))
-		for nfls, fls := range flsv {
-			if fhead, fheadok := fls.(*multipart.FileHeader); fheadok {
+		for nfls := range flsv {
+			if fhead, fheadok := flsv[nfls].(*multipart.FileHeader); fheadok {
 				nmes[nfls] = fhead.Filename
 			}
 		}
