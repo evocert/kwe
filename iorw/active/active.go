@@ -168,15 +168,15 @@ func (atv *Active) ImportGlobals(imprtglbs map[string]interface{}) {
 		if len(imprtglbs) > 0 {
 			if vm := atv.atvruntime.lclvm(); vm != nil {
 				if gbl := vm.GlobalObject(); gbl != nil {
-					for k, kv := range imprtglbs {
-						if gjv, gjvok := kv.(goja.Value); gjvok {
+					for k := range imprtglbs {
+						if gjv, gjvok := imprtglbs[k].(goja.Value); gjvok {
 							if expv := gjv.Export(); expv == nil {
 								gbl.Set(k, gjv)
 							} else {
 								gbl.Set(k, expv)
 							}
 						} else {
-							gbl.Set(k, kv)
+							gbl.Set(k, imprtglbs[k])
 						}
 					}
 					gbl = nil
@@ -560,7 +560,8 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 
 				if err == nil {
 					if len(includelibs) > 0 {
-						for _, incllib := range includelibs {
+						for incllibn := range includelibs {
+							incllib := includelibs[incllibn]
 							if incllib == "require.js" || incllib == "require.min.js" {
 								if _, included := atvrntme.includedpgrms[incllib]; included {
 									continue
@@ -902,7 +903,8 @@ func (fldmppr *fieldmapper) MethodName(t reflect.Type, m reflect.Method) (mthdnm
 func uncapitalize(s string) (nme string) {
 	if sl := len(s); sl > 0 {
 		var nrxtsr = rune(0)
-		for sn, sr := range s {
+		for sn := range s {
+			sr := s[sn]
 			if 'A' <= sr && sr <= 'Z' {
 				sr += 'a' - 'A'
 				nme += string(sr)
@@ -939,16 +941,16 @@ func resetvm(vm *goja.Runtime, cleanupVal func(vali interface{}, valt reflect.Ty
 			var rsetcode = ""
 
 			if len(ks) > 0 {
-				for _, k := range ks {
-					if vmgblval := vm.GlobalObject().Get(k); vmgblval != nil {
+				for kn := range ks {
+					if vmgblval := vm.GlobalObject().Get(ks[kn]); vmgblval != nil {
 						var vali = vmgblval.Export()
 						var valt = vmgblval.ExportType()
 						if vali != nil && valt != nil && cleanupVal != nil {
 							cleanupVal(vali, valt)
 						}
 					}
-					vm.GlobalObject().Delete(k)
-					rsetcode += k + "=undefined;\n"
+					vm.GlobalObject().Delete(ks[kn])
+					rsetcode += ks[kn] + "=undefined;\n"
 				}
 				vm.RunString(rsetcode)
 			}
@@ -1010,8 +1012,8 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			//<-dne
 			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
 				if len(definternmapref) > 0 {
-					for k, ref := range definternmapref {
-						atvrntme.vm.Set(k, ref)
+					for k := range definternmapref {
+						atvrntme.vm.Set(k, definternmapref[k])
 					}
 				}
 			}
@@ -1027,8 +1029,8 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			defer close(dne)
 		} else {
 			if len(objmapref) > 0 && objmapref[0] != nil {
-				for k, ref := range objmapref[0] {
-					atvrntme.vm.Set(k, ref)
+				for k := range objmapref[0] {
+					atvrntme.vm.Set(k, objmapref[0][k])
 				}
 			}
 		}
@@ -1040,8 +1042,8 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 func loadInternalModules(dne chan bool, vm *goja.Runtime, prgrms ...*goja.Program) {
 	defer func() { dne <- true }()
 	if len(prgrms) > 0 {
-		for _, prgm := range prgrms {
-			if prgm != nil {
+		for prgmn := range prgrms {
+			if prgm := prgrms[prgmn]; prgm != nil {
 				if _, err := vm.RunProgram(prgm); err != nil {
 
 				}
@@ -1077,8 +1079,8 @@ func RetrieveModule(modulepath ...string) (modules []*goja.Program) {
 				var modpthsi = 0
 				var modpthsl = len(modulepath)
 				for modpthsi < modpthsl {
-					for _, glgmdpth := range glblmodpths {
-						if modulepath[modpthsi] != glgmdpth {
+					for glgmdpthn := range glblmodpths {
+						if modulepath[modpthsi] != glblmodpths[glgmdpthn] {
 							modulepath = append(modulepath[0:modpthsi], modulepath[modpthsi])
 							modpthsl--
 						} else {
@@ -1092,10 +1094,8 @@ func RetrieveModule(modulepath ...string) (modules []*goja.Program) {
 						//globalModuleslck.RLock()
 						//defer globalModuleslck.RUnlock()
 						modules = make([]*goja.Program, modpthsl)
-						var modulesi = 0
-						for _, mdpth := range modulepath {
-							modules[modulesi] = globalModules[mdpth]
-							modulesi++
+						for modulesi := range modulepath {
+							modules[modulesi] = globalModules[modulepath[modulesi]]
 						}
 					}()
 				}
