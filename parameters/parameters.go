@@ -425,12 +425,12 @@ func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 					if strings.Contains(rwurl, "=") {
 						rawURL += rwurl + "&"
 					} else {
-						phrases = append(phrases, rawURL)
+						phrases = append(phrases, rwurl)
 					}
 				}
 			}
 			if urlvals, e := url.ParseQuery(rawURL); e == nil {
-				if urlvals != nil {
+				if len(urlvals) > 0 {
 					for pname, pvalue := range urlvals {
 						params.SetParameter(pname, false, pvalue...)
 					}
