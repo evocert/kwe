@@ -44,12 +44,12 @@ func (nde *Node) InsertAfter(val interface{}, a ...interface{}) {
 		var mdfying func(interface{})
 		var mdfied func(bool, bool, int, *Node, interface{})
 		if al := len(a); al > 0 && al <= 2 {
-			for _, d := range a {
+			for di := range a {
 				if mdfied == nil {
-					mdfied, _ = d.(func(bool, bool, int, *Node, interface{}))
+					mdfied, _ = a[di].(func(bool, bool, int, *Node, interface{}))
 				}
 				if mdfying == nil {
-					mdfying, _ = d.(func(interface{}))
+					mdfying, _ = a[di].(func(interface{}))
 				}
 			}
 		}
@@ -62,12 +62,12 @@ func (nde *Node) InsertBefore(val interface{}, a ...interface{}) {
 		var mdfying func(interface{})
 		var mdfied func(bool, bool, int, *Node, interface{})
 		if al := len(a); al > 0 && al <= 2 {
-			for _, d := range a {
+			for di := range a {
 				if mdfied == nil {
-					mdfied, _ = d.(func(bool, bool, int, *Node, interface{}))
+					mdfied, _ = a[di].(func(bool, bool, int, *Node, interface{}))
 				}
 				if mdfying == nil {
-					mdfying, _ = d.(func(interface{}))
+					mdfying, _ = a[di].(func(interface{}))
 				}
 			}
 		}
