@@ -126,8 +126,8 @@ func (buff *Buffer) String() (s string) {
 	s = ""
 	if buff != nil {
 		if buf := buff.buffer; len(buf) > 0 {
-			for _, b := range buf {
-				s += string(b)
+			for bn := range buf {
+				s += string(buf[bn])
 			}
 		}
 		if buff.bytesi > 0 {
@@ -305,8 +305,8 @@ func (buff *Buffer) Clear() (err error) {
 							bufrsk.Close()
 							bufrsi++
 						}
-						for _, bufrsk := range bufrs {
-							delete(buff.bufrs, bufrsk)
+						for bufrskn := range bufrs {
+							delete(buff.bufrs, bufrs[bufrskn])
 						}
 						bufrs = nil
 					}
@@ -541,8 +541,9 @@ func (bufr *BuffReader) ByteIndex(bs ...byte) (index int64) {
 		bsi := 0
 		toffset := int64(-1)
 		if len(bufr.buffer.buffer) > 0 {
-			for _, bf := range bufr.buffer.buffer {
-				for _, bt := range bf {
+			for bfn := range bufr.buffer.buffer {
+				for btn := range bufr.buffer.buffer[bfn] {
+					bt := bufr.buffer.buffer[bfn][btn]
 					toffset++
 					if bsi > 0 && bs[bsi-1] == prvb && bs[bsi] != bt {
 						bsi = 0
