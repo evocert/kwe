@@ -86,8 +86,8 @@ func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
 		if rdr.datamap == nil {
 			rdr.datamap = map[string]interface{}{}
 		}
-		for cn, c := range rdr.cls {
-			rdr.datamap[c] = displdata[cn]
+		for cn := range rdr.cls {
+			rdr.datamap[rdr.cls[cn]] = displdata[cn]
 		}
 		return rdr.datamap
 	}
@@ -111,8 +111,8 @@ func (rdr *Reader) DATAJSONFPrint(w io.Writer) (err error) {
 			if rdr.datamap == nil {
 				rdr.datamap = map[string]interface{}{}
 			}
-			for cn, c := range rdr.cls {
-				rdr.datamap[c] = displdata[cn]
+			for cn := range rdr.cls {
+				rdr.datamap[rdr.cls[cn]] = displdata[cn]
 			}
 			err = jsnenc.Encode(rdr.datamap)
 		} else {
@@ -381,14 +381,14 @@ func cleanupStringData(str string) (strcleaned string) {
 		for n < nl {
 			rn := strns[n]
 			n++
-			for _, rnrpls := range strrnstoreplace {
-				if rn == rnrpls {
+			for rnrpls := range strrnstoreplace {
+				if rn == strrnstoreplace[rnrpls] {
 					strns[n-1] = ' '
 					break
 				}
 			}
-			for _, rnrignr := range strnstoignore {
-				if rn == rnrignr {
+			for rnrignr := range strnstoignore {
+				if rn == strnstoignore[rnrignr] {
 					strns = append(strns[:(n-1)], strns[n:]...)
 					if nl = len(strns); n == nl {
 						break
@@ -637,7 +637,8 @@ func invokeColumns(script active.Runtime, oncolumns interface{}, rdr *Reader) {
 
 func columnTypes(sqlcoltypes []*sql.ColumnType, cls []string) (coltypes []*ColumnType) {
 	coltypes = make([]*ColumnType, len(sqlcoltypes))
-	for n, ctype := range sqlcoltypes {
+	for n := range sqlcoltypes {
+		ctype := sqlcoltypes[n]
 		coltype := &ColumnType{}
 		coltype.databaseType = ctype.DatabaseTypeName()
 		coltype.length, coltype.hasLength = ctype.Length()
