@@ -22,31 +22,33 @@ type Chain struct {
 func NewChain(settings ...map[string]interface{}) (chn *Chain) {
 	chn = &Chain{head: nil, tale: nil, reversemap: map[*Link]*Link{}, forwardmap: map[*Link]*Link{},
 		DoLink: nil, DoneLink: nil, ErrorDoneLink: nil, ErrorDoLink: nil}
-	if len(settings) == 1 && settings[0] != nil && len(settings[0]) > 0 {
-		for k, d := range settings[0] {
-			if d != nil {
-				if strings.ToLower(k) == "dolink" {
-					if chn.DoLink == nil {
-						if dolnk, dolnkok := d.(func(*Link) (bool, error)); dolnkok && dolnk != nil {
-							chn.DoLink = dolnk
+	if len(settings) == 1 {
+		if sttngs := settings[0]; len(sttngs) > 0 {
+			for k := range sttngs {
+				if d := sttngs[k]; d != nil {
+					if strings.ToLower(k) == "dolink" {
+						if chn.DoLink == nil {
+							if dolnk, dolnkok := d.(func(*Link) (bool, error)); dolnkok && dolnk != nil {
+								chn.DoLink = dolnk
+							}
 						}
-					}
-				} else if strings.ToLower(k) == "errordolink" {
-					if chn.ErrorDoLink == nil {
-						if errdolnk, errdolnkok := d.(func(*Link, error) bool); errdolnkok && errdolnk != nil {
-							chn.ErrorDoLink = errdolnk
+					} else if strings.ToLower(k) == "errordolink" {
+						if chn.ErrorDoLink == nil {
+							if errdolnk, errdolnkok := d.(func(*Link, error) bool); errdolnkok && errdolnk != nil {
+								chn.ErrorDoLink = errdolnk
+							}
 						}
-					}
-				} else if strings.ToLower(k) == "donelink" {
-					if chn.DoneLink == nil {
-						if donelnk, donelnkok := d.(func(*Link) error); donelnkok && donelnk != nil {
-							chn.DoneLink = donelnk
+					} else if strings.ToLower(k) == "donelink" {
+						if chn.DoneLink == nil {
+							if donelnk, donelnkok := d.(func(*Link) error); donelnkok && donelnk != nil {
+								chn.DoneLink = donelnk
+							}
 						}
-					}
-				} else if strings.ToLower(k) == "errordonelink" {
-					if chn.ErrorDoneLink == nil {
-						if errdonelnk, errdonelnkok := d.(func(*Link, error) bool); errdonelnkok && errdonelnk != nil {
-							chn.ErrorDoneLink = errdonelnk
+					} else if strings.ToLower(k) == "errordonelink" {
+						if chn.ErrorDoneLink == nil {
+							if errdonelnk, errdonelnkok := d.(func(*Link, error) bool); errdonelnkok && errdonelnk != nil {
+								chn.ErrorDoneLink = errdonelnk
+							}
 						}
 					}
 				}
@@ -125,37 +127,39 @@ func (chn *Chain) newLink(value interface{}, settings ...map[string]interface{})
 	if chn != nil {
 		lnk = &Link{chn: chn, value: value,
 			DoLink: nil, DoneLink: nil, ErrorDoneLink: nil, ErrorDoLink: nil}
-		if len(settings) == 1 && settings[0] != nil && len(settings[0]) > 0 {
-			for k, d := range settings[0] {
-				if d != nil {
-					if strings.ToLower(k) == "dolink" {
-						if lnk.DoLink == nil {
-							if dolnk, dolnkok := d.(FuncDoLink); dolnkok && dolnk != nil {
-								lnk.DoLink = dolnk
+		if len(settings) == 1 {
+			if sttngs := settings[0]; len(sttngs) > 0 {
+				for k := range sttngs {
+					if d := sttngs[k]; d != nil {
+						if strings.ToLower(k) == "dolink" {
+							if lnk.DoLink == nil {
+								if dolnk, dolnkok := d.(FuncDoLink); dolnkok && dolnk != nil {
+									lnk.DoLink = dolnk
+								}
 							}
-						}
-					} else if strings.ToLower(k) == "errordolink" {
-						if lnk.ErrorDoLink == nil {
-							if errdolnk, errdolnkok := d.(FuncErrorDoLink); errdolnkok && errdolnk != nil {
-								lnk.ErrorDoLink = errdolnk
+						} else if strings.ToLower(k) == "errordolink" {
+							if lnk.ErrorDoLink == nil {
+								if errdolnk, errdolnkok := d.(FuncErrorDoLink); errdolnkok && errdolnk != nil {
+									lnk.ErrorDoLink = errdolnk
+								}
 							}
-						}
-					} else if strings.ToLower(k) == "donelink" {
-						if lnk.DoneLink == nil {
-							if donelnk, donelnkok := d.(FuncDoneLink); donelnkok && donelnk != nil {
-								lnk.DoneLink = donelnk
+						} else if strings.ToLower(k) == "donelink" {
+							if lnk.DoneLink == nil {
+								if donelnk, donelnkok := d.(FuncDoneLink); donelnkok && donelnk != nil {
+									lnk.DoneLink = donelnk
+								}
 							}
-						}
-					} else if strings.ToLower(k) == "errordonelink" {
-						if lnk.ErrorDoneLink == nil {
-							if errdonelnk, errdonelnkok := d.(FuncErrorDoneLink); errdonelnkok && errdonelnk != nil {
-								lnk.ErrorDoneLink = errdonelnk
+						} else if strings.ToLower(k) == "errordonelink" {
+							if lnk.ErrorDoneLink == nil {
+								if errdonelnk, errdonelnkok := d.(FuncErrorDoneLink); errdonelnkok && errdonelnk != nil {
+									lnk.ErrorDoneLink = errdonelnk
+								}
 							}
-						}
-					} else if strings.ToLower(k) == "removed" {
-						if lnk.Removed == nil {
-							if removedlnk, removedlnkok := d.(FuncRemoved); removedlnkok && removedlnk != nil {
-								lnk.Removed = removedlnk
+						} else if strings.ToLower(k) == "removed" {
+							if lnk.Removed == nil {
+								if removedlnk, removedlnkok := d.(FuncRemoved); removedlnkok && removedlnk != nil {
+									lnk.Removed = removedlnk
+								}
 							}
 						}
 					}
@@ -258,11 +262,11 @@ func (chn *Chain) InsertBefore(settings map[string]interface{}, lnk *Link, value
 			if lnk.DoneLink != nil {
 				lnksettings["donelink"] = lnk.DoneLink
 			}
-			for vn, val := range values {
+			for vn := range values {
 				if settings != nil {
-					slnks[vn] = chn.newLink(val, settings)
+					slnks[vn] = chn.newLink(values[vn], settings)
 				} else {
-					slnks[vn] = chn.newLink(val, lnksettings)
+					slnks[vn] = chn.newLink(values[vn], lnksettings)
 				}
 			}
 			insert(cminsertbefore, chn, lnk, slnks...)
@@ -292,11 +296,11 @@ func (chn *Chain) InsertAfter(settings map[string]interface{}, lnk *Link, values
 			if lnk.DoneLink != nil {
 				lnksettings["donelink"] = lnk.DoneLink
 			}
-			for vn, val := range values {
+			for vn := range values {
 				if settings != nil {
-					slnks[vn] = chn.newLink(val, settings)
+					slnks[vn] = chn.newLink(values[vn], settings)
 				} else {
-					slnks[vn] = chn.newLink(val, lnksettings)
+					slnks[vn] = chn.newLink(values[vn], lnksettings)
 				}
 			}
 			insert(cminsertafter, chn, lnk, slnks...)
@@ -311,8 +315,8 @@ func (chn *Chain) InsertAfter(settings map[string]interface{}, lnk *Link, values
 //Remove ...*Link from *Chain - note *Link is also disposed
 func (chn *Chain) Remove(link ...*Link) (rmvd bool) {
 	if len(link) > 0 {
-		for _, lnk := range link {
-			if lnk != nil && chn != nil && lnk.chn == chn {
+		for lnkn := range link {
+			if lnk := link[lnkn]; lnk != nil && chn != nil && lnk.chn == chn {
 				nxtlnk := lnk.Next()
 				prvlnk := lnk.Prev()
 				delete(chn.forwardmap, lnk)
