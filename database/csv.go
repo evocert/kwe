@@ -32,7 +32,8 @@ func NewCSVReader(rdr *Reader, err error, a ...interface{}) (csvr *CSVReader) {
 	for len(a) > 0 {
 		var d = a[0]
 		if ctngs, ctngsok := d.(map[string]interface{}); ctngsok {
-			for ctngk, ctngv := range ctngs {
+			for ctngk := range ctngs {
+				ctngv := ctngs[ctngk]
 				if strings.ToLower(ctngk) == "coldelim" {
 					if cldelim, cldelimok := ctngv.(string); cldelimok {
 						if cldelim != "" {
@@ -47,8 +48,8 @@ func NewCSVReader(rdr *Reader, err error, a ...interface{}) (csvr *CSVReader) {
 					if althdrs, althdrsok := ctngv.([]interface{}); althdrsok {
 						althrsds := make([]string, len(althdrs))
 						if len(althrsds) > 0 {
-							for n, v := range althdrs {
-								althrsds[n], _ = v.(string)
+							for n := range althdrs {
+								althrsds[n], _ = althdrs[n].(string)
 							}
 							csvr.AltHeaders = althrsds
 						}
@@ -108,7 +109,8 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 							}
 						}
 						if canPrintCols && len(cls) > 0 {
-							for n, c := range cls {
+							for n := range cls {
+								c := cls[n]
 								iorw.Fprint(csvr.pw, sval(strings.ToUpper(c)))
 								if n < colcount-1 {
 									iorw.Fprint(csvr.pw, csvr.ColDelim)
@@ -126,7 +128,8 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 								} else {
 									iorw.Fprint(csvr.pw, csvr.RowDelim)
 								}
-								for n, d := range dta {
+								for n := range dta {
+									d := dta[n]
 									if s, sok := d.(string); sok {
 										if fltval, nrerr := strconv.ParseFloat(s, 64); nrerr == nil {
 											if tstintval := int64(fltval); float64(tstintval) == fltval {
