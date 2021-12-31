@@ -15,8 +15,8 @@ func NewMultiEOFCloseSeekReader(r ...io.Reader) (mltieofclsr *MultiEOFCloseSeekR
 	var eofrdrs []*EOFCloseSeekReader = nil
 	if rl := len(r); rl > 0 {
 		var eofrdrs = make([]*EOFCloseSeekReader, rl)
-		for rrn, rr := range r {
-			eofrdrs[rrn] = NewEOFCloseSeekReader(rr)
+		for rrn := range r {
+			eofrdrs[rrn] = NewEOFCloseSeekReader(r[rrn])
 		}
 	}
 	mltieofclsr = &MultiEOFCloseSeekReader{eofrdrs: eofrdrs}
