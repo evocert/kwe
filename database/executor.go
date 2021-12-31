@@ -185,11 +185,12 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 								if l := len(clsarr); l > 0 {
 									cls = make([]string, l)
 									cltpes = make([]*ColumnType, l)
-									for cn, c := range clsarr {
+									for cn := range clsarr {
 										cltp := &ColumnType{}
-										if c != nil {
+										if c := clsarr[cn]; c != nil {
 											cmp, _ := c.(map[string]interface{})
-											for ck, cv := range cmp {
+											for ck := range cmp {
+												cv := cmp[ck]
 												if ck == "name" {
 													cls[cn], _ = cv.(string)
 													cltp.name = cls[cn]
@@ -251,11 +252,13 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 			exctr.lastInsertID = -1
 			exctr.rowsAffected = -1
 			if exctr.canRepeat && len(exctr.argNames) > 0 {
-				for agrn, argnme := range exctr.argNames {
-					if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
-						parseParam(exctr, prmv, agrn)
-					} else {
-						parseParam(exctr, nil, agrn)
+				for argn := range exctr.argNames {
+					if argnme := exctr.argNames[argn]; argnme != "" {
+						if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
+							parseParam(exctr, prmv, argn)
+						} else {
+							parseParam(exctr, nil, argn)
+						}
 					}
 				}
 			}
@@ -267,20 +270,24 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 						clsdstnc := map[string]int{}
 						clsdstncorg := map[string]int{}
 						cltpes = columnTypes(cltps, cls)
-						for cn, c := range cls {
-							if ci, ciok := clsdstnc[c]; ciok {
-								if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
-									cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+						for cn := range cls {
+							c := cls[cn]
+							if c != "" {
+								if ci, ciok := clsdstnc[c]; ciok {
+									if orgcn, orgok := clsdstncorg[c]; orgok && cls[orgcn] == c {
+										cls[orgcn] = fmt.Sprintf("%s%d", c, 0)
+									}
+									clsdstnc[c]++
+									c = fmt.Sprintf("%s%d", c, ci+1)
+								} else {
+									if _, orgok := clsdstncorg[c]; !orgok {
+										clsdstncorg[c] = cn
+									}
+									clsdstnc[c] = 0
 								}
-								clsdstnc[c]++
-								c = fmt.Sprintf("%s%d", c, ci+1)
-							} else {
-								if _, orgok := clsdstncorg[c]; !orgok {
-									clsdstncorg[c] = cn
-								}
-								clsdstnc[c] = 0
 							}
 							cls[cn] = c
+
 						}
 					}
 				} else if exctr.lasterr != nil {
@@ -323,7 +330,8 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 			encw := json.NewEncoder(pw)
 			rqstmpstngs := map[string]interface{}{}
 			if len(exctr.mappedArgs) > 0 {
-				for kmp, vmp := range exctr.mappedArgs {
+				for kmp := range exctr.mappedArgs {
+					vmp := exctr.mappedArgs[kmp]
 					rqstmpstngs[kmp] = vmp
 				}
 			}
@@ -414,7 +422,8 @@ func (exctr *Executor) Repeat(args ...interface{}) (err error) {
 	if len(args) == 1 {
 		if pargs, ispargs := args[0].(*parameters.Parameters); ispargs {
 			for _, skey := range pargs.StandardKeys() {
-				for _, argnme := range exctr.argNames {
+				for argn := range exctr.argNames {
+					argnme := exctr.argNames[argn]
 					if strings.EqualFold(skey, argnme) {
 						exctr.mappedArgs[argnme] = strings.Join(pargs.Parameter(skey), "")
 						break
@@ -422,12 +431,15 @@ func (exctr *Executor) Repeat(args ...interface{}) (err error) {
 				}
 			}
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
-			for pmk, pmv := range pmargs {
+			for pmk := range pmargs {
+				pmv := pmargs[pmk]
 				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil {
 
 				} else {
-					for _, argnme := range exctr.argNames {
-						if strings.ToLower(pmk) == strings.ToLower(argnme) {
+					for argn := range exctr.argNames {
+						argnme := exctr.argNames[argn]
+						//strings.ToLower(pmk) == strings.ToLower(argnme)
+						if strings.EqualFold(pmk, argnme) {
 							exctr.mappedArgs[argnme] = pmv
 							break
 						}
