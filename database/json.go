@@ -39,7 +39,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 			ctxcancel()
 			if rdr != nil {
 				iorw.Fprint(jsnr.pw, "{\"columns\":[")
-				for cn, c := range rdr.cls {
+				for cn := range rdr.cls {
+					c := rdr.cls[cn]
 					iorw.Fprint(jsnr.pw, "{")
 					t := rdr.cltpes[cn]
 					var ctypename = ""
@@ -48,7 +49,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 					}
 					var ctpm = map[string]interface{}{"title": c, "name": c, "dbtype": t.DatabaseType(), "type": ctypename, "length": t.Length(), "numeric": t.Numeric(), "scale": t.Scale(), "precision": t.Precision()}
 					var ctpml = len(ctpm)
-					for ctpmk, ctpmv := range ctpm {
+					for ctpmk := range ctpm {
+						ctpmv := ctpm[ctpmk]
 						ctpml--
 						enc.Encode(ctpmk)
 						iorw.Fprint(jsnr.pw, ":")
@@ -69,8 +71,8 @@ func (jsnr *JSONReader) Read(p []byte) (n int, err error) {
 					var nxtdata []interface{} = rdr.Data()
 					for {
 						iorw.Fprint(jsnr.pw, "[")
-						for nd, d := range nxtdata {
-							enc.Encode(d)
+						for nd := range nxtdata {
+							enc.Encode(nxtdata[nd])
 							if nd < len(nxtdata)-1 {
 								iorw.Fprint(jsnr.pw, ",")
 							}
