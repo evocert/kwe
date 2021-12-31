@@ -439,6 +439,9 @@ func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 					}
 				}
 			}
+			if len(phrases) > 0 {
+				params.AppendPhrase(phrases...)
+			}
 		}
 	}
 }
