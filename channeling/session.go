@@ -37,8 +37,8 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 	var lstnr listen.ListenerAPI = nil
 	//var atv *active.Active = nil
 	if len(a) > 0 {
-		for _, d := range a {
-			if d != nil {
+		for di := range a {
+			if d := a[di]; d != nil {
 				if mqtteventd, _ := d.(mqtt.MqttEvent); mqtteventd != nil {
 					if mqttevent == nil {
 						mqttevent = mqtteventd
@@ -373,8 +373,8 @@ func (ssn *Session) Close() (err error) {
 						prcsidsi++
 					}
 
-					for _, prcid := range prcsids {
-						ssn.cmnds[prcid].Close()
+					for prcid := range prcsids {
+						ssn.cmnds[prcsids[prcid]].Close()
 					}
 					ssn.cmnds = nil
 				}
@@ -447,8 +447,8 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 		var ai = 0
 		var nxtrqst requesting.RequestAPI = nil
 		if len(a) > 0 {
-			for _, d := range a {
-				if d != nil {
+			for di := range a {
+				if d := a[di]; d != nil {
 					if rqstd, _ := d.(requesting.RequestAPI); rqstd != nil {
 						if nxtrqst == nil {
 							nxtrqst = rqstd
@@ -493,8 +493,10 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 						nxtpthi++
 					}
 					if len(nxtToAdd) > 0 {
-						for _, nxttadd := range nxtToAdd {
-							rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
+						for nxttaddi := range nxtToAdd {
+							if nxttadd := nxtToAdd[nxttaddi]; nxttadd != "" {
+								rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
+							}
 						}
 						nxtToAdd = nil
 					}
@@ -831,10 +833,14 @@ func InvokeSession(a ...interface{}) (ssn api.SessionAPI) {
 func sysjsTemplate(nmspace string, objmap ...map[string]interface{}) (sysjscode string) {
 	var objmptolistcode = func() (cde string) {
 		if len(objmap) > 0 && objmap[0] != nil {
-			for objk, objv := range objmap[0] {
-				if objv != nil && objk != "" {
-					if objs, _ := objv.(string); objs != "" {
-						cde += `if (` + objs + `!==undefined && ` + objs + `!==null) {obj` + nmspace + `["` + objk + `"]=` + objs + `;}`
+			if objmp := objmap[0]; len(objmp) > 0 {
+				for objk := range objmp {
+					if objk != "" {
+						if objv := objmp[objk]; objv != nil {
+							if objs, _ := objv.(string); objs != "" {
+								cde += `if (` + objs + `!==undefined && ` + objs + `!==null) {obj` + nmspace + `["` + objk + `"]=` + objs + `;}`
+							}
+						}
 					}
 				}
 			}
