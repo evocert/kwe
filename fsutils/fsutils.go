@@ -32,7 +32,8 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 					fifaltpath += "/"
 				}
 
-				for _, fifi := range fifis {
+				for fifin := range fifis {
+					fifi := fifis[fifin]
 					if finfos == nil {
 						finfos = []FileInfo{}
 					}
@@ -71,7 +72,8 @@ func LS(path string, altpath ...string) (finfos []FileInfo, err error) {
 	} else {
 		var tmppath = ""
 		var tmppaths = strings.Split(path, "/")
-		for pn, ps := range tmppaths {
+		for pn := range tmppaths {
+			ps := tmppaths[pn]
 			if tmpl := len(tmppaths); pn < tmpl {
 				if fi, fierr := os.Stat(tmppath + ps + ".zip"); fierr == nil && !fi.IsDir() {
 					var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
@@ -334,7 +336,8 @@ func FIND(path string, altpath ...string) (finfos []FileInfo, err error) {
 				if fifaltpath != "" && !strings.HasSuffix(fifaltpath, "/") {
 					fifaltpath += "/"
 				}
-				for _, fifi := range fifis {
+				for fifin := range fifis {
+					fifi := fifis[fifin]
 					if finfos == nil {
 						finfos = []FileInfo{}
 					}
@@ -466,12 +469,12 @@ func CAT(path string) (r io.Reader, err error) {
 func MULTICAT(path ...string) (r io.Reader, err error) {
 	if pl := len(path); pl > 0 {
 		var rdrs = []io.Reader{}
-		for _, pth := range path {
-			if statf, staterr := os.Stat(pth); staterr != nil {
+		for pthn := range path {
+			if statf, staterr := os.Stat(path[pthn]); staterr != nil {
 				err = staterr
 			} else if !statf.IsDir() {
 				if statf.Size() > 0 {
-					if f, ferr := os.Open(pth); ferr == nil {
+					if f, ferr := os.Open(path[pthn]); ferr == nil {
 						pr, pw := io.Pipe()
 						ctx, ctxcancel := context.WithCancel(context.Background())
 						go func() {
@@ -533,9 +536,9 @@ func CATS(path string) (cntnt string, err error) {
 func MULTICATS(path ...string) (cntnt string, err error) {
 	if len(path) > 0 {
 		var s = ""
-		for _, pth := range path {
+		for pthn := range path {
 			var r io.Reader = nil
-			if r, err = CAT(pth); err == nil {
+			if r, err = CAT(path[pthn]); err == nil {
 				if r != nil {
 					var rc io.Closer = nil
 					rc, _ = r.(io.Closer)
