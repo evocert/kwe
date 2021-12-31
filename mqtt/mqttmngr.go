@@ -103,16 +103,16 @@ type MQTTManagerAPI interface {
 }
 
 type MQTTManager struct {
-	lck              *sync.RWMutex
-	cntns            map[string]*MQTTConnection
-	activeTopics     map[string]*activeTopic
-	defaulttopicpath string
-	lcktpcs          *sync.RWMutex
-	MqttMessaging    MqttMessaging
-	mqttevents       map[string]*mqttEventContainer
-	lckevents        *sync.RWMutex
-	MqttEventing     MqttEventing
-	defaulteventpath string
+	lck          *sync.RWMutex
+	cntns        map[string]*MQTTConnection
+	activeTopics map[string]*activeTopic
+	//defaulttopicpath string
+	lcktpcs       *sync.RWMutex
+	MqttMessaging MqttMessaging
+	mqttevents    map[string]*mqttEventContainer
+	lckevents     *sync.RWMutex
+	MqttEventing  MqttEventing
+	//defaulteventpath string
 }
 
 func NewMQTTManager(a ...interface{}) (mqttmngr *MQTTManager) {
@@ -147,8 +147,8 @@ func (mqttmngr *MQTTManager) ActiveTopics() (atvtpcs map[string]string) {
 		func() {
 			mqttmngr.lcktpcs.RLock()
 			defer mqttmngr.lcktpcs.RUnlock()
-			for tpck, tpc := range mqttmngr.activeTopics {
-				if tpc != nil {
+			for tpck := range mqttmngr.activeTopics {
+				if tpc := mqttmngr.activeTopics[tpck]; tpc != nil {
 					atvtpcs[tpck] = tpc.topicpath
 				}
 			}
@@ -248,9 +248,9 @@ func (mqttmngr *MQTTManager) Fprint(w io.Writer) {
 		iorw.Fprint(w, "[")
 		if cntns := mqttmngr.Connections(); len(cntns) > 0 {
 			cntnsl := len(cntns)
-			for cntn, cnt := range cntns {
+			for cntn := range cntns {
 				if cntn < cntnsl-1 {
-					iorw.Fprint(w, mqttmngr.ConnectionInfo(cnt))
+					iorw.Fprint(w, mqttmngr.ConnectionInfo(cntns[cntn]))
 					iorw.Fprint(w, ",")
 				}
 			}
@@ -263,13 +263,17 @@ func (mqttmngr *MQTTManager) Fprint(w io.Writer) {
 			defer mqttmngr.lcktpcs.RUnlock()
 			if tpcsl := len(mqttmngr.activeTopics); tpcsl > 0 {
 				tpcsi := 0
-				for _, tpc := range mqttmngr.activeTopics {
-					iorw.Fprint(w, "{")
-					iorw.Fprint(w, "\"topic\":")
-					enc.Encode(tpc.topic)
-					iorw.Fprint(w, ",\"topicpath\":")
-					enc.Encode(tpc.topicpath)
-					iorw.Fprint(w, "}")
+				for tpck := range mqttmngr.activeTopics {
+					if tpc := mqttmngr.activeTopics[tpck]; tpc != nil {
+						iorw.Fprint(w, "{")
+						iorw.Fprint(w, "\"topic\":")
+						enc.Encode(tpc.topic)
+						iorw.Fprint(w, ",\"topicpath\":")
+						enc.Encode(tpc.topicpath)
+						iorw.Fprint(w, "}")
+					} else {
+						iorw.Fprint(w, "null")
+					}
 					tpcsi++
 					if tpcsi < tpcsl {
 						iorw.Fprint(w, ",")
@@ -301,8 +305,8 @@ func (mqttmngr *MQTTManager) String() (s string) {
 
 func (mqttmngr *MQTTManager) UnregisterConnection(alias ...string) {
 	if mqttmngr != nil && len(alias) > 0 {
-		for _, als := range alias {
-			if als != "" {
+		for alsn := range alias {
+			if als := alias[alsn]; als != "" {
 				if func() (exists bool) {
 					mqttmngr.lck.RLock()
 					defer mqttmngr.lck.RUnlock()

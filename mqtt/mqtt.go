@@ -90,9 +90,9 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 				k := a[0]
 				a = a[1:]
 				if mp, mpok := k.(map[string]interface{}); mpok {
-					for mk, mv := range mp {
+					for mk := range mp {
 						mk = strings.ToLower(mk)
-						if s, sok := mv.(string); sok && s != "" {
+						if s, sok := mp[mk].(string); sok && s != "" {
 							if mk == "broker" && broker == "" {
 								broker = s
 							} else if (mk == "user" || mk == "username") && user == "" {
@@ -102,31 +102,31 @@ func NewMQTTConnections(clientid string, a ...interface{}) (mqttcn *MQTTConnecti
 							}
 						} else {
 							if mk == "port" && port == 0 {
-								if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
+								if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 64); prsinterr == nil {
 									port = int(prsint)
-								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 32); prsinterr == nil {
+								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 32); prsinterr == nil {
 									port = int(prsint)
-								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 16); prsinterr == nil {
+								} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 16); prsinterr == nil {
 									port = int(prsint)
 								}
 							}
 						}
 					}
 				} else if mp, mpok := k.(map[string]string); mpok {
-					for mk, mv := range mp {
+					for mk := range mp {
 						mk = strings.ToLower(mk)
-						if mk == "broker" && mv != "" && broker == "" {
-							broker = mv
-						} else if (mk == "user" || mk == "username") && mv != "" && user == "" {
-							user = mv
-						} else if mk == "password" && mv != "" && password == "" {
-							password = mv
-						} else if mk == "port" && mv != "" && port == 0 {
-							if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 64); prsinterr == nil {
+						if mk == "broker" && mp[mk] != "" && broker == "" {
+							broker = mp[mk]
+						} else if (mk == "user" || mk == "username") && mp[mk] != "" && user == "" {
+							user = mp[mk]
+						} else if mk == "password" && mp[mk] != "" && password == "" {
+							password = mp[mk]
+						} else if mk == "port" && mp[mk] != "" && port == 0 {
+							if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 64); prsinterr == nil {
 								port = int(prsint)
-							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 32); prsinterr == nil {
+							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 32); prsinterr == nil {
 								port = int(prsint)
-							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mv), 0, 16); prsinterr == nil {
+							} else if prsint, prsinterr := strconv.ParseInt(fmt.Sprint(mp[mk]), 0, 16); prsinterr == nil {
 								port = int(prsint)
 							}
 						}
@@ -260,8 +260,8 @@ func (mqttmsg *mqttMessage) FPrint(w io.Writer) {
 		enc.Encode("bin-payload")
 		iorw.Fprint(w, ":")
 		arrpayload := make([]interface{}, len(payload))
-		for pn, p := range payload {
-			arrpayload[pn] = p
+		for pn := range payload {
+			arrpayload[pn] = payload[pn]
 		}
 		enc.Encode(arrpayload)
 		arrpayload = nil
@@ -385,8 +385,8 @@ func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
 			defer mqttcn.lcksubscrptns.RUnlock()
 			if subscrptns := mqttcn.Subscriptions(true); len(subscrptns) > 0 {
 				if subscrbl := len(subscrptns); subscrbl > 0 {
-					for nsubscrb, subscrptn := range subscrptns {
-						subscrptn.Fprint(w)
+					for nsubscrb := range subscrptns {
+						subscrptns[nsubscrb].Fprint(w)
 						if nsubscrb < subscrbl-1 {
 							iorw.Fprint(w, ",")
 						}
@@ -486,8 +486,8 @@ func (mqttcn *MQTTConnection) Subscriptions(alreadylck ...bool) (subscrptns []*m
 			if subscrpl := len(mqttcn.subscrptns); subscrpl > 0 {
 				subscrptns = make([]*mqttsubscription, subscrpl)
 				subscrpi := 0
-				for _, mqttsubscrptn := range mqttcn.subscrptns {
-					subscrptns[subscrpi] = mqttsubscrptn
+				for mqttsubscrptn := range mqttcn.subscrptns {
+					subscrptns[subscrpi] = mqttcn.subscrptns[mqttsubscrptn]
 					subscrpi++
 				}
 			}
@@ -506,8 +506,8 @@ func (mqttcn *MQTTConnection) SubscribedTopics(alreadylck ...bool) (subscrbdtpcs
 			if subscrpl := len(mqttcn.subscrptns); subscrpl > 0 {
 				subscrbdtpcs = make([]string, subscrpl)
 				subscrpi := 0
-				for _, mqttsubscrptn := range mqttcn.subscrptns {
-					subscrbdtpcs[subscrpi] = mqttsubscrptn.topic
+				for mqttsubscrptn := range mqttcn.subscrptns {
+					subscrbdtpcs[subscrpi] = mqttcn.subscrptns[mqttsubscrptn].topic
 					subscrpi++
 				}
 			}
@@ -550,8 +550,8 @@ func (mqttcn *MQTTConnection) Resubscribe(unsubscribefirst bool, topic ...string
 	if mqttcn != nil && mqttcn.IsConnected() {
 		if len(topic) > 0 {
 			var mqttsbscrptns []*mqttsubscription = []*mqttsubscription{}
-			for _, tpc := range topic {
-				if tpc != "" && mqttcn.IsSubscribed(tpc) {
+			for tpcn := range topic {
+				if tpc := topic[tpcn]; tpc != "" && mqttcn.IsSubscribed(tpc) {
 					func() {
 						mqttcn.lcksubscrptns.Lock()
 						defer mqttcn.lcksubscrptns.Unlock()
@@ -566,7 +566,8 @@ func (mqttcn *MQTTConnection) Resubscribe(unsubscribefirst bool, topic ...string
 			}
 			var mqttsbscrptn *mqttsubscription = nil
 			subn := 0
-			for subn, mqttsbscrptn = range mqttsbscrptns {
+			for subn = range mqttsbscrptns {
+				mqttsbscrptn = mqttsbscrptns[subn]
 				if unsubscribefirst {
 					func() {
 						mqttcn.lcksubscrptns.Lock()
@@ -610,13 +611,15 @@ func (mqttcn *MQTTConnection) Unsubscribe(topic ...string) (err error) {
 				func() {
 					mqttcn.lcksubscrptns.Lock()
 					defer mqttcn.lcksubscrptns.Unlock()
-					for _, tpc := range topic {
-						if mqttsubscptn, mqttsubscptnok := mqttcn.subscrptns[tpc]; mqttsubscptnok {
-							mqttcn.subscrptns[tpc] = nil
-							if mqttsubscptn != nil {
-								mqttsubscptn = nil
+					for tpcn := range topic {
+						if tpc := topic[tpcn]; tpc != "" {
+							if mqttsubscptn, mqttsubscptnok := mqttcn.subscrptns[tpc]; mqttsubscptnok {
+								mqttcn.subscrptns[tpc] = nil
+								if mqttsubscptn != nil {
+									mqttsubscptn = nil
+								}
+								delete(mqttcn.subscrptns, tpc)
 							}
-							delete(mqttcn.subscrptns, tpc)
 						}
 					}
 
