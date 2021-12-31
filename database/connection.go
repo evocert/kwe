@@ -281,19 +281,19 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 			if cols := rdr.Columns(); len(cols) > 0 {
 				data := rdr.Data()
 				if len(data) == len(cols) {
-					for cn, ck := range cols {
-						mappedVals[ck] = data[cn]
+					for cn := range cols {
+						mappedVals[cols[cn]] = data[cn]
 					}
 				}
 				data = nil
 				cols = nil
 			}
 		} else if pmargs, ispmargs := args[0].(map[string]interface{}); ispmargs {
-			for pmk, pmv := range pmargs {
-				if mpv, mpvok := pmv.(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
+			for pmk := range pmargs {
+				if mpv, mpvok := pmargs[pmk].(map[string]interface{}); mpvok && mpv != nil && len(mpv) > 0 {
 
 				} else {
-					mappedVals[pmk] = pmv
+					mappedVals[pmk] = pmargs[pmk]
 				}
 			}
 		}
@@ -377,7 +377,8 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 								if psbprmnme := string(psblprmnme[:psblprmnmei]); psbprmnme != "" {
 									fndprm := false
 									if !exctr.isRemote() {
-										for mpvk, mpv := range mappedVals {
+										for mpvk := range mappedVals {
+											mpv := mappedVals[mpvk]
 											if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
 												if validNames == nil {
 													validNames = []string{}
@@ -508,7 +509,8 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 				hasoutput = true
 				iorw.Fprint(out, "{")
 			}
-			for mk, mv := range mpin {
+			for mk := range mpin {
+				mv := mpin[mk]
 				mpl--
 				if out != nil {
 					hasoutput = true
@@ -724,8 +726,8 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 			} else {
 				reader = newReader(exctr)
 				if len(execargs) > 0 {
-					for _, execmp := range execargs {
-						if len(execmp) > 0 {
+					for execmpi := range execargs {
+						if execmp := execargs[execmpi]; len(execmp) > 0 {
 
 						}
 					}
@@ -783,10 +785,11 @@ func calibrateConnection(cn *Connection, a ...interface{}) {
 	if cn != nil && len(a) > 0 {
 		var idlecons = cn.maxidlecons
 		var opencons = cn.maxopencons
-		for _, d := range a {
-			if d != nil {
+		for di := range a {
+			if d := a[di]; d != nil {
 				if mpcnsttngs, _ := d.(map[string]interface{}); mpcnsttngs != nil && len(mpcnsttngs) > 0 {
-					for k, v := range mpcnsttngs {
+					for k := range mpcnsttngs {
+						v := mpcnsttngs[k]
 						if k == "max-idle-cons" {
 							if vidlecons, _ := v.(int); vidlecons != idlecons {
 								idlecons = vidlecons
