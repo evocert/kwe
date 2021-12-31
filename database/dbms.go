@@ -336,7 +336,8 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			var args []interface{} = nil
 			var execargs []map[string]interface{} = nil
 			var argsmap map[string]interface{} = nil
-			for stngk, stngv := range sttngs {
+			for stngk := range sttngs {
+				stngv := sttngs[stngk]
 				if stngk == "alias" {
 					alias, _ = stngv.(string)
 				} else if stngk == "query" {
@@ -349,8 +350,8 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 					}
 				} else if stngk == "exec" {
 					if execargsv, _ := stngv.([]interface{}); len(execargsv) > 0 {
-						for _, execstngv := range execargsv {
-							if execstngv != nil {
+						for execstngvi := range execargsv {
+							if execstngv := execargsv[execstngvi]; execstngv != nil {
 								if execmpv, _ := execstngv.(map[string]interface{}); execmpv != nil && len(execmpv) > 0 {
 									if execargs == nil {
 										execargs = []map[string]interface{}{}
@@ -464,7 +465,8 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 			mpl--
 			delete(mpin, "alias")
 		}
-		for mk, mv := range mpin {
+		for mk := range mpin {
+			mv := mpin[mk]
 			mpl--
 			if out != nil {
 				hasoutput = true
@@ -619,7 +621,8 @@ func (dbms *DBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executo
 		var stngok = false
 		var args []interface{} = nil
 		var argsmap map[string]interface{} = nil
-		for stngk, stngv := range sttngs {
+		for stngk := range sttngs {
+			stngv := sttngs[stngk]
 			if stngk == "alias" {
 				alias, _ = stngv.(string)
 			} else if stngk == "query" {
