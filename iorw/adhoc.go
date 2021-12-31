@@ -36,19 +36,19 @@ type PrinterReader interface {
 //Fprint - refer to fmt.Fprint
 func Fprint(w io.Writer, a ...interface{}) {
 	if len(a) > 0 && w != nil {
-		for _, d := range a {
-			if s, sok := d.(string); sok {
+		for dn := range a {
+			if s, sok := a[dn].(string); sok {
 				w.Write([]byte(s))
-			} else if ir, irok := d.(io.Reader); irok {
+			} else if ir, irok := a[dn].(io.Reader); irok {
 				WriteToFunc(ir, func(b []byte) (int, error) {
 					return w.Write(b)
 				})
-			} else if aa, aaok := d.([]interface{}); aaok {
+			} else if aa, aaok := a[dn].([]interface{}); aaok {
 				if len(aa) > 0 {
 					Fprint(w, aa...)
 				}
 			} else {
-				fmt.Fprint(w, d)
+				fmt.Fprint(w, a[dn])
 			}
 		}
 	}
@@ -223,13 +223,13 @@ func ReadRunesEOFFunc(r interface{}, fncrne func(rune) error) (err error) {
 
 func RunesToUTF8(rs []rune) []byte {
 	size := 0
-	for _, r := range rs {
-		size += utf8.RuneLen(r)
+	for rn := range rs {
+		size += utf8.RuneLen(rs[rn])
 	}
 	bs := make([]byte, size)
 	count := 0
-	for _, r := range rs {
-		count += utf8.EncodeRune(bs[count:], r)
+	for rn := range rs {
+		count += utf8.EncodeRune(bs[count:], rs[rn])
 	}
 
 	return bs
