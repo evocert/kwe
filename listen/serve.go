@@ -2,12 +2,15 @@ package listen
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"strings"
+
+	"github.com/evocert/kwe/requesting"
 )
 
 type responseWriter struct {
@@ -135,6 +138,8 @@ func internalServe(ln net.Listener, httpHnflr http.Handler) {
 									if w := newResponseWriter(req, conn); w != nil {
 										func() {
 											defer w.Close()
+											ctx := context.WithValue(req.Context(), requesting.ConnContextKey, conn)
+											req = req.WithContext(ctx)
 											httpHnflr.ServeHTTP(w, req)
 										}()
 									}
