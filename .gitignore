@@ -7,7 +7,6 @@ kwe_ockert.go
 *__debug_bin*.*
 .vscode/launch.json
 run
-build
 buildkwe
 kwe
 kwe.000
