@@ -122,7 +122,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 		if (key==="ios") {
 			cmd.println("SET CGO_ENABLED=1");
 		}
-		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":""))+` C:/GitHub/kwe/kwe.go`);
+		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":(key==="darwin"?".dmg":"")))+` C:/GitHub/kwe/kwe.go`);
 		cmd.println("echo finit");
 		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
 			if (ln!=="") {
@@ -149,7 +149,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 	try {
 		cmd.setReadTimeout(10000,100);
 		cmd.readAll();
-		cmd.println(`C:/GitHub/kwe/build/upx C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":"")))
+		cmd.println(`C:/GitHub/kwe/build/upx C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":(key==="darwin"?".dmg":""))))
 		cmd.println("echo finit");
 		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
 			if (ln!=="") {
