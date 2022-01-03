@@ -106,22 +106,22 @@ windows/amd64
 windows/arm
 windows/arm64`.split("\n");
 
-
+var cmd=kwe.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
 	var keyvalue=goosarch.trim().split("/");
 	var key=keyvalue[0].trim();
 	var value=keyvalue[1].trim();
 	if (value==="" || key==="") return;
-	//if (!(value.includes("386") || value.includes("64") || value.includes("wasm"))) return;
-
 	console.log(`${key}: ${value}`);
 	
-	var cmd=kwe.command("cmd");
 	try {
 		cmd.setReadTimeout(10000,100);
 		cmd.readAll();
 		cmd.println("SET GOOS="+key);
 		cmd.println("SET GOARCH="+value);
+		if (key==="ios") {
+			cmd.println("SET CGO_ENABLED=1");
+		}
 		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":""))+` C:/GitHub/kwe/kwe.go`);
 		cmd.println("echo finit");
 		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
@@ -132,10 +132,38 @@ goosgoarchsarr.forEach((goosarch)=>{
 	} catch (error) {
 		console.log("error[",key,":",value,"]:",error.toString());
 	}
-	cmd.close();
+	
 	console.log("done -",key,":",value);	
 });
+cmd.close();
+console.log("done - build");
 
+var cmd=kwe.command("cmd");
+goosgoarchsarr.forEach((goosarch)=>{
+	var keyvalue=goosarch.trim().split("/");
+	var key=keyvalue[0].trim();
+	var value=keyvalue[1].trim();
+	if (value==="" || key==="") return;
+	console.log(`${key}: ${value}`);
+	
+	try {
+		cmd.setReadTimeout(10000,100);
+		cmd.readAll();
+		cmd.println(`C:/GitHub/kwe/build/upx C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":"")))
+		cmd.println("echo finit");
+		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
+			if (ln!=="") {
+				console.log(ln);
+			}
+		}
+	} catch (error) {
+		console.log("error[",key,":",value,"]:",error.toString());
+	}
+	
+	console.log("done -",key,":",value);	
+});
+cmd.close();
+console.log("done - all");	
 
 /*goosgoarch.array.forEach(element => {
 	var goosv=element;

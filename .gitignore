@@ -1,6 +1,7 @@
 __debug_bin
 kwe.exe
 *.swp
+upx.exe
 www/
 kwe_ockert
 kwe_ockert.go
