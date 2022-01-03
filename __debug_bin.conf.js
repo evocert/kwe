@@ -59,7 +59,7 @@ kwe.fs().mkdir("/movies","D:/movies");
 kwe.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
 kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
 kwe.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
-/*
+
 var goosgoarchsarr=`aix/ppc64
 android/386
 android/amd64
@@ -112,16 +112,17 @@ goosgoarchsarr.forEach((goosarch)=>{
 	var key=keyvalue[0].trim();
 	var value=keyvalue[1].trim();
 	if (value==="" || key==="") return;
+	//if (!(value.includes("386") || value.includes("64") || value.includes("wasm"))) return;
 
 	console.log(`${key}: ${value}`);
 	
 	var cmd=kwe.command("cmd");
 	try {
-		cmd.setReadTimeout(100);
+		cmd.setReadTimeout(10000,100);
 		cmd.readAll();
 		cmd.println("SET GOOS="+key);
 		cmd.println("SET GOARCH="+value);
-		cmd.println(`go build -ldflags "-w -s" -o D:/movies/kwebuilds/scripts/buildbin/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":""))+` C:/GitHub/kwe/kwe.go`);
+		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":""))+` C:/GitHub/kwe/kwe.go`);
 		cmd.println("echo finit");
 		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
 			if (ln!=="") {
@@ -133,7 +134,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 	}
 	cmd.close();
 	console.log("done -",key,":",value);	
-});*/
+});
 
 
 /*goosgoarch.array.forEach(element => {
