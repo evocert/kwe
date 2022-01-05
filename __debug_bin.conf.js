@@ -106,7 +106,9 @@ windows/amd64
 windows/arm
 windows/arm64`.split("\n");
 
-var cmd=kwe.command("cmd");
+eval(kwe.fs().cat("/kwe/build/js/build.js").readAll());
+buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
+/*var cmd=kwe.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
 	var keyvalue=goosarch.trim().split("/");
 	var key=keyvalue[0].trim();
@@ -164,7 +166,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 });
 cmd.close();
 console.log("done - all");	
-
+*/
 /*goosgoarch.array.forEach(element => {
 	var goosv=element;
 	var goarchv=goosgoarch[goosv];
