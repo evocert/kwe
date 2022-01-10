@@ -446,6 +446,36 @@ func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 	}
 }
 
+//LoadParametersFromUrlValues - Load Parameters from url.Values
+func LoadParametersFromUrlValues(params ParametersAPI, urlvalues url.Values) (err error) {
+	if params != nil && urlvalues != nil {
+		for pname, pvalue := range urlvalues {
+			params.SetParameter(pname, false, pvalue...)
+		}
+	}
+	return
+}
+
+//LoadParametersFromMultipartForm - Load Parameters from *multipart.Form
+func LoadParametersFromMultipartForm(params ParametersAPI, mpartform *multipart.Form) (err error) {
+	if params != nil && mpartform != nil {
+		for pname, pvalue := range mpartform.Value {
+			params.SetParameter(pname, false, pvalue...)
+		}
+		for pname, pfile := range mpartform.File {
+			if len(pfile) > 0 {
+				pfilei := []interface{}{}
+				for _, pf := range pfile {
+					pfilei = append(pfilei, pf)
+				}
+				params.SetFileParameter(pname, false, pfilei...)
+				pfilei = nil
+			}
+		}
+	}
+	return
+}
+
 //LoadParametersFromHTTPRequest - Load Parameters from http.Request
 func LoadParametersFromHTTPRequest(params ParametersAPI, r *http.Request) {
 	if params != nil {
@@ -455,30 +485,12 @@ func LoadParametersFromHTTPRequest(params ParametersAPI, r *http.Request) {
 		}
 		if err := r.ParseMultipartForm(0); err == nil {
 			if r.MultipartForm != nil {
-				for pname, pvalue := range r.MultipartForm.Value {
-					params.SetParameter(pname, false, pvalue...)
-				}
-				for pname, pfile := range r.MultipartForm.File {
-					if len(pfile) > 0 {
-						pfilei := []interface{}{}
-						for _, pf := range pfile {
-							pfilei = append(pfilei, pf)
-						}
-						params.SetFileParameter(pname, false, pfilei...)
-						pfilei = nil
-					}
-				}
+				LoadParametersFromMultipartForm(params, r.MultipartForm)
 			} else if r.Form != nil {
-				for pname, pvalue := range r.Form {
-					params.SetParameter(pname, false, pvalue...)
-				}
+				LoadParametersFromUrlValues(params, r.Form)
 			}
 		} else if err := r.ParseForm(); err == nil {
-			if r.Form != nil {
-				for pname, pvalue := range r.Form {
-					params.SetParameter(pname, false, pvalue...)
-				}
-			}
+			LoadParametersFromUrlValues(params, r.Form)
 		}
 	}
 }
