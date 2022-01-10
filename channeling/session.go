@@ -104,6 +104,7 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 }
 
 type Session struct {
+	*Sessions
 	lstnr       listen.ListenerAPI
 	mqttmsg     mqtt.Message
 	mqttevent   mqtt.MqttEvent
@@ -681,6 +682,9 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							} else if rspns != nil {
 								if ismedia {
 									if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
+										if prtclrangeoffset == -1 {
+											prtclrangeoffset = 0
+										}
 										eofrs.Seek(prtclrangeoffset, 0)
 										if rssize := eofrs.Size(); rssize > 0 {
 											if prtclrangetype == "bytes" && prtclrangeoffset > -1 {

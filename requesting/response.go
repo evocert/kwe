@@ -71,6 +71,7 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 			wtr = httpw
 		}
 	}
+
 	if wtr != nil {
 		flshr, _ = wtr.(flusherapi)
 		var rspns = &Response{wtr: wtr, flshr: flshr, headers: make(map[string]string), status: 200}
@@ -98,11 +99,15 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 				}
 				if len(rspns.headers) > 0 {
 					for hdr, hdv := range rspns.headers {
-						httpw.Header().Set(hdr, hdv)
+						if httpw != nil {
+							httpw.Header().Set(hdr, hdv)
+						}
 					}
 				}
-				httpw.WriteHeader(rspns.status)
-				time.Sleep(5)
+				if httpw != nil {
+					httpw.WriteHeader(rspns.status)
+					time.Sleep(5)
+				}
 				if flshr != nil {
 					flshr.Flush()
 				}

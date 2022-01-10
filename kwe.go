@@ -19,6 +19,7 @@ import (
 	_ "github.com/evocert/kwe/jqueryui"
 	_ "github.com/evocert/kwe/jspanel"
 	"github.com/evocert/kwe/listen"
+
 	_ "github.com/evocert/kwe/luxon"
 	"github.com/evocert/kwe/mqtt"
 	_ "github.com/evocert/kwe/raphael"
@@ -73,21 +74,6 @@ func main() {
 			}
 		}
 	}))
-
-	/*gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/testws", "")
-	gblrsngfs.SET("/testws/test.js", `kwe.out().print("hello there");`)
-
-	go func() {
-		time.Sleep(time.Second * 10)
-		clnt := web.NewClient()
-		if rw, rwerr := clnt.SendReceive("ws://localhost/testws/test.js"); rw != nil {
-			fmt.Println(rw.ReadAll())
-		} else if rwerr != nil {
-			fmt.Println(rwerr)
-		}
-
-	}()*/
 
 	api.FAFExecute = func(ssn api.SessionAPI, a ...interface{}) (err error) {
 		if rqst := requesting.NewRequest(nil, a...); rqst != nil {
