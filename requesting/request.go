@@ -17,9 +17,33 @@ type contexting interface {
 	Context() context.Context
 }
 
-type addressing interface {
+type Addressing interface {
 	LocalAddr() string
 	RemoteAddr() string
+}
+
+type addrssing struct {
+	lckaddr string
+	rmtaddr string
+}
+
+func (addrsng *addrssing) LocalAddr() (lcladdr string) {
+	if addrsng != nil {
+		lcladdr = addrsng.lckaddr
+	}
+	return
+}
+
+func (addrsng *addrssing) RemoteAddr() (rmtaddr string) {
+	if addrsng != nil {
+		rmtaddr = addrsng.rmtaddr
+	}
+	return
+}
+
+func NewAddressing(lcladdr string, rmtaddr string) (addrsng *addrssing) {
+	addrsng = &addrssing{lckaddr: lcladdr, rmtaddr: rmtaddr}
+	return
 }
 
 type Request struct {
@@ -50,7 +74,7 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 	var prtclrangeoffset = int64(-1)
 	var headers = map[string]string{}
 	var ctx context.Context = nil
-	var addrsng addressing = nil
+	var addrsng Addressing = nil
 	var prms parameters.ParametersAPI = nil
 	var httpr *http.Request = nil
 	var httpw http.ResponseWriter = nil
@@ -95,9 +119,9 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 					if rdr == nil {
 						rdr = httprd.Body
 					}
-					prtcl = httprd.Proto
-					prtclmthd = httprd.Method
 				}
+				prtcl = httprd.Proto
+				prtclmthd = httprd.Method
 				for hdrk, hdrv := range httprd.Header {
 					headers[hdrk] = strings.Join(hdrv, "")
 					if hdrk == "Range" {
@@ -114,7 +138,7 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 				if cntxtng, _ := d.(contexting); cntxtng != nil && ctx == nil {
 					ctx = cntxtng.Context()
 				}
-				if addrsngd, _ := d.(addressing); addrsngd != nil && addrsng == nil {
+				if addrsngd, _ := d.(Addressing); addrsngd != nil && addrsng == nil {
 					addrsng = addrsngd
 				}
 			}
@@ -125,9 +149,12 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 		ctx = context.Background()
 	}
 	if rdr != nil && addrsng == nil {
-		addrsng, _ = rdr.(addressing)
+		addrsng, _ = rdr.(Addressing)
 	}
 	if httpr != nil {
+		if path == "" {
+			path = httpr.URL.Path
+		}
 		if prms == nil {
 			prms = parameters.NewParameters()
 		}
@@ -143,6 +170,16 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 	if addrsng != nil {
 		rmtaddr = addrsng.RemoteAddr()
 		lcladdr = addrsng.LocalAddr()
+	}
+
+	if path != "" {
+		if strings.Index(path, "?") > 0 {
+			if prms == nil {
+				prms = parameters.NewParameters()
+			}
+			parameters.LoadParametersFromRawURL(prms, path)
+			path = path[:strings.Index(path, "?")]
+		}
 	}
 
 	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, prms: prms, rangeType: prtclrangetype, rangeOffset: prtclrangeoffset}
