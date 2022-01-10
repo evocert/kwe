@@ -131,6 +131,7 @@ func (clnt *Client) SendReceive(rqstpath string, a ...interface{}) (rw ReaderWri
 					rntme.InvokeFunction(onsucess, resp)
 				}
 			} else {
+				rw = nil
 				if rntme != nil && onerror != nil {
 					rntme.InvokeFunction(onerror, err, onerror)
 				}
