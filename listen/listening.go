@@ -44,6 +44,7 @@ func (lstnwrp *listenwrap) Close() (err error) {
 type listen struct {
 	lstnr    *Listener
 	ln       net.Listener
+	tcpln    *net.TCPListener
 	network  string
 	addr     string
 	lstnwrap *listenwrap
@@ -332,6 +333,9 @@ func (lstn *listen) Addr() (addr net.Addr) {
 func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err error) {
 	if ln, lnerr := net.Listen(network, addr); lnerr == nil && ln != nil {
 		lstn = &listen{lstnr: lstnr, network: network, addr: addr, ln: ln}
+		if tcpln, _ := ln.(*net.TCPListener); tcpln != nil {
+			lstn.tcpln = tcpln
+		}
 		lstn.lstnwrap = &listenwrap{
 			close: func() error {
 				return lstn.ln.Close()
@@ -340,8 +344,29 @@ func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err 
 				return lstn.ln.Addr()
 			},
 			accpt: func() (cn net.Conn, err error) {
-				if cn, err = lstn.ln.Accept(); err == nil {
-					cn, err = lstnr.accepts(lstn.addr, cn)
+				if lstn.tcpln != nil {
+					if tc, tcerr := lstn.tcpln.AcceptTCP(); tcerr == nil {
+						tc.SetReadBuffer(4096 * 2)
+						tc.SetWriteBuffer(32768 * 2)
+						if tcerr = tc.SetKeepAlive(true); tcerr == nil {
+							if tcerr = tc.SetKeepAlivePeriod(time.Second * 60); tcerr == nil {
+								if tcerr = tc.SetLinger(-1); tcerr == nil {
+									cn = tc
+								} else {
+									err = tcerr
+								}
+							} else {
+								err = tcerr
+							}
+						} else {
+							err = tcerr
+							tc.Close()
+						}
+					}
+				} else if lstn.ln != nil {
+					if cn, err = lstn.ln.Accept(); err == nil {
+						cn, err = lstnr.accepts(lstn.addr, cn)
+					}
 				}
 				return
 			}}
