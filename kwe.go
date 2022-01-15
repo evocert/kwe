@@ -3,55 +3,52 @@ package main
 import (
 	"os"
 
-	_ "github.com/evocert/kwe/alertify"
+	//	_ "github.com/evocert/kwe/alertify"
 	"github.com/evocert/kwe/api"
-	_ "github.com/evocert/kwe/babylon"
-	_ "github.com/evocert/kwe/bootstrap"
-	_ "github.com/evocert/kwe/build"
+	//_ "github.com/evocert/kwe/jqterminal"
+
+	//	_ "github.com/evocert/kwe/babylon"
+	//	_ "github.com/evocert/kwe/bootstrap"
+	//	_ "github.com/evocert/kwe/build"
 	"github.com/evocert/kwe/channeling"
-	_ "github.com/evocert/kwe/crypto"
-	_ "github.com/evocert/kwe/d3"
-	_ "github.com/evocert/kwe/datatables"
-	_ "github.com/evocert/kwe/datepicker"
-	_ "github.com/evocert/kwe/fonts/material"
-	_ "github.com/evocert/kwe/fonts/robotov27latin"
-	_ "github.com/evocert/kwe/goldenlayout"
-	_ "github.com/evocert/kwe/jqueryui"
-	_ "github.com/evocert/kwe/jspanel"
+	//	_ "github.com/evocert/kwe/crypto"
+	//	_ "github.com/evocert/kwe/d3"
+	//	_ "github.com/evocert/kwe/datatables"
+	//	_ "github.com/evocert/kwe/datepicker"
+	//	_ "github.com/evocert/kwe/fonts/material"
+	//	_ "github.com/evocert/kwe/fonts/robotov27latin"
+	//	_ "github.com/evocert/kwe/goldenlayout"
+	//	_ "github.com/evocert/kwe/jqueryui"
+	//	_ "github.com/evocert/kwe/jspanel"
 	"github.com/evocert/kwe/listen"
 
-	_ "github.com/evocert/kwe/luxon"
-	"github.com/evocert/kwe/mqtt"
-	_ "github.com/evocert/kwe/raphael"
+	//	_ "github.com/evocert/kwe/luxon"
+	//"github.com/evocert/kwe/mqtt"
+	//	_ "github.com/evocert/kwe/raphael"
 	"github.com/evocert/kwe/requesting"
-	_ "github.com/evocert/kwe/requirejs/html"
-	scheduling "github.com/evocert/kwe/scheduling/ext"
+	//_ "github.com/evocert/kwe/requirejs/html"
+
+	//	scheduling "github.com/evocert/kwe/scheduling/ext"
 	"github.com/evocert/kwe/service"
-
-	_ "github.com/evocert/kwe/pdf"
-	_ "github.com/evocert/kwe/sip"
-
-	_ "github.com/evocert/kwe/typescript"
-
-	_ "github.com/evocert/kwe/database/kwesqlite"
-	_ "github.com/evocert/kwe/database/mysql"
-	_ "github.com/evocert/kwe/database/sqlite"
-
+	//	_ "github.com/evocert/kwe/pdf"
+	//	_ "github.com/evocert/kwe/sip"
+	//	_ "github.com/evocert/kwe/typescript"
+	//_ "github.com/evocert/kwe/database/kwesqlite"
+	//_ "github.com/evocert/kwe/database/mysql"
+	//_ "github.com/evocert/kwe/database/sqlite"
 	//To use ora import use go 1.6+
-	_ "github.com/evocert/kwe/database/ora"
-	_ "github.com/evocert/kwe/database/postgres"
-	_ "github.com/evocert/kwe/database/sqlserver"
-
-	_ "github.com/evocert/kwe/webactions"
+	//_ "github.com/evocert/kwe/database/ora"
+	//_ "github.com/evocert/kwe/database/postgres"
+	//_ "github.com/evocert/kwe/database/sqlserver"
+	//_ "github.com/evocert/kwe/webactions"
 )
 
 func main() {
 	var serveRequest func(a ...interface{}) error = nil
-	var glblschdls scheduling.SchedulesAPI = scheduling.GLOBALSCHEDULES()
 	var lstnr listen.ListenerAPI = nil
-	var mqttmngr mqtt.MQTTManagerAPI = nil
+	//var mqttmngr mqtt.MQTTManagerAPI = nil
 	lstnr = listen.NewListener(func(ra requesting.RequestAPI) error {
-		return serveRequest(ra, lstnr, mqttmngr, glblschdls)
+		return serveRequest(ra, lstnr) //, mqttmngr)
 	})
 
 	serveRequest = func(a ...interface{}) (err error) {
@@ -59,34 +56,34 @@ func main() {
 		return
 	}
 
-	mqttmngr = mqtt.NewMQTTManager(mqtt.MqttEventing(func(event mqtt.MqttEvent) {
+	/*mqttmngr = mqtt.NewMQTTManager(mqtt.MqttEventing(func(event mqtt.MqttEvent) {
 		if rqst := requesting.NewRequest(nil, event.EventPath()); rqst != nil {
 			defer rqst.Close()
 			if serveRequest != nil {
-				serveRequest(rqst, event, mqttmngr, glblschdls, lstnr)
+				serveRequest(rqst, event, mqttmngr, lstnr)
 			}
 		}
 	}), mqtt.MqttMessaging(func(message mqtt.Message) {
 		if rqst := requesting.NewRequest(nil, message.TopicPath()); rqst != nil {
 			defer rqst.Close()
 			if serveRequest != nil {
-				serveRequest(rqst, message, mqttmngr, glblschdls, lstnr)
+				serveRequest(rqst, message, mqttmngr, lstnr)
 			}
 		}
-	}))
+	}))*/
 
 	api.FAFExecute = func(ssn api.SessionAPI, a ...interface{}) (err error) {
 		if rqst := requesting.NewRequest(nil, a...); rqst != nil {
 			defer rqst.Close()
 			if serveRequest != nil {
-				serveRequest(rqst, mqttmngr, glblschdls, lstnr)
+				serveRequest(rqst, lstnr) //, mqttmngr)
 			}
 		}
 		return
 	}
 
 	service.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
-		return serveRequest(rqst, mqttmngr, glblschdls, lstnr)
+		return serveRequest(rqst, lstnr) //, mqttmngr)
 	}
 	service.RunService(os.Args...)
 }

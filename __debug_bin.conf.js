@@ -26,7 +26,7 @@ try {
 	console.log(e.message);
 }
 
-kwe.dbms().register("b1","kwesqlite",":memory:");
+/*kwe.dbms().register("b1","kwesqlite",":memory:");
 
 kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
 	v1 INT,
@@ -59,6 +59,7 @@ kwe.fs().mkdir("/movies","D:/movies");
 kwe.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
 kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
 kwe.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
+*/
 
 var goosgoarchsarr=`aix/ppc64
 android/386
@@ -106,8 +107,8 @@ windows/amd64
 windows/arm
 windows/arm64`.split("\n");
 
-//eval(kwe.fs().cat("/kwe/build/js/build.js").readAll());
-//buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
+eval(kwe.fsutils().cat("./build/build.js").readAll());
+buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
 
 /*var cmd=kwe.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
