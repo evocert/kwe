@@ -65,6 +65,8 @@ type ResourcingEndpoint struct {
 	isLocal           bool
 	isRemote          bool
 	isEmbedded        bool
+	isRaw             bool
+	isActive          bool
 	remoteHeaders     map[string]string
 	host              string
 	schema            string
@@ -100,10 +102,10 @@ func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 				return rscngepnt.fsmv(path, destpath)
 			}, TOUCH: func(path string) bool {
 				return rscngepnt.fstouch(path)
-			}, CAT: func(path string) io.Reader {
+			}, CAT: func(path string, a ...interface{}) io.Reader {
 				return rscngepnt.fscat(path)
-			}, CATS: func(path string) string {
-				return rscngepnt.fscats(path)
+			}, CATS: func(path string, a ...interface{}) string {
+				return rscngepnt.fscats(path, a...)
 			}, SET: func(path string, a ...interface{}) bool {
 				return rscngepnt.fsset(path, a...)
 			}, APPEND: func(path string, a ...interface{}) bool {
@@ -200,33 +202,53 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 	return false
 }
 
-func (rscngepnt *ResourcingEndpoint) fscat(path string) (r io.Reader) {
+func (rscngepnt *ResourcingEndpoint) fscat(path string, a ...interface{}) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
 		if rs, _ := rscngepnt.findRS(path); rs != nil {
 			r = iorw.NewEOFCloseSeekReader(rs)
+			if len(a) > 0 {
+				for _, d := range a {
+					if d != nil {
+						if fnrawOrActive, _ := d.(func(raw bool, active bool)); fnrawOrActive != nil {
+							fnrawOrActive(rscngepnt.isRaw, rscngepnt.isActive)
+							break
+						}
+					}
+				}
+			}
 		}
 	}
 	return r
 }
 
-func (rscngepnt *ResourcingEndpoint) fscats(path string) (s string) {
-	if r := rscngepnt.fscat(path); r != nil {
+func (rscngepnt *ResourcingEndpoint) fscats(path string, a ...interface{}) (s string) {
+	if r := rscngepnt.fscat(path, a...); r != nil {
 		s, _ = iorw.ReaderToString(r)
 	}
 	return s
 }
 
-func (rscngepnt *ResourcingEndpoint) fspipe(path string) (r io.Reader) {
+func (rscngepnt *ResourcingEndpoint) fspipe(path string, a ...interface{}) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
 		if rs, _ := rscngepnt.findRS(path); rs != nil {
 			r = iorw.NewEOFCloseSeekReader(rs, false)
+			if len(a) > 0 {
+				for _, d := range a {
+					if d != nil {
+						if fnrawOrActive, _ := d.(func(raw bool, active bool)); fnrawOrActive != nil {
+							fnrawOrActive(rscngepnt.isRaw, rscngepnt.isActive)
+							break
+						}
+					}
+				}
+			}
 		}
 	}
 	return r
 }
 
-func (rscngepnt *ResourcingEndpoint) fspipes(path string) (s string) {
-	if r := rscngepnt.fspipe(path); r != nil {
+func (rscngepnt *ResourcingEndpoint) fspipes(path string, a ...interface{}) (s string) {
+	if r := rscngepnt.fspipe(path, a...); r != nil {
 		s, _ = iorw.ReaderToString(r)
 	}
 	return s
@@ -589,7 +611,7 @@ func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
 	return
 }
 
-func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
+func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, raw bool, active bool, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
 	rsngepntpath = path
 	if rsngepntpath != "" {
 		rsngepntpath = strings.Replace(strings.TrimSpace(rsngepntpath), "\\", "/", -1)
@@ -605,7 +627,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path}
+					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path, isRaw: raw, isActive: active}
 				}
 			}
 		} else {
@@ -614,12 +636,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, a ...inter
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath}
+					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath, isRaw: raw, isActive: active}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: ""}
+		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: "", isRaw: raw, isActive: active}
 	}
 	return
 }

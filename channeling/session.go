@@ -567,12 +567,21 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							rspns.SetHeader("Content-Type", mimetype)
 						}
 						var rs io.Reader = nil
-						if rs = ssn.FS().CAT(path); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
+						var fnactiveraw = func(rsraw bool, rsactive bool) {
+							if israw = rsraw; !israw {
+								if isactive {
+									if !convertactive {
+										convertactive = rsactive
+									}
+								}
+							}
+						}
+						if rs = ssn.FS().CAT(path, fnactiveraw); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
 							if !strings.HasSuffix(path, "/") {
 								path += "/"
 							}
 							for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
-								if rs = ssn.FS().CAT(path + "index" + "." + pth); rs == nil {
+								if rs = ssn.FS().CAT(path+"index"+"."+pth, fnactiveraw); rs == nil {
 									if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
 										continue
 									} else {

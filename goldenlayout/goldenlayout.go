@@ -34,9 +34,9 @@ const goldenlayoutheadhtml string = `<link rel="stylesheet" href="/goldenlayout/
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/goldenlayout/css", "")
-	gblrs.FS().MKDIR("/goldenlayout/js", "")
-	gblrs.FS().MKDIR("/goldenlayout/html", "")
+	gblrs.FS().MKDIR("/raw:goldenlayout/css", "")
+	gblrs.FS().MKDIR("/raw:goldenlayout/js", "")
+	gblrs.FS().MKDIR("/raw:goldenlayout/html", "")
 	gblrs.FS().SET("/goldenlayout/html/head.html", strings.NewReader(goldenlayoutheadhtml))
 	gblrs.FS().SET("/goldenlayout/css/goldenlayout-base.css", GoldenlayoutBaseCSS())
 	gblrs.FS().SET("/goldenlayout/css/goldenlayout-base.min.css", GoldenlayoutBaseCSS())

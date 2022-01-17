@@ -4,9 +4,9 @@ import "github.com/evocert/kwe/resources"
 
 func init() {
 	gblrsfs := resources.GLOBALRSNG().FS()
-	gblrsfs.MKDIR("/raphael/js", "")
+	gblrsfs.MKDIR("/raw:raphael/js", "")
 	gblrsfs.SET("/raphael/js/raphael.js", raphaeljs)
-	gblrsfs.MKDIR("/raphael/html", "")
+	gblrsfs.MKDIR("/raw:raphael/html", "")
 	gblrsfs.SET("/raphael/html/head.html", `<script type="application/javascript" src="/raphael/js/raphael.js"></script>`)
 }
 

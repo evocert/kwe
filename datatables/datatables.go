@@ -10,19 +10,19 @@ import (
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
 
-	gblrsngfs.MKDIR("/datatables/html", "")
+	gblrsngfs.MKDIR("/raw:datatables/html", "")
 	gblrsngfs.SET("/datatables/html/head.html", `<link rel="stylesheet" type="text/css" href="/datatables/css/jquery.Datatables.min.css">
 	<script type="application/javascript" src="/datatables/js/jquery.Datatables.min.js"></script>`)
 
-	gblrsngfs.MKDIR("/datatables/css", "")
+	gblrsngfs.MKDIR("/raw:datatables/css", "")
 	gblrsngfs.SET("/datatables/css/jquery.Datatables.css", datatablescss)
 	gblrsngfs.SET("/datatables/css/jquery.Datatables.min.css", datatablescss)
 
-	gblrsngfs.MKDIR("/datatables/js", "")
+	gblrsngfs.MKDIR("/raw:datatables/js", "")
 	gblrsngfs.SET("/datatables/js/jquery.Datatables.js", datatablescss)
 	gblrsngfs.SET("/datatables/js/jquery.Datatables.min.js", datatablescss)
 
-	gblrsngfs.MKDIR("/datatables/images", "")
+	gblrsngfs.MKDIR("/raw:datatables/images", "")
 
 	gblrsngfs.SET("/datatables/images/details_open.png", base64.NewDecoder(base64.RawStdEncoding.WithPadding('='), strings.NewReader(details_openpngb64)))
 	gblrsngfs.SET("/datatables/images/details_close.png", base64.NewDecoder(base64.RawStdEncoding.WithPadding('='), strings.NewReader(details_closepngb64)))

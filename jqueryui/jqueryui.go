@@ -9,11 +9,11 @@ import (
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/jquery-ui/html", "")
+	gblrsngfs.MKDIR("/raw:jquery-ui/html", "")
 	gblrsngfs.SET("/jquery-ui/html/head.html", `<link href="/jquery-ui/jquery-ui.min.css" rel="stylesheet">
 <script src="/jquery/jquery.min.js"></script>
 <script src="/jquery-ui/jquery-ui.min.js"></script>`)
-	gblrsngfs.MKDIR("/jquery-ui", "")
+	gblrsngfs.MKDIR("/raw:jquery-ui", "")
 	gblrsngfs.SET("/jquery-ui/index.html", indexhtml)
 	gblrsngfs.SET("/jquery-ui/jquery-ui.min.css", jqueryuicss)
 	gblrsngfs.SET("/jquery-ui/jquery-ui.min.js", jqueryuijs)

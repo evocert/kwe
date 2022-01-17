@@ -24,9 +24,9 @@ func DatepickerJS() io.Reader {
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/datepicker/css", "")
-	gblrs.FS().MKDIR("/datepicker/js", "")
-	gblrs.FS().MKDIR("/datepicker/html", "")
+	gblrs.FS().MKDIR("/raw:datepicker/css", "")
+	gblrs.FS().MKDIR("/raw:datepicker/js", "")
+	gblrs.FS().MKDIR("/raw:datepicker/html", "")
 	gblrs.FS().SET("/datepicker/html/head.html",
 		`<link rel="stylesheet" type="ext/css" href="/datepicker/css/datepicker.css">
 <script type="application/javascript" src="/datepicker/js/datepicker.js"></script>`)

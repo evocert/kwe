@@ -4,10 +4,10 @@ import "github.com/evocert/kwe/resources"
 
 func init() {
 	gblrsfs := resources.GLOBALRSNG().FS()
-	gblrsfs.MKDIR("/luxon/js", "")
+	gblrsfs.MKDIR("/raw:luxon/js", "")
 	gblrsfs.SET("/luxon/js/luxon.js", luxonjs)
 	gblrsfs.SET("/luxon/js/luxon.min.js", luxonjs)
-	gblrsfs.MKDIR("/luxon/html", "")
+	gblrsfs.MKDIR("/raw:luxon/html", "")
 	gblrsfs.SET("/luxon/html/head.html", `<script type="appliaction/javascript" src="/luxon/js/luxon.js"></script>`)
 }
 

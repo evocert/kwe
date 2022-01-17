@@ -15,9 +15,9 @@ func SipJS() io.Reader {
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/sip/js", "")
+	gblrs.FS().MKDIR("/raw:sip/js", "")
 	gblrs.FS().SET("/sip/js/sip.js", SipJS())
-	gblrs.FS().MKDIR("/sip/html", "")
+	gblrs.FS().MKDIR("/raw:sip/html", "")
 	gblrs.FS().SET("/sip/html/head.html", `<script type="appliaction/javascript" src="/sip/js/sip.js"></script>`)
 }
 

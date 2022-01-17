@@ -14,9 +14,9 @@ var jqueryterminalcss string
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/jqterminal/html", "")
-	gblrs.FS().MKDIR("/jqterminal/css", "")
-	gblrs.FS().MKDIR("/jqterminal/js", "")
+	gblrs.FS().MKDIR("/raw:jqterminal/html", "")
+	gblrs.FS().MKDIR("/raw:jqterminal/css", "")
+	gblrs.FS().MKDIR("/raw:jqterminal/js", "")
 	gblrs.FS().SET("/jqterminal/css/jquery.terminal.css", jqueryterminalcss)
 	gblrs.FS().SET("/jqterminal/js/jquery.terminal.js", jqueryterminaljs)
 	gblrs.FS().SET("/jqterminal/html/head.html", `<link rel="stylsheet" type="text/css" href="/jqterminal/css/jquery.terminal.css">

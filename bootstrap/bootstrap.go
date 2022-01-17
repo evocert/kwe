@@ -8,8 +8,8 @@ import (
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/bootstrap/css", "")
-	gblrs.FS().MKDIR("/bootstrap/js", "")
+	gblrs.FS().MKDIR("/raw:bootstrap/css", "")
+	gblrs.FS().MKDIR("/raw:bootstrap/js", "")
 	gblrs.FS().SET("/bootstrap/css/bootstrap.css", bootstrapcss)
 	gblrs.FS().SET("/bootstrap/css/bootstrap.min.css", bootstrapjs)
 	gblrs.FS().SET("/bootstrap/js/bootstrap.js", bootstrapjs)
@@ -17,7 +17,7 @@ func init() {
 	gblrs.FS().SET("/bootstrap/js/bootstrap.bundle.js", bootstrapjs)
 	gblrs.FS().SET("/bootstrap/js/bootstrap.bundle.min.js", bootstrapjs)
 
-	gblrs.FS().MKDIR("/bootstrap/html", "")
+	gblrs.FS().MKDIR("/raw:bootstrap/html", "")
 	gblrs.FS().SET("/bootstrap/html/head.html",
 		`<link rel="stylsheet" type="text/css" href="/bootstrap/css/bootstrap.min.css">
 <script type="application/javascript" src="/bootstrap/js/bootstrap.bundle.min.js"></script>`)

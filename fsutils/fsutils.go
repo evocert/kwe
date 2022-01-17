@@ -429,7 +429,7 @@ func TOUCH(path string) (err error) {
 }
 
 //CAT return file content if file exists else empty string
-func CAT(path string) (r io.Reader, err error) {
+func CAT(path string, a ...interface{}) (r io.Reader, err error) {
 	if statf, staterr := os.Stat(path); staterr != nil {
 		err = staterr
 	} else if !statf.IsDir() {
@@ -511,7 +511,7 @@ func MULTICAT(path ...string) (r io.Reader, err error) {
 }
 
 //CATS return file content if file exists else empty string
-func CATS(path string) (cntnt string, err error) {
+func CATS(path string, a ...interface{}) (cntnt string, err error) {
 	var r io.Reader = nil
 	if r, err = CAT(path); err == nil {
 		if r != nil {
@@ -565,7 +565,7 @@ func MULTICATS(path ...string) (cntnt string, err error) {
 }
 
 //PIPE return file content if file exists else empty string
-func PIPE(path string) (r io.Reader, err error) {
+func PIPE(path string, a ...interface{}) (r io.Reader, err error) {
 	if statf, staterr := os.Stat(path); staterr != nil {
 		err = staterr
 	} else if !statf.IsDir() {
@@ -603,7 +603,7 @@ func PIPE(path string) (r io.Reader, err error) {
 }
 
 //PIPES return file content if file exists else empty string
-func PIPES(path string) (cntnt string, err error) {
+func PIPES(path string, a ...interface{}) (cntnt string, err error) {
 	var r io.Reader = nil
 	if r, err = PIPE(path); err == nil {
 		if r != nil {
@@ -679,11 +679,11 @@ type FSUtils struct {
 	MV             func(path string, destpath string) bool                                                                      `json:"mv"`
 	TOUCH          func(path string) bool                                                                                       `json:"touch"`
 	FINFOPATHSJSON func(a ...FileInfo) (s string)                                                                               `json:"finfopathsjson"`
-	PIPE           func(path string) (r io.Reader)                                                                              `json:"pipe"`
-	PIPES          func(path string) (s string)                                                                                 `json:"pipes"`
-	CAT            func(path string) (r io.Reader)                                                                              `json:"cat"`
+	PIPE           func(path string, a ...interface{}) (r io.Reader)                                                            `json:"pipe"`
+	PIPES          func(path string, a ...interface{}) (s string)                                                               `json:"pipes"`
+	CAT            func(path string, a ...interface{}) (r io.Reader)                                                            `json:"cat"`
 	MULTICAT       func(path ...string) (r io.Reader)                                                                           `json:"multicat"`
-	CATS           func(path string) (s string)                                                                                 `json:"cats"`
+	CATS           func(path string, a ...interface{}) (s string)                                                               `json:"cats"`
 	MULTICATS      func(path ...string) (s string)                                                                              `json:"multicats"`
 	SET            func(path string, a ...interface{}) bool                                                                     `json:"set"`
 	APPEND         func(path string, a ...interface{}) bool                                                                     `json:"append"`
@@ -751,24 +751,24 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 			}
 			return false
 		},
-		PIPE: func(path string) (r io.Reader) {
-			if catr, err := PIPE(path); err == nil {
+		PIPE: func(path string, a ...interface{}) (r io.Reader) {
+			if catr, err := PIPE(path, a...); err == nil {
 				r = catr
 			}
 			return
-		}, PIPES: func(path string) (s string) {
-			if cats, err := PIPES(path); err == nil {
+		}, PIPES: func(path string, a ...interface{}) (s string) {
+			if cats, err := PIPES(path, a...); err == nil {
 				s = cats
 			}
 			return
 		},
-		CAT: func(path string) (r io.Reader) {
-			if catr, err := CAT(path); err == nil {
+		CAT: func(path string, a ...interface{}) (r io.Reader) {
+			if catr, err := CAT(path, a...); err == nil {
 				r = catr
 			}
 			return
-		}, CATS: func(path string) (s string) {
-			if cats, err := CATS(path); err == nil {
+		}, CATS: func(path string, a ...interface{}) (s string) {
+			if cats, err := CATS(path, a...); err == nil {
 				s = cats
 			}
 			return

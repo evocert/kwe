@@ -28,9 +28,9 @@ const alertifyheadhtml string = `<link rel="stylesheet" href="/alertify/css/aler
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/alertify/html", "")
-	gblrs.FS().MKDIR("/alertify/css", "")
-	gblrs.FS().MKDIR("/alertify/js", "")
+	gblrs.FS().MKDIR("/raw:alertify/html", "")
+	gblrs.FS().MKDIR("/raw:alertify/css", "")
+	gblrs.FS().MKDIR("/raw:alertify/js", "")
 	gblrs.FS().SET("/alertify/css/alertify.css", alertifycss)
 	gblrs.FS().SET("/alertify/js/alertify.js", alertifyjs)
 

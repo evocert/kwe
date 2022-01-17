@@ -10,18 +10,18 @@ import (
 func init() {
 	gblrsfs := resources.GLOBALRSNG().FS()
 
-	gblrsfs.MKDIR("/jspanel/css", "")
-	gblrsfs.MKDIR("/jspanel/js", "")
+	gblrsfs.MKDIR("/raw:jspanel/css", "")
+	gblrsfs.MKDIR("/raw:jspanel/js", "")
 	gblrsfs.SET("/jspanel/js/jspanel.min.js", JSPanelJS())
 	gblrsfs.SET("/jspanel/js/jspanel.js", JSPanelJS())
 	gblrsfs.SET("/jspanel/css/jspanel.min.css", JSPanelJS())
 	gblrsfs.SET("/jspanel/css/jspanel.css", JSPanelCSS())
 
-	gblrsfs.MKDIR("/jspanel/js/extensions/modal", "")
+	gblrsfs.MKDIR("/raw:jspanel/js/extensions/modal", "")
 	gblrsfs.SET("/jspanel/js/extensions/modal/jspanel.modal.min.js", JSPanelModalJS())
 	gblrsfs.SET("/jspanel/js/extensions/modal/jspanel.modal.js", JSPanelModalJS())
 
-	gblrsfs.MKDIR("/jspanel/html", "")
+	gblrsfs.MKDIR("/raw:jspanel/html", "")
 	gblrsfs.SET("/jspanel/html/head.html",
 		`<link rel="stylesheet" type="text/css" href="/jspanel/css/jspanel.min.css">
 <script type="application/javascript" src="/jspanel/js/jspanel.min.js"></script>

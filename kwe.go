@@ -40,7 +40,7 @@ import (
 	//_ "github.com/evocert/kwe/database/ora"
 	//_ "github.com/evocert/kwe/database/postgres"
 	//_ "github.com/evocert/kwe/database/sqlserver"
-	//_ "github.com/evocert/kwe/webactions"
+	_ "github.com/evocert/kwe/webactions"
 )
 
 func main() {

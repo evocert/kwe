@@ -37,10 +37,10 @@ func init() {
 	}
 
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/materialdesign", "")
+	gblrs.FS().MKDIR("/raw:materialdesign", "")
 	gblrs.FS().SET("/materialdesign/preview.html", previewhtml)
-	gblrs.FS().MKDIR("/materialdesign/css", "")
-	gblrs.FS().MKDIR("/materialdesign/fonts", "")
+	gblrs.FS().MKDIR("/raw:materialdesign/css", "")
+	gblrs.FS().MKDIR("/raw:materialdesign/fonts", "")
 	gblrs.FS().SET("/materialdesign/css/materialdesignicons.css", materialcss)
 	gblrs.FS().SET("/materialdesign/css/materialdesignicons.min.css", materialcss)
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.eot", readFile("fonts/materialdesignicons-webfont.eot"))     // MaterialdesigniconsWebfontEOT())
@@ -48,6 +48,6 @@ func init() {
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff", readFile("fonts/materialdesignicons-webfont.woff"))   // MaterialdesigniconsWebfontWOFF())
 	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff2", readFile("fonts/materialdesignicons-webfont.woff2")) // MaterialdesigniconsWebfontWOFF2())
 
-	gblrs.FS().MKDIR("/materialdesign/html", "")
+	gblrs.FS().MKDIR("/raw:materialdesign/html", "")
 	gblrs.FS().SET("/materialdesign/html/head.html", `<link rel="stylesheet" type="text/css" href="/materialdesign/css/materialdesignicons.min.css">`)
 }

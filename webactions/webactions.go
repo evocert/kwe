@@ -32,15 +32,15 @@ func WebactionsBundleJS() io.Reader {
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/jquery", "")
+	gblrs.FS().MKDIR("/raw:jquery", "")
 	gblrs.FS().SET("/jquery/jquery.js", JqueryJS())
 	gblrs.FS().SET("/jquery/jquery.min.js", JqueryJS())
-	gblrs.FS().MKDIR("/webactions", "")
+	gblrs.FS().MKDIR("/raw:webactions", "")
 	gblrs.FS().SET("/webactions/parsing.js", ParsingJS())
 	gblrs.FS().SET("/webactions/parsing.min.js", ParsingJS())
 	gblrs.FS().SET("/webactions/webactions-core.js", WebactionsJS())
 	gblrs.FS().SET("/webactions/webactions.js", WebactionsBundleJS())
 	gblrs.FS().SET("/webactions/webactions.min.js", WebactionsBundleJS())
-	gblrs.FS().MKDIR("/webactions/html", "")
+	gblrs.FS().MKDIR("/raw:webactions/html", "")
 	gblrs.FS().SET("/webactions/html/head.html", `<script type="application/javascript" src="/webactions/webactions.min.js"></script>`)
 }
