@@ -11,6 +11,6 @@ var buildjs string
 
 func init() {
 	glbrsngfs := resources.GLOBALRSNG().FS()
-	glbrsngfs.MKDIR("/raw:kwe/build/js", "")
+	glbrsngfs.MKDIR("/kwe/build/js", "")
 	glbrsngfs.SET("/kwe/build/js/build.js", buildjs)
 }
