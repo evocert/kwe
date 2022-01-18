@@ -107,8 +107,8 @@ windows/amd64
 windows/arm
 windows/arm64`.split("\n");
 
-eval(kwe.fsutils().cat("./build/build.js").readAll());
-buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
+//eval(kwe.fsutils().cat("./build/build.js").readAll());
+//buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
 
 /*var cmd=kwe.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
