@@ -11,6 +11,7 @@
             "mode": "auto",
             "program": "C:/GitHub/kwe/kwe.go",
             "output": "C:/GitHub/kwe/__debug_bin.exe",
+            "buildFlags": "-tags=alertify"
         }
     ]
 }
