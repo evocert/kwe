@@ -574,6 +574,8 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 										convertactive = rsactive
 									}
 								}
+							} else {
+								isactive = false
 							}
 						}
 						if rs = ssn.FS().CAT(path, fnactiveraw); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
