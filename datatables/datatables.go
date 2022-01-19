@@ -13,8 +13,9 @@ func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
 
 	gblrsngfs.MKDIR("/raw:datatables", "")
-	gblrsngfs.SET("/datatables/head.html", `<link rel="stylesheet" type="text/css" href="/datatables/css/jquery.Datatables.min.css">
-	<script type="application/javascript" src="/datatables/js/jquery.Datatables.min.js"></script>`)
+	gblrsngfs.SET("/datatables/head.html",
+		`<link rel="stylesheet" type="text/css" href="/datatables/css/jquery.Datatables.min.css">
+<script type="application/javascript" src="/datatables/js/jquery.Datatables.min.js"></script>`)
 
 	gblrsngfs.MKDIR("/raw:datatables/css", "")
 	datatablescss = strings.Replace(datatablescss, "https://www.datatables.net/examples/resources/details_open.png", "../images/details_open.png", -1)
