@@ -6,7 +6,6 @@ www/
 kwe_ockert
 kwe_ockert.go
 *__debug_bin*.*
-.vscode/launch.json
 run
 buildkwe
 kwe
@@ -23,3 +22,4 @@ test.json
 tststdin.txt
 __debug_bin.conf.js
 __debug_bin.init.js
+.vscode/launch.json
