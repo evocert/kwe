@@ -17,8 +17,8 @@ func init() {
 	gblrs.FS().SET("/bootstrap/js/bootstrap.bundle.js", bootstrapjs)
 	gblrs.FS().SET("/bootstrap/js/bootstrap.bundle.min.js", bootstrapjs)
 
-	gblrs.FS().MKDIR("/raw:bootstrap/html", "")
-	gblrs.FS().SET("/bootstrap/html/head.html",
+	gblrs.FS().MKDIR("/raw:bootstrap", "")
+	gblrs.FS().SET("/bootstrap/head.html",
 		`<link rel="stylsheet" type="text/css" href="/bootstrap/css/bootstrap.min.css">
 <script type="application/javascript" src="/bootstrap/js/bootstrap.bundle.min.js"></script>`)
 
