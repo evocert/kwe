@@ -2,6 +2,7 @@ package datatables
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/evocert/kwe/resources"
 
@@ -16,6 +17,8 @@ func init() {
 	<script type="application/javascript" src="/datatables/js/jquery.Datatables.min.js"></script>`)
 
 	gblrsngfs.MKDIR("/raw:datatables/css", "")
+	datatablescss = strings.Replace(datatablescss, "https://www.datatables.net/examples/resources/details_open.png", "../images/details_open.png", -1)
+	datatablescss = strings.Replace(datatablescss, "https://www.datatables.net/examples/resources/details_close.png", "../images/details_close.png", -1)
 	gblrsngfs.SET("/datatables/css/jquery.Datatables.css", datatablescss)
 	gblrsngfs.SET("/datatables/css/jquery.Datatables.min.css", datatablescss)
 
