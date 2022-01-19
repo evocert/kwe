@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "C:/GitHub/kwe/",
             "output": "C:/GitHub/kwe/__debug_bin.exe",
-            "buildFlags": "-tags=\"babylon\""
+            "buildFlags": "-tags 'datatables babylon'"
         }
     ]
 }
