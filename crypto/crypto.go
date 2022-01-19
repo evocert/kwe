@@ -10,8 +10,8 @@ func init() {
 	gblrsfs := resources.GLOBALRSNG().FS()
 	gblrsfs.MKDIR("/raw:crypto/js", "")
 	gblrsfs.SET("/crypto/js/crypto-js.js", cryptojs)
-	gblrsfs.MKDIR("/raw:crypto/html", "")
-	gblrsfs.SET("/crypto/html/head.html", `<script type="application/javascript" src="/crypto/js/crypto-js.js"></script>`)
+	gblrsfs.MKDIR("/raw:crypto", "")
+	gblrsfs.SET("/crypto/head.html", `<script type="application/javascript" src="/crypto/js/crypto-js.js"></script>`)
 }
 
 //go:embed crypto.js
