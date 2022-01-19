@@ -8,7 +8,7 @@ func init() {
 	rsmngrfs := resources.GLOBALRSNG().FS()
 	rsmngrfs.MKDIR("/raw:babylon/js", "")
 	rsmngrfs.SET("/babylon/js/babylon.js", babylonjs)
-	rsmngrfs.MKDIR("/raw:babylon/html", "")
-	rsmngrfs.SET("/babylon/html/head.html",
+	rsmngrfs.MKDIR("/raw:babylon", "")
+	rsmngrfs.SET("/babylon/head.html",
 		`<script type="application/javascript" src="/babylon/js/babylon.js"></script>`)
 }
