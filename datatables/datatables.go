@@ -2,7 +2,6 @@ package datatables
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/evocert/kwe/resources"
 
@@ -34,7 +33,6 @@ func init() {
 	gblrsngfs.SET("/datatables/images/sort_both.png", bytes.NewReader(sort_bothpngbytes))
 	gblrsngfs.SET("/datatables/images/sort_desc.png", bytes.NewReader(sort_descpngbytes))
 	gblrsngfs.SET("/datatables/images/sort_desc_disabled.png", bytes.NewReader(sort_desc_disabledpngbytes))
-	fmt.Println("init datatables")
 }
 
 //go:embed images/sort_asc.png
