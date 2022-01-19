@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	_ "github.com/evocert/kwe/datatables"
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/channeling"
 
