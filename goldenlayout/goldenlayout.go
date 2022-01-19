@@ -10,8 +10,7 @@ func init() {
 	gblrs := resources.GLOBALRSNG()
 	gblrs.FS().MKDIR("/raw:goldenlayout/css", "")
 	gblrs.FS().MKDIR("/raw:goldenlayout/js", "")
-	gblrs.FS().MKDIR("/raw:goldenlayout/html", "")
-	gblrs.FS().SET("/goldenlayout/html/head.html", `<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-base.min.css">
+	gblrs.FS().SET("/goldenlayout/head.html", `<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-base.min.css">
 	<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-base.min.css">
 	<link rel="stylesheet" href="/goldenlayout/css/goldenlayout-dark-theme.min.css">
 	<script type="application/javascript" src="/goldenlayout/js/goldenlayout.min.js"></script>`)
