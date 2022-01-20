@@ -672,7 +672,7 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 								if ssn.atv.ObjectMapRef == nil {
 									ssn.atv.ObjectMapRef = func() (objrf map[string]interface{}) {
 										var objref = map[string]interface{}{}
-										objref["kwe"] = ssn
+										objref["ssn"] = ssn
 										objrf = objref
 										return
 									}
