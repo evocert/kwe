@@ -1,5 +1,5 @@
 var base="./";
-var root=(base=kwe.fsutils().abs(base))+"";
+var root=(base=ssn.fsutils().abs(base))+"";
 
 var lgndcodebase="golang";
 var lgndscopeglobal="/g/";
@@ -35,7 +35,7 @@ var preppath="";
 var currentpath="";
 var lastpreppath=".";
 
-kwe.fsutils().find(root).filter(function(e){
+ssn.fsutils().find(root).filter(function(e){
     return e.absolutePath().endsWith(".go");
 }).sort(function(a,b){
     var apath=a.absolutePath().substring(base.length+1);
@@ -62,7 +62,7 @@ kwe.fsutils().find(root).filter(function(e){
     var typedefln="";
     var typedeflni=-1;
 
-    var srclines=kwe.fsutils().cat(root+"/"+currentpath).readlines();
+    var srclines=ssn.fsutils().cat(root+"/"+currentpath).readlines();
     srclines.forEach(function(ln,lni,lns){
         if ((ln=ln.trim())!==""){
             if(package==="" && ln.startsWith("package ")&&(ln=ln.substring("package ".length).trim())!=="") {
@@ -321,10 +321,10 @@ kwe.fsutils().find(root).filter(function(e){
         }
     });
 }.bind(this));
-if (kwe.out()!==undefined && kwe.out()!==null) {
-    kwe.out().setHeader("Content-Type","application/json");
+if (ssn.out()!==undefined && ssn.out()!==null) {
+    ssn.out().setHeader("Content-Type","application/json");
 }
-kwe.fsutils().set("./gendocs/codedefs.json",JSON.stringify(prep))
-if (kwe.out()!==undefined && kwe.out()!==null) {
-    kwe.out().print(JSON.stringify(prep));
+ssn.fsutils().set("./gendocs/codedefs.json",JSON.stringify(prep))
+if (ssn.out()!==undefined && ssn.out()!==null) {
+    ssn.out().print(JSON.stringify(prep));
 }

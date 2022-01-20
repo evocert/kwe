@@ -2,7 +2,7 @@ function buildgo(goosgoarchsarr,codepath,outputpath,upxpath) {
     if (goosgoarchsarr !==undefined && typeof goosgoarchsarr === "object" && Array.isArray(goosgoarchsarr)) {
         
         if ((codepath!==undefined && typeof codepath === "string" && codepath!=="") && (outputpath!==undefined && typeof outputpath === "string" && outputpath!=="")) {
-            var cmd=kwe.command("cmd");
+            var cmd=ssn.command("cmd");
             goosgoarchsarr.forEach((goosarch)=>{
                 var goosarcharr=goosarch.trim().split("/");
                 var goos=goosarcharr[0].trim();
@@ -36,7 +36,7 @@ function buildgo(goosgoarchsarr,codepath,outputpath,upxpath) {
         }
 
         if ((upxpath!==undefined && typeof upxpath === "string" && upxpath!=="") && (outputpath!==undefined && typeof outputpath === "string" && outputpath!=="")){
-            var cmd=kwe.command("cmd");
+            var cmd=ssn.command("cmd");
             goosgoarchsarr.forEach((goosarch)=>{
                 var goosarcharr=goosarch.trim().split("/");
                 var goos=goosarcharr[0].trim();

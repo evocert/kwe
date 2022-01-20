@@ -82,7 +82,7 @@ func (expth *exepath) Args() (args []interface{}) {
 }
 
 func main() {
-	//runtime.GOMAXPROCS(runtime.NumCPU() * 100)
+
 	var serveRequest func(
 		rqst requesting.RequestAPI,
 		mqttmsg mqtt.Message,

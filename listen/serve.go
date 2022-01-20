@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+
+	//"net/http/pprof"
 	"strings"
 
 	"github.com/evocert/kwe/requesting"
@@ -120,6 +122,14 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	}
 }
 
+/*
+http.HandleFunc("/debug/pprof/", Index)
+	http.HandleFunc("/debug/pprof/cmdline", Cmdline)
+	http.HandleFunc("/debug/pprof/profile", Profile)
+	http.HandleFunc("/debug/pprof/symbol", Symbol)
+	http.HandleFunc("/debug/pprof/trace", Trace)
+*/
+
 func internalServe(ln net.Listener, httpHnflr http.Handler) {
 	if ln != nil {
 		go func() {
@@ -140,6 +150,19 @@ func internalServe(ln net.Listener, httpHnflr http.Handler) {
 											defer w.Close()
 											ctx := context.WithValue(req.Context(), requesting.ConnContextKey, conn)
 											req = req.WithContext(ctx)
+											/*if req.URL.Path == "/debug/pprof/" {
+												pprof.Index(w, req)
+											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/cmdline") {
+												pprof.Cmdline(w, req)
+											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/profile") {
+												pprof.Profile(w, req)
+											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/symbol") {
+												pprof.Symbol(w, req)
+											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/trace") {
+												pprof.Trace(w, req)
+											} else {
+												httpHnflr.ServeHTTP(w, req)
+											}*/
 											httpHnflr.ServeHTTP(w, req)
 										}()
 									}

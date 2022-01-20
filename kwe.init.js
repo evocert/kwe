@@ -1,6 +1,6 @@
-kwe.listen("tcp",":80");
-kwe.listen("tcp",":3335");
-kwe.certifyAddr(`-----BEGIN CERTIFICATE-----
+ssn.listen("tcp",":80");
+ssn.listen("tcp",":3335");
+ssn.certifyAddr(`-----BEGIN CERTIFICATE-----
 MIIB+TCCAZ+gAwIBAgIJAL05LKXo6PrrMAoGCCqGSM49BAMCMFkxCzAJBgNVBAYT
 AkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRn
 aXRzIFB0eSBMdGQxEjAQBgNVBAMMCWxvY2FsaG9zdDAeFw0xNTEyMDgxNDAxMTNa

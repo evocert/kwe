@@ -1,64 +1,64 @@
-/*kwe.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
-console.log(kwe.caching().string());
-if (kwe.caching().existsAt("a","b",2)) {
-	console.log(kwe.caching().at("a","b",2).string());
-	kwe.caching().clearAt("a","b",2)
-	console.log(kwe.caching().at("a","b",2).string());
+/*ssn.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
+console.log(ssn.caching().string());
+if (ssn.caching().existsAt("a","b",2)) {
+	console.log(ssn.caching().at("a","b",2).string());
+	ssn.caching().clearAt("a","b",2)
+	console.log(ssn.caching().at("a","b",2).string());
 }
-console.log(kwe.caching().string());
-if (kwe.caching().existsAt("a","b",2)) {
-	kwe.caching().closeAt("a","b",2)
-	console.log(kwe.caching().at("a","b",2));
-	console.log(kwe.caching().string());
+console.log(ssn.caching().string());
+if (ssn.caching().existsAt("a","b",2)) {
+	ssn.caching().closeAt("a","b",2)
+	console.log(ssn.caching().at("a","b",2));
+	console.log(ssn.caching().string());
 }
 
-kwe.fs().mkdir("/kweauth","C:/github/kweauth");
+ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
 
-kwe.fs().mkdir("/kweauth","C:/github/kweauth");
-kwe.fs().mkdir("kwetl","C:/GitHub/kwetl");
-kwe.env().set("kwetl-path","/kwetl");
+ssn.fs().mkdir("/kweauth","C:/github/kweauth");
+ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
+ssn.env().set("kwetl-path","/kwetl");
 
-kwe.fs().mkdir("/gendocs","./gendocs");
+ssn.fs().mkdir("/gendocs","./gendocs");
 try {
-	eval(kwe.send("/gendocs/gendocs.js").readAll());
+	eval(ssn.send("/gendocs/gendocs.js").readAll());
 } catch(e){
 	console.log(e.message);
 }
 
-/*kwe.dbms().register("b1","kwesqlite",":memory:");
+/*ssn.dbms().register("b1","kwesqlite",":memory:");
 
-kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
+ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
 	v1 INT,
     v2 VARCHAR(1000)
 );`});
 
-kwe.dbms().execute({"alias":"b1","query":`CREATE TABLE t2(
+ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t2(
 	v1 INT,
     v2 VARCHAR(1000)
 );`});
 
 for (let index = 0; index < 100000; index++) {
 	var vt="b"+index;
-	kwe.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
+	ssn.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
 }
-console.log(JSON.stringify(kwe.dbms().info("b2")));
+console.log(JSON.stringify(ssn.dbms().info("b2")));
 
-var a=kwe.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
+var a=ssn.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
 	{"alias":"b1","query":"insert into t2 (v1,v2) values(@@p1@@,@@p2@@);"}
 ]},{"prm1":42});
 
 //console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());
-//kwe.dbms().unregister("b1");
+//ssn.dbms().unregister("b1");
 
-kwe.dbms().register("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
+ssn.dbms().register("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
 
-kwe.fs().mkdir("/movies","D:/movies");
+ssn.fs().mkdir("/movies","D:/movies");
 
-kwe.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
-kwe.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
-kwe.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
+ssn.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
+ssn.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
+ssn.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
 */
 
 var goosgoarchsarr=`aix/ppc64
@@ -107,10 +107,10 @@ windows/amd64
 windows/arm
 windows/arm64`.split("\n");
 
-//eval(kwe.fsutils().cat("./build/build.js").readAll());
-//buildgo(goosgoarchsarr,`C:/GitHub/kwe/kwe.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
+//eval(ssn.fsutils().cat("./build/build.js").readAll());
+//buildgo(goosgoarchsarr,`C:/GitHub/kwe/ssn.go`,`C:/GitHub/kwe/build/kwe`,`C:/GitHub/kwe/build/upx`);
 
-/*var cmd=kwe.command("cmd");
+/*var cmd=ssn.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
 	var keyvalue=goosarch.trim().split("/");
 	var key=keyvalue[0].trim();
@@ -126,7 +126,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 		if (key==="ios") {
 			cmd.println("SET CGO_ENABLED=1");
 		}
-		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":(key==="darwin"?".dmg":"")))+` C:/GitHub/kwe/kwe.go`);
+		cmd.println(`go build -v -ldflags "-w -s" -o C:/GitHub/kwe/build/kwe_`+key+`_`+value+(key==="windows"?".exe":(key==="js"?".wasm":(key==="darwin"?".dmg":"")))+` C:/GitHub/kwe/ssn.go`);
 		cmd.println("echo finit");
 		for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
 			if (ln!=="") {
@@ -142,7 +142,7 @@ goosgoarchsarr.forEach((goosarch)=>{
 cmd.close();
 console.log("done - build");
 
-var cmd=kwe.command("cmd");
+var cmd=ssn.command("cmd");
 goosgoarchsarr.forEach((goosarch)=>{
 	var keyvalue=goosarch.trim().split("/");
 	var key=keyvalue[0].trim();
@@ -179,7 +179,7 @@ console.log("done - all");
 
 
 try {
-	//eval(kwe.Send("/movies/schedule.js").ReadAll());
+	//eval(ssn.Send("/movies/schedule.js").ReadAll());
 } catch(e){
 	console.log(e.message);
 }
