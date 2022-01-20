@@ -1,4 +1,4 @@
-// +build database,sqlserver database,all
+// +build database,sqlserver
 
 package main
 

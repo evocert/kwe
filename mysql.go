@@ -1,4 +1,4 @@
-// +build database,mysql database,all
+// +build database,mysql
 
 package main
 

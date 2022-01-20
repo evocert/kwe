@@ -1,4 +1,4 @@
-// +build datatabse,postgres database,all
+// +build datatabse,postgres
 
 package main
 

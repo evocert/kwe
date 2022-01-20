@@ -1,5 +1,4 @@
-// +build database,sqlite database,all
-
+// +build database,sqlite
 package main
 
 import (

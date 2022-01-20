@@ -1,4 +1,4 @@
-// +build database,ora database,all
+// +build database,ora
 
 package main
 

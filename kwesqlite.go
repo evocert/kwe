@@ -1,4 +1,4 @@
-// +build database,kwesqlite database,all
+// +build database,kwesqlite
 
 package main
 
