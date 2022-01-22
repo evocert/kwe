@@ -26,9 +26,6 @@ require (
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.8 // indirect
-	gorgonia.org/cu v0.9.4 // indirect
-	gorgonia.org/gorgonia v0.9.17 // indirect
-	gorgonia.org/tensor v0.9.21 // indirect
 	modernc.org/ccgo/v3 v3.14.0 // indirect
-	modernc.org/sqlite v1.14.4 // indirect
+	modernc.org/sqlite v1.14.4
 )
