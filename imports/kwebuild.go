@@ -1,6 +1,7 @@
+//go:build kwebuild
 // +build kwebuild
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/build"
