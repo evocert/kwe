@@ -1,5 +1,5 @@
-//go:build alertify
-// +build alertify
+//go:build alertify || web
+// +build alertify web
 
 package imports
 

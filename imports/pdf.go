@@ -1,5 +1,5 @@
-//go:build pdf
-// +build pdf
+//go:build pdf || web
+// +build pdf web
 
 package imports
 

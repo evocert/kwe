@@ -1,4 +1,5 @@
-// +build fonts,roboto
+//go:build fonts && roboto || fonts && web
+// +build fonts,roboto fonts,web
 
 package imports
 

@@ -1,5 +1,5 @@
-//go:build datepicker
-// +build datepicker
+//go:build datepicker || web
+// +build datepicker web
 
 package imports
 

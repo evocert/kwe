@@ -1,5 +1,5 @@
-//go:build luxon
-// +build luxon
+//go:build luxon || web
+// +build luxon web
 
 package imports
 

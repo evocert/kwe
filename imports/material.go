@@ -1,5 +1,5 @@
-//go:build fonts && material
-// +build fonts,material
+//go:build fonts && material || fonts && web
+// +build fonts,material fonts,web
 
 package imports
 
