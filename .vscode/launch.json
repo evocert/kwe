@@ -9,8 +9,8 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "C:/GitHub/kwe/",
-            "output": "C:/GitHub/kwe/__debug_bin.exe",
+            "program": "${workspaceFolder}",
+            "output": "${workspaceFolder}/__debug_bin.exe",
             "buildFlags": "-tags 'database all'"
         }
     ]
