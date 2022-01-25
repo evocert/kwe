@@ -1,7 +1,7 @@
 //go:build babylon
 // +build babylon
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/babylon"

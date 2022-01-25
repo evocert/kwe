@@ -1,7 +1,7 @@
 //go:build jqterminal
 // +build jqterminal
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/jqterminal"

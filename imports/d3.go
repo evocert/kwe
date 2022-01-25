@@ -1,7 +1,7 @@
 //go:build d3
 // +build d3
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/d3"

@@ -1,6 +1,7 @@
 //go:build sip
 // +build sip
-package main
+
+package imports
 
 import (
 	_ "github.com/evocert/kwe/sip"

@@ -1,5 +1,6 @@
 // +build fonts,roboto
-package main
+
+package imports
 
 import (
 	_ "github.com/evocert/kwe/fonts/robotov27latin"

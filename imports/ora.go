@@ -1,6 +1,6 @@
 // +build database,ora
 
-package main
+package imports
 
 import (
 	//To use ora import use go 1.6+

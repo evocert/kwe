@@ -1,7 +1,7 @@
 //go:build goldenlayout
 // +build goldenlayout
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/goldenayout"

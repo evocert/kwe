@@ -1,6 +1,7 @@
 //go:build typescript
 // +build typescript
-package main
+
+package imports
 
 import (
 	_ "github.com/evocert/kwe/typescript"

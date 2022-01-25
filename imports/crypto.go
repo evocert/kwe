@@ -1,7 +1,7 @@
 //go:build crypto
 // +build crypto
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/crypto"

@@ -1,7 +1,7 @@
 //go:build fonts && material
 // +build fonts,material
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/fonts/material"

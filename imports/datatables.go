@@ -1,7 +1,7 @@
 //go:build datatables
 // +build datatables
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/datatables"

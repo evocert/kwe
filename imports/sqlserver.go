@@ -1,6 +1,6 @@
 // +build database,sqlserver
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/database/sqlserver"

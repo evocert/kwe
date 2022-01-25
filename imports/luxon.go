@@ -1,6 +1,7 @@
 //go:build luxon
 // +build luxon
-package main
+
+package imports
 
 import (
 	_ "github.com/evocert/kwe/luxon"

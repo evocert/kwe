@@ -1,7 +1,7 @@
 //go:build jqueryui
 // +build jqueryui
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/jqueryui"

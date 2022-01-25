@@ -1,7 +1,7 @@
 //go:build datepicker
 // +build datepicker
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/datepicker"

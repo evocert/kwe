@@ -1,7 +1,7 @@
 //go:build bootstrap
 // +build bootstrap
 
-package main
+package imports
 
 import (
 	_ "github.com/evocert/kwe/bootstrap"
