@@ -14,6 +14,6 @@ func init() {
 	gblrsngfs.MKDIR("/raw:pdf/js", "")
 	gblrsngfs.SET("/pdf/js/pdf.js", pdfjs)
 	gblrsngfs.SET("/pdf/js/pdf.min.js", pdfjs)
-	gblrsngfs.MKDIR("/raw:pdf/html", "")
-	gblrsngfs.SET("/pdf/html/head.html", `<script type="application/javascript" src="/pdf/js/pdf.min.js"></script>`)
+	gblrsngfs.MKDIR("/raw:pdf", "")
+	gblrsngfs.SET("/pdf/head.html", `<script type="application/javascript" src="/pdf/js/pdf.min.js"></script>`)
 }
