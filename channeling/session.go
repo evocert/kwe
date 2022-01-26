@@ -31,11 +31,8 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 	var mqttmsg mqtt.Message
 	var mqttevent mqtt.MqttEvent
 	var mqttmngr mqtt.MQTTManagerAPI
-	var atvschdlngmngr api.ActiveSchedulesAPI = nil
-	var schdlngmngr api.SchedulesAPI = nil
-	var schdl api.ScheduleAPI = nil
 	var lstnr listen.ListenerAPI = nil
-	//var atv *active.Active = nil
+	var ssns *Sessions = nil
 	if len(a) > 0 {
 		for di := range a {
 			if d := a[di]; d != nil {
@@ -51,21 +48,13 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 					if mqttmngr == nil {
 						mqttmngr = mqttmngrd
 					}
-				} else if atvschdlngmngrd, _ := d.(api.ActiveSchedulesAPI); atvschdlngmngrd != nil {
-					if atvschdlngmngr == nil {
-						atvschdlngmngr = atvschdlngmngrd
-					}
-				} else if schdlngmngrd, _ := d.(api.SchedulesAPI); schdlngmngrd != nil {
-					if schdlngmngr == nil {
-						schdlngmngr = schdlngmngrd
-					}
-				} else if schdld, _ := d.(api.ScheduleAPI); schdld != nil {
-					if schdl == nil {
-						schdl = schdld
-					}
 				} else if lstnrd, _ := d.(listen.ListenerAPI); lstnrd != nil {
 					if lstnr == nil {
 						lstnr = lstnrd
+					}
+				} else if ssnd, _ := d.(*Session); ssnd != nil {
+					if ssns == nil {
+						ssns = ssnd.Sessions
 					}
 				}
 			}
@@ -81,7 +70,7 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 			mqttmngr = mqttmsg.Manager()
 		}
 	}
-	var ssn = &Session{atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager()}
+	var ssn = &Session{Sessions: NewSessions(ssns), atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager()}
 	ssn.atvdbms = database.GLOBALDBMS().ActiveDBMS(ssn.atv, func() (prms parameters.ParametersAPI) {
 		prms = ssn.Parameters()
 		return
@@ -91,14 +80,6 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 	ssn.mqttmsg = mqttmsg
 	ssn.mqttmngr = mqttmngr
 	ssn.lstnr = lstnr
-	if schdl != nil && schdlngmngr == nil {
-		schdlngmngr = schdl.Schedules()
-	}
-	if schdlngmngr != nil && atvschdlngmngr == nil {
-		atvschdlngmngr = schdlngmngr.ActiveSCHEDULING(ssn.atv)
-	}
-	ssn.schdlngmngr = atvschdlngmngr
-	ssn.schdl = schdl
 	session = ssn
 	return
 }
@@ -109,8 +90,6 @@ type Session struct {
 	mqttmsg     mqtt.Message
 	mqttevent   mqtt.MqttEvent
 	mqttmngr    mqtt.MQTTManagerAPI
-	schdlngmngr api.ActiveSchedulesAPI
-	schdl       api.ScheduleAPI
 	atv         *active.Active
 	atvdbms     *database.ActiveDBMS
 	rqst        requesting.RequestAPI
@@ -160,20 +139,6 @@ func (ssn *Session) Active(a ...interface{}) (atv *active.Active) {
 			}
 		}
 		atv = ssn.atv
-	}
-	return
-}
-
-func (ssn *Session) Scheduling() (schdlsmngr api.ActiveSchedulesAPI) {
-	if ssn != nil && ssn.schdlngmngr != nil {
-		schdlsmngr = ssn.schdlngmngr
-	}
-	return
-}
-
-func (ssn *Session) Schedule() (schdl api.ScheduleAPI) {
-	if ssn != nil && ssn.schdl != nil {
-		schdl = ssn.schdl
 	}
 	return
 }
@@ -229,6 +194,13 @@ func (ssn *Session) CertifyAddr(servercert string, serverkey string, addr ...str
 func (ssn *Session) Listen(network string, addr ...string) (err error) {
 	if ssn != nil && ssn.lstnr != nil {
 		err = ssn.lstnr.Listen(network, addr...)
+	}
+	return
+}
+
+func (ssn *Session) Shutdown(addr ...string) (err error) {
+	if ssn != nil && ssn.lstnr != nil {
+		err = ssn.lstnr.Shutdown(addr...)
 	}
 	return
 }
@@ -324,6 +296,10 @@ func (ssn *Session) DBMS() (atvdbms database.DBMSAPI) {
 
 func (ssn *Session) Close() (err error) {
 	if ssn != nil {
+		if ssn.Sessions != nil {
+			ssn.Sessions.Close()
+			ssn.Sessions = nil
+		}
 		if ssn.atv != nil {
 			ssn.atv.Close()
 			ssn.atv = nil
@@ -357,13 +333,13 @@ func (ssn *Session) Close() (err error) {
 		if ssn.mqttmngr != nil {
 			ssn.mqttmngr = nil
 		}
-		if ssn.schdlngmngr != nil {
+		/*if ssn.schdlngmngr != nil {
 			ssn.schdlngmngr.Dispose()
 			ssn.schdlngmngr = nil
 		}
 		if ssn.schdl != nil {
 			ssn.schdl = nil
-		}
+		}*/
 		if ssn.cmnds != nil {
 			func() {
 				if len(ssn.cmnds) > 0 {
@@ -424,6 +400,42 @@ func (ssn *Session) FSUTILS() (fs fsutils.FSUtils) {
 func (ssn *Session) Parameters() (prms parameters.ParametersAPI) {
 	if ssn != nil && ssn.rqst != nil {
 		prms = ssn.rqst.Parameters()
+	}
+	return
+}
+
+func (ssn *Session) Bind(nxtpth ...string) (err error) {
+	if ssn != nil {
+		if nxtpthl := len(nxtpth); nxtpthl > 0 {
+			for _, nxpth := range nxtpth {
+				go func(mnssn *Session, path string) {
+					var bndssn = NewSession(ssn)
+					defer func() {
+						bndssn.Close()
+						bndssn = nil
+					}()
+					bndssn.Execute(path)
+				}(ssn, nxpth)
+			}
+		}
+	}
+	return
+}
+
+func (ssn *Session) Faf(nxtpth ...string) (err error) {
+	if ssn != nil {
+		if nxtpthl := len(nxtpth); nxtpthl > 0 {
+			for _, nxpth := range nxtpth {
+				go func(mnssn *Session, path string) {
+					var bndssn = NewSession(nil)
+					defer func() {
+						bndssn.Close()
+						bndssn = nil
+					}()
+					bndssn.Execute(path)
+				}(ssn, nxpth)
+			}
+		}
 	}
 	return
 }

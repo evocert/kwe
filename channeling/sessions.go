@@ -10,12 +10,13 @@ import (
 type Sessions struct {
 	ssnscnt         uint32
 	ssnslck         *sync.RWMutex
+	mnssns          *Sessions
 	ssns            map[*Session]*Session
 	InitiateSession func(a ...interface{}) (ssn api.SessionAPI)
 }
 
-func NewSessions() (ssns *Sessions) {
-	ssns = &Sessions{ssnscnt: 0, ssnslck: &sync.RWMutex{}, ssns: map[*Session]*Session{}}
+func NewSessions(mnssns *Sessions) (ssns *Sessions) {
+	ssns = &Sessions{ssnscnt: 0, ssnslck: &sync.RWMutex{}, ssns: map[*Session]*Session{}, mnssns: mnssns}
 	return
 }
 

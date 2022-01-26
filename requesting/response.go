@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/ws"
@@ -106,7 +105,7 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 				}
 				if httpw != nil {
 					httpw.WriteHeader(rspns.status)
-					time.Sleep(5)
+					//time.Sleep(5)
 				}
 				if flshr != nil {
 					flshr.Flush()

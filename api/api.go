@@ -33,13 +33,13 @@ type SessionAPI interface {
 	SessionFS() *fsutils.FSUtils
 	FSUTILS() fsutils.FSUtils
 	Caching() caching.MapAPI
-	Scheduling() ActiveSchedulesAPI
-	Schedule() ScheduleAPI
 	Close() error
 	Execute(...interface{}) error
+	Bind(nxtpth ...string) error
 	FAFExecute(...interface{}) error
 	Env() env.EnvAPI
 	Listen(network string, addr ...string) (err error)
+	Shutdown(addr ...string) (err error)
 	UnCertifyAddr(...string)
 	CertifyAddr(string, string, ...string) error
 	Path() PathAPI
