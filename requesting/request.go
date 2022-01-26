@@ -105,30 +105,32 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 			} else if httprd, _ := d.(*http.Request); httprd != nil {
 				if httpr == nil {
 					httpr = httprd
-				}
-				if ctx == nil {
-					ctx = httprd.Context()
-					if ctxv := ctx.Value(ConnContextKey); ctxv != nil {
-						if cnctn, _ := ctxv.(net.Conn); cnctn != nil {
-							rmtaddr = cnctn.RemoteAddr().String()
-							lcladdr = cnctn.LocalAddr().String()
+
+					if ctx == nil {
+						ctx = httpr.Context()
+						if ctxv := ctx.Value(ConnContextKey); ctxv != nil {
+							if cnctn, _ := ctxv.(net.Conn); cnctn != nil {
+								rmtaddr = cnctn.RemoteAddr().String()
+								lcladdr = cnctn.LocalAddr().String()
+							}
+							ctx = httpr.Context()
 						}
 					}
-				}
-				if httprd.Body != nil {
-					if rdr == nil {
-						rdr = httprd.Body
+					if httpr.Body != nil {
+						if rdr == nil {
+							rdr = httpr.Body
+						}
 					}
-				}
-				prtcl = httprd.Proto
-				prtclmthd = httprd.Method
-				for hdrk, hdrv := range httprd.Header {
-					headers[hdrk] = strings.Join(hdrv, "")
-					if hdrk == "Range" {
-						if prtclrange = headers[hdrk]; strings.Index(prtclrange, "=") > 0 {
-							if prtclrangetype = prtclrange[:strings.Index(prtclrange, "=")]; prtclrange != "" {
-								if prtclrange = prtclrange[strings.Index(prtclrange, "=")+1:]; strings.Index(prtclrange, "-") > 0 {
-									prtclrangeoffset, _ = strconv.ParseInt(prtclrange[:strings.Index(prtclrange, "-")], 10, 64)
+					prtcl = httpr.Proto
+					prtclmthd = httpr.Method
+					for hdrk, hdrv := range httpr.Header {
+						headers[hdrk] = strings.Join(hdrv, "")
+						if hdrk == "Range" {
+							if prtclrange = headers[hdrk]; strings.Index(prtclrange, "=") > 0 {
+								if prtclrangetype = prtclrange[:strings.Index(prtclrange, "=")]; prtclrange != "" {
+									if prtclrange = prtclrange[strings.Index(prtclrange, "=")+1:]; strings.Index(prtclrange, "-") > 0 {
+										prtclrangeoffset, _ = strconv.ParseInt(prtclrange[:strings.Index(prtclrange, "-")], 10, 64)
+									}
 								}
 							}
 						}
