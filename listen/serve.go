@@ -122,13 +122,7 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	}
 }
 
-/*
-http.HandleFunc("/debug/pprof/", Index)
-	http.HandleFunc("/debug/pprof/cmdline", Cmdline)
-	http.HandleFunc("/debug/pprof/profile", Profile)
-	http.HandleFunc("/debug/pprof/symbol", Symbol)
-	http.HandleFunc("/debug/pprof/trace", Trace)
-*/
+var DefaultHandlePprof func(w http.ResponseWriter, r *http.Request) (hndldpprof bool) = nil
 
 func internalServe(ln net.Listener, httpHnflr http.Handler) {
 	if ln != nil {
@@ -150,20 +144,14 @@ func internalServe(ln net.Listener, httpHnflr http.Handler) {
 											defer w.Close()
 											ctx := context.WithValue(req.Context(), requesting.ConnContextKey, conn)
 											req = req.WithContext(ctx)
-											/*if req.URL.Path == "/debug/pprof/" {
-												pprof.Index(w, req)
-											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/cmdline") {
-												pprof.Cmdline(w, req)
-											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/profile") {
-												pprof.Profile(w, req)
-											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/symbol") {
-												pprof.Symbol(w, req)
-											} else if strings.HasPrefix(req.URL.Path, "/debug/pprof/trace") {
-												pprof.Trace(w, req)
+
+											if DefaultHandlePprof != nil {
+												if !DefaultHandlePprof(w, req) {
+													httpHnflr.ServeHTTP(w, req)
+												}
 											} else {
 												httpHnflr.ServeHTTP(w, req)
-											}*/
-											httpHnflr.ServeHTTP(w, req)
+											}
 										}()
 									}
 								}
