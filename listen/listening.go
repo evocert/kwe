@@ -209,6 +209,22 @@ func (connwrp *connwrap) SetWriteDeadline(t time.Time) (err error) {
 	return
 }
 
+func (lstn *listen) shutdown() {
+	if lstn != nil {
+		if lstn.lstnwrap != nil {
+			lstn.lstnwrap.Close()
+			lstn.ln = nil
+		}
+		if lstn.ln != nil {
+			lstn.ln.Close()
+			lstn.ln = nil
+		}
+		if lstn.lstnr != nil {
+			delete(lstn.lstnr.lstnrs, lstn.addr)
+		}
+	}
+}
+
 func (lstn *listen) start() {
 	go func() {
 		var h2s = &http2.Server{}
@@ -226,6 +242,7 @@ var ConnContxtKey connkeyapi = "http-con"
 
 type ListenerAPI interface {
 	Listen(string, ...string) error
+	Shutdown(...string) error
 	UnCertifyAddr(...string)
 	CertifyAddr(string, string, ...string) error
 }
@@ -302,6 +319,26 @@ func (lstnr *Listener) Listen(network string, addr ...string) (err error) {
 						lstnr.lstnrs[adr] = lstn
 						lstn.start()
 					}
+				}
+			}
+		}
+	}
+	return
+}
+
+func (lstnr *Listener) Shutdown(addr ...string) (err error) {
+	if lstnr != nil {
+		if len(addr) > 0 {
+			var addrsfound []string = nil
+			for _, adr := range addr {
+				if lstn := lstnr.lstnrs[adr]; lstn != nil {
+					addrsfound = append(addrsfound, adr)
+				}
+			}
+			if len(addrsfound) > 0 {
+				for addri := range addrsfound {
+					lstnr.lstnrs[addrsfound[addri]].shutdown()
+					delete(lstnr.lstnrs, addrsfound[addri])
 				}
 			}
 		}

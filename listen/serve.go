@@ -136,15 +136,14 @@ func internalServe(ln net.Listener, httpHnflr http.Handler) {
 				if conn != nil {
 					go func() {
 						defer conn.Close()
+
 						if req, reqerr := http.ReadRequest(bufio.NewReader(conn)); reqerr == nil {
 							if req != nil {
 								if httpHnflr != nil {
 									if w := newResponseWriter(req, conn); w != nil {
 										func() {
 											defer w.Close()
-											ctx := context.WithValue(req.Context(), requesting.ConnContextKey, conn)
-											req = req.WithContext(ctx)
-
+											req = req.WithContext(context.WithValue(req.Context(), requesting.ConnContextKey, conn))
 											if DefaultHandlePprof != nil {
 												if !DefaultHandlePprof(w, req) {
 													httpHnflr.ServeHTTP(w, req)
