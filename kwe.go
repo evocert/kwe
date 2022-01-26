@@ -14,9 +14,9 @@ import (
 	"github.com/evocert/kwe/requesting"
 	_ "github.com/evocert/kwe/requirejs/html"
 
+	_ "github.com/evocert/kwe/imports"
 	"github.com/evocert/kwe/service"
 	_ "github.com/evocert/kwe/webactions"
-	_ "github.com/evocert/kwe/imports"
 )
 
 func main() {
