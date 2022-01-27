@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "output": "${workspaceFolder}/__debug_bin.exe",
-            "buildFlags": "-tags 'database all web fonts pprof'"
+            "buildFlags": "-tags 'database all web fonts react'"
         }
     ]
 }
