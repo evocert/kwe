@@ -27,6 +27,6 @@ func init() {
 	gblrsfs.SET("/react/js/react-jsonschema-form.js", reactjsonschemaformjs)
 
 	gblrsfs.SET("/react/head.html",
-		`<script type="appliaction/javascript" src="/react/js/react.min.js"></script>
-<script type="appliaction/javascript" src="/react/js/react-dom.min.js"></script>`)
+		`<script crossorigin src="/react/js/react.min.js"></script>
+<script crossorigin src="/react/js/react-dom.min.js"></script>`)
 }
