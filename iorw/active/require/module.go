@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 	"text/template"
+	"time"
 
 	js "github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
@@ -35,9 +36,9 @@ var native map[string]ModuleLoader
 // Registry contains a cache of compiled modules which can be used by multiple Runtimes
 type Registry struct {
 	sync.Mutex
-	native   map[string]ModuleLoader
-	compiled map[string]*js.Program
-	//parsed        map[string]*parsing.Parsing
+	native         map[string]ModuleLoader
+	compiled       map[string]*js.Program
+	modified       map[string]time.Time
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	srcLoader      SourceLoader
 	globalFolders  []string
@@ -94,7 +95,7 @@ func WithGlobalFolders(globalFolders ...string) Option {
 
 func (r *Registry) Dispose() {
 	if r != nil {
-		if r.compiled != nil || r.native != nil {
+		if r.compiled != nil || r.native != nil || r.modified != nil {
 			func() {
 				r.Lock()
 				defer r.Unlock()
@@ -104,6 +105,14 @@ func (r *Registry) Dispose() {
 						for k := range r.compiled {
 							r.compiled[k] = nil
 							delete(r.compiled, k)
+						}
+					}
+					r.compiled = nil
+				}
+				if r.modified != nil {
+					if len(r.modified) > 0 {
+						for k := range r.modified {
+							delete(r.modified, k)
 						}
 					}
 					r.compiled = nil
@@ -129,9 +138,6 @@ func (r *Registry) Dispose() {
 		if r.srcLoader != nil {
 			r.srcLoader = nil
 		}
-		//if r.Actv != nil {
-		//	r.Actv = nil
-		//}
 		if r.LookupTemplate != nil {
 			r.LookupTemplate = nil
 		}
@@ -192,8 +198,6 @@ func (r *Registry) getCompiledSource(p string) (*js.Program, error) {
 				return nil, err
 			}
 			s := string(buf)
-
-			//if prsng == nil {
 			var prsng = parsing.NextParsing(nil, nil, nil, nil, p, r.LookupTemplate)
 			defer prsng.Dispose()
 			if prsrngerr := parsing.EvalParsing(prsng, nil, nil, p, true, true, s, func(prsng *parsing.Parsing) (err error) {

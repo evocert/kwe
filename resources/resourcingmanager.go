@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/iorw"
@@ -710,8 +711,9 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(path string, rootpath strin
 }
 
 //FindRSString - find Resource
-func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err error) {
-	if rs, rserr := rscngmngr.FindRS(path); rs != nil /*&& rs.isText*/ {
+func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, modified time.Time, err error) {
+	if rs, mdfd, rserr := rscngmngr.FindRS(path); rs != nil /*&& rs.isText*/ {
+		modified = mdfd
 		func() {
 			defer rs.Close()
 			p := make([]rune, 1024)
@@ -747,7 +749,7 @@ func (rscngmngr *ResourcingManager) FindRSString(path string) (s string, err err
 }
 
 //FindRS - find Resource
-func (rscngmngr *ResourcingManager) FindRS(path string) (rs io.ReadCloser, err error) {
+func (rscngmngr *ResourcingManager) FindRS(path string) (rs io.ReadCloser, modified time.Time, err error) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 		if rune(path[0]) != '/' {
@@ -766,7 +768,9 @@ func (rscngmngr *ResourcingManager) FindRS(path string) (rs io.ReadCloser, err e
 			}
 		}
 		if len(rspthFound) > 0 {
-			rs, err = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].findRS(path[len(rspthFound):])
+			rs, modified, err = rscngmngr.rsngrootpaths[rscngmngr.rsngpaths[rspthFound]].findRS(path[len(rspthFound):])
+		} else {
+			modified = time.Now()
 		}
 	}
 	return

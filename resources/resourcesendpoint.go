@@ -144,7 +144,7 @@ func (rscngepnt *ResourcingEndpoint) multicat(path ...string) (r io.Reader) {
 func (rscngepnt *ResourcingEndpoint) multicats(path ...string) (cntnt string) {
 	if pthl := len(path); pthl > 0 {
 		for _, pth := range path {
-			if rs, _ := rscngepnt.findRS(pth); rs != nil {
+			if rs, _, _ := rscngepnt.findRS(pth); rs != nil {
 				func() {
 					defer rs.Close()
 					if s, _ := iorw.ReaderToString(rs); s != "" {
@@ -204,7 +204,7 @@ func (rscngepnt *ResourcingEndpoint) fsset(path string, a ...interface{}) bool {
 
 func (rscngepnt *ResourcingEndpoint) fscat(path string, a ...interface{}) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
-		if rs, _ := rscngepnt.findRS(path); rs != nil {
+		if rs, mdify, _ := rscngepnt.findRS(path); rs != nil {
 			r = iorw.NewEOFCloseSeekReader(rs)
 			if len(a) > 0 {
 				for _, d := range a {
@@ -212,7 +212,10 @@ func (rscngepnt *ResourcingEndpoint) fscat(path string, a ...interface{}) (r io.
 						if fnrawOrActive, _ := d.(func(raw bool, active bool)); fnrawOrActive != nil {
 							fnrawOrActive(rscngepnt.isRaw, rscngepnt.isActive)
 							break
+						} else if fnmodified, _ := d.(func(modified time.Time)); fnmodified != nil {
+							fnmodified(mdify)
 						}
+
 					}
 				}
 			}
@@ -230,7 +233,7 @@ func (rscngepnt *ResourcingEndpoint) fscats(path string, a ...interface{}) (s st
 
 func (rscngepnt *ResourcingEndpoint) fspipe(path string, a ...interface{}) (r io.Reader) {
 	if path = strings.Replace(strings.TrimSpace(path), "\\", "/", -1); path != "" && strings.LastIndex(path, ".") > 0 && (strings.LastIndex(path, "/") == -1 || strings.LastIndex(path, ".") > strings.LastIndex(path, "/")) {
-		if rs, _ := rscngepnt.findRS(path); rs != nil {
+		if rs, mdify, _ := rscngepnt.findRS(path); rs != nil {
 			r = iorw.NewEOFCloseSeekReader(rs, false)
 			if len(a) > 0 {
 				for _, d := range a {
@@ -238,6 +241,8 @@ func (rscngepnt *ResourcingEndpoint) fspipe(path string, a ...interface{}) (r io
 						if fnrawOrActive, _ := d.(func(raw bool, active bool)); fnrawOrActive != nil {
 							fnrawOrActive(rscngepnt.isRaw, rscngepnt.isActive)
 							break
+						} else if fnmodified, _ := d.(func(modified time.Time)); fnmodified != nil {
+							fnmodified(mdify)
 						}
 					}
 				}
@@ -487,7 +492,7 @@ func (rscngepnt *ResourcingEndpoint) dispose() {
 	}
 }
 
-func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err error) {
+func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modified time.Time, err error) {
 	if path != "" {
 		func() {
 			if path = strings.TrimSpace(strings.Replace(path, "\\", "/", -1)); path != "" {
@@ -497,6 +502,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 				}
 				if embdrs, embdrsok := rscngepnt.embeddedResources[embedpath]; embdrsok {
 					if embdrs != nil {
+						modified = embdrs.modified
 						rs = newRS(rscngepnt, path, embdrs.Reader())
 					}
 				} else if rscngepnt.isLocal {
@@ -517,6 +523,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 											for _, f := range r.File {
 												if f.Name == testpath {
 													if rc, rcerr := f.Open(); rcerr == nil {
+														modified = f.Modified
 														rs = rc //newRS(rscngepnt, path, rc)
 													} else if rcerr != nil {
 														err = rcerr
@@ -536,6 +543,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 						}
 						if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
 							if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
+								modified = fi.ModTime()
 								rs = newRS(rscngepnt, path, f)
 							} else if ferr != nil {
 								err = ferr
@@ -576,6 +584,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, err 
 					}
 					func() {
 						if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
+							modified = time.Now()
 							rs = newRS(rscngepnt, path, r)
 						} else if rerr != nil {
 							err = rerr
