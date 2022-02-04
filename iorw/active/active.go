@@ -888,7 +888,7 @@ func (fldmppr *fieldmapper) FieldName(t reflect.Type, f reflect.StructField) (fl
 	if f.Tag != "" {
 		fldnme = f.Tag.Get("json")
 	} else {
-		fldnme = uncapitalize(t.Name()) // fldmppr.fldmppr.FieldName(t, f)
+		fldnme = uncapitalize(f.Name) // fldmppr.fldmppr.FieldName(t, f)
 	}
 	return
 }
