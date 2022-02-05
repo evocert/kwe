@@ -965,6 +965,9 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			if vm == nil {
 				vm = newvm()
 			}
+			if adhocPrgm != nil {
+				vm.RunProgram(adhocPrgm)
+			}
 			var dne = make(chan bool, 1)
 			if atvrntme.vmregister == nil {
 				vmregister := require.NewRegistryWithLoader(func(path string) (sourcebytes []byte, sourceerr error) {
@@ -1177,8 +1180,46 @@ var gblregister = require.NewRegistryWithLoader(func(path string) (cdebts []byte
 })
 
 var DefaulLookupTemplate func(string, ...interface{}) (io.Reader, error) = nil
+var adhocPrgm *goja.Program = nil
 
 func init() {
+	if adhocast, _ := goja.Parse(``, `_methods = (obj) => {
+		let properties = new Set()
+		let currentObj = obj
+		Object.entries(currentObj).forEach((key)=>{
+			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
+			if (typeof currentObj[key] === 'function') {
+				var item=key;
+				properties.add(item);
+			}
+		});
+		if (properties.size===0) {
+			do {
+				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+			} while ((currentObj = Object.getPrototypeOf(currentObj)))
+		}
+		return [...properties.keys()].filter(item => typeof obj[item] === 'function')
+	}
+	
+	_fields = (obj) => {
+		let properties = new Set()
+		let currentObj = obj
+		Object.entries(currentObj).forEach((key)=>{
+			key=(key=(key+"")).indexOf(",")>0?key.substring(0,key.indexOf(',')):key;
+			if (typeof currentObj[key] !== 'function') {
+				var item=key;
+				properties.add(item);
+			}
+		});
+		if (properties.size===0) {
+			do {
+				Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+			} while ((currentObj = Object.getPrototypeOf(currentObj)))
+		}
+		return [...properties.keys()].filter(item => item!=='__proto__' && typeof obj[item] !== 'function')
+	}`); adhocast != nil {
+		adhocPrgm, _ = goja.CompileAST(adhocast, false)
+	}
 	globalModules = map[string]*goja.Program{}
 	gblregister.LookupTemplate = func(p string, a ...interface{}) (rdr io.Reader, err error) {
 		if DefaulLookupTemplate != nil {
