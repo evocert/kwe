@@ -333,13 +333,6 @@ func (ssn *Session) Close() (err error) {
 		if ssn.mqttmngr != nil {
 			ssn.mqttmngr = nil
 		}
-		/*if ssn.schdlngmngr != nil {
-			ssn.schdlngmngr.Dispose()
-			ssn.schdlngmngr = nil
-		}
-		if ssn.schdl != nil {
-			ssn.schdl = nil
-		}*/
 		if ssn.cmnds != nil {
 			func() {
 				if len(ssn.cmnds) > 0 {
