@@ -37,16 +37,16 @@ func init() {
 	}
 
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/raw:materialdesign", "")
-	gblrs.FS().SET("/materialdesign/preview.html", previewhtml)
-	gblrs.FS().MKDIR("/raw:materialdesign/css", "")
-	gblrs.FS().MKDIR("/raw:materialdesign/fonts", "")
-	gblrs.FS().SET("/materialdesign/css/materialdesignicons.css", materialcss)
-	gblrs.FS().SET("/materialdesign/css/materialdesignicons.min.css", materialcss)
-	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.eot", readFile("fonts/materialdesignicons-webfont.eot"))     // MaterialdesigniconsWebfontEOT())
-	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.ttf", readFile("fonts/materialdesignicons-webfont.ttf"))     // MaterialdesigniconsWebfontTTF())
-	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff", readFile("fonts/materialdesignicons-webfont.woff"))   // MaterialdesigniconsWebfontWOFF())
-	gblrs.FS().SET("/materialdesign/fonts/materialdesignicons-webfont.woff2", readFile("fonts/materialdesignicons-webfont.woff2")) // MaterialdesigniconsWebfontWOFF2())
+	gblrs.FS().MKDIR("/raw:fonts/material", "")
+	gblrs.FS().SET("/fonts/material/preview.html", previewhtml)
+	gblrs.FS().MKDIR("/raw:/fonts/material/css", "")
+	gblrs.FS().MKDIR("/raw:/fonts/material", "")
+	gblrs.FS().SET("/fonts/material/css/materialdesignicons.css", materialcss)
+	gblrs.FS().SET("/fonts/material/css/materialdesignicons.min.css", materialcss)
+	gblrs.FS().SET("/fonts/material/fonts/materialdesignicons-webfont.eot", readFile("fonts/materialdesignicons-webfont.eot"))     // MaterialdesigniconsWebfontEOT())
+	gblrs.FS().SET("/fonts/material/fonts/materialdesignicons-webfont.ttf", readFile("fonts/materialdesignicons-webfont.ttf"))     // MaterialdesigniconsWebfontTTF())
+	gblrs.FS().SET("/fonts/material/fonts/materialdesignicons-webfont.woff", readFile("fonts/materialdesignicons-webfont.woff"))   // MaterialdesigniconsWebfontWOFF())
+	gblrs.FS().SET("/fonts/material/fonts/materialdesignicons-webfont.woff2", readFile("fonts/materialdesignicons-webfont.woff2")) // MaterialdesigniconsWebfontWOFF2())
 
-	gblrs.FS().SET("/materialdesign/head.html", `<link rel="stylesheet" type="text/css" href="/materialdesign/css/materialdesignicons.min.css">`)
+	gblrs.FS().SET("/fonts/material/head.html", `<link rel="stylesheet" type="text/css" href="/fonts/material/css/materialdesignicons.min.css">`)
 }

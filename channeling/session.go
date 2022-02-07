@@ -565,9 +565,6 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 								isactive = convertactive
 							}
 						}
-						if strings.HasSuffix(path, "/typescript.js") {
-							isactive = false
-						}
 						if rspns != nil {
 							rspns.SetHeader("Content-Type", mimetype)
 						}
@@ -585,27 +582,60 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 						}
 						if rs = ssn.FS().CAT(path, fnactiveraw); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
 							if !strings.HasSuffix(path, "/") {
-								path += "/"
+								if tstpath := path; tstpath != "" {
+									if strings.LastIndex(tstpath, "/") > -1 {
+										tstpath = tstpath[:strings.LastIndex(tstpath, "/")+1]
+									} else {
+										tstpath = "/"
+									}
+									for _, pth := range strings.Split("html,js", ",") {
+										if rs = ssn.FS().CAT(tstpath+"default"+"."+pth, fnactiveraw); rs != nil {
+											pathext = "." + pth
+											mimetype, isactive, ismedia = mimes.FindMimeType(tstpath+"default"+"."+pth, "text/plain")
+											if rspns != nil {
+												rspns.SetHeader("Content-Type", mimetype)
+											}
+											break
+										}
+									}
+								}
+								if rs == nil {
+									path += "/"
+								}
 							}
-							for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
-								if rs = ssn.FS().CAT(path+"index"+"."+pth, fnactiveraw); rs == nil {
-									if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
-										continue
+							if rs == nil {
+								for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
+									if rs = ssn.FS().CAT(path+"index"+"."+pth, fnactiveraw); rs == nil {
+										if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
+											continue
+										} else {
+											pathext = "." + pth
+											mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
+											if rspns != nil {
+												rspns.SetHeader("Content-Type", mimetype)
+											}
+											break
+										}
 									} else {
 										pathext = "." + pth
-										mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
+										mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
 										if rspns != nil {
 											rspns.SetHeader("Content-Type", mimetype)
 										}
 										break
 									}
-								} else {
-									pathext = "." + pth
-									mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
-									if rspns != nil {
-										rspns.SetHeader("Content-Type", mimetype)
+								}
+								if rs == nil {
+									for _, pth := range strings.Split("html,js", ",") {
+										if rs = ssn.FS().CAT(path+"default"+"."+pth, fnactiveraw); rs != nil {
+											pathext = "." + pth
+											mimetype, isactive, ismedia = mimes.FindMimeType(path+"default"+"."+pth, "text/plain")
+											if rspns != nil {
+												rspns.SetHeader("Content-Type", mimetype)
+											}
+											break
+										}
 									}
-									break
 								}
 							}
 						}

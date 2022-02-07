@@ -15,10 +15,10 @@ var roboto_v27_latin_regular_woff []byte
 
 func init() {
 	gblrs := resources.GLOBALRSNG()
-	gblrs.FS().MKDIR("/raw:roboto/css", "")
-	gblrs.FS().MKDIR("/raw:roboto/fonts", "")
-	gblrs.FS().SET("/roboto/css/index.css", indexcss)
-	gblrs.FS().SET("/roboto/fonts/roboto-v27-latin-regular.woff", bytes.NewReader(roboto_v27_latin_regular_woff))
-	gblrs.FS().MKDIR("/raw:roboto", "")
-	gblrs.FS().SET("/roboto/head.html", `<link rel="stylesheet" type="text/css" href="/roboto/css/index.css">`)
+	gblrs.FS().MKDIR("/raw:fonts/roboto/css", "")
+	gblrs.FS().MKDIR("/raw:fonts/roboto/fonts", "")
+	gblrs.FS().SET("/fonts/roboto/css/index.css", indexcss)
+	gblrs.FS().SET("/fonts/roboto/fonts/roboto-v27-latin-regular.woff", bytes.NewReader(roboto_v27_latin_regular_woff))
+	gblrs.FS().MKDIR("/raw:fonts/roboto", "")
+	gblrs.FS().SET("/fonts/roboto/head.html", `<link rel="stylesheet" type="text/css" href="/fonts/roboto/css/index.css">`)
 }

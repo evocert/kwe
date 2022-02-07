@@ -17,4 +17,5 @@ func init() {
 	Register_jsext_time(localobjmap)
 	Register_jsext_executils(localobjmap)
 	Register_jsext_consoleutils(localobjmap)
+	Register_jsext_base62(localobjmap)
 }
