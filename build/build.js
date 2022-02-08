@@ -7,18 +7,19 @@ function buildgo(goosgoarchsarr,codepath,outputpath,upxpath) {
                 var goosarcharr=goosarch.trim().split("/");
                 var goos=goosarcharr[0].trim();
                 var goarch=goosarcharr[1].trim();
-                if (goarch==="" || goos==="" || goos==="ios") return;
+                if (goarch==="" || goos==="") return;
                 console.log(`${goos}: ${goarch}`);
                 try {
                     cmd.setReadTimeout(10000,100);
                     cmd.readAll();
                     cmd.println("SET GOOS="+goos);
                     cmd.println("SET GOARCH="+goarch);
+                    
                     if (goos==="ios") {
                         cmd.println("SET CGO_ENABLED=1");
                     }
                     var binpath=outputpath+"";
-                    cmd.println(`go build -v -ldflags "-w -s" -o ${binpath}_${goos}_${goarch}${(goos==="windows"?".exe":(goos==="js"?".wasm":(goos==="darwin"?".dmg":"")))} ${codepath}`);
+                    cmd.println(`go build -v -ldflags "-w -s" -o ${binpath}_${goos}_${goarch}${(goos==="windows"?".exe":(goos==="js"?".wasm":""))} ${codepath}`);
                     cmd.println("echo finit");
                     for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
                         if (ln!=="") {
@@ -48,7 +49,7 @@ function buildgo(goosgoarchsarr,codepath,outputpath,upxpath) {
                     cmd.setReadTimeout(10000,100);
                     cmd.readAll();
                     var binpath=outputpath+"";
-                    cmd.println(`${upxpath} ${binpath}_${goos}_${goarch}${(goos==="windows"?".exe":(goos==="js"?".wasm":(goos==="darwin"?".dmg":"")))}`)
+                    cmd.println(`${upxpath} ${binpath}_${goos}_${goarch}${(goos==="windows"?".exe":(goos==="js"?".wasm":""))}`)
                     cmd.println("echo finit");
                     for(var ln = cmd.readln();!ln.endsWith("finit");ln= cmd.readln()){
                         if (ln!=="") {
