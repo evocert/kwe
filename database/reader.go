@@ -63,17 +63,9 @@ func (rdr *Reader) Columns() []string {
 
 //Data return Displayable data in the form of a slice, 'array', of interface{} values
 func (rdr *Reader) Data() []interface{} {
-	//go func(somethingDone chan bool) {
-	//	defer func() {
-	//		somethingDone <- true
-	//	}()
-
 	for n := range rdr.data {
 		rdr.dispdata[n] = castSQLTypeValue(rdr.data[n], rdr.cltpes[n])
 	}
-	//}(rset.dosomething)
-	//<-rset.dosomething
-
 	return rdr.dispdata[:]
 }
 

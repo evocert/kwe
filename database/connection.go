@@ -331,7 +331,6 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 		var psblprmnme = make([]rune, 8192)
 		var psblprmnmei = 0
 		iorw.ReadRunesEOFFunc(rnrr, func(r rune) error {
-
 			if foundTxt {
 				appr(r)
 				if r == '\'' {
@@ -477,8 +476,8 @@ func (cn *Connection) inReaderOut(rin io.Reader, out io.Writer, ioargs ...interf
 			var buff = iorw.NewBuffer()
 			defer buff.Close()
 			buff.Print(rin)
-			buffl := buff.Size() //bufferr := io.Copy(buff, rin)
-			//if bufferr == nil || bufferr == io.EOF {
+			buffl := buff.Size()
+
 			if buffl > 0 {
 				func() {
 					var buffr = buff.Reader()
@@ -649,7 +648,6 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 		}
 		if cn.dbinvoker != nil {
 			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-				//cn.db.SetMaxIdleConns(runtime.NumCPU() * 4)
 				cn.db, _ = cn.dbi.(*sql.DB)
 			}
 			if err != nil && onerror != nil {
