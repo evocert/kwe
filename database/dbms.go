@@ -149,6 +149,11 @@ func (atvdbms *ActiveDBMS) Execute(a interface{}, excargs ...interface{}) (exctr
 		if atvdbms.atvrntme != nil {
 			excargs = append([]interface{}{atvdbms.atvrntme}, excargs...)
 		}
+		if atvdbms.prmsfnc != nil {
+			if prms := atvdbms.prmsfnc(); prms != nil {
+				excargs = append([]interface{}{prms}, excargs...)
+			}
+		}
 		if exctr = atvdbms.dbms.Execute(a, excargs...); exctr != nil {
 			exctr.OnClose = atvdbms.closeExecutor
 		}
