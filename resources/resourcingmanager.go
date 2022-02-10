@@ -345,7 +345,25 @@ func (rscngmngr *ResourcingManager) fsmkdirall(path ...interface{}) (mkdall bool
 }
 
 func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
-	if pthl := len(path); pthl > 0 {
+	var fs FS = nil
+	var pthl = len(path)
+	if pthl > 0 {
+		var pthi = 0
+		for pthi < pthl {
+			if d := path[pthi]; d != nil {
+				if fsd, _ := d.(FS); fsd != nil {
+					if fs == nil {
+						fs = fsd
+						path = append(path[:pthi], path[pthi+1:]...)
+						pthl--
+						continue
+					}
+				}
+			}
+			pthi++
+		}
+	}
+	if pthl > 0 {
 		var pth1, _ = path[0].(string)
 		pth1 = strings.TrimSpace(pth1)
 		var pth2 = ""
@@ -359,14 +377,19 @@ func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
 		}
 		path[0] = pth1
 		if pthl == 1 {
-			if epnts, paths, _ := rscngmngr.findrsendpntpaths(pth1); epnts != nil && paths != nil {
-				if len(epnts) == 1 && len(paths) == 1 {
-					mkd = epnts[0].fsmkdir(paths[0])
+			if fs == nil {
+				if epnts, paths, _ := rscngmngr.findrsendpntpaths(pth1); epnts != nil && paths != nil {
+					if len(epnts) == 1 && len(paths) == 1 {
+						mkd = epnts[0].fsmkdir(paths[0])
+					}
+					epnts = nil
+					paths = nil
+				} else if pthl == 1 && pth1 != "" {
+					rscngmngr.RegisterEndpoint(pth1, "")
+					mkd = true
 				}
-				epnts = nil
-				paths = nil
 			} else if pthl == 1 && pth1 != "" {
-				rscngmngr.RegisterEndpoint(pth1, "")
+				rscngmngr.RegisterEndpoint(pth1, "", fs)
 				mkd = true
 			}
 		} else if pthl == 2 {

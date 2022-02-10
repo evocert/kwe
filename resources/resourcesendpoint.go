@@ -60,6 +60,7 @@ func (embdrs *EmbeddedResource) Close() (err error) {
 type ResourcingEndpoint struct {
 	//lck               *sync.Mutex
 	fsutils           *fsutils.FSUtils
+	fs                FS
 	path              string
 	epnttype          string
 	isLocal           bool
@@ -500,6 +501,20 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 				if strings.HasPrefix(embedpath, "/") {
 					embedpath = embedpath[1:]
 				}
+				if rscngepnt.fs != nil {
+					fspath := rscngepnt.path
+					fspath = strings.TrimPrefix(fspath, "/")
+					if strings.Contains(fspath, "/") {
+						fspath = fspath[strings.Index(fspath, "/")+1:]
+					}
+					if fspath != "" && !strings.HasSuffix(fspath, "/") {
+						fspath += "/"
+					}
+					if fsrs, _ := rscngepnt.fs.Open(fspath + path); fsrs != nil {
+						rs = newRS(rscngepnt, path, fsrs)
+						return
+					}
+				}
 				if embdrs, embdrsok := rscngepnt.embeddedResources[embedpath]; embdrsok {
 					if embdrs != nil {
 						modified = embdrs.modified
@@ -622,6 +637,23 @@ func (rscngepnt *ResourcingEndpoint) Resource(path string) (rs interface{}) {
 
 func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, raw bool, active bool, a ...interface{}) (rsngepnt *ResourcingEndpoint, rsngepntpath string) {
 	rsngepntpath = path
+	var fs FS = nil
+	var al = len(a)
+	if al > 0 {
+		ai := 0
+		for ai < al {
+			if d := a[ai]; d != nil {
+				if fsd, _ := d.(FS); fsd != nil {
+					if fs == nil {
+						fs = fsd
+					}
+					a = append(a[:ai], a[ai+1:])
+					continue
+				}
+			}
+			ai++
+		}
+	}
 	if rsngepntpath != "" {
 		rsngepntpath = strings.Replace(strings.TrimSpace(rsngepntpath), "\\", "/", -1)
 		if strings.HasPrefix(rsngepntpath, "http://") || strings.HasPrefix(rsngepntpath, "https://") {
@@ -645,12 +677,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, raw bool, 
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath, isRaw: raw, isActive: active}
+					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath, isRaw: raw, isActive: active, fs: nil}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: "", isRaw: raw, isActive: active}
+		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: "", isRaw: raw, isActive: active, fs: fs}
 	}
 	return
 }
