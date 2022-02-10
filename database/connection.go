@@ -306,7 +306,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 	stmnt = ""
 
 	var prvr = rune(0)
-	var prmslbl = [][]rune{[]rune("@@"), []rune("@@")}
+	var prmslbl = [][]rune{[]rune("@"), []rune("@")}
 	var prmslbli = []int{0, 0}
 
 	var appr = func(r rune) {
