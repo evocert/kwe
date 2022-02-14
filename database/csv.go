@@ -77,7 +77,7 @@ func (csvr *CSVReader) Read(p []byte) (n int, err error) {
 				if rdr != nil {
 					var sval = func(v string) (s string) {
 						if v != "" {
-							if strings.Index(v, csvr.ColDelim) >= 0 || strings.Index(v, "\"") >= 0 {
+							if strings.Contains(v, csvr.ColDelim) || strings.Contains(v, "\"") {
 								s = "\"" + strings.Replace(v, "\"", "\"\"", -1) + "\""
 							} else {
 								s = v

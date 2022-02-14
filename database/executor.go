@@ -60,7 +60,7 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, 
 					onfinalize = d
 				}
 				if argsn == len(args) {
-					args = append(args[:argsn])
+					args = args[:argsn]
 				} else if argsn < len(args) {
 					args = append(args[:argsn], args[argsn+1:]...)
 				}

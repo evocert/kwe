@@ -316,6 +316,39 @@ func (rdr *Reader) JSON() (s string, err error) {
 	return
 }
 
+//CSVReader return *CSVReader
+func (rdr *Reader) CSVReader(a ...interface{}) (csvrdr *CSVReader) {
+	csvrdr = NewCSVReader(rdr, nil, nil)
+	return
+}
+
+//ToCSV write *Reader out to json
+func (rdr *Reader) ToCSV(w io.Writer, a ...interface{}) (err error) {
+	if w != nil {
+		if csvrdr := rdr.CSVReader(a...); csvrdr != nil {
+			func() {
+				defer func() { csvrdr = nil }()
+				if _, err = io.Copy(w, csvrdr); err != nil && err == io.EOF {
+					err = nil
+				}
+			}()
+		}
+	}
+	return
+}
+
+//CSV readall *Reader and return csv as string
+func (rdr *Reader) CSV() (s string, err error) {
+	bufr := iorw.NewBuffer()
+	func() {
+		defer bufr.Close()
+		if err = rdr.ToCSV(bufr); err == nil {
+			s = bufr.String()
+		}
+	}()
+	return
+}
+
 //Close the Reader as well as the underlying Executor related to this Reader
 //After this action the Reader is 'empty' or cleaned up in a golang world
 func (rdr *Reader) Close() (err error) {
@@ -457,7 +490,7 @@ func (colType *ColumnType) Numeric() bool {
 	if colType.hasPrecisionScale {
 		return true
 	}
-	return strings.Index(colType.databaseType, "CHAR") == -1 && strings.Index(colType.databaseType, "DATE") == -1 && strings.Index(colType.databaseType, "TIME") == -1
+	return !strings.Contains(colType.databaseType, "CHAR") && !strings.Contains(colType.databaseType, "DATE") && !strings.Contains(colType.databaseType, "TIME")
 }
 
 //HasNullable ColumnType content has NULL able content

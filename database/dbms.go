@@ -42,7 +42,7 @@ func (atvdbms *ActiveDBMS) Connections() (cns []string) {
 func (atvdbms *ActiveDBMS) closeReader(rdr *Reader) {
 	if atvdbms != nil {
 		if atvdbms.readers != nil {
-			if mprdr, _ := atvdbms.readers[rdr]; mprdr == rdr {
+			if atvdbms.readers[rdr] == rdr {
 				atvdbms.readers[rdr] = nil
 				delete(atvdbms.readers, rdr)
 			}
@@ -53,7 +53,7 @@ func (atvdbms *ActiveDBMS) closeReader(rdr *Reader) {
 func (atvdbms *ActiveDBMS) closeExecutor(exctr *Executor) {
 	if atvdbms != nil {
 		if atvdbms.exctrs != nil {
-			if mpexctr, _ := atvdbms.exctrs[exctr]; mpexctr == exctr {
+			if atvdbms.exctrs[exctr] == exctr {
 				atvdbms.exctrs[exctr] = nil
 				delete(atvdbms.exctrs, exctr)
 			}
@@ -357,7 +357,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 					if execargsv, _ := stngv.([]interface{}); len(execargsv) > 0 {
 						for execstngvi := range execargsv {
 							if execstngv := execargsv[execstngvi]; execstngv != nil {
-								if execmpv, _ := execstngv.(map[string]interface{}); execmpv != nil && len(execmpv) > 0 {
+								if execmpv, _ := execstngv.(map[string]interface{}); len(execmpv) > 0 {
 									if execargs == nil {
 										execargs = []map[string]interface{}{}
 									}
@@ -407,18 +407,6 @@ func (dbms *DBMS) QueryJSON(query interface{}, prms ...interface{}) (reader *Rea
 	}
 	return
 }
-
-/*//Query - query database by alias - return Reader for underlying dataset
-func (dbms *DBMS) Query(alias string, query interface{}, prms ...interface{}) (reader *Reader) {
-	if exists, dbcn := dbms.AliasExists(alias); exists {
-		var err error = nil
-		reader, _, err = internquery(dbcn, query, false, nil, nil, nil, prms...)
-		if err != nil && reader == nil {
-
-		}
-	}
-	return
-}*/
 
 func (dbms *DBMS) inReaderOut(ri io.Reader, out io.Writer, ioargs ...interface{}) (hasoutput bool, err error) {
 	if ri != nil {

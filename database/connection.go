@@ -92,10 +92,6 @@ func (cn *Connection) Dispose() (err error) {
 	return
 }
 
-func runeReaderToString(rnr io.RuneReader) (s string) {
-	return
-}
-
 func (cn *Connection) Ping() (status map[string]interface{}) {
 	status = map[string]interface{}{}
 	if cn.db != nil {
@@ -378,7 +374,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 									if !exctr.isRemote() {
 										for mpvk := range mappedVals {
 											mpv := mappedVals[mpvk]
-											if fndprm = strings.ToUpper(psbprmnme) == strings.ToUpper(mpvk); fndprm {
+											if fndprm = strings.EqualFold(psbprmnme, mpvk); fndprm {
 												if validNames == nil {
 													validNames = []string{}
 												}
@@ -614,7 +610,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 		} else if dbool, dok := d.(bool); dok {
 			canRepeat = dbool
 			if argsn == len(args) {
-				args = append(args[:argsn])
+				args = args[:argsn]
 			} else if argsn < len(args) {
 				args = append(args[:argsn], args[argsn+1:]...)
 			}
@@ -632,7 +628,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 					onfinalize = d
 				}
 				if argsn == len(args) {
-					args = append(args[:argsn])
+					args = args[:argsn]
 				} else if argsn < len(args) {
 					args = append(args[:argsn], args[argsn+1:]...)
 				}
@@ -785,7 +781,7 @@ func calibrateConnection(cn *Connection, a ...interface{}) {
 		var opencons = cn.maxopencons
 		for di := range a {
 			if d := a[di]; d != nil {
-				if mpcnsttngs, _ := d.(map[string]interface{}); mpcnsttngs != nil && len(mpcnsttngs) > 0 {
+				if mpcnsttngs, _ := d.(map[string]interface{}); len(mpcnsttngs) > 0 {
 					for k := range mpcnsttngs {
 						v := mpcnsttngs[k]
 						if k == "max-idle-cons" {

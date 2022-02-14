@@ -3,3 +3,4 @@ ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
 ssn.fs().mkdir("kweslnk","C:/GitHub/kweslnk");
 ssn.env().set("kwetl-path","/kwetl");
+ssn.dbms().register("tsql","sqlserver","server=localhost;user id=PTOOLS; password=PTOOLS");
