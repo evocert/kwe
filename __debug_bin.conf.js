@@ -15,6 +15,8 @@ if (ssn.caching().existsAt("a","b",2)) {
 ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
 
+ssn.dbms().query({"csv":{"headers":true,"delim-column":",","delim-row":"\n","data":``}})
+
 ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
 ssn.env().set("kwetl-path","/kwetl");

@@ -30,10 +30,20 @@ type JSONDataEntry interface {
 	JSON() string
 }
 
+//RWSAPI - interface
+type RWSAPI interface {
+	Err() error
+	Close() error
+	Next() bool
+	Scan(dest ...interface{}) error
+	ColumnTypes() ([]*ColumnType, error)
+	Columns() ([]string, error)
+}
+
 //Reader - struct
 type Reader struct {
 	*Executor
-	rws         *sql.Rows
+	rws         RWSAPI //*sql.Rows
 	rownr       int64
 	strtrdng    bool
 	isfocused   bool

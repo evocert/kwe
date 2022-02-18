@@ -26,6 +26,7 @@ type Executor struct {
 	db           *sql.DB
 	cn           *Connection
 	stmt         *sql.Stmt
+	strmqrystngs map[string]interface{}
 	lasterr      error
 	lastInsertID int64
 	rowsAffected int64
@@ -40,7 +41,7 @@ type Executor struct {
 	canRepeat    bool
 }
 
-func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
+func newExecutor(cn *Connection, db *sql.DB, query interface{}, strmqrystngs map[string]interface{}, canRepeat bool, script active.Runtime, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (exctr *Executor) {
 	var argsn = 0
 	for argsn < len(args) {
 		var d = args[argsn]
@@ -67,7 +68,7 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, canRepeat bool, 
 			}
 		}
 	}
-	exctr = &Executor{db: db, cn: cn, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
+	exctr = &Executor{db: db, cn: cn, strmqrystngs: strmqrystngs, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
 	exctr.stmnt, exctr.argNames, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
@@ -141,7 +142,7 @@ func newExecErr(err error, stmnt string) (execerr *ExecError) {
 	return
 }
 
-func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*ColumnType, cls []string) {
+func (exctr *Executor) execute(forrows ...bool) (rws RWSAPI, cltpes []*ColumnType, cls []string) {
 	if exctr.isRemote() {
 		pi, po := io.Pipe()
 		ctx, ctxcancel := context.WithCancel(context.Background())
@@ -244,32 +245,47 @@ func (exctr *Executor) execute(forrows ...bool) (rws *sql.Rows, cltpes []*Column
 		}
 	} else {
 		if exctr.stmt == nil {
-			if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr != nil {
-				exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+			if len(exctr.strmqrystngs) == 0 {
+				if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr != nil {
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+				}
 			}
 		}
-		if exctr.lasterr == nil && exctr.stmt != nil {
+		if exctr.lasterr == nil {
+
 			exctr.lastInsertID = -1
 			exctr.rowsAffected = -1
-			if exctr.canRepeat && len(exctr.argNames) > 0 {
-				for argn := range exctr.argNames {
-					if argnme := exctr.argNames[argn]; argnme != "" {
-						if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
-							parseParam(exctr, prmv, argn)
-						} else {
-							parseParam(exctr, nil, argn)
+			if exctr.stmt != nil {
+				if exctr.canRepeat && len(exctr.argNames) > 0 {
+					for argn := range exctr.argNames {
+						if argnme := exctr.argNames[argn]; argnme != "" {
+							if prmv, prmvok := exctr.mappedArgs[argnme]; prmvok {
+								parseParam(exctr, prmv, argn)
+							} else {
+								parseParam(exctr, nil, argn)
+							}
 						}
 					}
 				}
 			}
 			if len(forrows) >= 1 && forrows[0] {
-				if rws, exctr.lasterr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && exctr.lasterr == nil {
+				if rws, exctr.lasterr = func() (rswapi RWSAPI, rwserr error) {
+					if exctr.stmt != nil && exctr.strmqrystngs == nil {
+						var rws *sql.Rows = nil
+						if rws, rwserr = exctr.stmt.Query(exctr.qryArgs...); rws != nil && rwserr == nil {
+							rswapi, rwserr = newRWSReader(rws, nil)
+						}
+					} else {
+						rswapi, rwserr = newRWSReader(nil, exctr.strmqrystngs)
+					}
+					return
+				}(); rws != nil && exctr.lasterr == nil {
 					cltps, _ := rws.ColumnTypes()
 					cls, _ = rws.Columns()
 					if len(cls) > 0 {
 						clsdstnc := map[string]int{}
 						clsdstncorg := map[string]int{}
-						cltpes = columnTypes(cltps, cls)
+						cltpes = cltps[:] //columnTypes(cltps, cls)
 						for cn := range cls {
 							c := cls[cn]
 							if c != "" {
@@ -546,6 +562,14 @@ func (exctr *Executor) Close() (err error) {
 		if exctr.OnClose != nil {
 			exctr.OnClose(exctr)
 			exctr.OnClose = nil
+		}
+		if exctr.strmqrystngs != nil {
+			if len(exctr.strmqrystngs) > 0 {
+				for strnk := range exctr.strmqrystngs {
+					delete(exctr.strmqrystngs, strnk)
+				}
+			}
+			exctr.strmqrystngs = nil
 		}
 	}
 	return

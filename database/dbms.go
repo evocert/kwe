@@ -341,6 +341,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			var args []interface{} = nil
 			var execargs []map[string]interface{} = nil
 			var argsmap map[string]interface{} = nil
+			var strmqrystngs map[string]interface{} = nil
 			for stngk := range sttngs {
 				stngv := sttngs[stngk]
 				if stngk == "alias" {
@@ -351,6 +352,28 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 					if canRepeat, stngok = stngv.(bool); stngok {
 						if canRepeat {
 							prms = append(prms, stngv)
+						}
+					}
+				} else if stngk == "csv" || stngk == "json" {
+					if strmqrystngsd, _ := stngv.(map[string]interface{}); len(strmqrystngsd) > 0 {
+						if strmqrystngs == nil {
+							strmqrystngs = map[string]interface{}{}
+							strmqrystngs["stream-type"] = stngk
+							for strmk, strmv := range strmqrystngsd {
+								if strmk == "data" {
+									if strmargsd, _ := strmv.([]interface{}); len(strmargsd) > 0 {
+										strmqrystngs[strmk] = iorw.NewMultiArgsReader(strmargsd...)
+									} else {
+										strmqrystngs[strmk] = iorw.NewMultiArgsReader(strmv)
+									}
+								} else {
+									if stngk == "csv" {
+										if strings.Contains("headers,delim-row,delim-column,", strmk) {
+											strmqrystngs[strmk] = strmv
+										}
+									}
+								}
+							}
 						}
 					}
 				} else if stngk == "exec" {
@@ -387,9 +410,13 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 			if len(qryargs) > 0 {
 				prms = append(prms, qryargs...)
 			}
-			if exists, dbcn := dbms.Exists(alias); exists {
+			if exists, dbcn := dbms.Exists(alias); exists || len(strmqrystngs) > 0 {
 				var err error = nil
-				reader, _, err = internquery(dbcn, query, false, execargs, onsuccess, onerror, onfinalize, prms...)
+				if len(strmqrystngs) > 0 {
+					reader, _, err = internquery(nil, query, strmqrystngs, false, execargs, onsuccess, onerror, onfinalize, prms...)
+				} else {
+					reader, _, err = internquery(dbcn, query, strmqrystngs, false, execargs, onsuccess, onerror, onfinalize, prms...)
+				}
 				if err != nil && reader == nil {
 
 				}
@@ -401,7 +428,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 
 func (dbms *DBMS) QueryJSON(query interface{}, prms ...interface{}) (reader *Reader) {
 	var err error = nil
-	reader, _, err = internquery(nil, query, false, nil, nil, nil, nil, prms...)
+	reader, _, err = internquery(nil, query, nil, false, nil, nil, nil, nil, prms...)
 	if err != nil && reader == nil {
 
 	}
@@ -649,7 +676,7 @@ func (dbms *DBMS) Execute(a interface{}, excargs ...interface{}) (exctr *Executo
 		}
 		if exists, dbcn := dbms.Exists(alias); exists {
 			var err error = nil
-			if _, exctr, err = internquery(dbcn, query, true, nil, onsuccess, onerror, onfinalize, prms...); err != nil {
+			if _, exctr, err = internquery(dbcn, query, nil, true, nil, onsuccess, onerror, onfinalize, prms...); err != nil {
 
 			}
 		}

@@ -451,7 +451,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 
 //GblExecute - public for query()*Executor
 func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr *Executor, err error) {
-	if _, exctr, err = internquery(cn, query, true, nil, nil, nil, nil, prms...); err != nil {
+	if _, exctr, err = internquery(cn, query, nil, true, nil, nil, nil, nil, prms...); err != nil {
 
 	}
 	return
@@ -459,7 +459,7 @@ func (cn *Connection) GblExecute(query interface{}, prms ...interface{}) (exctr 
 
 //GblQuery - public for query() *Reader
 func (cn *Connection) GblQuery(query interface{}, prms ...interface{}) (reader *Reader, err error) {
-	reader, _, err = internquery(cn, query, false, nil, nil, nil, nil, prms...)
+	reader, _, err = internquery(cn, query, nil, false, nil, nil, nil, nil, prms...)
 	if err != nil && reader == nil {
 
 	}
@@ -593,7 +593,7 @@ func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}
 	}
 }
 
-func internquery(cn *Connection, query interface{}, noreader bool, execargs []map[string]interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
+func internquery(cn *Connection, query interface{}, strmqrystngs map[string]interface{}, noreader bool, execargs []map[string]interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {
 	var argsn = 0
 	var script active.Runtime = nil
 	var canRepeat = false
@@ -636,7 +636,7 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 		}
 	}
 
-	if cn.db == nil && !cn.IsRemote() {
+	if cn != nil && cn.db == nil && !cn.IsRemote() {
 		if cn.dbinvoker == nil {
 			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
 				cn.dbinvoker = dbinvoker
@@ -651,65 +651,71 @@ func internquery(cn *Connection, query interface{}, noreader bool, execargs []ma
 			}
 		}
 	}
-	if cn.db != nil {
-		if cn.lastmaxidecons != cn.maxidlecons {
-			cn.db.SetMaxIdleConns(cn.maxidlecons)
-			cn.lastmaxidecons = cn.maxidlecons
-		}
-		if cn.lastmaxopencons != cn.maxopencons {
-			cn.db.SetMaxOpenConns(cn.maxopencons)
-			cn.lastmaxopencons = cn.maxopencons
-		}
-
-		if err = cn.db.Ping(); err != nil {
-			cn.db.Close()
-			cn.db = nil
-			if cn.dbinvoker == nil {
-				if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
-					cn.dbinvoker = dbinvoker
-				}
+	if (cn != nil && cn.db != nil) || len(strmqrystngs) > 0 {
+		if cn != nil {
+			if cn.lastmaxidecons != cn.maxidlecons {
+				cn.db.SetMaxIdleConns(cn.maxidlecons)
+				cn.lastmaxidecons = cn.maxidlecons
 			}
-			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-				if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
-					cn.db.Close()
+			if cn.lastmaxopencons != cn.maxopencons {
+				cn.db.SetMaxOpenConns(cn.maxopencons)
+				cn.lastmaxopencons = cn.maxopencons
+			}
+
+			if err = cn.db.Ping(); err != nil {
+				cn.db.Close()
+				cn.db = nil
+				if cn.dbinvoker == nil {
+					if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
+						cn.dbinvoker = dbinvoker
+					}
 				}
 				if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-					cn.db, _ = cn.dbi.(*sql.DB)
+					if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
+						cn.db.Close()
+					}
+					if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+						cn.db, _ = cn.dbi.(*sql.DB)
+					}
 				}
-			}
-			if err != nil && onerror != nil {
-				invokeError(script, err, onerror)
-			}
-			if err == nil {
-				if err = cn.db.Ping(); err != nil {
+				if err != nil && onerror != nil {
 					invokeError(script, err, onerror)
+				}
+				if err == nil {
+					if err = cn.db.Ping(); err != nil {
+						invokeError(script, err, onerror)
+					}
 				}
 			}
 		}
 		if err == nil {
-			if query != nil {
-				exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
-				if noreader {
-					exctr.execute(false)
-					if err = exctr.lasterr; err != nil {
-						invokeError(exctr.script, err, onerror)
-						exctr.Close()
-						exctr = nil
-					}
-				} else {
-					reader = newReader(exctr)
-					reader.execute()
-					if err = reader.lasterr; err != nil {
-						invokeError(reader.script, err, onerror)
-						reader.Close()
-						reader = nil
-					}
+			//if query != nil {
+			if cn != nil && cn.db != nil && strmqrystngs == nil {
+				exctr = newExecutor(cn, cn.db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+			} else {
+				exctr = newExecutor(nil, nil, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+			}
+			if noreader {
+				exctr.execute(false)
+				if err = exctr.lasterr; err != nil {
+					invokeError(exctr.script, err, onerror)
+					exctr.Close()
+					exctr = nil
+				}
+			} else {
+				reader = newReader(exctr)
+				reader.execute()
+				if err = reader.lasterr; err != nil {
+					invokeError(reader.script, err, onerror)
+					reader.Close()
+					reader = nil
 				}
 			}
+			//}
 		}
 	} else if cn.IsRemote() {
 		if query != nil {
-			exctr = newExecutor(cn, cn.db, query, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+			exctr = newExecutor(cn, cn.db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
 			if noreader {
 				exctr.execute(false)
 				if err = exctr.lasterr; err != nil {
