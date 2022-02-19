@@ -28,7 +28,7 @@ try {
 	console.log(e.message);
 }
 
-/*ssn.dbms().register("b1","kwesqlite",":memory:");
+ssn.dbms().register("b1","kwesqlite",":memory:");
 
 ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
 	v1 INT,
@@ -57,7 +57,7 @@ console.log(a.json());
 ssn.dbms().register("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
 
 ssn.fs().mkdir("/movies","D:/movies");
-
+/*
 ssn.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
 ssn.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
 ssn.fs().mkdir("/materialfonts","https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95");
@@ -185,3 +185,4 @@ try {
 } catch(e){
 	console.log(e.message);
 }
+ssn.listen("tcp",":80");
