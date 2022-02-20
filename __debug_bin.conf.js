@@ -30,25 +30,23 @@ try {
 
 ssn.dbms().register("b1","kwesqlite",":memory:");
 
-ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t1(
+ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t1 (
 	v1 INT,
     v2 VARCHAR(1000)
 );`});
 
-ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t2(
+ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t2 (
 	v1 INT,
     v2 VARCHAR(1000)
 );`});
 
 for (let index = 0; index < 100000; index++) {
 	var vt="b"+index;
-	ssn.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@@p1@@,@@p2@@)`},{"p1":index+1,"p2":vt});
+	ssn.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@p1@,@p2@)`},{"p1":index+1,"p2":vt});
 }
 console.log(JSON.stringify(ssn.dbms().info("b2")));
 
-var a=ssn.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1","exec":[
-	{"alias":"b1","query":"insert into t2 (v1,v2) values(@@p1@@,@@p2@@);"}
-]},{"prm1":42});
+var a=ssn.dbms().query({"alias":"b1","query":"select v1 as p1,v2 as p2 from t1"},{"prm1":42});
 
 //console.log(JSON.stringify(kwemethods(a)));
 console.log(a.json());

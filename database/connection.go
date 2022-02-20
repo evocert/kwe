@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/iorw/active"
@@ -19,6 +20,7 @@ type Connection struct {
 	driverName, dataSourceName string
 	dbi                        interface{}
 	db                         *sql.DB
+	dblck                      *sync.RWMutex
 	args                       []interface{}
 	dbinvoker                  func(string, ...interface{}) (*sql.DB, error)
 	lastmaxidecons             int
@@ -636,65 +638,32 @@ func internquery(cn *Connection, query interface{}, strmqrystngs map[string]inte
 		}
 	}
 
-	if cn != nil && cn.db == nil && !cn.IsRemote() {
-		if cn.dbinvoker == nil {
-			if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
-				cn.dbinvoker = dbinvoker
-			}
-		}
-		if cn.dbinvoker != nil {
-			if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-				cn.db, _ = cn.dbi.(*sql.DB)
-			}
-			if err != nil && onerror != nil {
-				invokeError(script, err, onerror)
-			}
-		}
-	}
-	if (cn != nil && cn.db != nil) || len(strmqrystngs) > 0 {
-		if cn != nil {
-			if cn.lastmaxidecons != cn.maxidlecons {
-				cn.db.SetMaxIdleConns(cn.maxidlecons)
-				cn.lastmaxidecons = cn.maxidlecons
-			}
-			if cn.lastmaxopencons != cn.maxopencons {
-				cn.db.SetMaxOpenConns(cn.maxopencons)
-				cn.lastmaxopencons = cn.maxopencons
-			}
-
-			if err = cn.db.Ping(); err != nil {
-				cn.db.Close()
-				cn.db = nil
-				if cn.dbinvoker == nil {
-					if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
-						cn.dbinvoker = dbinvoker
-					}
-				}
-				if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-					if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
-						cn.db.Close()
-					}
-					if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-						cn.db, _ = cn.dbi.(*sql.DB)
-					}
-				}
-				if err != nil && onerror != nil {
-					invokeError(script, err, onerror)
-				}
-				if err == nil {
-					if err = cn.db.Ping(); err != nil {
+	if strlqryl := len(strmqrystngs); strlqryl > 0 || cn != nil && !cn.IsRemote() {
+		if strlqryl > 0 {
+			exctr = newExecutor(nil, nil, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+		} else {
+			if cn != nil && !cn.IsRemote() {
+				if db, dberr := nextCnDb(cn); dberr == nil && db != nil {
+					if dberr != nil && onerror != nil {
+						err = dberr
 						invokeError(script, err, onerror)
 					}
+					if err == nil {
+						if cn.lastmaxidecons != cn.maxidlecons {
+							db.SetMaxIdleConns(cn.maxidlecons)
+							cn.lastmaxidecons = cn.maxidlecons
+						}
+						if cn.lastmaxopencons != cn.maxopencons {
+							db.SetMaxOpenConns(cn.maxopencons)
+							cn.lastmaxopencons = cn.maxopencons
+						}
+						exctr = newExecutor(cn, db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+					}
 				}
 			}
+
 		}
 		if err == nil {
-			//if query != nil {
-			if cn != nil && cn.db != nil && strmqrystngs == nil {
-				exctr = newExecutor(cn, cn.db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
-			} else {
-				exctr = newExecutor(nil, nil, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
-			}
 			if noreader {
 				exctr.execute(false)
 				if err = exctr.lasterr; err != nil {
@@ -744,6 +713,55 @@ func internquery(cn *Connection, query interface{}, strmqrystngs map[string]inte
 	return
 }
 
+func nextCnDb(cn *Connection) (db *sql.DB, err error) {
+	if cn != nil {
+		func() {
+			cn.dblck.RLock()
+
+			if db = cn.db; db != nil {
+				cn.dblck.RUnlock()
+				if err = db.Ping(); err != nil {
+					db.Close()
+					func() {
+						cn.dblck.Lock()
+						defer cn.dblck.Unlock()
+						cn.db = nil
+					}()
+				}
+			} else {
+				cn.dblck.RUnlock()
+			}
+		}()
+		if db == nil {
+			func() {
+				cn.dblck.Lock()
+				defer cn.dblck.Unlock()
+				if cn.dbinvoker == nil {
+					if dbinvoker, hasdbinvoker := cn.dbms.driverDbInvoker(cn.driverName); hasdbinvoker {
+						cn.dbinvoker = dbinvoker
+					}
+				}
+				if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+					if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
+						cn.db.Close()
+					}
+					if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
+						cn.db, _ = cn.dbi.(*sql.DB)
+						if err = cn.db.Ping(); err != nil {
+							cn.db = nil
+						}
+					}
+				}
+				if err == nil {
+					db = cn.db
+				}
+			}()
+		}
+
+	}
+	return
+}
+
 func invokeError(script active.Runtime, err error, onerror interface{}) {
 	if onerror != nil {
 		if fncerror, fncerrorok := onerror.(func(error)); fncerrorok {
@@ -777,7 +795,7 @@ func invokeFinalize(script active.Runtime, onfinalize interface{}) {
 
 //NewConnection - dbms,driver name and datasource name (cn-string)
 func NewConnection(dbms *DBMS, driverName, dataSourceName string) (cn *Connection) {
-	cn = &Connection{dbms: dbms, driverName: driverName, dataSourceName: dataSourceName, lastmaxopencons: -1, lastmaxidecons: -1, maxopencons: -1, maxidlecons: -1}
+	cn = &Connection{dblck: &sync.RWMutex{}, dbms: dbms, driverName: driverName, dataSourceName: dataSourceName, lastmaxopencons: -1, lastmaxidecons: -1, maxopencons: -1, maxidlecons: -1}
 	return
 }
 
@@ -791,12 +809,12 @@ func calibrateConnection(cn *Connection, a ...interface{}) {
 					for k := range mpcnsttngs {
 						v := mpcnsttngs[k]
 						if k == "max-idle-cons" {
-							if vidlecons, _ := v.(int); vidlecons != idlecons {
-								idlecons = vidlecons
+							if vidlecons, _ := v.(int64); vidlecons != int64(idlecons) {
+								idlecons = int(vidlecons)
 							}
 						} else if k == "max-open-cons" {
-							if vopencons, _ := v.(int); vopencons != opencons {
-								opencons = vopencons
+							if vopencons, _ := v.(int64); vopencons != int64(opencons) {
+								opencons = int(vopencons)
 							}
 						}
 					}

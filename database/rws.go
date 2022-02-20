@@ -17,6 +17,8 @@ type RWSReader struct {
 func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *RWSReader, err error) {
 	if len(strmstngs) > 0 {
 		rwsrrdr = &RWSReader{strmstngs: strmstngs}
+	} else if sqlrws != nil {
+		rwsrrdr = &RWSReader{sqlrws: sqlrws}
 	}
 	return
 }
@@ -35,6 +37,9 @@ func (rwsrdr *RWSReader) Close() (err error) {
 		}
 		if rwsrdr.coltypes != nil {
 			rwsrdr.coltypes = nil
+		}
+		if rwsrdr.cls != nil {
+			rwsrdr.cls = nil
 		}
 		rwsrdr = nil
 	}
@@ -72,6 +77,7 @@ func (rwsrdr *RWSReader) Scan(dest ...interface{}) (err error) {
 func (rwsrdr *RWSReader) ColumnTypes() (coltypes []*ColumnType, err error) {
 	if rwsrdr != nil {
 		prepRWSColumns(rwsrdr)
+		coltypes = rwsrdr.coltypes[:]
 	}
 	return
 }
@@ -79,6 +85,7 @@ func (rwsrdr *RWSReader) ColumnTypes() (coltypes []*ColumnType, err error) {
 func (rwsrdr *RWSReader) Columns() (cls []string, err error) {
 	if rwsrdr != nil {
 		prepRWSColumns(rwsrdr)
+		cls = rwsrdr.cls[:]
 	}
 	return
 }
