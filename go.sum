@@ -219,12 +219,16 @@ github.com/ruudk/golang-pdf417 v0.0.0-20181029194003-1af4ab5afa58/go.mod h1:6lfF
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
 github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24/go.mod h1:M+9NzErvs504Cn4c5DxATwIqPbtswREoFCre64PpcG4=
 github.com/shopspring/decimal v1.2.0/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
+github.com/sijms/go-ora v1.2.1 h1:+Vh95Lyv1+AltE74Ru9fvpJx/X1Y7hvw9OriuxPqLbU=
+github.com/sijms/go-ora v1.2.1/go.mod h1:ZGVmJgxUfyGIVmYgA7MVGEq6BX5aoFECRMtHW5DEcs4=
 github.com/sijms/go-ora/v2 v2.2.17 h1:7w1lkgxorhhx/xG5fS/hWhLqBw9BrSFxTvx9oBj0Z0E=
 github.com/sijms/go-ora/v2 v2.2.17/go.mod h1:jzfAFD+4CXHE+LjGWFl6cPrtiIpQVxakI2gvrMF2w6Y=
 github.com/sijms/go-ora/v2 v2.2.22 h1:XmJAEwgokgLfe43QZtYWi6+ziYKz4yHmqKQlbdNVFmA=
 github.com/sijms/go-ora/v2 v2.2.22/go.mod h1:jzfAFD+4CXHE+LjGWFl6cPrtiIpQVxakI2gvrMF2w6Y=
 github.com/sijms/go-ora/v2 v2.3.4 h1:3lQ6lFrOvTQHPqOMhXKiKuPJ732iUdpo9XlWLEavxXM=
 github.com/sijms/go-ora/v2 v2.3.4/go.mod h1:0p/cbn0bdNYv2k6LPsSpGFwDpz0Tdg6A2KF+rT4SrW0=
+github.com/sijms/go-ora/v2 v2.3.5 h1:+8oMV6kup4MzejJexwbuOFUPvGgoKTAk89dtSLl/j+0=
+github.com/sijms/go-ora/v2 v2.3.5/go.mod h1:0p/cbn0bdNYv2k6LPsSpGFwDpz0Tdg6A2KF+rT4SrW0=
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

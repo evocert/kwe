@@ -19,7 +19,8 @@ require (
 	github.com/leesper/go_rng v0.0.0-20190531154944-a612b043e353 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-sqlite3 v1.14.11
-	github.com/sijms/go-ora/v2 v2.3.4
+	github.com/sijms/go-ora v1.2.1
+	github.com/sijms/go-ora/v2 v2.3.5
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20211027215541-db492cf91b37 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd

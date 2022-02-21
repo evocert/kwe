@@ -17,6 +17,7 @@ ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 
 ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
 ssn.dbms().query({alias:"avon",query:"select sysdate as d from dual"}).toJSON(ssn.out());
+ssn.fs().mkdir("/playground","C:/projects/playground");
 ssn.dbms().query({"csv":{"headers":true,"delim-column":",","delim-row":"\n","data":``}})
 
 ssn.fs().mkdir("/kweauth","C:/github/kweauth");

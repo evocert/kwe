@@ -6,7 +6,7 @@ import (
 
 	"github.com/evocert/kwe/database"
 	//helper registration oracle server driver
-	_ "github.com/sijms/go-ora/v2"
+	_ "github.com/sijms/go-ora"
 )
 
 //Open -wrap sql.Open("oracle", datasource)
