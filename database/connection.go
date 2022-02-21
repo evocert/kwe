@@ -742,9 +742,6 @@ func nextCnDb(cn *Connection) (db *sql.DB, err error) {
 					}
 				}
 				if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
-					if cn.db, _ = cn.dbi.(*sql.DB); cn.db != nil {
-						cn.db.Close()
-					}
 					if cn.dbi, err = cn.dbinvoker(cn.dataSourceName); err == nil && cn.dbi != nil {
 						cn.db, _ = cn.dbi.(*sql.DB)
 						if err = cn.db.Ping(); err != nil {
