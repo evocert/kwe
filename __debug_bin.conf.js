@@ -12,13 +12,14 @@ if (ssn.caching().existsAt("a","b",2)) {
 	console.log(ssn.caching().string());
 }
 
-ssn.fs().mkdir("/kweauth","C:/github/kweauth");
+	ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
 
 ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
-ssn.dbms().query({alias:"avon",query:"select sysdate as d from dual"}).toJSON(ssn.out());
+var rec=ssn.dbms().query({alias:"avon",query:"select sysdate as d from dual"});
+rec.next();
 ssn.fs().mkdir("/playground","C:/projects/playground");
-ssn.dbms().query({"csv":{"headers":true,"delim-column":",","delim-row":"\n","data":``}})
+ssn.fs().mkdir("/crm","https://demo.1crmcloud.com/");
 
 ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
@@ -43,7 +44,7 @@ ssn.dbms().execute({"alias":"b1","query":`CREATE TABLE t2 (
     v2 VARCHAR(1000)
 );`});
 
-for (let index = 0; index < 100000; index++) {
+for (let index = 0; index < 1; index++) {
 	var vt="b"+index;
 	ssn.dbms().execute({"alias":"b1","query":`insert into t1 (v1,v2) values(@p1@,@p2@)`},{"p1":index+1,"p2":vt});
 }

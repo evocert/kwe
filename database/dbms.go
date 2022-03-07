@@ -96,7 +96,7 @@ func (atvdbms *ActiveDBMS) Dispose() {
 			for exctr := range atvdbms.exctrs {
 				exctr.Close()
 			}
-			atvdbms.readers = nil
+			atvdbms.exctrs = nil
 		}
 		atvdbms = nil
 	}
@@ -361,14 +361,10 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 							strmqrystngs["stream-type"] = stngk
 							for strmk, strmv := range strmqrystngsd {
 								if strmk == "data" {
-									if strmargsd, _ := strmv.([]interface{}); len(strmargsd) > 0 {
-										strmqrystngs[strmk] = iorw.NewMultiArgsReader(strmargsd...)
-									} else {
-										strmqrystngs[strmk] = iorw.NewMultiArgsReader(strmv)
-									}
+									strmqrystngs[strmk] = strmv
 								} else {
 									if stngk == "csv" {
-										if strings.Contains("headers,delim-row,delim-column,", strmk) {
+										if strings.Contains("headers,row-delim,col-delim,", strmk) {
 											strmqrystngs[strmk] = strmv
 										}
 									}
