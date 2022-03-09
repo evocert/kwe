@@ -14,6 +14,13 @@ if (ssn.caching().existsAt("a","b",2)) {
 
 	ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
+ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; datasource=ONER; user id=ONER; password=ONER");
+
+rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TEST"});
+
+if (rectest!==undefined&&rectest!==null){
+	console.log(rectest.JSON());
+}
 
 ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
 var rec=ssn.dbms().query({alias:"avon",query:"select sysdate as d from dual"});

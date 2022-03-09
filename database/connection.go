@@ -644,24 +644,24 @@ func internquery(cn *Connection, query interface{}, strmqrystngs map[string]inte
 		} else {
 			if cn != nil && !cn.IsRemote() {
 				if db, dberr := nextCnDb(cn); dberr == nil && db != nil {
-					if dberr != nil && onerror != nil {
+					if cn.lastmaxidecons != cn.maxidlecons {
+						db.SetMaxIdleConns(cn.maxidlecons)
+						cn.lastmaxidecons = cn.maxidlecons
+					}
+					if cn.lastmaxopencons != cn.maxopencons {
+						db.SetMaxOpenConns(cn.maxopencons)
+						cn.lastmaxopencons = cn.maxopencons
+					}
+					exctr = newExecutor(cn, db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+				} else if db == nil && dberr != nil {
+					if onerror != nil {
 						err = dberr
 						invokeError(script, err, onerror)
-					}
-					if err == nil {
-						if cn.lastmaxidecons != cn.maxidlecons {
-							db.SetMaxIdleConns(cn.maxidlecons)
-							cn.lastmaxidecons = cn.maxidlecons
-						}
-						if cn.lastmaxopencons != cn.maxopencons {
-							db.SetMaxOpenConns(cn.maxopencons)
-							cn.lastmaxopencons = cn.maxopencons
-						}
-						exctr = newExecutor(cn, db, query, strmqrystngs, canRepeat, script, onsuccess, onerror, onfinalize, args...)
+					} else {
+						err = dberr
 					}
 				}
 			}
-
 		}
 		if err == nil {
 			if noreader {
