@@ -84,12 +84,13 @@ var emptymap = map[string]interface{}{}
 //DataMap return Displayable data in the form of a map[string]interface{} column and values
 func (rdr *Reader) DataMap() (datamap map[string]interface{}) {
 	if rdr != nil && len(rdr.data) > 0 && len(rdr.cls) == len(rdr.data) {
-		displdata := rdr.Data()
 		if rdr.datamap == nil {
 			rdr.datamap = map[string]interface{}{}
 		}
-		for cn := range rdr.cls {
-			rdr.datamap[rdr.cls[cn]] = displdata[cn]
+		if displdata := rdr.Data(); len(displdata) > 0 && len(rdr.cls) == len(displdata) {
+			for cn := range rdr.cls {
+				rdr.datamap[rdr.cls[cn]] = displdata[cn]
+			}
 		}
 		return rdr.datamap
 	}
