@@ -278,18 +278,20 @@ func (rdr *Reader) Next() (next bool, err error) {
 }
 
 func populateRecordData(rdr *Reader) (err error) {
-	if rdr.data == nil {
-		rdr.data = make([]interface{}, len(rdr.cls))
-		rdr.dataref = make([]interface{}, len(rdr.cls))
-		rdr.dispdata = make([]interface{}, len(rdr.cls))
-	}
+	if len(rdr.cls) > 0 {
+		if len(rdr.data) != len(rdr.cls) {
+			rdr.data = make([]interface{}, len(rdr.cls))
+			rdr.dataref = make([]interface{}, len(rdr.cls))
+			rdr.dispdata = make([]interface{}, len(rdr.cls))
+		}
 
-	for n := range rdr.data {
-		rdr.dataref[n] = &rdr.data[n]
-	}
-	if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
-		rdr.Close()
-		err = scerr
+		for n := range rdr.data {
+			rdr.dataref[n] = &rdr.data[n]
+		}
+		if scerr := rdr.rws.Scan(rdr.dataref...); scerr != nil {
+			rdr.Close()
+			err = scerr
+		}
 	}
 	return
 }

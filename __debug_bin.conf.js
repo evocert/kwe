@@ -16,7 +16,7 @@ if (ssn.caching().existsAt("a","b",2)) {
 */
 ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; database=ONER; user id=ONER; password=ONER;");
 
-rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TEST"});
+rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TESTXML"});
 
 if (rectest!==undefined&&rectest!==null){
 	console.log(rectest.json());
