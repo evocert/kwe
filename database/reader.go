@@ -259,7 +259,6 @@ func (rdr *Reader) Next() (next bool, err error) {
 		}
 	} else {
 		if next, err = rdr.internNext(); next && err == nil {
-
 			if err == nil {
 				if validdata = invokeDataValid(rdr.script, rdr.OnValidData, rdr.rownr, rdr); validdata {
 					rdr.rownr++
