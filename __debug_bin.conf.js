@@ -19,7 +19,10 @@ ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; database=ONER; u
 rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TESTXML"});
 
 if (rectest!==undefined&&rectest!==null){
-	console.log(rectest.json());
+	while(rectest.next()){
+		var recxml=ssn.dbms().query({"xml":{"data":rectest.data()[1]}});
+		console.log(recxml.json());
+	}
 }
 
 ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");

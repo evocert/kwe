@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +21,12 @@ type RWSReader struct {
 	sqlrws    *sql.Rows
 	coltypes  []*ColumnType
 	cls       []string
+	firstdata bool
 	data      []interface{}
+	xmldcdr   *xml.Decoder
+	lstxmltkn xml.Token
+	jsndcdr   *json.Decoder
+	jsntkn    json.Token
 }
 
 func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *RWSReader, err error) {
@@ -32,8 +39,8 @@ func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *
 		}
 		for strmk, strmv := range strmstngs {
 			if strmv != nil {
-				if strmtype == "csv" {
-					if strings.Contains("row-delim,col-delim,headers", strmk) {
+				if strmtype == "csv" || strmtype == "json" || strmtype == "xml" {
+					if strmtype == "csv" && strings.Contains("row-delim,col-delim,headers", strmk) {
 						if stngs == nil {
 							stngs = map[string]interface{}{}
 						}
@@ -48,7 +55,7 @@ func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *
 				}
 			}
 		}
-		if rdr != nil && ((strmtype == "csv" && len(stngs) > 0) || strmtype == "json") {
+		if rdr != nil && ((strmtype == "csv" && len(stngs) > 0) || strmtype == "json" || strmtype == "xml") {
 			rwsrrdr = &RWSReader{strmstngs: stngs, rdr: rdr, strmtype: strmtype}
 		} else {
 			err = fmt.Errorf("%s", "Unsupported Data Stream Configutaion")
@@ -83,6 +90,12 @@ func (rwsrdr *RWSReader) Close() (err error) {
 		if rwsrdr.strmtype != "" {
 			rwsrdr.strmtype = ""
 		}
+		if rwsrdr.jsndcdr != nil {
+			rwsrdr.jsndcdr = nil
+		}
+		if rwsrdr.xmldcdr != nil {
+			rwsrdr.xmldcdr = nil
+		}
 		rwsrdr = nil
 	}
 	return
@@ -102,16 +115,27 @@ func (rwsrdr *RWSReader) Next() (nxt bool) {
 	if rwsrdr != nil {
 		if rwsrdr.sqlrws != nil && len(rwsrdr.strmstngs) == 0 && rwsrdr.rdr == nil {
 			nxt = rwsrdr.sqlrws.Next()
-		} else if rwsrdr.rdr != nil && len(rwsrdr.strmstngs) > 0 && rwsrdr.strmtype != "" {
-			if len(rwsrdr.data) > 0 {
-				rwsrdr.data = nil
-			}
-			if len(rwsrdr.cls) == 0 {
-				prepRWSColumns(rwsrdr)
+		} else if rwsrdr.rdr != nil /* && len(rwsrdr.strmstngs) > 0*/ && rwsrdr.strmtype != "" {
+			if rwsrdr.firstdata {
+				rwsrdr.firstdata = false
 			} else {
-				rwsrdr.lsterr = populateRWSStreamData(rwsrdr)
+				if rwsrdr.strmtype == "csv" && len(rwsrdr.data) > 0 {
+					rwsrdr.data = nil
+				}
+				if len(rwsrdr.cls) == 0 {
+					prepRWSColumns(rwsrdr)
+				} else {
+					rwsrdr.lsterr = populateRWSStreamData(rwsrdr)
+				}
 			}
-			nxt = len(rwsrdr.data) > 0
+			if rwsrdr.lsterr == nil {
+				nxt = len(rwsrdr.data) > 0
+			} else {
+				if rwsrdr.lsterr == io.EOF {
+					rwsrdr.lsterr = nil
+				}
+				nxt = false
+			}
 		}
 	}
 	return
@@ -121,7 +145,7 @@ func (rwsrdr *RWSReader) Scan(dest ...interface{}) (err error) {
 	if rwsrdr != nil {
 		if rwsrdr.sqlrws != nil && len(rwsrdr.strmstngs) == 0 && rwsrdr.rdr == nil {
 			err = rwsrdr.sqlrws.Scan(dest...)
-		} else if rwsrdr.rdr != nil && len(rwsrdr.strmstngs) > 0 && rwsrdr.strmtype != "" {
+		} else if rwsrdr.rdr != nil /*&& len(rwsrdr.strmstngs) > 0*/ && rwsrdr.strmtype != "" {
 			if len(rwsrdr.data) > 0 && len(rwsrdr.cls) == len(rwsrdr.data) {
 				if len(dest) == len(rwsrdr.data) {
 					for destn, dta := range rwsrdr.data {
@@ -177,7 +201,7 @@ func prepRWSColumns(rwsrdr *RWSReader) (err error) {
 			} else {
 				err = cltpserr
 			}
-		} else if rwsrdr.sqlrws == nil && len(rwsrdr.strmstngs) > 0 && rwsrdr.rdr != nil {
+		} else if rwsrdr.sqlrws == nil && ((rwsrdr.strmtype == "csv" && len(rwsrdr.strmstngs) > 0) || rwsrdr.strmtype == "json" || rwsrdr.strmtype == "xml") && rwsrdr.rdr != nil {
 			err = populateRWSStreamData(rwsrdr)
 		}
 	}
@@ -190,7 +214,152 @@ func populateRWSStreamData(rwsrdr *RWSReader) (err error) {
 		var coldelim, _ = rwsrdr.strmstngs["col-delim"].(string)
 		var rowdelim, _ = rwsrdr.strmstngs["row-delim"].(string)
 		err = parseCSVRWS(rwsrdr, headers, []rune(coldelim)[:], []rune(rowdelim)[:], rwsrdr.rdr, len(rwsrdr.cls) == 0)
+	} else if rwsrdr.strmtype == "json" {
+		err = parseJSONRWS(rwsrdr, rwsrdr.rdr, len(rwsrdr.cls) == 0)
+	} else if rwsrdr.strmtype == "xml" {
+		err = parseXMLRWS(rwsrdr, rwsrdr.rdr, len(rwsrdr.cls) == 0)
 	}
+	return
+}
+
+func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error) {
+
+	if rwsrdr.xmldcdr == nil {
+		if r, _ := rdr.(io.Reader); r != nil {
+			rwsrdr.xmldcdr = xml.NewDecoder(io.Reader(r))
+		}
+	}
+	if rwsrdr.xmldcdr != nil {
+		if len(rwsrdr.cls) == 0 {
+			var elminc = 0
+			var recelem = ""
+			var cls = []string{}
+			var data = []interface{}{}
+			var dne = false
+			for !dne {
+				if rwsrdr.lstxmltkn, rwsrdr.lsterr = rwsrdr.xmldcdr.Token(); rwsrdr.lstxmltkn != nil {
+					switch rwsrdr.lstxmltkn.(type) {
+					case xml.StartElement:
+						elminc++
+						strlm := rwsrdr.lstxmltkn.(xml.StartElement)
+						if elminc == 1 && (recelem == "" || recelem == strlm.Name.Local) {
+							if recelem == "" {
+								recelem = strlm.Name.Local
+							}
+						} else if elminc == 2 {
+							cls = append(cls, strlm.Name.Local)
+						}
+					case xml.CharData:
+						chrdta := rwsrdr.lstxmltkn.(xml.CharData)
+						if elminc == 2 {
+							if len(data) < len(cls) {
+								if len(chrdta) > 0 {
+									data = append(data, string(chrdta))
+								} else {
+									data = append(data, "")
+								}
+							}
+						}
+					case xml.EndElement:
+						endlm := rwsrdr.lstxmltkn.(xml.EndElement)
+						if elminc > 0 {
+							elminc--
+							if (elminc == 1 && len(cls) > 0 && cls[len(cls)-1] == endlm.Name.Local) || (elminc == 0 && recelem == endlm.Name.Local) {
+								if elminc == 0 {
+									dne = true
+								}
+							}
+						}
+					}
+				}
+			}
+			if dne && rwsrdr.lsterr == nil {
+				rwsrdr.lsterr = nil
+				if len(rwsrdr.cls) == 0 && len(cls) > 0 {
+					rwsrdr.cls = cls[:]
+					rwsrdr.coltypes = make([]*ColumnType, len(cls))
+					for clsn := range cls {
+						rwsrdr.coltypes[clsn] = &ColumnType{
+							name:              rwsrdr.cls[clsn],
+							hasNullable:       true,
+							hasPrecisionScale: false,
+							hasLength:         false,
+							databaseType:      "VARCHAR",
+							length:            0,
+							precision:         0,
+							scale:             0,
+							scanType:          reflect.TypeOf(""),
+						}
+					}
+				}
+				if len(rwsrdr.data) == 0 && len(data) == len(cls) && len(cls) > 0 {
+					rwsrdr.data = data[:]
+					rwsrdr.firstdata = true
+				}
+			} else {
+				err = rwsrdr.lsterr
+			}
+		} else {
+			var elminc = 0
+			var recelem = ""
+			var clsi = 0
+			var dne = false
+			for !dne && rwsrdr.lsterr == nil {
+				if rwsrdr.lstxmltkn, rwsrdr.lsterr = rwsrdr.xmldcdr.Token(); rwsrdr.lstxmltkn != nil {
+					switch rwsrdr.lstxmltkn.(type) {
+					case xml.StartElement:
+						elminc++
+						strlm := rwsrdr.lstxmltkn.(xml.StartElement)
+						if elminc == 1 && (recelem == "" || recelem == strlm.Name.Local) {
+							if recelem == "" {
+								recelem = strlm.Name.Local
+							}
+						} else if elminc == 2 && rwsrdr.cls[clsi] == strlm.Name.Local {
+							continue
+						}
+					case xml.CharData:
+						chrdta := rwsrdr.lstxmltkn.(xml.CharData)
+						if elminc == 2 {
+							if len(chrdta) > 0 {
+								rwsrdr.data[clsi] = string(chrdta)
+							} else {
+								rwsrdr.data[clsi] = ""
+							}
+						}
+					case xml.EndElement:
+						endlm := rwsrdr.lstxmltkn.(xml.EndElement)
+						if elminc > 0 {
+							elminc--
+							if (elminc == 1 && rwsrdr.cls[clsi] == endlm.Name.Local) || (elminc == 0 && recelem == endlm.Name.Local) {
+								if elminc == 0 {
+									dne = true
+								} else if clsi < len(rwsrdr.cls)-1 {
+									clsi++
+								}
+							}
+						}
+					}
+				}
+			}
+			if rwsrdr.lsterr != nil {
+				err = rwsrdr.lsterr
+			}
+		}
+	}
+	return
+}
+
+func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error) {
+
+	if rwsrdr.jsndcdr == nil {
+		if r, _ := rdr.(io.Reader); r != nil {
+			rwsrdr.jsndcdr = json.NewDecoder(io.Reader(r))
+		}
+	}
+	if rwsrdr.jsndcdr != nil {
+
+	}
+
 	return
 }
 

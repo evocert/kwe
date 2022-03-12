@@ -354,7 +354,7 @@ func (dbms *DBMS) Query(a interface{}, qryargs ...interface{}) (reader *Reader) 
 							prms = append(prms, stngv)
 						}
 					}
-				} else if stngk == "csv" || stngk == "json" {
+				} else if stngk == "csv" || stngk == "json" || stngk == "xml" {
 					if strmqrystngsd, _ := stngv.(map[string]interface{}); len(strmqrystngsd) > 0 {
 						if strmqrystngs == nil {
 							strmqrystngs = map[string]interface{}{}
