@@ -12,7 +12,6 @@ type JsonSax struct {
 	r         io.Reader
 	jsndcdr   *jsn.Decoder
 	lstmnctpe jsn.Delim
-	//tknjsntpes []rune
 	crntky    string
 	Level     int
 	LevelKeys map[int]string
