@@ -21,7 +21,8 @@ rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TESTXML"});
 if (rectest!==undefined&&rectest!==null){
 	while(rectest.next()){
 		var recxml=ssn.dbms().query({"xml":{"data":rectest.data()[1]}});
-		console.log(recxml.json());
+		var recjson=ssn.dbms().query({"json":{"data":JSON.stringify([{"ID":1,"CONTENT":"TEST"},{"ID":2,"CONTENT":"WEST"},{"ID":3,"CONTENT":"GEST"}])}});
+		console.log(recjson.json());
 	}
 }
 

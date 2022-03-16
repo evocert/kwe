@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/json"
 )
 
 type RWSReader struct {
@@ -25,8 +25,7 @@ type RWSReader struct {
 	data      []interface{}
 	xmldcdr   *xml.Decoder
 	lstxmltkn xml.Token
-	jsndcdr   *json.Decoder
-	jsntkn    json.Token
+	jsnsx     *json.JsonSax
 }
 
 func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *RWSReader, err error) {
@@ -66,6 +65,15 @@ func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *
 	return
 }
 
+func (rwsrdr *RWSReader) indexOfColumn(col string) (i int) {
+	for p, v := range rwsrdr.cls {
+		if v == col {
+			return p
+		}
+	}
+	return -1
+}
+
 func (rwsrdr *RWSReader) Close() (err error) {
 	if rwsrdr != nil {
 		if rwsrdr.sqlrws != nil {
@@ -90,8 +98,9 @@ func (rwsrdr *RWSReader) Close() (err error) {
 		if rwsrdr.strmtype != "" {
 			rwsrdr.strmtype = ""
 		}
-		if rwsrdr.jsndcdr != nil {
-			rwsrdr.jsndcdr = nil
+		if rwsrdr.jsnsx != nil {
+			rwsrdr.jsnsx.Close()
+			rwsrdr.jsnsx = nil
 		}
 		if rwsrdr.xmldcdr != nil {
 			rwsrdr.xmldcdr = nil
@@ -351,15 +360,204 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 
 func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error) {
 
-	if rwsrdr.jsndcdr == nil {
+	if rwsrdr.jsnsx == nil {
 		if r, _ := rdr.(io.Reader); r != nil {
-			rwsrdr.jsndcdr = json.NewDecoder(io.Reader(r))
+			rwsrdr.jsnsx = json.NewJsonSAX(io.Reader(r))
 		}
 	}
-	if rwsrdr.jsndcdr != nil {
+	if rwsrdr.jsnsx != nil {
+		if len(rwsrdr.cls) == 0 {
+			var data []interface{} = nil
+			var cltpe *ColumnType = nil
 
+			rwsrdr.jsnsx.AppendArr = nil
+
+			rwsrdr.jsnsx.SetKeyVal = func(jsnsx *json.JsonSax, k string, val interface{}, vtpe rune) {
+				if jsnsx.LevelKeys[2] == "columns" && jsnsx.Level == 3 {
+					if cltpe == nil {
+						cltpe = &ColumnType{}
+					}
+					if k == "name" {
+						cltpe.name, _ = val.(string)
+					} else if k == "title" {
+						cltpe.name, _ = val.(string)
+					} else if k == "dbtype" {
+						cltpe.databaseType, _ = val.(string)
+					} else if k == "length" {
+						if lngth, _ := val.(float64); lngth > 0 {
+							cltpe.length = int64(lngth)
+							cltpe.hasLength = true
+						}
+					} else if k == "precision" {
+						if prcsn, _ := val.(float64); prcsn > 0 {
+							cltpe.precision = int64(prcsn)
+							cltpe.hasPrecisionScale = true
+						}
+					} else if k == "scale" {
+						if scle, _ := val.(float64); scle > 0 {
+							cltpe.scale = int64(scle)
+							cltpe.hasPrecisionScale = true
+						}
+					}
+				} else if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' && jsnsx.LevelType[2] == 'O' {
+					if cltpe == nil {
+						cltpe = &ColumnType{}
+					}
+					cltpe.name = k
+					data = append(data, val)
+					if cltpe != nil {
+						rwsrdr.cls = append(rwsrdr.cls, cltpe.name)
+						rwsrdr.coltypes = append(rwsrdr.coltypes, cltpe)
+						cltpe = nil
+					}
+				}
+			}
+
+			rwsrdr.jsnsx.StartObj = nil
+
+			rwsrdr.jsnsx.EndObj = func(jsnsx *json.JsonSax) (done bool) {
+				if jsnsx.Level == 3 && jsnsx.LevelKeys[2] == "columns" {
+					if cltpe != nil {
+						rwsrdr.cls = append(rwsrdr.cls, cltpe.name)
+						rwsrdr.coltypes = append(rwsrdr.coltypes, cltpe)
+						cltpe = nil
+					}
+				} else if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' {
+					if len(data) > 0 && len(data) == len(rwsrdr.cls) {
+						if len(rwsrdr.data) < len(data) {
+							rwsrdr.data = data[:]
+							rwsrdr.firstdata = true
+						}
+					}
+					done = true
+				}
+				return
+			}
+
+			rwsrdr.jsnsx.StartArr = nil
+
+			rwsrdr.jsnsx.EndArr = func(jsnsx *json.JsonSax) (done bool) {
+				if jsnsx.Level == 2 && jsnsx.LevelKeys[jsnsx.Level] == "columns" {
+
+					return true
+				} else if jsnsx.Level == 1 && jsnsx.LevelType[jsnsx.Level] == 'A' {
+					err = io.EOF
+					return true
+				}
+				return
+			}
+			for {
+				if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+					break
+				}
+			}
+		} else {
+			if len(rwsrdr.data) == 0 {
+
+				rwsrdr.jsnsx.StartObj = nil
+				rwsrdr.jsnsx.SetKeyVal = nil
+				rwsrdr.jsnsx.StartArr = nil
+
+				rwsrdr.jsnsx.SetKeyVal = func(jsnsx *json.JsonSax, k string, val interface{}, vtpe rune) {
+					if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' && jsnsx.LevelType[2] == 'O' {
+						if dtai := rwsrdr.indexOfColumn(k); dtai > -1 {
+							if cl := len(rwsrdr.cls); cl > 0 && len(rwsrdr.data) != cl {
+								rwsrdr.data = make([]interface{}, cl)
+							}
+							rwsrdr.data[dtai] = val
+						}
+					}
+				}
+
+				rwsrdr.jsnsx.AppendArr = func(jsnsx *json.JsonSax, val interface{}, vtpe rune) {
+					if jsnsx.LevelKeys[2] == "data" && jsnsx.Level == 3 {
+						if len(rwsrdr.data) < len(rwsrdr.cls) {
+							rwsrdr.data = append(rwsrdr.data, val)
+						}
+					}
+				}
+
+				rwsrdr.jsnsx.EndObj = func(jsnsx *json.JsonSax) (done bool) {
+					if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' {
+
+						done = true
+					}
+					return
+				}
+
+				rwsrdr.jsnsx.EndArr = func(jsnsx *json.JsonSax) (done bool) {
+					if jsnsx.LevelKeys[2] == "data" && jsnsx.Level == 3 {
+
+						done = true
+					} else if jsnsx.Level == 1 && jsnsx.LevelType[jsnsx.Level] == 'A' {
+						err = io.EOF
+						return true
+					}
+					return
+				}
+				for {
+					if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+						if prseerr != nil {
+							err = prseerr
+						}
+						break
+					}
+				}
+			} else {
+				var dtai = 0
+				rwsrdr.jsnsx.StartObj = nil
+				rwsrdr.jsnsx.SetKeyVal = nil
+				rwsrdr.jsnsx.StartArr = nil
+
+				rwsrdr.jsnsx.SetKeyVal = func(jsnsx *json.JsonSax, k string, val interface{}, vtpe rune) {
+					if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' && jsnsx.LevelType[2] == 'O' {
+						if dtai = rwsrdr.indexOfColumn(k); dtai > -1 {
+							if cl := len(rwsrdr.cls); cl > 0 && len(rwsrdr.data) != cl {
+								rwsrdr.data = make([]interface{}, cl)
+							}
+							rwsrdr.data[dtai] = val
+						}
+					}
+				}
+
+				rwsrdr.jsnsx.AppendArr = func(jsnsx *json.JsonSax, val interface{}, vtpe rune) {
+					if jsnsx.LevelKeys[2] == "data" && jsnsx.Level == 3 {
+						if dtai < len(rwsrdr.cls) && len(rwsrdr.data) == len(rwsrdr.cls) {
+							rwsrdr.data[dtai] = val
+							dtai++
+						}
+					}
+				}
+
+				rwsrdr.jsnsx.EndObj = func(jsnsx *json.JsonSax) (done bool) {
+					if jsnsx.Level == 2 && jsnsx.LevelType[1] == 'A' {
+
+						done = true
+					}
+					return
+				}
+
+				rwsrdr.jsnsx.EndArr = func(jsnsx *json.JsonSax) (done bool) {
+					if jsnsx.LevelKeys[2] == "data" && jsnsx.Level == 3 {
+
+						done = true
+					} else if jsnsx.Level == 1 && jsnsx.LevelType[jsnsx.Level] == 'A' {
+						err = io.EOF
+						return true
+					}
+					return
+				}
+				for {
+					if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+						if prseerr != nil {
+							err = prseerr
+						}
+						break
+					}
+				}
+			}
+		}
 	}
-
 	return
 }
 
