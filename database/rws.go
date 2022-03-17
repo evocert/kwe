@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/json"
+	"github.com/evocert/kwe/xml"
 )
 
 type RWSReader struct {
@@ -23,9 +23,8 @@ type RWSReader struct {
 	cls       []string
 	firstdata bool
 	data      []interface{}
-	xmldcdr   *xml.Decoder
-	lstxmltkn xml.Token
 	jsnsx     *json.JsonSax
+	xmlsx     *xml.XmlSax
 }
 
 func newRWSReader(sqlrws *sql.Rows, strmstngs map[string]interface{}) (rwsrrdr *RWSReader, err error) {
@@ -102,8 +101,9 @@ func (rwsrdr *RWSReader) Close() (err error) {
 			rwsrdr.jsnsx.Close()
 			rwsrdr.jsnsx = nil
 		}
-		if rwsrdr.xmldcdr != nil {
-			rwsrdr.xmldcdr = nil
+		if rwsrdr.xmlsx != nil {
+			rwsrdr.xmlsx.Close()
+			rwsrdr.xmlsx = nil
 		}
 		rwsrdr = nil
 	}
@@ -233,125 +233,82 @@ func populateRWSStreamData(rwsrdr *RWSReader) (err error) {
 
 func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error) {
 
-	if rwsrdr.xmldcdr == nil {
+	if rwsrdr.xmlsx == nil {
 		if r, _ := rdr.(io.Reader); r != nil {
-			rwsrdr.xmldcdr = xml.NewDecoder(io.Reader(r))
+			rwsrdr.xmlsx = xml.NewXmlSAX(io.Reader(r))
 		}
 	}
-	if rwsrdr.xmldcdr != nil {
+	if rwsrdr.xmlsx != nil {
 		if len(rwsrdr.cls) == 0 {
-			var elminc = 0
-			var recelem = ""
-			var cls = []string{}
-			var data = []interface{}{}
-			var dne = false
-			for !dne {
-				if rwsrdr.lstxmltkn, rwsrdr.lsterr = rwsrdr.xmldcdr.Token(); rwsrdr.lstxmltkn != nil {
-					switch rwsrdr.lstxmltkn.(type) {
-					case xml.StartElement:
-						elminc++
-						strlm := rwsrdr.lstxmltkn.(xml.StartElement)
-						if elminc == 1 && (recelem == "" || recelem == strlm.Name.Local) {
-							if recelem == "" {
-								recelem = strlm.Name.Local
-							}
-						} else if elminc == 2 {
-							cls = append(cls, strlm.Name.Local)
-						}
-					case xml.CharData:
-						chrdta := rwsrdr.lstxmltkn.(xml.CharData)
-						if elminc == 2 {
-							if len(data) < len(cls) {
-								if len(chrdta) > 0 {
-									data = append(data, string(chrdta))
-								} else {
-									data = append(data, "")
-								}
-							}
-						}
-					case xml.EndElement:
-						endlm := rwsrdr.lstxmltkn.(xml.EndElement)
-						if elminc > 0 {
-							elminc--
-							if (elminc == 1 && len(cls) > 0 && cls[len(cls)-1] == endlm.Name.Local) || (elminc == 0 && recelem == endlm.Name.Local) {
-								if elminc == 0 {
-									dne = true
-								}
-							}
-						}
+			rwsrdr.xmlsx.StartElement = nil
+
+			rwsrdr.xmlsx.ElemData = func(xmlsn *xml.XmlSax, data []byte) {
+				if xmlsn.Level == 2 {
+					if cl, dl := len(rwsrdr.cls), len(rwsrdr.data); (cl == 0 && dl == 0) || dl == cl {
+						rwsrdr.data = append(rwsrdr.data, string(data))
+					} else if cl != dl && dl >= cl {
+						rwsrdr.data[cl] = string(data)
 					}
+					rwsrdr.cls = append(rwsrdr.cls, xmlsn.LevelNames[xmlsn.Level][1])
+
+					rwsrdr.coltypes = append(rwsrdr.coltypes, &ColumnType{
+						name:              xmlsn.LevelNames[xmlsn.Level][1],
+						hasNullable:       true,
+						hasPrecisionScale: false,
+						hasLength:         false,
+						databaseType:      "VARCHAR",
+						length:            0,
+						precision:         0,
+						scale:             0,
+						scanType:          reflect.TypeOf(""),
+					})
 				}
 			}
-			if dne && rwsrdr.lsterr == nil {
-				rwsrdr.lsterr = nil
-				if len(rwsrdr.cls) == 0 && len(cls) > 0 {
-					rwsrdr.cls = cls[:]
-					rwsrdr.coltypes = make([]*ColumnType, len(cls))
-					for clsn := range cls {
-						rwsrdr.coltypes[clsn] = &ColumnType{
-							name:              rwsrdr.cls[clsn],
-							hasNullable:       true,
-							hasPrecisionScale: false,
-							hasLength:         false,
-							databaseType:      "VARCHAR",
-							length:            0,
-							precision:         0,
-							scale:             0,
-							scanType:          reflect.TypeOf(""),
-						}
+
+			rwsrdr.xmlsx.EndElement = func(xmlsn *xml.XmlSax, space, name string) (done bool) {
+				if xmlsn.Level == 1 {
+					done = true
+					rwsrdr.firstdata = len(rwsrdr.data) > 0
+				}
+				return
+			}
+
+			for {
+				if canext, prseerr := rwsrdr.xmlsx.ParseNext(); !canext || prseerr != nil {
+					if prseerr != nil {
+						err = prseerr
 					}
+					break
 				}
-				if len(rwsrdr.data) == 0 && len(data) == len(cls) && len(cls) > 0 {
-					rwsrdr.data = data[:]
-					rwsrdr.firstdata = true
-				}
-			} else {
-				err = rwsrdr.lsterr
 			}
 		} else {
-			var elminc = 0
-			var recelem = ""
-			var clsi = 0
-			var dne = false
-			for !dne && rwsrdr.lsterr == nil {
-				if rwsrdr.lstxmltkn, rwsrdr.lsterr = rwsrdr.xmldcdr.Token(); rwsrdr.lstxmltkn != nil {
-					switch rwsrdr.lstxmltkn.(type) {
-					case xml.StartElement:
-						elminc++
-						strlm := rwsrdr.lstxmltkn.(xml.StartElement)
-						if elminc == 1 && (recelem == "" || recelem == strlm.Name.Local) {
-							if recelem == "" {
-								recelem = strlm.Name.Local
-							}
-						} else if elminc == 2 && rwsrdr.cls[clsi] == strlm.Name.Local {
-							continue
+			rwsrdr.xmlsx.StartElement = nil
+
+			rwsrdr.xmlsx.ElemData = func(xmlsn *xml.XmlSax, data []byte) {
+				if xmlsn.Level == 2 {
+					if dtai := rwsrdr.indexOfColumn(xmlsn.LevelNames[xmlsn.Level][1]); dtai > -1 {
+						if cl := len(rwsrdr.cls); cl > 0 && len(rwsrdr.data) != cl {
+							rwsrdr.data = make([]interface{}, cl)
 						}
-					case xml.CharData:
-						chrdta := rwsrdr.lstxmltkn.(xml.CharData)
-						if elminc == 2 {
-							if len(chrdta) > 0 {
-								rwsrdr.data[clsi] = string(chrdta)
-							} else {
-								rwsrdr.data[clsi] = ""
-							}
-						}
-					case xml.EndElement:
-						endlm := rwsrdr.lstxmltkn.(xml.EndElement)
-						if elminc > 0 {
-							elminc--
-							if (elminc == 1 && rwsrdr.cls[clsi] == endlm.Name.Local) || (elminc == 0 && recelem == endlm.Name.Local) {
-								if elminc == 0 {
-									dne = true
-								} else if clsi < len(rwsrdr.cls)-1 {
-									clsi++
-								}
-							}
-						}
+						rwsrdr.data[dtai] = string(data)
 					}
 				}
 			}
-			if rwsrdr.lsterr != nil {
-				err = rwsrdr.lsterr
+
+			rwsrdr.xmlsx.EndElement = func(xmlsn *xml.XmlSax, space, name string) (done bool) {
+				if xmlsn.Level == 1 {
+					done = true
+				}
+				return
+			}
+
+			for {
+				if canext, prseerr := rwsrdr.xmlsx.ParseNext(); !canext || prseerr != nil {
+					if prseerr != nil {
+						err = prseerr
+					}
+					break
+				}
 			}
 		}
 	}
@@ -448,6 +405,9 @@ func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err erro
 			}
 			for {
 				if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+					if prseerr != nil {
+						err = prseerr
+					}
 					break
 				}
 			}
