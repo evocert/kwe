@@ -22,6 +22,7 @@ type RWSReader struct {
 	coltypes  []*ColumnType
 	cls       []string
 	firstdata bool
+	eof       bool
 	data      []interface{}
 	jsnsx     *json.JsonSax
 	xmlsx     *xml.XmlSax
@@ -138,7 +139,9 @@ func (rwsrdr *RWSReader) Next() (nxt bool) {
 				}
 			}
 			if rwsrdr.lsterr == nil {
-				nxt = len(rwsrdr.data) > 0
+				if nxt = !rwsrdr.eof; nxt {
+					nxt = len(rwsrdr.data) > 0
+				}
 			} else {
 				if rwsrdr.lsterr == io.EOF {
 					rwsrdr.lsterr = nil
@@ -236,6 +239,10 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 	if rwsrdr.xmlsx == nil {
 		if r, _ := rdr.(io.Reader); r != nil {
 			rwsrdr.xmlsx = xml.NewXmlSAX(io.Reader(r))
+			rwsrdr.xmlsx.Eof = func(xmlsn *xml.XmlSax) {
+				xmlsn.Close()
+				rwsrdr.eof = true
+			}
 		}
 	}
 	if rwsrdr.xmlsx != nil {
@@ -274,7 +281,7 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 			}
 
 			for {
-				if canext, prseerr := rwsrdr.xmlsx.ParseNext(); !canext || prseerr != nil {
+				if canext, prseerr := rwsrdr.xmlsx.Next(); !canext || prseerr != nil {
 					if prseerr != nil {
 						err = prseerr
 					}
@@ -302,8 +309,8 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 				return
 			}
 
-			for {
-				if canext, prseerr := rwsrdr.xmlsx.ParseNext(); !canext || prseerr != nil {
+			for !rwsrdr.eof {
+				if canext, prseerr := rwsrdr.xmlsx.Next(); !canext || prseerr != nil {
 					if prseerr != nil {
 						err = prseerr
 					}
@@ -320,6 +327,10 @@ func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err erro
 	if rwsrdr.jsnsx == nil {
 		if r, _ := rdr.(io.Reader); r != nil {
 			rwsrdr.jsnsx = json.NewJsonSAX(io.Reader(r))
+			rwsrdr.jsnsx.Eof = func(jsnsx *json.JsonSax) {
+				jsnsx.Close()
+				rwsrdr.eof = true
+			}
 		}
 	}
 	if rwsrdr.jsnsx != nil {
@@ -403,8 +414,8 @@ func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err erro
 				}
 				return
 			}
-			for {
-				if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+			for !rwsrdr.eof {
+				if canext, prseerr := rwsrdr.jsnsx.Next(); !canext || prseerr != nil {
 					if prseerr != nil {
 						err = prseerr
 					}
@@ -455,8 +466,8 @@ func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err erro
 					}
 					return
 				}
-				for {
-					if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+				for !rwsrdr.eof {
+					if canext, prseerr := rwsrdr.jsnsx.Next(); !canext || prseerr != nil {
 						if prseerr != nil {
 							err = prseerr
 						}
@@ -507,8 +518,8 @@ func parseJSONRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err erro
 					}
 					return
 				}
-				for {
-					if canext, prseerr := rwsrdr.jsnsx.ParseNext(); !canext || prseerr != nil {
+				for !rwsrdr.eof {
+					if canext, prseerr := rwsrdr.jsnsx.Next(); !canext || prseerr != nil {
 						if prseerr != nil {
 							err = prseerr
 						}

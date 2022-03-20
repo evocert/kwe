@@ -14,6 +14,30 @@ if (ssn.caching().existsAt("a","b",2)) {
 
 	ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
+var jsn=jsonsax({"startobj":(jsx,key)=>{
+
+},"startarr":(jsx,key)=>{
+
+},"endarr":(jsx)=>{
+
+},"startobj":(jsx,key)=>{
+
+},"endobj":(jsx)=>{
+
+},"setkeyval":(jsx,key,val,vtype)=>{
+
+},"appendarr":(jsx,val,vtype)=>{
+
+}},
+`{"obj1":null}`);
+
+try {
+	while(jsn.next());
+} catch (error) {
+	console.log(error);
+}
+
+
 ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; database=ONER; user id=ONER; password=ONER;");
 
 rectest=ssn.dbms().query({"alias":"test","query":"select * from ONER.TESTXML"});

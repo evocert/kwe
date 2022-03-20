@@ -16,8 +16,10 @@ import (
 	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw/active/require"
 	"github.com/evocert/kwe/iorw/parsing"
+	"github.com/evocert/kwe/json"
 
 	"github.com/evocert/kwe/iorw"
+	"github.com/evocert/kwe/xml"
 )
 
 //Active - struct
@@ -484,6 +486,8 @@ type atvruntime struct {
 	vmregister     *require.Registry
 	vmreq          *require.RequireModule
 	intrnbuffs     map[*iorw.Buffer]*iorw.Buffer
+	intrnxmlsxs    map[*xml.XmlSax]*xml.XmlSax
+	intrnjsnsxs    map[*json.JsonSax]*json.JsonSax
 	includedpgrms  map[string]*goja.Program
 }
 
@@ -639,6 +643,24 @@ func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 	}
 }
 
+func (atvrntme *atvruntime) removeXmlSax(xmlsx *xml.XmlSax) {
+	if len(atvrntme.intrnxmlsxs) > 0 {
+		if xmlsxf, xmlsxfok := atvrntme.intrnxmlsxs[xmlsx]; xmlsxfok && xmlsxf == xmlsx {
+			atvrntme.intrnxmlsxs[xmlsx] = nil
+			delete(atvrntme.intrnxmlsxs, xmlsx)
+		}
+	}
+}
+
+func (atvrntme *atvruntime) removeJsonSax(jsnsx *json.JsonSax) {
+	if len(atvrntme.intrnjsnsxs) > 0 {
+		if jsnsxf, jsnsxfok := atvrntme.intrnjsnsxs[jsnsx]; jsnsxfok && jsnsxf == jsnsx {
+			atvrntme.intrnjsnsxs[jsnsx] = nil
+			delete(atvrntme.intrnjsnsxs, jsnsx)
+		}
+	}
+}
+
 func (atvrntme *atvruntime) passiveoutsubstring(offsets int64, offsete int64) string {
 	if atvrntme != nil && atvrntme.prsng != nil {
 		//if atvrntme.vmreq != nil && atvrntme.vmreq.Lstprsng != nil {
@@ -723,6 +745,44 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 				atvrntme.intrnbuffs = nil
 			}
 		}
+		if atvrntme.intrnxmlsxs != nil {
+			if il := len(atvrntme.intrnxmlsxs); il > 0 {
+				xmlsxfs := make([]*xml.XmlSax, il)
+				xmlsxfsi := 0
+				for xmlsxf := range atvrntme.intrnxmlsxs {
+					xmlsxfs[xmlsxfsi] = xmlsxf
+					xmlsxfsi++
+				}
+				for len(xmlsxfs) > 0 {
+					xmlsxf := xmlsxfs[0]
+					xmlsxf.Close()
+					xmlsxf = nil
+					xmlsxfs = xmlsxfs[1:]
+				}
+			}
+			if !clearonly {
+				atvrntme.intrnxmlsxs = nil
+			}
+		}
+		if atvrntme.intrnjsnsxs != nil {
+			if il := len(atvrntme.intrnjsnsxs); il > 0 {
+				jsnsxfs := make([]*json.JsonSax, il)
+				jsnsxfsi := 0
+				for jsnsxf := range atvrntme.intrnjsnsxs {
+					jsnsxfs[jsnsxfsi] = jsnsxf
+					jsnsxfsi++
+				}
+				for len(jsnsxfs) > 0 {
+					jsnsxf := jsnsxfs[0]
+					jsnsxf.Close()
+					jsnsxf = nil
+					jsnsxfs = jsnsxfs[1:]
+				}
+			}
+			if !clearonly {
+				atvrntme.intrnjsnsxs = nil
+			}
+		}
 		if !clearonly {
 			atvrntme = nil
 		}
@@ -735,6 +795,26 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			buff = iorw.NewBuffer()
 			buff.OnClose = atvrntme.removeBuffer
 			atvrntme.intrnbuffs[buff] = buff
+			return
+		},
+		"xmlsax": func(a ...interface{}) (xmlsx *xml.XmlSax) {
+			xmlsx = xml.NewXmlSAX(a...)
+			xmlsx.Eof = func(xmlsn *xml.XmlSax) {
+				xmlsn.Close()
+			}
+			xmlsx.CallFunc = atvrntme.InvokeFunction
+			xmlsx.OnClose = atvrntme.removeXmlSax
+			atvrntme.intrnxmlsxs[xmlsx] = xmlsx
+			return
+		},
+		"jsonsax": func(a ...interface{}) (jsnsx *json.JsonSax) {
+			jsnsx = json.NewJsonSAX(a...)
+			jsnsx.Eof = func(jsnsx *json.JsonSax) {
+				jsnsx.Close()
+			}
+			jsnsx.CallFunc = atvrntme.InvokeFunction
+			jsnsx.OnClose = atvrntme.removeJsonSax
+			atvrntme.intrnjsnsxs[jsnsx] = jsnsx
 			return
 		},
 		"sleep": func(mils int64) {
@@ -868,7 +948,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 }
 
 func newatvruntime(atv *Active) (atvrntme *atvruntime, interruptvm func(v interface{}), err error) {
-	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnbuffs: map[*iorw.Buffer]*iorw.Buffer{}}
+	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnxmlsxs: map[*xml.XmlSax]*xml.XmlSax{}, intrnjsnsxs: map[*json.JsonSax]*json.JsonSax{}}
 	if atv != nil {
 		atvrntme.LookupTemplate = atv.AltLookupTemplate
 	}
