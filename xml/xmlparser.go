@@ -22,16 +22,16 @@ type XmlSax struct {
 	xmldcdr       *xml.Decoder
 	CallFunc      func(interface{}, ...interface{}) interface{}
 	errfunc       interface{}
-	Error         func(xmlsn *XmlSax, lasterr error)
+	Error         func(xmlsx *XmlSax, lasterr error)
 	startelemfunc interface{}
-	StartElement  func(xmlsn *XmlSax, space string, name string, attrs ...[]Attr) (done bool)
+	StartElement  func(xmlsx *XmlSax, space string, name string, attrs ...[]Attr) (done bool)
 	elemdatafunc  interface{}
-	ElemData      func(xmlsn *XmlSax, data []byte)
+	ElemData      func(xmlsx *XmlSax, data []byte)
 	endelemfunc   interface{}
-	EndElement    func(xmlsn *XmlSax, space string, name string) (done bool)
-	OnClose       func(xmlsn *XmlSax)
+	EndElement    func(xmlsx *XmlSax, space string, name string) (done bool)
+	OnClose       func(xmlsx *XmlSax)
 	eoffunc       interface{}
-	Eof           func(xmlsn *XmlSax)
+	Eof           func(xmlsx *XmlSax)
 }
 
 func NewXmlSAX(a ...interface{}) (xmlsx *XmlSax) {

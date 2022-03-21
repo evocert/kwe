@@ -80,8 +80,8 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 		}
 	}
 	r := iorw.NewMultiArgsReader(a...)
-	jsndcdr := jsn.NewDecoder(r)
-	jsnsx = &JsonSax{r: r, jsndcdr: jsndcdr, LevelKeys: map[int]string{}, LevelType: map[int]rune{},
+
+	jsnsx = &JsonSax{r: r, LevelKeys: map[int]string{}, LevelType: map[int]rune{},
 		errfunc:       errfunc,
 		eoffunc:       eoffunc,
 		appendarrfunc: appendarrfunc,
@@ -90,6 +90,12 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 		endobjfunc:    endobjfunc,
 		startarrfunc:  startarrfunc,
 		endarrfunc:    endarrfunc}
+	jsnsx.jsndcdr = jsn.NewDecoder(jsnsx)
+	return
+}
+
+func (jsnsx *JsonSax) Read(p []byte) (n int, err error) {
+	n, err = jsnsx.r.Read(p)
 	return
 }
 
