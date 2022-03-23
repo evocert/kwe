@@ -16,6 +16,7 @@ type Attr struct {
 
 type XmlSax struct {
 	r             io.Reader
+	Object        interface{}
 	Level         int
 	LevelNames    map[int][]string
 	LevelAttrs    map[int][]Attr
@@ -29,6 +30,7 @@ type XmlSax struct {
 	ElemData      func(xmlsx *XmlSax, data []byte)
 	endelemfunc   interface{}
 	EndElement    func(xmlsx *XmlSax, space string, name string) (done bool)
+	closefunc     interface{}
 	OnClose       func(xmlsx *XmlSax)
 	eoffunc       interface{}
 	Eof           func(xmlsx *XmlSax)
@@ -40,6 +42,7 @@ func NewXmlSAX(a ...interface{}) (xmlsx *XmlSax) {
 	var startelemfunc interface{}
 	var endelemfunc interface{}
 	var elemdatafunc interface{}
+	var closefunc interface{}
 	if al := len(a); al > 0 {
 		ai := 0
 		for ai < al {
@@ -48,6 +51,8 @@ func NewXmlSAX(a ...interface{}) (xmlsx *XmlSax) {
 					for mk, mv := range mp {
 						if strings.EqualFold(mk, "error") {
 							errfunc = mv
+						} else if strings.EqualFold(mk, "close") {
+							closefunc = mv
 						} else if strings.EqualFold(mk, "eof") {
 							eoffunc = mv
 						} else if strings.EqualFold(mk, "startelem") {
@@ -68,16 +73,25 @@ func NewXmlSAX(a ...interface{}) (xmlsx *XmlSax) {
 	}
 	r := iorw.NewMultiArgsReader(a...)
 	xmldcdr := xml.NewDecoder(r)
-	xmlsx = &XmlSax{r: r, xmldcdr: xmldcdr, LevelNames: map[int][]string{}, LevelAttrs: map[int][]Attr{},
+	xmlsx = &XmlSax{r: r, xmldcdr: xmldcdr, LevelNames: map[int][]string{}, LevelAttrs: map[int][]Attr{}, closefunc: closefunc,
 		startelemfunc: startelemfunc, endelemfunc: endelemfunc, elemdatafunc: elemdatafunc, errfunc: errfunc, eoffunc: eoffunc}
 	return
 }
 
 func (xmlsx *XmlSax) Close() (err error) {
 	if xmlsx != nil {
+		if xmlsx.closefunc != nil {
+			if xmlsx.CallFunc != nil {
+				xmlsx.CallFunc(xmlsx.closefunc, xmlsx)
+			}
+			xmlsx.closefunc = nil
+		}
 		if xmlsx.OnClose != nil {
 			xmlsx.OnClose(xmlsx)
 			xmlsx.OnClose = nil
+		}
+		if xmlsx.Object != nil {
+			xmlsx.Object = nil
 		}
 		if xmlsx.xmldcdr != nil {
 			xmlsx.xmldcdr = nil

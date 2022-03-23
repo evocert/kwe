@@ -2,7 +2,6 @@ package json
 
 import (
 	"encoding/json"
-	jsn "encoding/json"
 	"io"
 	"strings"
 
@@ -11,8 +10,8 @@ import (
 
 type JsonSax struct {
 	r             io.Reader
-	jsndcdr       *jsn.Decoder
-	lstmnctpe     jsn.Delim
+	jsndcdr       *json.Decoder
+	lstmnctpe     json.Delim
 	crntky        string
 	Level         int
 	LevelKeys     map[int]string
@@ -35,6 +34,7 @@ type JsonSax struct {
 	StartArr      func(jsnsx *JsonSax, k string)
 	endarrfunc    interface{}
 	EndArr        func(jsnsx *JsonSax) bool
+	closefunc     interface{}
 	OnClose       func(jsnsx *JsonSax)
 }
 
@@ -47,6 +47,7 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 	var endobjfunc interface{}
 	var startarrfunc interface{}
 	var endarrfunc interface{}
+	var closefunc interface{}
 	if al := len(a); al > 0 {
 		ai := 0
 		for ai < al {
@@ -55,6 +56,8 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 					for mk, mv := range mp {
 						if strings.EqualFold(mk, "error") {
 							errfunc = mv
+						} else if strings.EqualFold(mk, "close") {
+							closefunc = mv
 						} else if strings.EqualFold(mk, "eof") {
 							eoffunc = mv
 						} else if strings.EqualFold(mk, "appendarr") {
@@ -82,6 +85,7 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 	r := iorw.NewMultiArgsReader(a...)
 
 	jsnsx = &JsonSax{r: r, LevelKeys: map[int]string{}, LevelType: map[int]rune{},
+		closefunc:     closefunc,
 		errfunc:       errfunc,
 		eoffunc:       eoffunc,
 		appendarrfunc: appendarrfunc,
@@ -90,7 +94,7 @@ func NewJsonSAX(a ...interface{}) (jsnsx *JsonSax) {
 		endobjfunc:    endobjfunc,
 		startarrfunc:  startarrfunc,
 		endarrfunc:    endarrfunc}
-	jsnsx.jsndcdr = jsn.NewDecoder(jsnsx)
+	jsnsx.jsndcdr = json.NewDecoder(jsnsx)
 	return
 }
 
@@ -101,6 +105,12 @@ func (jsnsx *JsonSax) Read(p []byte) (n int, err error) {
 
 func (jsnsx *JsonSax) Close() {
 	if jsnsx != nil {
+		if jsnsx.closefunc != nil {
+			if jsnsx.CallFunc != nil {
+				jsnsx.CallFunc(jsnsx.closefunc, jsnsx)
+			}
+			jsnsx.closefunc = nil
+		}
 		if jsnsx.OnClose != nil {
 			jsnsx.OnClose(jsnsx)
 		}
@@ -180,7 +190,7 @@ func (jsnsx *JsonSax) Close() {
 func (jsnsx *JsonSax) Next() (canContinue bool, err error) {
 	canContinue = true
 	if tkn, tknerr := jsnsx.jsndcdr.Token(); tknerr == nil {
-		if dlm, _ := tkn.(jsn.Delim); rune(dlm) == '{' {
+		if dlm, _ := tkn.(json.Delim); rune(dlm) == '{' {
 			jsnsx.lstmnctpe = dlm
 			jsnsx.Level++
 			if jsnsx.crntky != "" {
