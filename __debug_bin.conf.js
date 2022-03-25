@@ -14,7 +14,7 @@ if (ssn.caching().existsAt("a","b",2)) {
 
 	ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 */
-var jsn=jsonsax({"startobj":(jsx,key)=>{
+/*var jsn=jsonsax({"startobj":(jsx,key)=>{
 
 },"startarr":(jsx,key)=>{
 
@@ -94,6 +94,7 @@ console.log(a.json());
 ssn.dbms().register("postgres_","postgres","user=postgres password=n@n61ng@ host=localhost port=5433 dbname=postgres sslmode=disable")
 
 ssn.fs().mkdir("/movies","D:/movies");
+*/
 /*
 ssn.fs().mkdir("/kwehyg","http://skullquake.dedicated.co.za:3001/ockert/kwehyg/raw/master/");
 ssn.fs().mkdir("/kwetest","http://skullquake.dedicated.co.za:3001/ockert/kwedt/raw/master/");
@@ -215,11 +216,12 @@ console.log("done - all");
 });*/
 
 //cmd.setReadTimeout(1000*60*5);
-
+ssn.fs().mkdir("/","C:/projects/inovo/avon/avonone");
 
 try {
 	//eval(ssn.Send("/movies/schedule.js").ReadAll());
 } catch(e){
 	console.log(e.message);
 }
-ssn.listen("tcp",":80");
+ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
+ssn.listen("tcp",":1030");
