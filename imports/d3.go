@@ -1,5 +1,5 @@
-//go:build d3
-// +build d3
+//go:build d3 || graphics
+// +build d3 graphics
 
 package imports
 
