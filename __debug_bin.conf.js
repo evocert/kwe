@@ -1,3 +1,9 @@
+ssn.fs().mkdir("/gendocs","./gendocs");
+try {
+	eval(ssn.send("/gendocs/gendocs.js").readAll());
+} catch(e){
+	console.log(e.message);
+}
 /*ssn.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.log(ssn.caching().string());
 if (ssn.caching().existsAt("a","b",2)) {
