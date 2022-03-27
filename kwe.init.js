@@ -1,4 +1,6 @@
+console.log("listening - :1030");
 ssn.listen("tcp",":1030");
+console.log("listen - :1030");
 ssn.listen("tcp",":3335");
 ssn.certifyAddr(`-----BEGIN CERTIFICATE-----
 MIIB+TCCAZ+gAwIBAgIJAL05LKXo6PrrMAoGCCqGSM49BAMCMFkxCzAJBgNVBAYT
@@ -22,3 +24,4 @@ AwEHoUQDQgAEcZpodWh3SEs5Hh3rrEiu1LZOYSaNIWO34MgRxvqwz1FMpLxNlx0G
 cSqrxhPubawptX5MSr02ft32kfOlYbaF5Q==
 -----END EC PRIVATE KEY-----
 `,":3335")
+ssn.fs().mkdir("/","C:/projects/inovo/avon/avonone");

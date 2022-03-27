@@ -6,10 +6,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/evocert/kwe/requesting"
+	"github.com/evocert/kwe/security"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -245,6 +247,7 @@ type ListenerAPI interface {
 	Shutdown(...string) error
 	UnCertifyAddr(...string)
 	CertifyAddr(string, string, ...string) error
+	CasAddr(int64, int64, ...string) error
 }
 
 type Listener struct {
@@ -270,17 +273,41 @@ func (lstnr *Listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (lstnr *Listener) CasAddr(caserial int64, certserial int64, addr ...string) (err error) {
+	if lstnr != nil && caserial > 0 && certserial > 0 {
+		if addrl := len(addr); addrl > 0 {
+			if ca := security.GLOBALCAS().CA(caserial); ca != nil {
+				if cert := ca.Certificate(certserial); cert != nil {
+					for _, adr := range addr {
+						if cnfg := lstnr.tlscertsconf[adr]; cnfg != nil {
+							cnfg = nil
+						}
+						lstnr.tlscertsconf[adr] = cert.ServerTLSConf()
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 func (lstnr *Listener) CertifyAddr(servercert string, serverkey string, addr ...string) (err error) {
 	if lstnr != nil && serverkey != "" && servercert != "" {
-		cer, cererr := tls.X509KeyPair([]byte(servercert), []byte(serverkey))
-		if cererr != nil {
-			err = cererr
-		} else if addrl := len(addr); addrl > 0 {
-			for _, adr := range addr {
-				if cnfg := lstnr.tlscertsconf[adr]; cnfg != nil {
-					cnfg = nil
+		if caserial, cacerialerr := strconv.ParseInt(servercert, 10, 64); cacerialerr == nil {
+			if certserial, certserialerr := strconv.ParseInt(serverkey, 10, 64); certserialerr == nil {
+				err = lstnr.CasAddr(caserial, certserial, addr...)
+			}
+		} else {
+			cer, cererr := tls.X509KeyPair([]byte(servercert), []byte(serverkey))
+			if cererr != nil {
+				err = cererr
+			} else if addrl := len(addr); addrl > 0 {
+				for _, adr := range addr {
+					if cnfg := lstnr.tlscertsconf[adr]; cnfg != nil {
+						cnfg = nil
+					}
+					lstnr.tlscertsconf[adr] = &tls.Config{Certificates: []tls.Certificate{cer}}
 				}
-				lstnr.tlscertsconf[adr] = &tls.Config{Certificates: []tls.Certificate{cer}}
 			}
 		}
 	}
@@ -389,6 +416,7 @@ func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err 
 							if tcerr = tc.SetKeepAlivePeriod(time.Second * 60); tcerr == nil {
 								if tcerr = tc.SetLinger(-1); tcerr == nil {
 									cn = tc
+									cn, err = lstnr.accepts(lstn.addr, cn)
 								} else {
 									err = tcerr
 								}

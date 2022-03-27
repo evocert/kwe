@@ -13,6 +13,7 @@ import (
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/requesting"
+	"github.com/evocert/kwe/security"
 )
 
 //Sessioning
@@ -31,6 +32,7 @@ type SessionAPI interface {
 	SessionSendRecieve(string, ...interface{}) (iorw.PrinterReader, error)
 	FS() *fsutils.FSUtils
 	SessionFS() *fsutils.FSUtils
+	CAS() *security.CAS
 	FSUTILS() fsutils.FSUtils
 	Caching() caching.MapAPI
 	Close() error

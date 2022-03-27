@@ -24,6 +24,7 @@ import (
 	"github.com/evocert/kwe/parameters"
 	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
+	"github.com/evocert/kwe/security"
 	"github.com/evocert/kwe/web"
 )
 
@@ -70,7 +71,7 @@ func NewSession(a ...interface{}) (session api.SessionAPI) {
 			mqttmngr = mqttmsg.Manager()
 		}
 	}
-	var ssn = &Session{Sessions: NewSessions(ssns), atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager()}
+	var ssn = &Session{Sessions: NewSessions(ssns), atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager(), cas: security.GLOBALCAS()}
 	ssn.atvdbms = database.GLOBALDBMS().ActiveDBMS(ssn.atv, func() (prms parameters.ParametersAPI) {
 		prms = ssn.Parameters()
 		return
@@ -92,6 +93,7 @@ type Session struct {
 	mqttmngr    mqtt.MQTTManagerAPI
 	atv         *active.Active
 	atvdbms     *database.ActiveDBMS
+	cas         *security.CAS
 	rqst        requesting.RequestAPI
 	rsmngr      *resources.ResourcingManager
 	ssnrsmngr   *resources.ResourcingManager
@@ -108,6 +110,10 @@ func (ssn *Session) closecmd(prcid int) {
 			delete(ssn.cmnds, prcid)
 		}
 	}
+}
+
+func (ssn *Session) CAS() *security.CAS {
+	return ssn.cas
 }
 
 func (ssn *Session) Command(execpath string, execargs ...string) (cmd *osprc.Command, err error) {

@@ -218,6 +218,7 @@ console.log("done - all");
 //cmd.setReadTimeout(1000*60*5);
 ssn.fs().mkdir("/","C:/projects/inovo/avon/avonone");
 
+
 try {
 	//eval(ssn.Send("/movies/schedule.js").ReadAll());
 } catch(e){
@@ -225,3 +226,6 @@ try {
 }
 ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
 ssn.listen("tcp",":1030");
+//ssn.cas().register(20,{"orginization":"bla"});
+//ssn.cas().ca(20).register(30);
+//ssn.certifyAddr("20","30",":1030")

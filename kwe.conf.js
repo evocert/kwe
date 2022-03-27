@@ -1,4 +1,3 @@
-ssn.fs().mkdir("/","C:/projects/inovo/avon/avonone");
 ssn.fs().mkdir("/kweauth","C:/github/kweauth");
 ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
 ssn.fs().mkdir("kweslnk","C:/projects/slnks");
