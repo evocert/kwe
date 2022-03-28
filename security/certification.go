@@ -93,7 +93,7 @@ func (ca *CA) Register(serial int64) (err error) {
 			NotBefore:    ca.from,
 			NotAfter:     ca.until,
 			SubjectKeyId: []byte{1, 2, 3, 4, 6},
-			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 			KeyUsage:     x509.KeyUsageDigitalSignature,
 		}
 
@@ -191,7 +191,7 @@ func (cas *CAS) Register(serial int64, stngs ...map[string]interface{}) (ca *CA,
 		NotBefore:             from,
 		NotAfter:              until,
 		IsCA:                  true,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 	}
