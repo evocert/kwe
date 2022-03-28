@@ -423,15 +423,17 @@ func (ssn *Session) Bind(nxtpth ...string) (err error) {
 			wg := &sync.WaitGroup{}
 			wg.Add(nxtpthl)
 			for _, nxpth := range nxtpth {
-				go func(mnssn *Session, path string) {
-					var bndssn = mnssn.InvokeSession(mnssn)
+				go func(bndssn api.SessionAPI, path string) {
+
 					defer func() {
 						bndssn.Close()
 						bndssn = nil
 					}()
 					wg.Done()
-					bndssn.Execute(path)
-				}(ssn, nxpth)
+					rqst := requesting.NewRequest(nil, path)
+					defer rqst.Close()
+					bndssn.Execute(rqst)
+				}(ssn.InvokeSession(ssn), nxpth)
 			}
 			wg.Wait()
 		}
@@ -444,14 +446,15 @@ func (ssn *Session) Faf(nxtpth ...string) (err error) {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
 			func() {
 				for _, nxpth := range nxtpth {
-					go func(mnssn *Session, path string) {
-						var bndssn = NewSession(nil)
+					go func(bndssn api.SessionAPI, path string) {
 						defer func() {
 							bndssn.Close()
 							bndssn = nil
 						}()
-						bndssn.Execute(path)
-					}(ssn, nxpth)
+						rqst := requesting.NewRequest(nil, path)
+						defer rqst.Close()
+						bndssn.Execute(rqst)
+					}(NewSession(nil), nxpth)
 				}
 			}()
 		}
@@ -466,14 +469,15 @@ func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
 				ssns := NewSessions(nil)
 				defer ssns.Close()
 				for _, nxpth := range nxtpth {
-					go func(mnssn *Session, path string) {
-						var bndssn = NewSession(ssns)
+					go func(bndssn api.SessionAPI, path string) {
 						defer func() {
 							bndssn.Close()
 							bndssn = nil
 						}()
-						bndssn.Execute(path)
-					}(ssn, nxpth)
+						rqst := requesting.NewRequest(nil, path)
+						defer rqst.Close()
+						bndssn.Execute(rqst)
+					}(ssn.InvokeSession(ssns), nxpth)
 				}
 			}()
 		}

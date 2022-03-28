@@ -1,6 +1,7 @@
 package channeling
 
 import (
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,20 +23,14 @@ func NewSessions(mnssns *Sessions) (ssns *Sessions) {
 	return
 }
 
-var nxtsetiallck sync.RWMutex
-
 func nextserial() (nxsrl int64) {
-	func() {
-		defer nxtsetiallck.RUnlock()
-		nxtsetiallck.RLock()
-		time.Sleep(1 * time.Nanosecond)
-		nxsrl = time.Now().UnixNano()
-	}()
+	time.Sleep(1 * time.Nanosecond)
+	nxsrl = time.Now().UnixNano()
 	return
 }
 
-func (ssns *Sessions) Serial() int64 {
-	return ssns.ssnsserial
+func (ssns *Sessions) Serial() string {
+	return strconv.FormatInt(ssns.ssnsserial, 10)
 }
 
 func (ssns *Sessions) CloseSession(ssn *Session) {
@@ -139,9 +134,9 @@ func (ssns *Sessions) Wait(milsecs ...int) {
 		}
 		for ssnlen() > 0 {
 			if len(milsecs) > 0 && milsecs[0] > 5 {
-				time.Sleep(time.Duration(milsecs[0]) * time.Millisecond)
+				<-time.After(time.Duration(milsecs[0]) * time.Millisecond)
 			} else {
-				time.Sleep(10 * time.Millisecond)
+				<-time.After(10 * time.Millisecond)
 			}
 		}
 	}()
@@ -149,7 +144,7 @@ func (ssns *Sessions) Wait(milsecs ...int) {
 
 func (ssns *Sessions) Close() {
 	if ssns != nil {
-
+		ssns.Wait()
 		ssns = nil
 	}
 }
