@@ -234,4 +234,4 @@ ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user
 ssn.listen("tcp",":1030");
 ssn.cas().register(20,{"orginization":"bla"});
 ssn.cas().ca(20).register(30);
-ssn.certifyAddr("20","30",":1030")
+//ssn.certifyAddr("20","30",":1030")

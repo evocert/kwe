@@ -38,6 +38,9 @@ type SessionAPI interface {
 	Close() error
 	Execute(...interface{}) error
 	Bind(nxtpth ...string) error
+	Join(nxtpth ...string) error
+	Faf(nxtpth ...string) error
+	FafJoin(nxtpth ...string) error
 	FAFExecute(...interface{}) error
 	Env() env.EnvAPI
 	Listen(network string, addr ...string) (err error)

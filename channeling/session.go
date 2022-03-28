@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/caching"
@@ -303,6 +304,9 @@ func (ssn *Session) DBMS() (atvdbms database.DBMSAPI) {
 func (ssn *Session) Close() (err error) {
 	if ssn != nil {
 		if ssn.Sessions != nil {
+			if ssn.mnssns != nil {
+				ssn.mnssns.CloseSession(ssn)
+			}
 			ssn.Sessions.Close()
 			ssn.Sessions = nil
 		}
@@ -403,19 +407,33 @@ func (ssn *Session) Parameters() (prms parameters.ParametersAPI) {
 	return
 }
 
+func (ssn *Session) Join(nxtpth ...string) (err error) {
+	if ssn != nil {
+		if nxtpthl := len(nxtpth); nxtpthl > 0 {
+			err = ssn.Bind(nxtpth...)
+			ssn.Wait(5)
+		}
+	}
+	return
+}
+
 func (ssn *Session) Bind(nxtpth ...string) (err error) {
 	if ssn != nil {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
+			wg := &sync.WaitGroup{}
+			wg.Add(nxtpthl)
 			for _, nxpth := range nxtpth {
 				go func(mnssn *Session, path string) {
-					var bndssn = NewSession(ssn)
+					var bndssn = mnssn.InvokeSession(mnssn)
 					defer func() {
 						bndssn.Close()
 						bndssn = nil
 					}()
+					wg.Done()
 					bndssn.Execute(path)
 				}(ssn, nxpth)
 			}
+			wg.Wait()
 		}
 	}
 	return
@@ -424,16 +442,40 @@ func (ssn *Session) Bind(nxtpth ...string) (err error) {
 func (ssn *Session) Faf(nxtpth ...string) (err error) {
 	if ssn != nil {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
-			for _, nxpth := range nxtpth {
-				go func(mnssn *Session, path string) {
-					var bndssn = NewSession(nil)
-					defer func() {
-						bndssn.Close()
-						bndssn = nil
-					}()
-					bndssn.Execute(path)
-				}(ssn, nxpth)
-			}
+			func() {
+				for _, nxpth := range nxtpth {
+					go func(mnssn *Session, path string) {
+						var bndssn = NewSession(nil)
+						defer func() {
+							bndssn.Close()
+							bndssn = nil
+						}()
+						bndssn.Execute(path)
+					}(ssn, nxpth)
+				}
+			}()
+		}
+	}
+	return
+}
+
+func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
+	if ssn != nil {
+		if nxtpthl := len(nxtpth); nxtpthl > 0 {
+			func() {
+				ssns := NewSessions(nil)
+				defer ssns.Close()
+				for _, nxpth := range nxtpth {
+					go func(mnssn *Session, path string) {
+						var bndssn = NewSession(ssns)
+						defer func() {
+							bndssn.Close()
+							bndssn = nil
+						}()
+						bndssn.Execute(path)
+					}(ssn, nxpth)
+				}
+			}()
 		}
 	}
 	return
