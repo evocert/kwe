@@ -1,5 +1,5 @@
-//go:build jqueryui
-// +build jqueryui
+//go:build jqueryui || ui
+// +build jqueryui ui
 
 package imports
 
