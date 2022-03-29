@@ -1,5 +1,5 @@
-//go:build datatables || web
-// +build datatables web
+//go:build datatables || web || ui
+// +build datatables web ui
 
 package imports
 

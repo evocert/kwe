@@ -1,5 +1,5 @@
-//go:build tablesorter
-// +build tablesorter
+//go:build tablesorter || ui
+// +build tablesorter ui
 
 package imports
 
