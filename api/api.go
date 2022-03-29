@@ -60,7 +60,6 @@ type PathAPI interface {
 }
 
 //Scheduling
-
 type ScheduleAPI interface {
 	Schedules() SchedulesAPI
 	Session() SessionAPI
