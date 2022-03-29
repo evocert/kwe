@@ -21,11 +21,15 @@ func init() {
 	gblrsfs.SET("/jspanel/js/extensions/modal/jspanel.modal.js", jspanelmodaljs)
 
 	gblrsfs.MKDIR("/raw:jspanel", "")
+	gblrsfs.SET("/jspanel/index.html", jspanelindexhtml)
 	gblrsfs.SET("/jspanel/head.html",
 		`<link rel="stylesheet" type="text/css" href="/jspanel/css/jspanel.min.css">
 <script type="application/javascript" src="/jspanel/js/jspanel.min.js"></script>
 <script type="application/javascript" src="/jspanel/js/extensions/modal/jspanel.modal.min.js"></script>`)
 }
+
+//go:embed index.html
+var jspanelindexhtml string
 
 //go:embed css/jspanel.min.css
 var jspanelcss string
