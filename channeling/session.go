@@ -422,19 +422,7 @@ func (ssn *Session) Bind(nxtpth ...string) (err error) {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
 			wg := &sync.WaitGroup{}
 			wg.Add(nxtpthl)
-			for _, nxpth := range nxtpth {
-				go func(bndssn api.SessionAPI, path string) {
-
-					defer func() {
-						bndssn.Close()
-						bndssn = nil
-					}()
-					wg.Done()
-					rqst := requesting.NewRequest(nil, path)
-					defer rqst.Close()
-					bndssn.Execute(rqst)
-				}(ssn.InvokeSession(ssn), nxpth)
-			}
+			ssnschanpaths <- &fafssnrequest{bind: true, wg: wg, nxtpths: nxtpth[:], mssn: ssn.Sessions}
 			wg.Wait()
 		}
 	}
@@ -445,18 +433,14 @@ func (ssn *Session) Faf(nxtpth ...string) (err error) {
 	if ssn != nil {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
 			func() {
-				for _, nxpth := range nxtpth {
-					if nxpth != "" {
-						ssnschanpaths <- nxpth
-					}
-				}
+				ssnschanpaths <- &fafssnrequest{nxtpths: nxtpth[:]}
 			}()
 		}
 	}
 	return
 }
 
-func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
+/*func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
 	if ssn != nil {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
 			func() {
@@ -468,16 +452,16 @@ func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
 							bndssn.Close()
 							bndssn = nil
 						}()
-						rqst := requesting.NewRequest(nil, path)
-						defer rqst.Close()
-						bndssn.Execute(rqst)
+						//rqst := requesting.NewRequest(nil, path)
+						//defer rqst.Close()
+						bndssn.Execute(nxtpth)
 					}(ssn.InvokeSession(ssns), nxpth)
 				}
 			}()
 		}
 	}
 	return
-}
+}*/
 
 func (ssn *Session) AddPath(nxtpth ...string) {
 	if ssn != nil && ssn.addNextPath != nil {
@@ -497,6 +481,7 @@ func (ssn *Session) FAFExecute(a ...interface{}) (err error) {
 func (ssn *Session) Execute(a ...interface{}) (err error) {
 	if ssn != nil {
 		var ai = 0
+		var execpathfound string
 		var nxtrqst requesting.RequestAPI = nil
 		if len(a) > 0 {
 			for di := range a {
@@ -506,6 +491,10 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							nxtrqst = rqstd
 						}
 						continue
+					} else if execpathfoundd, _ := d.(string); execpathfoundd != "" {
+						if execpathfound == "" {
+							execpathfound = strings.TrimSpace(execpathfoundd)
+						}
 					}
 				}
 				ai++
@@ -521,195 +510,197 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 		if nxtrqst != nil {
 			ssn.rqst = nxtrqst
 		}
-		if rqst := ssn.In(); rqst != nil {
-			rspns := rqst.Response()
-			prtclrangetype := rqst.RangeType()
-			prtclrangeoffset := rqst.RangeOffset()
-
-			var rqstdpaths *enumeration.List = enumeration.NewList()
-			ssn.addNextPath = func(nxtpth ...string) {
-				if nxtpthl := len(nxtpth); nxtpthl > 0 {
-					nxtpthi := 0
-					var nxtToAdd []string = nil
-					for nxtpthi < nxtpthl {
-						if nxtp := strings.TrimSpace(nxtpth[nxtpthi]); nxtp != "" {
-							for _, nxp := range strings.Split(nxtp, "|") {
-								if nxp != "" {
-									if nxtToAdd == nil {
-										nxtToAdd = []string{}
-									}
-									nxtToAdd = append(nxtToAdd, nxp)
+		var rqst requesting.RequestAPI = nil
+		var rspns requesting.ResponseAPI = nil
+		var prtclrangetype string = ""
+		var prtclrangeoffset int64 = -1
+		if rqst = ssn.In(); rqst != nil {
+			rspns = rqst.Response()
+			prtclrangetype = rqst.RangeType()
+			prtclrangeoffset = rqst.RangeOffset()
+		}
+		var rqstdpaths *enumeration.List = enumeration.NewList()
+		ssn.addNextPath = func(nxtpth ...string) {
+			if nxtpthl := len(nxtpth); nxtpthl > 0 {
+				nxtpthi := 0
+				var nxtToAdd []string = nil
+				for nxtpthi < nxtpthl {
+					if nxtp := strings.TrimSpace(nxtpth[nxtpthi]); nxtp != "" {
+						for _, nxp := range strings.Split(nxtp, "|") {
+							if nxp != "" {
+								if nxtToAdd == nil {
+									nxtToAdd = []string{}
 								}
+								nxtToAdd = append(nxtToAdd, nxp)
 							}
 						}
-						nxtpthi++
 					}
-					if len(nxtToAdd) > 0 {
-						for nxttaddi := range nxtToAdd {
-							if nxttadd := nxtToAdd[nxttaddi]; nxttadd != "" {
-								rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
-							}
+					nxtpthi++
+				}
+				if len(nxtToAdd) > 0 {
+					for nxttaddi := range nxtToAdd {
+						if nxttadd := nxtToAdd[nxttaddi]; nxttadd != "" {
+							rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
 						}
-						nxtToAdd = nil
 					}
+					nxtToAdd = nil
 				}
 			}
-			defer func() { ssn.addNextPath = nil }()
+		}
+		defer func() { ssn.addNextPath = nil }()
 
-			if ppath := rqst.Path(); ppath != "" {
-				ssn.addNextPath(ppath)
-				func() {
-					var crntexpths *enumeration.List = nil
+		if ppath := func() string {
+			if rqst != nil {
+				return rqst.Path()
+			}
+			return execpathfound
+		}(); ppath != "" {
+			ssn.addNextPath(ppath)
+			func() {
+				var crntexpths *enumeration.List = nil
+				defer func() {
+					if crntexpths != nil {
+						crntexpths.Dispose(nil, nil)
+						crntexpths = nil
+					}
+				}()
+				var processPath = func(expth *exepath) (err error) {
+					if expth == nil {
+						return
+					}
+					if crntexpths == nil {
+						crntexpths = enumeration.NewList()
+					}
+					crntexpths.Push(nil, nil, expth)
+					var cnrtextpthsnd = crntexpths.Tail()
 					defer func() {
-						if crntexpths != nil {
-							crntexpths.Dispose(nil, nil)
-							crntexpths = nil
+						if crntexpths != nil && cnrtextpthsnd != nil {
+							cnrtextpthsnd.Dispose(nil, nil)
 						}
 					}()
-					var processPath = func(expth *exepath) (err error) {
-						if expth == nil {
-							return
-						}
-						if crntexpths == nil {
-							crntexpths = enumeration.NewList()
-						}
-						crntexpths.Push(nil, nil, expth)
-						var cnrtextpthsnd = crntexpths.Tail()
-						defer func() {
-							if crntexpths != nil && cnrtextpthsnd != nil {
-								cnrtextpthsnd.Dispose(nil, nil)
-							}
-						}()
-						ssn.pathfunc = func() *exepath {
-							if crntexpths != nil && crntexpths.Length() > 0 {
-								if val := crntexpths.Tail().Value(); val != nil {
-									if dngexpth, _ := val.(*exepath); dngexpth != nil {
-										return dngexpth
-									}
-								} else {
-									return expth
-								}
-							}
-							return expth
-						}
-
-						defer func() {
-							ssn.pathfunc = nil
-						}()
-						var path = expth.Path()
-						var pathext = filepath.Ext(path)
-						var convertactive bool = false
-						var israw = false
-						var mimetype, isactive, ismedia = mimes.FindMimeType(path, "text/plain")
-						if israw = strings.Contains(path, "/raw:"); israw {
-							path = strings.Replace(path, "/raw:", "/", 1)
-							isactive = !israw
-						}
-						if convertactive = strings.Contains(path, "/active:"); convertactive {
-							path = strings.Replace(path, "/active:", "/", 1)
-							if !israw && !isactive {
-								isactive = convertactive
-							}
-						}
-						if rspns != nil {
-							rspns.SetHeader("Content-Type", mimetype)
-						}
-						var rs io.Reader = nil
-						var fnactiveraw = func(rsraw bool, rsactive bool) {
-							if israw = rsraw; !israw {
-								if isactive {
-									if !convertactive {
-										convertactive = rsactive
-									}
+					ssn.pathfunc = func() *exepath {
+						if crntexpths != nil && crntexpths.Length() > 0 {
+							if val := crntexpths.Tail().Value(); val != nil {
+								if dngexpth, _ := val.(*exepath); dngexpth != nil {
+									return dngexpth
 								}
 							} else {
-								isactive = false
+								return expth
 							}
 						}
-						if rs = ssn.FS().CAT(path, fnactiveraw); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
-							if !strings.HasSuffix(path, "/") {
-								if tstpath := path; tstpath != "" {
-									if strings.LastIndex(tstpath, "/") > -1 {
-										tstpath = tstpath[:strings.LastIndex(tstpath, "/")+1]
-									} else {
-										tstpath = "/"
-									}
-									for _, pth := range strings.Split("html,js", ",") {
-										if rs = ssn.FS().CAT(tstpath+"default"+"."+pth, fnactiveraw); rs != nil {
-											pathext = "." + pth
-											mimetype, isactive, ismedia = mimes.FindMimeType(tstpath+"default"+"."+pth, "text/plain")
-											if rspns != nil {
-												rspns.SetHeader("Content-Type", mimetype)
-											}
-											break
-										}
-									}
-								}
-								if rs == nil {
-									path += "/"
+						return expth
+					}
+
+					defer func() {
+						ssn.pathfunc = nil
+					}()
+					var path = expth.Path()
+					var pathext = filepath.Ext(path)
+					var convertactive bool = false
+					var israw = false
+					var mimetype, isactive, ismedia = mimes.FindMimeType(path, "text/plain")
+					if israw = strings.Contains(path, "/raw:"); israw {
+						path = strings.Replace(path, "/raw:", "/", 1)
+						isactive = !israw
+					}
+					if convertactive = strings.Contains(path, "/active:"); convertactive {
+						path = strings.Replace(path, "/active:", "/", 1)
+						if !israw && !isactive {
+							isactive = convertactive
+						}
+					}
+					if rspns != nil {
+						rspns.SetHeader("Content-Type", mimetype)
+					}
+					var rs io.Reader = nil
+					var fnactiveraw = func(rsraw bool, rsactive bool) {
+						if israw = rsraw; !israw {
+							if isactive {
+								if !convertactive {
+									convertactive = rsactive
 								}
 							}
-							if rs == nil {
-								for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
-									if rs = ssn.FS().CAT(path+"index"+"."+pth, fnactiveraw); rs == nil {
-										if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
-											continue
-										} else {
-											pathext = "." + pth
-											mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
-											if rspns != nil {
-												rspns.SetHeader("Content-Type", mimetype)
-											}
-											break
-										}
-									} else {
+						} else {
+							isactive = false
+						}
+					}
+					if rs = ssn.FS().CAT(path, fnactiveraw); rs == nil && (strings.LastIndex(path, ".") == -1 || strings.LastIndex(path, "/") > strings.LastIndex(path, ".")) {
+						if !strings.HasSuffix(path, "/") {
+							if tstpath := path; tstpath != "" {
+								if strings.LastIndex(tstpath, "/") > -1 {
+									tstpath = tstpath[:strings.LastIndex(tstpath, "/")+1]
+								} else {
+									tstpath = "/"
+								}
+								for _, pth := range strings.Split("html,js", ",") {
+									if rs = ssn.FS().CAT(tstpath+"default"+"."+pth, fnactiveraw); rs != nil {
 										pathext = "." + pth
-										mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
+										mimetype, isactive, ismedia = mimes.FindMimeType(tstpath+"default"+"."+pth, "text/plain")
 										if rspns != nil {
 											rspns.SetHeader("Content-Type", mimetype)
 										}
 										break
 									}
 								}
-								if rs == nil {
-									for _, pth := range strings.Split("html,js", ",") {
-										if rs = ssn.FS().CAT(path+"default"+"."+pth, fnactiveraw); rs != nil {
-											pathext = "." + pth
-											mimetype, isactive, ismedia = mimes.FindMimeType(path+"default"+"."+pth, "text/plain")
-											if rspns != nil {
-												rspns.SetHeader("Content-Type", mimetype)
-											}
-											break
+							}
+							if rs == nil {
+								path += "/"
+							}
+						}
+						if rs == nil {
+							for _, pth := range strings.Split("html,xml,svg,js,json,css", ",") {
+								if rs = ssn.FS().CAT(path+"index"+"."+pth, fnactiveraw); rs == nil {
+									if rs = ssn.FS().CAT(path + "main" + "." + pth); rs == nil {
+										continue
+									} else {
+										pathext = "." + pth
+										mimetype, isactive, ismedia = mimes.FindMimeType(path+"main"+"."+pth, "text/plain")
+										if rspns != nil {
+											rspns.SetHeader("Content-Type", mimetype)
 										}
+										break
+									}
+								} else {
+									pathext = "." + pth
+									mimetype, isactive, ismedia = mimes.FindMimeType(path+"index"+"."+pth, "text/plain")
+									if rspns != nil {
+										rspns.SetHeader("Content-Type", mimetype)
+									}
+									break
+								}
+							}
+							if rs == nil {
+								for _, pth := range strings.Split("html,js", ",") {
+									if rs = ssn.FS().CAT(path+"default"+"."+pth, fnactiveraw); rs != nil {
+										pathext = "." + pth
+										mimetype, isactive, ismedia = mimes.FindMimeType(path+"default"+"."+pth, "text/plain")
+										if rspns != nil {
+											rspns.SetHeader("Content-Type", mimetype)
+										}
+										break
 									}
 								}
 							}
 						}
-						if rs == nil && path == "dummy.js" {
-							rs = iorw.NewEOFCloseSeekReader(strings.NewReader("<@ /**/ @>"))
-						}
+					}
+					if rs == nil && path == "dummy.js" {
+						rs = iorw.NewEOFCloseSeekReader(strings.NewReader("<@ /**/ @>"))
+					}
 
-						if rs != nil {
-							if isactive {
-								if ssn.atv.LookupTemplate == nil {
-									ssn.atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
-										if lkppath != "" && strings.LastIndex(lkppath, ".") == -1 {
-											if crntexpths != nil && crntexpths.Length() > 0 {
-												if val := crntexpths.Tail().Value(); val != nil {
-													if dngexpth, _ := val.(*exepath); dngexpth != nil {
-														if dngext := dngexpth.Ext(); dngext != "" {
-															lkppath = lkppath + dngext
-														} else {
-															lkppath = lkppath + pathext
-														}
-
+					if rs != nil {
+						if isactive {
+							if ssn.atv.LookupTemplate == nil {
+								ssn.atv.LookupTemplate = func(lkppath string, a ...interface{}) (lkpr io.Reader, lkperr error) {
+									if lkppath != "" && strings.LastIndex(lkppath, ".") == -1 {
+										if crntexpths != nil && crntexpths.Length() > 0 {
+											if val := crntexpths.Tail().Value(); val != nil {
+												if dngexpth, _ := val.(*exepath); dngexpth != nil {
+													if dngext := dngexpth.Ext(); dngext != "" {
+														lkppath = lkppath + dngext
 													} else {
-														if dngext := expth.Ext(); dngext != "" {
-															lkppath = lkppath + dngext
-														} else {
-															lkppath = lkppath + pathext
-														}
+														lkppath = lkppath + pathext
 													}
+
 												} else {
 													if dngext := expth.Ext(); dngext != "" {
 														lkppath = lkppath + dngext
@@ -724,124 +715,129 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 													lkppath = lkppath + pathext
 												}
 											}
+										} else {
+											if dngext := expth.Ext(); dngext != "" {
+												lkppath = lkppath + dngext
+											} else {
+												lkppath = lkppath + pathext
+											}
 										}
-										if lkppath != "" && (strings.HasSuffix(lkppath, ".js") || strings.HasSuffix(lkppath, ".html") || strings.HasSuffix(lkppath, ".xml") || strings.HasSuffix(lkppath, ".svg")) {
-											if !strings.HasPrefix(lkppath, "/") {
-												if crntexpths != nil && crntexpths.Length() > 0 {
-													if val := crntexpths.Tail().Value(); val != nil {
-														if dngexpth, _ := val.(*exepath); dngexpth != nil {
-															lkppath = dngexpth.PathRoot() + lkppath
-														} else {
-															lkppath = expth.PathRoot() + lkppath
-														}
+									}
+									if lkppath != "" && (strings.HasSuffix(lkppath, ".js") || strings.HasSuffix(lkppath, ".html") || strings.HasSuffix(lkppath, ".xml") || strings.HasSuffix(lkppath, ".svg")) {
+										if !strings.HasPrefix(lkppath, "/") {
+											if crntexpths != nil && crntexpths.Length() > 0 {
+												if val := crntexpths.Tail().Value(); val != nil {
+													if dngexpth, _ := val.(*exepath); dngexpth != nil {
+														lkppath = dngexpth.PathRoot() + lkppath
 													} else {
 														lkppath = expth.PathRoot() + lkppath
 													}
 												} else {
 													lkppath = expth.PathRoot() + lkppath
 												}
-											}
-											if lkpr = ssn.FS().CAT(lkppath); lkpr == nil {
-												if lkpr = ssn.FSUTILS().CAT(lkppath); lkpr == nil && active.DefaulLookupTemplate != nil {
-													lkpr, lkperr = active.DefaulLookupTemplate(lkppath)
-												}
-											}
-										}
-										return
-									}
-								}
-								if ssn.atv.ObjectMapRef == nil {
-									ssn.atv.ObjectMapRef = func() (objrf map[string]interface{}) {
-										var objref = map[string]interface{}{}
-										objref["ssn"] = ssn
-										objrf = objref
-										return
-									}
-								}
-								func() {
-									var evalerr error = nil
-									evalerr = ssn.atv.Eval(rspns, rqst, path, convertactive, rs)
-									if evalerr != nil {
-										if rspns != nil {
-											rspns.SetHeader("Content-Type", "application/javascript")
-											rspns.SetStatus(500)
-											rspns.Print(evalerr)
-										} else {
-											println(evalerr.Error())
-										}
-									}
-								}()
-							} else if rspns != nil {
-								if ismedia {
-									if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
-										if prtclrangeoffset == -1 {
-											prtclrangeoffset = 0
-										}
-										eofrs.Seek(prtclrangeoffset, 0)
-										if rssize := eofrs.Size(); rssize > 0 {
-											if prtclrangetype == "bytes" && prtclrangeoffset > -1 {
-												maxoffset := int64(0)
-												maxlen := int64(0)
-												if maxoffset = prtclrangeoffset + (rssize - prtclrangeoffset); maxoffset > 0 {
-													maxlen = maxoffset - prtclrangeoffset
-													maxoffset--
-												}
-
-												if maxoffset < prtclrangeoffset {
-													maxoffset = prtclrangeoffset
-													maxlen = 0
-												}
-
-												if maxlen > 1024*1024 {
-													maxlen = 1024 * 1024
-													maxoffset = prtclrangeoffset + (maxlen - 1)
-												}
-												contentrange := fmt.Sprintf("%s %d-%d/%d", rqst.RangeType(), prtclrangeoffset, maxoffset, rssize)
-												rspns.SetHeader("Content-Range", contentrange)
-												rspns.SetHeader("Content-Length", fmt.Sprintf("%d", maxlen))
-												eofrs.MaxRead = maxlen
 											} else {
-												rspns.SetHeader("Content-Length", fmt.Sprintf("%d", rssize))
-												eofrs.MaxRead = rssize
+												lkppath = expth.PathRoot() + lkppath
 											}
 										}
-										rspns.Print(rs)
-									} else {
-										rspns.Print(rs)
+										if lkpr = ssn.FS().CAT(lkppath); lkpr == nil {
+											if lkpr = ssn.FSUTILS().CAT(lkppath); lkpr == nil && active.DefaulLookupTemplate != nil {
+												lkpr, lkperr = active.DefaulLookupTemplate(lkppath)
+											}
+										}
 									}
-									prtclrangeoffset = -1
+									return
+								}
+							}
+							if ssn.atv.ObjectMapRef == nil {
+								ssn.atv.ObjectMapRef = func() (objrf map[string]interface{}) {
+									var objref = map[string]interface{}{}
+									objref["ssn"] = ssn
+									objrf = objref
+									return
+								}
+							}
+							func() {
+								var evalerr error = nil
+								evalerr = ssn.atv.Eval(rspns, rqst, path, convertactive, rs)
+								if evalerr != nil {
+									if rspns != nil {
+										rspns.SetHeader("Content-Type", "application/javascript")
+										rspns.SetStatus(500)
+										rspns.Print(evalerr)
+									} else {
+										println(evalerr.Error())
+									}
+								}
+							}()
+						} else if rspns != nil {
+							if ismedia {
+								if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
+									if prtclrangeoffset == -1 {
+										prtclrangeoffset = 0
+									}
+									eofrs.Seek(prtclrangeoffset, 0)
+									if rssize := eofrs.Size(); rssize > 0 {
+										if prtclrangetype == "bytes" && prtclrangeoffset > -1 {
+											maxoffset := int64(0)
+											maxlen := int64(0)
+											if maxoffset = prtclrangeoffset + (rssize - prtclrangeoffset); maxoffset > 0 {
+												maxlen = maxoffset - prtclrangeoffset
+												maxoffset--
+											}
+
+											if maxoffset < prtclrangeoffset {
+												maxoffset = prtclrangeoffset
+												maxlen = 0
+											}
+
+											if maxlen > 1024*1024 {
+												maxlen = 1024 * 1024
+												maxoffset = prtclrangeoffset + (maxlen - 1)
+											}
+											contentrange := fmt.Sprintf("%s %d-%d/%d", rqst.RangeType(), prtclrangeoffset, maxoffset, rssize)
+											rspns.SetHeader("Content-Range", contentrange)
+											rspns.SetHeader("Content-Length", fmt.Sprintf("%d", maxlen))
+											eofrs.MaxRead = maxlen
+										} else {
+											rspns.SetHeader("Content-Length", fmt.Sprintf("%d", rssize))
+											eofrs.MaxRead = rssize
+										}
+									}
+									rspns.Print(rs)
 								} else {
 									rspns.Print(rs)
 								}
+								prtclrangeoffset = -1
+							} else {
+								rspns.Print(rs)
 							}
 						}
-
-						return
 					}
 
-					rqstdpaths.Do(
-						func(nde *enumeration.Node, val interface{}) (donepath bool, doneerr error) {
-							if err == nil {
-								donepath = true
-								var expath, _ = val.(*exepath)
-								defer func() {
-									if expath != nil {
-										expath.args = nil
-										expath = nil
-									}
-								}()
-								if doneerr = processPath(expath); doneerr != nil && err == nil {
-									err = doneerr
-								}
-								nde.Set(nil)
-							} else {
-								donepath = true
-							}
-							return
-						}, nil, nil, nil)
-				}()
-			}
+					return
+				}
 
+				rqstdpaths.Do(
+					func(nde *enumeration.Node, val interface{}) (donepath bool, doneerr error) {
+						if err == nil {
+							donepath = true
+							var expath, _ = val.(*exepath)
+							defer func() {
+								if expath != nil {
+									expath.args = nil
+									expath = nil
+								}
+							}()
+							if doneerr = processPath(expath); doneerr != nil && err == nil {
+								err = doneerr
+							}
+							nde.Set(nil)
+						} else {
+							donepath = true
+						}
+						return
+					}, nil, nil, nil)
+			}()
 		}
 	}
 	return
@@ -850,7 +846,51 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 var fslcl fsutils.FSUtils
 
 var glblenv = env.Env()
-var ssnschanpaths chan string = make(chan string)
+
+type fafssnrequest struct {
+	mssn    *Sessions
+	nxtpths []string
+	wg      *sync.WaitGroup
+	bind    bool
+}
+
+func (fafssnrqst *fafssnrequest) Execute() {
+	for _, nxtpth := range fafssnrqst.nxtpths {
+		go func(wg *sync.WaitGroup, path string) {
+			var bndssn api.SessionAPI = nil
+			if fafssnrqst.bind && fafssnrqst.mssn != nil {
+				bndssn = fafssnrqst.mssn.InitiateSession(fafssnrqst.mssn)
+			} else {
+				bndssn = NewSession(fafssnrqst.mssn)
+			}
+			if wg != nil {
+				wg.Done()
+			}
+			defer func() {
+				bndssn.Close()
+				bndssn = nil
+			}()
+			bndssn.Execute(path)
+		}(fafssnrqst.wg, nxtpth)
+	}
+}
+
+func (fafssnrqst *fafssnrequest) Close() {
+	if fafssnrqst != nil {
+		if fafssnrqst.mssn != nil {
+			fafssnrqst.mssn = nil
+		}
+		if fafssnrqst.nxtpths != nil {
+			fafssnrqst.nxtpths = nil
+		}
+		if fafssnrqst.wg != nil {
+			fafssnrqst.wg = nil
+		}
+		fafssnrqst = nil
+	}
+}
+
+var ssnschanpaths chan *fafssnrequest = make(chan *fafssnrequest)
 
 func init() {
 	fslcl = fsutils.NewFSUtils()
@@ -864,16 +904,13 @@ func init() {
 	go func() {
 		for {
 			select {
-			case nxtpth := <-ssnschanpaths:
-				go func(bndssn api.SessionAPI, path string) {
-					defer func() {
-						bndssn.Close()
-						bndssn = nil
+			case fafssnrqst := <-ssnschanpaths:
+				if fafssnrqst != nil {
+					go func() {
+						defer fafssnrqst.Close()
+						fafssnrqst.Execute()
 					}()
-					rqst := requesting.NewRequest(nil, path)
-					defer rqst.Close()
-					bndssn.Execute(rqst)
-				}(NewSession(nil), nxtpth)
+				}
 			}
 		}
 	}()
