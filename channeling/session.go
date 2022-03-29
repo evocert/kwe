@@ -446,15 +446,9 @@ func (ssn *Session) Faf(nxtpth ...string) (err error) {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
 			func() {
 				for _, nxpth := range nxtpth {
-					go func(bndssn api.SessionAPI, path string) {
-						defer func() {
-							bndssn.Close()
-							bndssn = nil
-						}()
-						rqst := requesting.NewRequest(nil, path)
-						defer rqst.Close()
-						bndssn.Execute(rqst)
-					}(NewSession(nil), nxpth)
+					if nxpth != "" {
+						ssnschanpaths <- nxpth
+					}
 				}
 			}()
 		}
@@ -856,6 +850,7 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 var fslcl fsutils.FSUtils
 
 var glblenv = env.Env()
+var ssnschanpaths chan string = make(chan string)
 
 func init() {
 	fslcl = fsutils.NewFSUtils()
@@ -865,6 +860,23 @@ func init() {
 		}
 		return
 	}
+
+	go func() {
+		for {
+			select {
+			case nxtpth := <-ssnschanpaths:
+				go func(bndssn api.SessionAPI, path string) {
+					defer func() {
+						bndssn.Close()
+						bndssn = nil
+					}()
+					rqst := requesting.NewRequest(nil, path)
+					defer rqst.Close()
+					bndssn.Execute(rqst)
+				}(NewSession(nil), nxtpth)
+			}
+		}
+	}()
 }
 
 type exepath struct {
