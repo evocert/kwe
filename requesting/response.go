@@ -79,7 +79,7 @@ func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
 				if !rspns.startw {
 					rspns.SetHeader("Content-Length", "0")
 				}
-				if rspns.Header("Content-Length") == "" {
+				if rspns.Header("Content-Length") == "" || rspns.Header("Content-Length") == "0" {
 					rspns.SetHeader("Connection", "close")
 				}
 				rspns.SetHeader("Access-Control-Allow-Origin", "*")

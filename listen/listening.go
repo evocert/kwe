@@ -265,12 +265,14 @@ func NewListener(srvrqst ...func(ra requesting.RequestAPI) error) (lstnr *Listen
 }
 
 func (lstnr *Listener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if rqst := requesting.NewRequest(nil, r.URL.Path, r, w); rqst != nil {
-		defer rqst.Close()
-		if lstnr.ServeRequest != nil {
-			lstnr.ServeRequest(rqst)
+	func() {
+		if rqst := requesting.NewRequest(nil, r.URL.Path, r, w); rqst != nil {
+			defer rqst.Close()
+			if lstnr.ServeRequest != nil {
+				lstnr.ServeRequest(rqst)
+			}
 		}
-	}
+	}()
 }
 
 func (lstnr *Listener) CasAddr(caserial int64, certserial int64, addr ...string) (err error) {
