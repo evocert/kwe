@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/kwe/api"
+	"github.com/evocert/kwe/channeling/channelingapi"
 )
 
 type sessionschedule struct {
-	ssn          api.SessionAPI
+	ssn          channelingapi.SessionAPI
 	initstart    bool
 	prcintrvl    int64
 	intrvl       time.Duration
@@ -180,7 +180,7 @@ func newSsnSchdl(a ...interface{}) (ssnschdl *sessionschedule) {
 	return
 }
 
-func setupSsnSchedule(ssnschdl *sessionschedule, ssn api.SessionAPI, a ...interface{}) {
+func setupSsnSchedule(ssnschdl *sessionschedule, ssn channelingapi.SessionAPI, a ...interface{}) {
 	if ssnschdl != nil {
 		var initPath string = ""
 		var milliseconds int64 = 0
@@ -196,7 +196,7 @@ func setupSsnSchedule(ssnschdl *sessionschedule, ssn api.SessionAPI, a ...interf
 			for ai < al {
 				d := a[ai]
 				if d != nil {
-					if dssn, _ := d.(api.SessionAPI); dssn != nil {
+					if dssn, _ := d.(channelingapi.SessionAPI); dssn != nil {
 						if ssn == nil {
 							ssn = dssn
 						}

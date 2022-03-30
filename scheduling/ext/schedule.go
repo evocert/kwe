@@ -9,6 +9,7 @@ import (
 
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/channeling"
+	"github.com/evocert/kwe/channeling/channelingapi"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/iorw/active"
 	"github.com/evocert/kwe/requesting"
@@ -37,7 +38,7 @@ const (
 
 type Schedule struct {
 	//atv          *active.Active
-	ssn          api.SessionAPI
+	ssn          channelingapi.SessionAPI
 	serveRequest func(requesting.RequestAPI, *active.Active, api.ScheduleAPI, ...interface{}) (err error)
 	actnmde      scheduleactionsection
 	initstart    bool
@@ -199,7 +200,7 @@ func NewSchedule(a ...interface{}) (schdl *Schedule) {
 	return
 }
 
-func (schdl *Schedule) Session() (ssn api.SessionAPI) {
+func (schdl *Schedule) Session() (ssn channelingapi.SessionAPI) {
 	if schdl != nil {
 		if schdl.ssn == nil {
 			schdl.ssn = channeling.InvokeSession(schdl)

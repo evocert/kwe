@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/evocert/kwe/api"
+	"github.com/evocert/kwe/channeling/channelingapi"
 )
 
 type Sessions struct {
@@ -14,7 +14,7 @@ type Sessions struct {
 	ssnslck         *sync.RWMutex
 	mnssns          *Sessions
 	ssns            map[*Session]*Session
-	InitiateSession func(a ...interface{}) (ssn api.SessionAPI)
+	InitiateSession func(a ...interface{}) (ssn channelingapi.SessionAPI)
 	ssnsserial      int64
 }
 
@@ -37,7 +37,7 @@ func (ssns *Sessions) CloseSession(ssn *Session) {
 	closeSession(ssns, ssn)
 }
 
-func (ssns *Sessions) InvokeSession(a ...interface{}) (ssnapi api.SessionAPI) {
+func (ssns *Sessions) InvokeSession(a ...interface{}) (ssnapi channelingapi.SessionAPI) {
 	if ssns != nil {
 		ssnapi = InvokeSession(a...)
 		if ssn, _ := ssnapi.(*Session); ssn != nil {

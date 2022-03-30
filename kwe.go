@@ -8,6 +8,7 @@ import (
 
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/channeling"
+	"github.com/evocert/kwe/channeling/channelingapi"
 
 	"github.com/evocert/kwe/listen"
 
@@ -31,7 +32,7 @@ func main() {
 		return
 	}
 
-	api.FAFExecute = func(ssn api.SessionAPI, a ...interface{}) (err error) {
+	api.FAFExecute = func(ssn channelingapi.SessionAPI, a ...interface{}) (err error) {
 		if rqst := requesting.NewRequest(nil, a...); rqst != nil {
 			defer rqst.Close()
 			if serveRequest != nil {

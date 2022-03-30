@@ -11,6 +11,7 @@ import (
 
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/caching"
+	"github.com/evocert/kwe/channeling/channelingapi"
 	"github.com/evocert/kwe/database"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/env"
@@ -29,7 +30,7 @@ import (
 	"github.com/evocert/kwe/web"
 )
 
-func NewSession(a ...interface{}) (session api.SessionAPI) {
+func NewSession(a ...interface{}) (session channelingapi.SessionAPI) {
 	var mqttmsg mqtt.Message
 	var mqttevent mqtt.MqttEvent
 	var mqttmngr mqtt.MQTTManagerAPI
@@ -171,7 +172,7 @@ func (ssn *Session) MQTTMessage() (mqttmsg mqtt.Message) {
 	return
 }
 
-func (ssn *Session) Path() (expth api.PathAPI) {
+func (ssn *Session) Path() (expth channelingapi.PathAPI) {
 	if ssn != nil && ssn.pathfunc != nil {
 		expth = ssn.pathfunc()
 	}
@@ -857,7 +858,7 @@ type fafssnrequest struct {
 func (fafssnrqst *fafssnrequest) Execute() {
 	for _, nxtpth := range fafssnrqst.nxtpths {
 		go func(wg *sync.WaitGroup, path string) {
-			var bndssn api.SessionAPI = nil
+			var bndssn channelingapi.SessionAPI = nil
 			if fafssnrqst.bind && fafssnrqst.mssn != nil {
 				bndssn = fafssnrqst.mssn.InitiateSession(fafssnrqst.mssn)
 			} else {
@@ -959,7 +960,7 @@ func (expth *exepath) Args() (args []interface{}) {
 	return
 }
 
-func ExecuteSession(ssn api.SessionAPI, a ...interface{}) (err error) {
+func ExecuteSession(ssn channelingapi.SessionAPI, a ...interface{}) (err error) {
 	var closessn = ssn == nil
 	if closessn {
 		ssn = InvokeSession(a...)
@@ -976,7 +977,7 @@ func ExecuteSession(ssn api.SessionAPI, a ...interface{}) (err error) {
 	return
 }
 
-func InvokeSession(a ...interface{}) (ssn api.SessionAPI) {
+func InvokeSession(a ...interface{}) (ssn channelingapi.SessionAPI) {
 	ssn = NewSession(a...)
 	return
 }
