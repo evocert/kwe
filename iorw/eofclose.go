@@ -48,33 +48,34 @@ func (mltieofclsr *MultiEOFCloseSeekReader) Read(p []byte) (n int, err error) {
 	if mltieofclsr != nil {
 		if pl := len(p); pl > 0 {
 			for n < pl {
-				if mltieofclsr.eofrdr == nil && len(mltieofclsr.eofrdrs) > 0 {
+				if mltieofclsr.eofrdr != nil {
+					eofn, eoferr := mltieofclsr.eofrdr.Read(p[n : n+(pl-n)])
+					if eofn > 0 {
+						n += eofn
+					}
+					if eoferr != nil {
+						if eoferr == io.EOF {
+							eoferr = mltieofclsr.eofrdr.Close()
+							mltieofclsr.eofrdr = nil
+							if eoferr == nil {
+								if len(mltieofclsr.eofrdrs) > 0 {
+									eoferr = nil
+								} else {
+									err = io.EOF
+									break
+								}
+							}
+						} else {
+							err = eoferr
+							break
+						}
+					}
+				} else if mltieofclsr.eofrdr == nil && len(mltieofclsr.eofrdrs) > 0 {
 					mltieofclsr.eofrdr = mltieofclsr.eofrdrs[0]
 					mltieofclsr.eofrdrs = mltieofclsr.eofrdrs[1:]
 				} else {
 					err = io.EOF
 					break
-				}
-				eofn, eoferr := mltieofclsr.eofrdr.Read(p[n : n+(pl-n)])
-				if eofn > 0 {
-					n += eofn
-				}
-				if eoferr != nil {
-					if eoferr == io.EOF {
-						eoferr = mltieofclsr.eofrdr.Close()
-						mltieofclsr.eofrdr = nil
-						if eoferr == nil {
-							if len(mltieofclsr.eofrdrs) > 0 {
-								eoferr = nil
-							} else {
-								err = io.EOF
-								break
-							}
-						}
-					} else {
-						err = eoferr
-						break
-					}
 				}
 			}
 		}
@@ -105,15 +106,6 @@ func (mltieofclsr *MultiEOFCloseSeekReader) Close() (err error) {
 	}
 	return
 }
-
-/*Seek(int64, int) (int64, error)
-  SetMaxRead(int64) (err error)
-  Read([]byte) (int, error)
-  ReadRune() (rune, int, error)
-  Readln() (string, error)
-  Readlines() ([]string, error)
-  ReadAll() (string, error)
-*/
 
 type EOFCloseSeekReader struct {
 	r       io.Reader

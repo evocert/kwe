@@ -45,33 +45,30 @@ func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader) {
 
 func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
-		for n < pl {
+		for n < pl && err == nil {
 			if mltiargsr != nil {
-				if mltiargsr.crntr == nil {
+				if mltiargsr.crntr != nil {
+					crntn, cnrterr := mltiargsr.crntr.Read(p[n : n+(pl-n)])
+					n += crntn
+					if cnrterr != nil {
+						if cnrterr == io.EOF {
+							mltiargsr.crntr = nil
+							if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
+								mltiargsr.crntr = nxtrdr
+							} else if n == 0 {
+								err = cnrterr
+							}
+							break
+						} else {
+							mltiargsr.crntr = nil
+							err = cnrterr
+						}
+					}
+				} else if mltiargsr.crntr == nil {
 					if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
 						mltiargsr.crntr = nxtrdr
 					} else {
 						break
-					}
-				}
-				if mltiargsr.crntr != nil {
-					for n < pl && err == nil {
-						crntn, cnrterr := mltiargsr.crntr.Read(p[n : n+(pl-n)])
-						n += crntn
-						if cnrterr != nil {
-							if cnrterr == io.EOF {
-								mltiargsr.crntr = nil
-								if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
-									mltiargsr.crntr = nxtrdr
-								} else if n == 0 {
-									err = cnrterr
-								}
-								break
-							} else {
-								mltiargsr.crntr = nil
-								err = cnrterr
-							}
-						}
 					}
 				}
 			}
