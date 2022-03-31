@@ -426,8 +426,12 @@ func (atv *Active) atvrun(prsng *parsing.Parsing) (err error) {
 			atv.atvruntime, atv.InterruptVM, err = newatvruntime(atv)
 		}
 		if atv.atvruntime != nil {
-			atv.atvruntime.prsng = prsng
-			_, err = atv.atvruntime.run()
+			func() {
+				//var prvprsng *parsing.Parsing = atv.atvruntime.prsng
+				//defer func() { atv.atvruntime.prsng = prvprsng }()
+				//atv.atvruntime.prsng = prsng
+				_, err = atv.atvruntime.run(prsng)
+			}()
 		}
 	}
 	return
@@ -495,11 +499,11 @@ type atvruntime struct {
 
 func (atvrntme *atvruntime) AltActv() (atvactv parsing.AltActiveAPI) {
 	if atvrntme != nil {
-		if atvrntme != nil && atvrntme.prsng.AtvActv != nil {
-			atvactv = atvrntme.prsng.AtvActv
-		} else {
-			atvactv = atvrntme.atv
-		}
+		//if atvrntme != nil && atvrntme.prsng.AtvActv != nil {
+		//	atvactv = atvrntme.prsng.AtvActv
+		//} else {
+		atvactv = atvrntme.atv
+		//}
 	}
 	return
 }
@@ -531,16 +535,23 @@ func (atvrntme *atvruntime) InvokeFunction(functocall interface{}, args ...inter
 	return result
 }
 
-func (atvrntme *atvruntime) run() (val interface{}, err error) {
+func (atvrntme *atvruntime) run(prsng *parsing.Parsing) (val interface{}, err error) {
 	var objmapref map[string]interface{} = nil
-	if atvrntme.atv != nil {
-		objmapref = atvrntme.atv.AltObjectRef()
+	if prsng != nil {
+		var prvprsng *parsing.Parsing = atvrntme.prsng
+		if prvprsng != nil {
+			defer func() { atvrntme.prsng = prvprsng }()
+		}
+		atvrntme.prsng = prsng
+		if atvrntme.atv != nil {
+			objmapref = atvrntme.atv.AltObjectRef()
+		}
+		val, err = atvrntme.corerun(prsng, parsing.Code(prsng), objmapref)
 	}
-	val, err = atvrntme.corerun(parsing.Code(atvrntme.prsng), objmapref)
 	return
 }
 
-func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
+func (atvrntme *atvruntime) corerun(prsng *parsing.Parsing, code string, objmapref map[string]interface{}, includelibs ...string) (val interface{}, err error) {
 	if code != "" {
 		if atvrntme.vm != nil {
 			atvrntme.vm.ClearInterrupt()
@@ -611,8 +622,8 @@ func (atvrntme *atvruntime) corerun(code string, objmapref map[string]interface{
 	if err != nil {
 		cde := ""
 		excpath := ""
-		if atvrntme.prsng != nil {
-			excpath = atvrntme.prsng.Prsvpth
+		if prsng != nil {
+			excpath = prsng.Prsvpth
 		}
 		for cdn, cd := range strings.Split(code, "\n") {
 			cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
@@ -632,8 +643,15 @@ func transformCode(code string, opts map[string]interface{}) (trsnfrmdcde string
 	return
 }
 
-func (atvrntme *atvruntime) parseEval(forceCode bool, a ...interface{}) (val interface{}, err error) {
-	return parsing.ParseEval(atvrntme.prsng, forceCode, atvrntme.corerun, a...)
+func (atvrntme *atvruntime) parseEval(invertactv bool, a ...interface{}) (val interface{}, err error) {
+	a = append(a, func(prsng *parsing.Parsing) (err error) {
+		_, err = atvrntme.run(prsng)
+		return
+	}, atvrntme.atv)
+	//err = parsing.EvalParsing(nil, wout, rin, initpath, true, invertactpsv, a...)
+	err = parsing.EvalParsing(nil, nil, nil, "", true, !invertactv, a...)
+	return
+	//return parsing.ParseEval(atvrntme.prsng, forceCode, atvrntme.corerun, a...)
 }
 
 func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
@@ -830,9 +848,6 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		},
 		"serial": func() string {
 			return strconv.FormatInt(atvrntme.serial, 10)
-		},
-		"_psvsub": func(offsets int64, offsete int64) string {
-			return atvrntme.passiveoutsubstring(offsets, offsete)
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(true, a...)

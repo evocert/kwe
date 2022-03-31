@@ -641,12 +641,6 @@ func (prsng *Parsing) flushPsv() (err error) {
 		if psvoffsetstart := prsng.psvoffsetstart; psvoffsetstart > -1 {
 			psvoffsetend := prsng.Size()
 			prsng.psvoffsetstart = -1
-			//err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(_psvsub(%d,%d));", psvoffsetstart, psvoffsetend)))
-			//pos := prsng.setpsvpos(psvoffsetstart, prsng.Size())
-			//err = parseatvrunes(prsng, []rune(fmt.Sprintf("_psvout(%d);", pos)))
-			//if psvouts := PassiveoutS(prsng, pos); psvouts != "" {
-			//	err = parseatvrunes(prsng, []rune(fmt.Sprintf("print(`%s`);", psvouts)))
-			//}
 
 			if psvouts := PassiveoutSubString(prsng, psvoffsetstart, psvoffsetend); psvouts != "" {
 				if prsng.lstcder != rune(0) && strings.ContainsRune("=+([,", prsng.lstcder) {
