@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -489,6 +490,7 @@ type atvruntime struct {
 	intrnxmlsxs    map[*xml.XmlSax]*xml.XmlSax
 	intrnjsnsxs    map[*json.JsonSax]*json.JsonSax
 	includedpgrms  map[string]*goja.Program
+	serial         int64
 }
 
 func (atvrntme *atvruntime) AltActv() (atvactv parsing.AltActiveAPI) {
@@ -789,6 +791,12 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 	}
 }
 
+func nextserial() (nxsrl int64) {
+	time.Sleep(1 * time.Nanosecond)
+	nxsrl = time.Now().UnixNano()
+	return
+}
+
 func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]interface{}) {
 	internmapref = map[string]interface{}{
 		"buffer": func() (buff *iorw.Buffer) {
@@ -819,6 +827,9 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		},
 		"sleep": func(mils int64) {
 			time.Sleep(time.Millisecond * time.Duration(mils))
+		},
+		"serial": func() string {
+			return strconv.FormatInt(atvrntme.serial, 10)
 		},
 		"_psvsub": func(offsets int64, offsete int64) string {
 			return atvrntme.passiveoutsubstring(offsets, offsete)
@@ -948,7 +959,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 }
 
 func newatvruntime(atv *Active) (atvrntme *atvruntime, interruptvm func(v interface{}), err error) {
-	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnxmlsxs: map[*xml.XmlSax]*xml.XmlSax{}, intrnjsnsxs: map[*json.JsonSax]*json.JsonSax{}}
+	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnxmlsxs: map[*xml.XmlSax]*xml.XmlSax{}, intrnjsnsxs: map[*json.JsonSax]*json.JsonSax{}, serial: nextserial()}
 	if atv != nil {
 		atvrntme.LookupTemplate = atv.AltLookupTemplate
 	}
