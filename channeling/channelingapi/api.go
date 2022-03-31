@@ -58,5 +58,3 @@ type PathAPI interface {
 	QueryString() string
 	Parameters() parameters.ParametersAPI
 }
-
-//var FAFExecute func(ssn SessionAPI, a ...interface{}) (err error) = nil

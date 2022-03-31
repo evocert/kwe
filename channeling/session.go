@@ -1213,7 +1213,7 @@ func InvokeSession(a ...interface{}) (ssn channelingapi.SessionAPI) {
 	return
 }
 
-func sysjsTemplate(nmspace string, objmap ...map[string]interface{}) (sysjscode string) {
+/*func sysjsTemplate(nmspace string, objmap ...map[string]interface{}) (sysjscode string) {
 	var objmptolistcode = func() (cde string) {
 		if len(objmap) > 0 && objmap[0] != nil {
 			if objmp := objmap[0]; len(objmp) > 0 {
@@ -1276,9 +1276,9 @@ if (typeof this.` + nmspace + `==="function") {
 }
 `
 	return
-}
+}*/
 
-func ObjToScriptObject(objname string, orgobj interface{}) (objscriptcode string, objscriptmap map[string]interface{}) {
+/*func ObjToScriptObject(objname string, orgobj interface{}) (objscriptcode string, objscriptmap map[string]interface{}) {
 
 	return
-}
+}*/
