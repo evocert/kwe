@@ -242,6 +242,7 @@ func (eofclsr *EOFCloseSeekReader) Size() int64 {
 
 func (eofclsr *EOFCloseSeekReader) Seek(offset int64, whence int) (n int64, err error) {
 	if eofclsr != nil && eofclsr.r != nil && eofclsr.rs != nil {
+		eofclsr.MaxRead = 0
 		n, err = eofclsr.rs.Seek(offset, whence)
 		if eofclsr.bfr != nil {
 			eofclsr.bfr.Reset(eofclsr.r)
@@ -257,27 +258,34 @@ func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
 		err = io.EOF
 		return
 	} else if eofclsr.r != nil {
-		rl := len(p)
-		if eofclsr.MaxRead > 0 {
-			if int64(rl) >= eofclsr.MaxRead {
-				rl = int(eofclsr.MaxRead)
+		if pl := len(p); pl > 0 {
+			if eofclsr.MaxRead > 0 {
+				if int64(pl) >= eofclsr.MaxRead {
+					pl = int(eofclsr.MaxRead)
+				}
 			}
-		}
-		n, err = eofclsr.r.Read(p[0:rl])
-		if n > 0 && eofclsr.MaxRead > 0 {
-			eofclsr.MaxRead -= int64(n)
-			if eofclsr.MaxRead < 0 {
-				eofclsr.MaxRead = 0
+			for n < pl && err == nil {
+				pn, perr := eofclsr.r.Read(p[n : n+(pl-n)])
+				if perr != nil {
+					err = perr
+				}
+				n += pn
+				if pn > 0 && eofclsr.MaxRead > 0 {
+					eofclsr.MaxRead -= int64(pn)
+					if eofclsr.MaxRead < 0 {
+						eofclsr.MaxRead = 0
+					}
+				}
 			}
-		}
-		if err != nil {
-			if eofclsr.bfr == nil {
-				eofclsr.Close()
-			} else {
-				eofclsr.disposeReader()
-			}
-			if n > 0 && err == io.EOF {
-				err = nil
+			if err != nil {
+				if eofclsr.bfr == nil {
+					eofclsr.Close()
+				} else {
+					eofclsr.disposeReader()
+				}
+				if n > 0 && err == io.EOF {
+					err = nil
+				}
 			}
 		}
 	}
