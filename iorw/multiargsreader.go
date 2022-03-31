@@ -55,19 +55,22 @@ func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
 					}
 				}
 				if mltiargsr.crntr != nil {
-					crntn, cnrterr := mltiargsr.crntr.Read(p[n:])
-					n += crntn
-					if cnrterr != nil {
-						if cnrterr == io.EOF {
-							mltiargsr.crntr = nil
-							if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
-								mltiargsr.crntr = nxtrdr
-							} else if n == 0 {
+					for n < pl && err == nil {
+						crntn, cnrterr := mltiargsr.crntr.Read(p[n : n+(pl-n)])
+						n += crntn
+						if cnrterr != nil {
+							if cnrterr == io.EOF {
+								mltiargsr.crntr = nil
+								if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
+									mltiargsr.crntr = nxtrdr
+								} else if n == 0 {
+									err = cnrterr
+								}
+								break
+							} else {
+								mltiargsr.crntr = nil
 								err = cnrterr
 							}
-						} else {
-							mltiargsr.crntr = nil
-							err = cnrterr
 						}
 					}
 				}
