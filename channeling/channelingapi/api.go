@@ -15,6 +15,8 @@ import (
 )
 
 type SessionAPI interface {
+	RegisterInterval(string, int64, ...string) bool
+	CheckInterval(string) bool
 	MQTTManager() mqtt.MQTTManagerAPI
 	MQTTEvent() mqtt.MqttEvent
 	MQTTMessage() mqtt.Message
@@ -53,4 +55,8 @@ type PathAPI interface {
 	Ext() string
 	PathRoot() string
 	Args() []interface{}
+	QueryString() string
+	Parameters() parameters.ParametersAPI
 }
+
+//var FAFExecute func(ssn SessionAPI, a ...interface{}) (err error) = nil

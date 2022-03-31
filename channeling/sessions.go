@@ -39,10 +39,11 @@ func (ssns *Sessions) CloseSession(ssn *Session) {
 
 func (ssns *Sessions) InvokeSession(a ...interface{}) (ssnapi channelingapi.SessionAPI) {
 	if ssns != nil {
+		a = append([]interface{}{ssns}, a...)
 		ssnapi = InvokeSession(a...)
-		if ssn, _ := ssnapi.(*Session); ssn != nil {
+		/*if ssn, _ := ssnapi.(*Session); ssn != nil {
 			appendSession(ssns, ssn)
-		}
+		}*/
 	}
 	return
 }

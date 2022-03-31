@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/evocert/kwe/api"
 	"github.com/evocert/kwe/caching"
@@ -59,6 +62,10 @@ func NewSession(a ...interface{}) (session channelingapi.SessionAPI) {
 					if ssns == nil {
 						ssns = ssnd.Sessions
 					}
+				} else if ssnsd, _ := d.(*Sessions); ssnsd != nil {
+					if ssns == nil {
+						ssns = ssnsd
+					}
 				}
 			}
 		}
@@ -73,7 +80,7 @@ func NewSession(a ...interface{}) (session channelingapi.SessionAPI) {
 			mqttmngr = mqttmsg.Manager()
 		}
 	}
-	var ssn = &Session{Sessions: NewSessions(ssns), atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager(), cas: security.GLOBALCAS()}
+	var ssn = &Session{Sessions: NewSessions(ssns), atv: active.NewActive(), rsmngr: rsmngr, ssnrsmngr: resources.NewResourcingManager(), cas: security.GLOBALCAS(), intrvlslck: &sync.RWMutex{}, intrvls: map[string]*schdlinterval{}}
 	ssn.atvdbms = database.GLOBALDBMS().ActiveDBMS(ssn.atv, func() (prms parameters.ParametersAPI) {
 		prms = ssn.Parameters()
 		return
@@ -83,6 +90,9 @@ func NewSession(a ...interface{}) (session channelingapi.SessionAPI) {
 	ssn.mqttmsg = mqttmsg
 	ssn.mqttmngr = mqttmngr
 	ssn.lstnr = lstnr
+	if ssns != nil {
+		appendSession(ssns, ssn)
+	}
 	session = ssn
 	return
 }
@@ -103,6 +113,8 @@ type Session struct {
 	addNextPath func(nxtpth ...string)
 	pathfunc    func() *exepath
 	cmnds       map[int]*osprc.Command
+	intrvlslck  *sync.RWMutex
+	intrvls     map[string]*schdlinterval
 }
 
 func (ssn *Session) closecmd(prcid int) {
@@ -112,6 +124,129 @@ func (ssn *Session) closecmd(prcid int) {
 			delete(ssn.cmnds, prcid)
 		}
 	}
+}
+
+type schdlinterval struct {
+	duration    int64
+	maxduration int64
+	lstintrvl   int64
+	today       time.Time
+}
+
+func nextSchdlInterval(duration int64) (schdlintrvl *schdlinterval) {
+	tmnow := time.Now()
+	schdlintrvl = &schdlinterval{duration: duration, maxduration: int64(time.Hour * 24), today: time.Date(tmnow.Year(), tmnow.Month(), tmnow.Day(), 0, 0, 0, 0, tmnow.Location())}
+	return
+}
+
+func (schdlntrvl *schdlinterval) change(duration int64) {
+	if schdlntrvl != nil {
+		schdlntrvl.duration = duration
+	}
+}
+
+func (schdlntrvl *schdlinterval) check() (chkd bool) {
+	if schdlntrvl != nil {
+		tmnow := time.Now()
+		if schdlntrvl.today.Before(time.Date(tmnow.Year(), tmnow.Month(), tmnow.Day(), 0, 0, 0, 0, tmnow.Location())) {
+			schdlntrvl.today = time.Date(tmnow.Year(), tmnow.Month(), tmnow.Day(), 0, 0, 0, 0, tmnow.Location())
+			schdlntrvl.lstintrvl = 0
+		}
+		if durnw := tmnow.UnixNano() - schdlntrvl.today.UnixNano(); durnw >= schdlntrvl.duration && durnw <= schdlntrvl.maxduration && schdlntrvl.lstintrvl <= schdlntrvl.maxduration {
+			if drnwcnt := (durnw / schdlntrvl.duration); drnwcnt > 0 {
+				if schdlntrvl.lstintrvl < durnw {
+					schdlntrvl.lstintrvl = drnwcnt * schdlntrvl.duration
+				}
+				if durnw >= schdlntrvl.lstintrvl {
+					chkd = true
+					schdlntrvl.lstintrvl += schdlntrvl.duration
+				}
+			}
+		}
+		if !chkd {
+			if schdlntrvl.duration >= int64(time.Nanosecond*10) {
+				time.Sleep(time.Nanosecond * 10)
+			} else {
+				time.Sleep(time.Duration(schdlntrvl.duration))
+			}
+		}
+	}
+	return
+}
+
+func (ssn *Session) RegisterInterval(alias string, duration int64, tpe ...string) (mdfd bool) {
+	var intvrtpe = ""
+	if len(tpe) > 0 && tpe[0] != "" {
+		intvrtpe = strings.TrimSpace(tpe[0])
+	}
+	if intvrtpe == "" || !strings.Contains("ms,ns,s,h,m,", intvrtpe+",") {
+		return
+	}
+	if duration < 0 {
+		if intvrtpe == "ms" || intvrtpe == "ns" {
+			duration = 10
+		} else if intvrtpe == "h" || intvrtpe == "m" || intvrtpe == "s" {
+			duration = 1
+		}
+	}
+	if intvrtpe == "ns" {
+		duration = int64(time.Nanosecond) * duration
+	} else if intvrtpe == "ms" {
+		duration = int64(time.Millisecond) * duration
+	} else if intvrtpe == "s" {
+		duration = int64(time.Second) * duration
+	} else if intvrtpe == "m" {
+		duration = int64(time.Minute) * duration
+	} else if intvrtpe == "h" {
+		duration = int64(time.Hour) * duration
+	}
+	if duration > 0 && duration > int64(time.Hour*24) {
+		return
+	}
+	if alias = strings.TrimSpace(alias); alias != "" {
+		if intrvl, exists, canchnd := func() (intvl *schdlinterval, exists bool, canchnd bool) {
+			ssn.intrvlslck.RLock()
+			if intvl, exists = ssn.intrvls[alias]; exists {
+				canchnd = intvl.duration != duration
+			} else {
+				ssn.intrvlslck.RUnlock()
+			}
+			return
+		}(); canchnd {
+			func() {
+				ssn.intrvlslck.RUnlock()
+				intrvl.duration = duration
+			}()
+		} else {
+			func() {
+				if exists {
+					ssn.intrvlslck.RUnlock()
+					intrvl.change(duration)
+				} else {
+					ssn.intrvlslck.Lock()
+					defer ssn.intrvlslck.Unlock()
+					ssn.intrvls[alias] = nextSchdlInterval(duration)
+				}
+			}()
+		}
+	}
+	return
+}
+
+func (ssn *Session) CheckInterval(alias string) (chkd bool) {
+	if alias = strings.TrimSpace(alias); alias != "" {
+		if exists, intrvl := func() (exists bool, intrvl *schdlinterval) {
+			func() {
+				ssn.intrvlslck.RLock()
+				defer ssn.intrvlslck.RUnlock()
+				intrvl, exists = ssn.intrvls[alias]
+			}()
+			return
+		}(); exists {
+			chkd = intrvl.check()
+		}
+	}
+	return
 }
 
 func (ssn *Session) CAS() *security.CAS {
@@ -361,6 +496,25 @@ func (ssn *Session) Close() (err error) {
 				}
 			}()
 		}
+		if ssn.intrvls != nil {
+			if func() (intvll int) {
+				ssn.intrvlslck.RLock()
+				intvll = len(ssn.intrvls)
+				defer ssn.intrvlslck.RUnlock()
+				return
+			}() > 0 {
+				func() {
+					ssn.intrvlslck.Lock()
+					defer ssn.intrvlslck.Unlock()
+					for intrli := range ssn.intrvls {
+						delete(ssn.intrvls, intrli)
+					}
+				}()
+				ssn.intrvlslck = nil
+			} else {
+				ssn.intrvlslck = nil
+			}
+		}
 		ssn = nil
 	}
 	return
@@ -421,10 +575,9 @@ func (ssn *Session) Join(nxtpth ...string) (err error) {
 func (ssn *Session) Bind(nxtpth ...string) (err error) {
 	if ssn != nil {
 		if nxtpthl := len(nxtpth); nxtpthl > 0 {
-			wg := &sync.WaitGroup{}
-			wg.Add(nxtpthl)
-			ssnschanpaths <- &fafssnrequest{bind: true, wg: wg, nxtpths: nxtpth[:], mssn: ssn.Sessions}
-			wg.Wait()
+			ctx, ctxcncl := context.WithCancel(context.Background())
+			ssnschanpaths <- &fafssnrequest{ctx: ctx, ctxcncl: ctxcncl, nxtpthsl: int32(nxtpthl), nxtpths: nxtpth[:], mssn: ssn.Sessions}
+			<-ctx.Done()
 		}
 	}
 	return
@@ -521,6 +674,20 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 			prtclrangeoffset = rqst.RangeOffset()
 		}
 		var rqstdpaths *enumeration.List = enumeration.NewList()
+		defer func() {
+			if rqstdpaths != nil {
+				if rqstdpaths.Length() > 0 {
+					rqstdpaths.Dispose(func(n *enumeration.Node, v interface{}) {
+						if expath, _ := v.(*exepath); expath != nil {
+							expath.args = nil
+							expath.prms.CleanupParameters()
+							expath.prms = nil
+							expath = nil
+						}
+					}, nil)
+				}
+			}
+		}()
 		ssn.addNextPath = func(nxtpth ...string) {
 			if nxtpthl := len(nxtpth); nxtpthl > 0 {
 				nxtpthi := 0
@@ -541,7 +708,41 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 				if len(nxtToAdd) > 0 {
 					for nxttaddi := range nxtToAdd {
 						if nxttadd := nxtToAdd[nxttaddi]; nxttadd != "" {
-							rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), &exepath{path: nxttadd})
+							expth := &exepath{path: nxttadd, prms: parameters.NewParameters()}
+							if qrystring := strings.TrimSpace(expth.QueryString()); qrystring != "" {
+								if qrystring != "" {
+									if !strings.HasSuffix(qrystring, "&") {
+										qrystring += "&"
+									}
+								}
+								for qrystring != "" {
+									if qryi := strings.Index(qrystring, "&"); qryi > -1 {
+										if qryi > 0 {
+											if prmnme := strings.TrimSpace(qrystring[:qryi]); prmnme != "" {
+												if prnmi := strings.Index(prmnme, "="); prnmi > 0 {
+													var prmval = ""
+													if prmval = strings.TrimSpace(prmnme[prnmi+1:]); prmval != "" {
+														if decdVal, errdecdVal := url.QueryUnescape(prmval); errdecdVal == nil {
+															prmval = strings.TrimSpace(decdVal)
+														}
+													}
+													if decdVal, errdecdVal := url.QueryUnescape(prmnme[:prnmi]); errdecdVal == nil {
+														if prmnme = strings.TrimSpace(decdVal); prmnme != "" {
+															expth.Parameters().SetParameter(prmnme, false, prmval)
+														}
+													} else if prmnme = strings.TrimSpace(decdVal); prmnme != "" {
+														expth.Parameters().SetParameter(prmnme, false, prmval)
+													}
+												}
+											}
+										}
+										qrystring = qrystring[qryi+1:]
+									} else {
+										qrystring = ""
+									}
+								}
+							}
+							rqstdpaths.InsertAfter(nil, nil, rqstdpaths.CurrentDoing(), expth)
 						}
 					}
 					nxtToAdd = nil
@@ -814,7 +1015,6 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							}
 						}
 					}
-
 					return
 				}
 
@@ -826,6 +1026,8 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							defer func() {
 								if expath != nil {
 									expath.args = nil
+									expath.prms.CleanupParameters()
+									expath.prms = nil
 									expath = nil
 								}
 							}()
@@ -849,30 +1051,37 @@ var fslcl fsutils.FSUtils
 var glblenv = env.Env()
 
 type fafssnrequest struct {
-	mssn    *Sessions
-	nxtpths []string
-	wg      *sync.WaitGroup
-	bind    bool
+	mssn     *Sessions
+	nxtpths  []string
+	nxtpthsl int32
+	ctx      context.Context
+	ctxcncl  context.CancelFunc
 }
 
 func (fafssnrqst *fafssnrequest) Execute() {
+	mssns := fafssnrqst.mssn
+	ctx, ctxcnl := fafssnrqst.ctx, fafssnrqst.ctxcncl
 	for _, nxtpth := range fafssnrqst.nxtpths {
-		go func(wg *sync.WaitGroup, path string) {
+		go func(path string, mssn *Sessions) {
 			var bndssn channelingapi.SessionAPI = nil
-			if fafssnrqst.bind && fafssnrqst.mssn != nil {
-				bndssn = fafssnrqst.mssn.InitiateSession(fafssnrqst.mssn)
+			if mssn != nil {
+				bndssn = mssn.InvokeSession(mssn)
 			} else {
-				bndssn = NewSession(fafssnrqst.mssn)
+				bndssn = NewSession(mssn)
 			}
-			if wg != nil {
-				wg.Done()
+			if atomic.LoadInt32(&fafssnrqst.nxtpthsl) > 0 && ctx != nil {
+				if atomic.AddInt32(&fafssnrqst.nxtpthsl, -1) <= 0 {
+					ctxcnl()
+				}
 			}
-			defer func() {
-				bndssn.Close()
-				bndssn = nil
+			func() {
+				defer func() {
+					bndssn.Close()
+					bndssn = nil
+				}()
+				bndssn.Execute(path)
 			}()
-			bndssn.Execute(path)
-		}(fafssnrqst.wg, nxtpth)
+		}(nxtpth, mssns)
 	}
 }
 
@@ -884,8 +1093,11 @@ func (fafssnrqst *fafssnrequest) Close() {
 		if fafssnrqst.nxtpths != nil {
 			fafssnrqst.nxtpths = nil
 		}
-		if fafssnrqst.wg != nil {
-			fafssnrqst.wg = nil
+		if fafssnrqst.ctx != nil {
+			fafssnrqst.ctx = nil
+		}
+		if fafssnrqst.ctxcncl != nil {
+			fafssnrqst.ctxcncl = nil
 		}
 		fafssnrqst = nil
 	}
@@ -908,8 +1120,10 @@ func init() {
 			case fafssnrqst := <-ssnschanpaths:
 				if fafssnrqst != nil {
 					go func() {
-						defer fafssnrqst.Close()
-						fafssnrqst.Execute()
+						func() {
+							defer fafssnrqst.Close()
+							fafssnrqst.Execute()
+						}()
 					}()
 				}
 			}
@@ -920,6 +1134,7 @@ func init() {
 type exepath struct {
 	path string
 	args []interface{}
+	prms *parameters.Parameters
 }
 
 func (expth *exepath) Ext() (ext string) {
@@ -942,6 +1157,15 @@ func (expth *exepath) Path() string {
 	return ""
 }
 
+func (expth *exepath) QueryString() string {
+	if expth != nil {
+		if strings.LastIndex(expth.path, "/") < strings.Index(expth.path, "?") {
+			return expth.path[strings.Index(expth.path, "?")+1:]
+		}
+	}
+	return ""
+}
+
 func (expth *exepath) PathRoot() (pathroot string) {
 	if expth != nil {
 		if strings.LastIndex(expth.path, "/") > -1 {
@@ -949,6 +1173,13 @@ func (expth *exepath) PathRoot() (pathroot string) {
 		} else {
 			pathroot = "/"
 		}
+	}
+	return
+}
+
+func (expth *exepath) Parameters() (prmsapi parameters.ParametersAPI) {
+	if expth != nil {
+		prmsapi = expth.prms
 	}
 	return
 }
