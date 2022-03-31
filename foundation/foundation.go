@@ -20,7 +20,7 @@ var foundationcssfs embed.FS
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
 	foundationheadhtml := iorw.NewBuffer()
-	gblrsngfs.MKDIR("/foundation/js", foundationjsfs)
+	gblrsngfs.MKDIR("/raw:foundation/js", foundationjsfs)
 	if dirs, dirserr := foundationjsfs.ReadDir("js"); dirserr == nil {
 		for _, dr := range dirs {
 			if !dr.IsDir() {
@@ -28,7 +28,7 @@ func init() {
 			}
 		}
 	}
-	gblrsngfs.MKDIR("/foundation/css", foundationcssfs)
+	gblrsngfs.MKDIR("/raw:foundation/css", foundationcssfs)
 	if dirs, dirserr := foundationcssfs.ReadDir("css"); dirserr == nil {
 		for _, dr := range dirs {
 			if !dr.IsDir() {
@@ -38,7 +38,7 @@ func init() {
 			}
 		}
 	}
-	gblrsngfs.MKDIR("/foundation/js/plugins", foundationpluginsjsfs)
+	gblrsngfs.MKDIR("/raw:foundation/js/plugins", foundationpluginsjsfs)
 	if dirs, dirserr := foundationpluginsjsfs.ReadDir("js/plugins"); dirserr == nil {
 		for _, dr := range dirs {
 			if !dr.IsDir() {
@@ -46,7 +46,7 @@ func init() {
 			}
 		}
 	}
-	gblrsngfs.MKDIR("/foundation", "")
+	gblrsngfs.MKDIR("/raw:foundation", "")
 	gblrsngfs.SET("/foundation/head.html", foundationheadhtml.String())
 	foundationheadhtml.Close()
 }
