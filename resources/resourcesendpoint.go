@@ -668,7 +668,7 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, raw bool, 
 						querystring = u.RawQuery
 					}
 					path = u.Path
-					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path, isRaw: raw, isActive: active}
+					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, isLocal: false, isRemote: true, embeddedResources: map[string]*EmbeddedResource{}, host: u.Host, schema: u.Scheme, querystring: querystring, path: path, isRaw: raw, isActive: active}
 				}
 			}
 		} else {
@@ -677,12 +677,12 @@ func nextResourcingEndpoint(rsngmngr *ResourcingManager, path string, raw bool, 
 					rsngepntpath = rsngepntpath + "/"
 				}
 				if fi.IsDir() {
-					rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath, isRaw: raw, isActive: active, fs: nil}
+					rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, isLocal: true, isRemote: false, isEmbedded: false, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: rsngepntpath, isRaw: raw, isActive: active, fs: nil}
 				}
 			}
 		}
 	} else {
-		rsngepnt = &ResourcingEndpoint{ /*lck: &sync.Mutex{},*/ rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: "", isRaw: raw, isActive: active, fs: fs}
+		rsngepnt = &ResourcingEndpoint{rsngmngr: rsngmngr, isLocal: false, isRemote: false, isEmbedded: true, embeddedResources: map[string]*EmbeddedResource{}, host: "", schema: "", querystring: "", path: "", isRaw: raw, isActive: active, fs: fs}
 	}
 	return
 }
