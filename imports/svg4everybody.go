@@ -1,5 +1,5 @@
-//go:build svg4everybody || svg
-// +build svg4everybody svg
+//go:build svg4everybody || svg || graphics
+// +build svg4everybody svg graphics
 
 package imports
 

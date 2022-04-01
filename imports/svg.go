@@ -1,5 +1,5 @@
-//go:build svg
-// +build svg
+//go:build svg || graphics
+// +build svg graphics
 
 package imports
 
