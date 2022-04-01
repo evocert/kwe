@@ -607,12 +607,6 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 							err = offnerr
 							break
 						}
-						/*if offnerr == nil && offn >= 0 {
-							bufr.roffset = offn
-						} else {
-							err = offnerr
-							break
-						}*/
 					} else {
 						if bufr.roffset == bufr.buffer.Size() {
 							break
@@ -621,12 +615,6 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 							err = offnerr
 							break
 						}
-						/*if offnerr == nil && offn >= 0 {
-							bufr.roffset = offn
-						} else {
-							err = offnerr
-							break
-						}*/
 					}
 				}
 
