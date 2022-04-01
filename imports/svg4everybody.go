@@ -4,5 +4,5 @@
 package imports
 
 import (
-	_ "github.com/evocert/kwe/tablesorter"
+	_ "github.com/evocert/kwe/svg4everybody"
 )
