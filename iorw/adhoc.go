@@ -54,6 +54,25 @@ func Fprint(w io.Writer, a ...interface{}) {
 	}
 }
 
+func CopyBytes(dest []byte, desti int, src []byte, srci int) (lencopied int, destn int, srcn int) {
+	if destl := len(dest); destl > 0 && desti < destl {
+		if srcl := len(src); srcl > 0 && srci < srcl {
+			if cpyl := (srcl - srci); cpyl <= (destl - desti) {
+				cpyl = copy(dest[desti:desti+cpyl], src[srci:srci+cpyl])
+				srcn = srci + cpyl
+				destn = desti + cpyl
+				lencopied = cpyl
+			} else if cpyl := (destl - desti); cpyl < (srcl - srci) {
+				cpyl = copy(dest[desti:desti+cpyl], src[srci:srci+cpyl])
+				srcn = srci + cpyl
+				destn = desti + cpyl
+				lencopied = cpyl
+			}
+		}
+	}
+	return
+}
+
 //Fprintln - refer to fmt.Fprintln
 func Fprintln(w io.Writer, a ...interface{}) {
 	if len(a) > 0 && w != nil {

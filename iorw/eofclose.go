@@ -113,6 +113,9 @@ type EOFCloseSeekReader struct {
 	rs      io.Seeker
 	size    int64
 	bfr     *bufio.Reader
+	buf     []byte
+	bufl    int
+	bufi    int
 	MaxRead int64
 	//Reader Api
 	CanClose bool
@@ -257,13 +260,32 @@ func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
 				}
 			}
 			for n < pl && err == nil {
-				pn, perr := eofclsr.r.Read(p[n : n+(pl-n)])
-				if perr != nil {
-					err = perr
+				if eofclsr.bufl == 0 || eofclsr.bufl > 0 && eofclsr.bufi == eofclsr.bufl {
+					if len(eofclsr.buf) != 4096 {
+						eofclsr.buf = nil
+						eofclsr.buf = make([]byte, 4096)
+					}
+					pn, perr := eofclsr.r.Read(eofclsr.buf)
+					if pn > 0 {
+						eofclsr.buf = eofclsr.buf[:pn]
+						eofclsr.bufi = 0
+						eofclsr.bufl = pn
+					}
+					if perr != nil {
+						if perr != io.EOF {
+							err = perr
+							break
+						}
+					}
+					if pn == 0 {
+						break
+					}
 				}
-				n += pn
-				if pn > 0 && eofclsr.MaxRead > 0 {
-					eofclsr.MaxRead -= int64(pn)
+				cpyl := 0
+
+				cpyl, n, eofclsr.bufi = CopyBytes(p, n, eofclsr.buf[:eofclsr.bufl], eofclsr.bufi)
+				if cpyl > 0 && eofclsr.MaxRead > 0 {
+					eofclsr.MaxRead -= int64(cpyl)
 					if eofclsr.MaxRead < 0 {
 						eofclsr.MaxRead = 0
 					}
@@ -300,6 +322,9 @@ func (eofclsr *EOFCloseSeekReader) disposeReader() (err error) {
 		}
 		if eofclsr.r != nil {
 			eofclsr.r = nil
+		}
+		if eofclsr.buf != nil {
+			eofclsr.buf = nil
 		}
 	}
 	return

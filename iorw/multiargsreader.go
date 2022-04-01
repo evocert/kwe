@@ -11,6 +11,9 @@ type MultiArgsReader struct {
 	args  []interface{}
 	crntr io.Reader
 	rnr   io.RuneReader
+	buf   []byte
+	bufi  int
+	bufl  int
 }
 
 type multistringreader struct {
@@ -43,7 +46,7 @@ func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader) {
 	return
 }
 
-func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
+func multiArgsRead(mltiargsr *MultiArgsReader, p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		for n < pl && err == nil {
 			if mltiargsr != nil {
@@ -52,25 +55,54 @@ func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
 					n += crntn
 					if cnrterr != nil {
 						if cnrterr == io.EOF {
-							mltiargsr.crntr = nil
-							if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
-								mltiargsr.crntr = nxtrdr
-							} else if n == 0 {
-								err = cnrterr
+							if mltiargsr.crntr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
+								break
 							}
-							break
 						} else {
 							mltiargsr.crntr = nil
 							err = cnrterr
 						}
 					}
 				} else if mltiargsr.crntr == nil {
-					if nxtrdr := mltiargsr.nextrdr(); nxtrdr != nil {
-						mltiargsr.crntr = nxtrdr
-					} else {
+					if mltiargsr.crntr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
 						break
 					}
 				}
+			}
+		}
+		if n == 0 && err == nil {
+			err = io.EOF
+		}
+	}
+	return
+}
+
+func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
+	if pl := len(p); pl > 0 {
+		for n < pl && err == nil {
+			if mltiargsr != nil {
+				if mltiargsr.bufl == 0 || mltiargsr.bufl > 0 && mltiargsr.bufi == mltiargsr.bufl {
+					if len(mltiargsr.buf) != 4096 {
+						mltiargsr.buf = nil
+						mltiargsr.buf = make([]byte, 4096)
+					}
+					pn, perr := multiArgsRead(mltiargsr, mltiargsr.buf)
+					if pn > 0 {
+						mltiargsr.buf = mltiargsr.buf[:pn]
+						mltiargsr.bufi = 0
+						mltiargsr.bufl = pn
+					}
+					if perr != nil {
+						if perr != io.EOF {
+							err = perr
+							break
+						}
+					}
+					if pn == 0 {
+						break
+					}
+				}
+				_, n, mltiargsr.bufi = CopyBytes(p, n, mltiargsr.buf[:mltiargsr.bufl], mltiargsr.bufi)
 			}
 		}
 		if n == 0 && err == nil {
@@ -110,6 +142,9 @@ func (mltiargsr *MultiArgsReader) Close() (err error) {
 		}
 		if mltiargsr.rnr != nil {
 			mltiargsr.rnr = nil
+		}
+		if mltiargsr.buf != nil {
+			mltiargsr.buf = nil
 		}
 		mltiargsr = nil
 	}
