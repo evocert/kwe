@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dop251/goja/parser"
@@ -809,9 +810,15 @@ func (atvrntme *atvruntime) dispose(cleanupVal func(vali interface{}, valt refle
 	}
 }
 
+var lastserial int64 = time.Now().UnixNano()
+
 func nextserial() (nxsrl int64) {
-	time.Sleep(1 * time.Nanosecond)
-	nxsrl = time.Now().UnixNano()
+	for {
+		if nxsrl = time.Now().UnixNano(); atomic.CompareAndSwapInt64(&lastserial, atomic.LoadInt64(&lastserial), nxsrl) {
+			break
+		}
+		time.Sleep(1 * time.Nanosecond)
+	}
 	return
 }
 
@@ -847,6 +854,9 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 			time.Sleep(time.Millisecond * time.Duration(mils))
 		},
 		"serial": func() string {
+			if atvrntme.serial == 0 {
+				atvrntme.serial = nextserial()
+			}
 			return strconv.FormatInt(atvrntme.serial, 10)
 		},
 		"_parseEval": func(a ...interface{}) (val interface{}, err error) {
@@ -974,7 +984,7 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 }
 
 func newatvruntime(atv *Active) (atvrntme *atvruntime, interruptvm func(v interface{}), err error) {
-	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnxmlsxs: map[*xml.XmlSax]*xml.XmlSax{}, intrnjsnsxs: map[*json.JsonSax]*json.JsonSax{}, serial: nextserial()}
+	atvrntme = &atvruntime{atv: atv, includedpgrms: map[string]*goja.Program{}, intrnxmlsxs: map[*xml.XmlSax]*xml.XmlSax{}, intrnjsnsxs: map[*json.JsonSax]*json.JsonSax{}, serial: 0}
 	if atv != nil {
 		atvrntme.LookupTemplate = atv.AltLookupTemplate
 	}

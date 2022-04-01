@@ -19,17 +19,26 @@ type Sessions struct {
 }
 
 func NewSessions(mnssns *Sessions) (ssns *Sessions) {
-	ssns = &Sessions{ssnscnt: 0, ssnslck: &sync.RWMutex{}, ssns: map[*Session]*Session{}, mnssns: mnssns, ssnsserial: nextserial()}
+	ssns = &Sessions{ssnscnt: 0, ssnslck: &sync.RWMutex{}, ssns: map[*Session]*Session{}, mnssns: mnssns, ssnsserial: 0}
 	return
 }
 
+var lastserial int64 = time.Now().UnixNano()
+
 func nextserial() (nxsrl int64) {
-	time.Sleep(1 * time.Nanosecond)
-	nxsrl = time.Now().UnixNano()
+	for {
+		if nxsrl = time.Now().UnixNano(); atomic.CompareAndSwapInt64(&lastserial, atomic.LoadInt64(&lastserial), nxsrl) {
+			break
+		}
+		time.Sleep(1 * time.Nanosecond)
+	}
 	return
 }
 
 func (ssns *Sessions) Serial() string {
+	if ssns.ssnsserial == 0 {
+		ssns.ssnsserial = nextserial()
+	}
 	return strconv.FormatInt(ssns.ssnsserial, 10)
 }
 
