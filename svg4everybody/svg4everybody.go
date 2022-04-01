@@ -4,9 +4,9 @@ import "github.com/evocert/kwe/resources"
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/svg4everybody/js", "")
+	gblrsngfs.MKDIR("/raw:svg4everybody/js", "")
 	gblrsngfs.SET("/svg4everybody/js/svg4everybody.min.js", svg4everybodyjs)
-	gblrsngfs.MKDIR("/svg4everybody", "")
+	gblrsngfs.MKDIR("/raw:svg4everybody", "")
 	gblrsngfs.SET("/svg4everybody/head.html", `<script src="/svg4everybody/js/svg4everybody.min.js"></script><script>svg4everybody(); // run it now or whenever you are ready</script>`)
 }
 

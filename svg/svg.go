@@ -11,8 +11,8 @@ var svgjs string
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/svg/js", "")
+	gblrsngfs.MKDIR("/raw:svg/js", "")
 	gblrsngfs.SET("/svg/js/svg.min.js", svgjs)
-	gblrsngfs.MKDIR("/svg", "")
+	gblrsngfs.MKDIR("/raw:svg", "")
 	gblrsngfs.SET("/svg/head.html", `<script src="/svg/js/svg.min.js"></script>`)
 }
