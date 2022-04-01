@@ -308,6 +308,42 @@ func ReadToFunc(w io.Writer, funcr func([]byte) (int, error)) (n int64, err erro
 	return
 }
 
+func ReadHandle(r io.Reader, handle func([]byte), maxrlen int) (n int, err error) {
+	if maxrlen < 4096 {
+		maxrlen = 4096
+	}
+	s := make([]byte, maxrlen)
+	sn := 0
+	si := 0
+	sl := len(s)
+	serr := error(nil)
+	for n < maxrlen && err == nil {
+		switch sn, serr = r.Read(s[si : si+(sl-si)]); true {
+		case sn < 0:
+			err = serr
+			break
+		case sn == 0: // EOF
+			if si > 0 {
+				handle(s[0:si])
+				si = 0
+			}
+			err = serr
+			break
+		case sn > 0:
+			si += sn
+			n += sn
+			err = serr
+		}
+	}
+	if si > 0 {
+		handle(s[0:si])
+	}
+	if n == 0 && err == nil {
+		err = io.EOF
+	}
+	return
+}
+
 func ReadWriteToFunc(funcw func([]byte) (int, error), funcr func([]byte) (int, error)) (n int64, err error) {
 	if funcw != nil && funcr != nil {
 		fncrw := &funcrdrwtr{funcr: funcr, funcw: funcw}

@@ -265,21 +265,18 @@ func (eofclsr *EOFCloseSeekReader) Read(p []byte) (n int, err error) {
 						eofclsr.buf = nil
 						eofclsr.buf = make([]byte, 4096)
 					}
-					pn, perr := eofclsr.r.Read(eofclsr.buf)
-					if pn > 0 {
-						eofclsr.buf = eofclsr.buf[:pn]
-						eofclsr.bufi = 0
-						eofclsr.bufl = pn
-					}
-					if perr != nil {
-						if perr != io.EOF {
-							err = perr
-							break
-						}
-					}
-					if pn == 0 {
+					bulki := 0
+					bufl, bulkerr := ReadHandle(eofclsr.r, func(b []byte) {
+						bulki += copy(eofclsr.buf[bulki:bulki+(4096-bulki)], b)
+					}, 4096)
+					if bulkerr != nil && bulkerr != io.EOF {
+						err = bulkerr
 						break
 					}
+					if eofclsr.bufl = bufl; eofclsr.bufl == 0 {
+						break
+					}
+					eofclsr.bufi = 0
 				}
 				cpyl := 0
 
