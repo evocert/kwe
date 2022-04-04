@@ -6,7 +6,8 @@ import (
 
 	"github.com/evocert/kwe/database"
 	//helper registration oracle server driver
-	_ "github.com/sijms/go-ora"
+	_ "github.com/evocert/kwe/go_ora"
+	_ "github.com/evocert/kwe/go_ora/go_oraext"
 )
 
 //Open -wrap sql.Open("oracle", datasource)
@@ -19,7 +20,11 @@ func Open(oraname, datasource string) (*sql.DB, error) {
 
 func init() {
 	database.GLOBALDBMS().RegisterDriver("oracle", func(datasource string, a ...interface{}) (db *sql.DB, err error) {
-		db, err = Open("oracle", datasource)
+		db, err = Open("kwe:oracle", datasource)
+		return
+	})
+	database.GLOBALDBMS().RegisterDriver("oracle:ext", func(datasource string, a ...interface{}) (db *sql.DB, err error) {
+		db, err = Open("kwe:oracle:ext", datasource)
 		return
 	})
 }
