@@ -4,6 +4,9 @@ try {
 } catch(e){
 	console.log(e.message);
 }
+
+ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
+ssn.dbms().query({"alias":"avon","query":"select sysdate from dual"});
 /*ssn.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.log(ssn.caching().string());
 if (ssn.caching().existsAt("a","b",2)) {
