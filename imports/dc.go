@@ -1,5 +1,5 @@
-//go:build dc || graphics
-// +build dc graphics
+//go:build dc || graphs
+// +build dc graphs
 
 package imports
 

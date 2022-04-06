@@ -1,5 +1,5 @@
-//go:build raphael
-// +build raphael
+//go:build raphael || graphs
+// +build raphael graphs
 
 package imports
 

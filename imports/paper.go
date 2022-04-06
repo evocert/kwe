@@ -1,5 +1,5 @@
-//go:build paper || graphics
-// +build paper graphics
+//go:build paper || graphics || graphs
+// +build paper graphics graphs
 
 package imports
 

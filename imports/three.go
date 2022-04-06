@@ -1,5 +1,5 @@
-//go:build three || 3D
-// +build three 3D
+//go:build three
+// +build three
 
 package imports
 

@@ -1,5 +1,5 @@
-//go:build database && all
-// +build database,all
+//go:build database-all
+// +build database-all
 
 package imports
 

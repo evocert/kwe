@@ -1,5 +1,5 @@
-//go:build crossfilter || graphics
-// +build crossfilter graphics
+//go:build crossfilter || graphs
+// +build crossfilter graphs
 
 package imports
 

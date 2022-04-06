@@ -1,5 +1,5 @@
-//go:build ammo || 3D
-// +build ammo 3D
+//go:build ammo || three
+// +build ammo three
 
 package imports
 
