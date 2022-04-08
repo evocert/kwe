@@ -5,7 +5,7 @@ try {
 	console.log(e.message);
 }
 
-ssn.dbms().register("avon","oracle:ext","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
+ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
 ssn.dbms().query({"alias":"avon","query":"select sysdate from dual"}).next();
 /*ssn.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.log(ssn.caching().string());
@@ -238,4 +238,5 @@ ssn.listen("tcp",":1030");
 ssn.cas().register(20,{"orginization":"bla"});
 ssn.cas().ca(20).register(30);
 ssn.fs().mkdir("/movies","C:/movies");
+ssn.fs().mkdir("/music","C:/music");
 //ssn.certifyAddr("20","30",":1030")
