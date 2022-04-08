@@ -4,7 +4,5 @@
 package imports
 
 import (
-	_ "github.com/evocert/kwe/paper"
+	_ "github.com/evocert/kwe/mousestrap"
 )
-
-package imports
