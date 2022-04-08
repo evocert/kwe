@@ -11,7 +11,8 @@ import (
 	"github.com/evocert/kwe/iorw"
 )
 
-const mimetypescsv string = `3D Crossword Plugin	application/vnd.hzn-3d-crossword	.x3d	IANA: 3D Crossword Plugin
+const mimetypescsv string = `Native FLAC format	audio/x-flac	.flac	FLAC Streaming format
+3D Crossword Plugin	application/vnd.hzn-3d-crossword	.x3d	IANA: 3D Crossword Plugin
 3GP	video/3gpp	.3gp	Wikipedia: 3GP
 3GP2	video/3gpp2	.3g2	Wikipedia: 3G2
 3GPP MSEQ File	application/vnd.mseq	.mseq	IANA: 3GPP MSEQ File
