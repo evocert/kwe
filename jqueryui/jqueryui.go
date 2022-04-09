@@ -36,11 +36,10 @@ var uiicons_ffffff_256x240pngb64 []byte
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/raw:jquery-ui/html", "")
-	gblrsngfs.SET("/jquery-ui/html/head.html", `<link href="/jquery-ui/jquery-ui.min.css" rel="stylesheet">
+	gblrsngfs.MKDIR("/raw:jquery-ui", "")
+	gblrsngfs.SET("/jquery-ui/head.html", `<link href="/jquery-ui/jquery-ui.min.css" rel="stylesheet">
 <script src="/jquery/jquery.min.js"></script>
 <script src="/jquery-ui/jquery-ui.min.js"></script>`)
-	gblrsngfs.MKDIR("/raw:jquery-ui", "")
 	gblrsngfs.SET("/jquery-ui/index.html", indexhtml)
 	gblrsngfs.SET("/jquery-ui/jquery-ui.min.css", jqueryuicss)
 	gblrsngfs.SET("/jquery-ui/jquery-ui.min.js", jqueryuijs)
