@@ -104,6 +104,8 @@ type Session struct {
 	mqttevent   mqtt.MqttEvent
 	mqttmngr    mqtt.MQTTManagerAPI
 	atv         *active.Active
+	crntprntr   iorw.Printer
+	crntrdr     iorw.Reader
 	atvdbms     *database.ActiveDBMS
 	cas         *security.CAS
 	rqst        requesting.RequestAPI
@@ -515,6 +517,12 @@ func (ssn *Session) Close() (err error) {
 				ssn.intrvlslck = nil
 			}
 		}
+		if ssn.crntprntr != nil {
+			ssn.crntprntr = nil
+		}
+		if ssn.crntrdr != nil {
+			ssn.crntrdr = nil
+		}
 		ssn = nil
 	}
 	return
@@ -670,6 +678,9 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 		var prtclrangeoffset int64 = -1
 		if rqst = ssn.In(); rqst != nil {
 			rspns = rqst.Response()
+			if ssn.crntprntr == nil {
+				ssn.crntprntr = rspns
+			}
 			prtclrangetype = rqst.RangeType()
 			prtclrangeoffset = rqst.RangeOffset()
 		}
@@ -1004,7 +1015,12 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 									}
 									rs = eofrs
 								}
-								evalerr = ssn.atv.Eval(rspns, rqst, path, convertactive, rs)
+								func() {
+									prvrdr := ssn.crntrdr
+									defer func() { ssn.crntrdr = prvrdr }()
+									ssn.crntrdr, _ = rs.(iorw.Reader)
+									evalerr = ssn.atv.Eval(rspns, rqst, path, convertactive, rs)
+								}()
 								if evalerr != nil {
 									if rspns != nil {
 										rspns.SetHeader("Content-Type", "application/javascript")
@@ -1086,6 +1102,74 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 					}, nil, nil, nil)
 			}()
 		}
+	}
+	return
+}
+
+func (ssn *Session) Print(a ...interface{}) {
+	if ssn != nil && ssn.crntprntr != nil {
+		ssn.crntprntr.Print(a...)
+	}
+}
+
+func (ssn *Session) Println(a ...interface{}) {
+	if ssn != nil && ssn.crntprntr != nil {
+		ssn.crntprntr.Println(a...)
+	}
+}
+
+func (ssn *Session) Write(p []byte) (n int, err error) {
+	if ssn != nil && ssn.crntprntr != nil {
+		n, err = ssn.crntprntr.Write(p)
+	}
+	return
+}
+
+func (ssn *Session) Seek(offset int64, whence int) (n int64, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		n, err = ssn.crntrdr.Seek(offset, whence)
+	}
+	return
+}
+
+func (ssn *Session) SetMaxRead(maxlen int64) (err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		err = ssn.crntrdr.SetMaxRead(maxlen)
+	}
+	return
+}
+
+func (ssn *Session) Read(p []byte) (n int, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		n, err = ssn.crntrdr.Read(p)
+	}
+	return
+}
+
+func (ssn *Session) ReadRune() (r rune, size int, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		r, size, err = ssn.crntrdr.ReadRune()
+	}
+	return
+}
+
+func (ssn *Session) Readln() (ln string, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		ln, err = ssn.crntrdr.Readln()
+	}
+	return
+}
+
+func (ssn *Session) Readlines() (lines []string, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		lines, err = ssn.crntrdr.Readlines()
+	}
+	return
+}
+
+func (ssn *Session) ReadAll() (all string, err error) {
+	if ssn != nil && ssn.crntrdr != nil {
+		all, err = ssn.crntrdr.ReadAll()
 	}
 	return
 }

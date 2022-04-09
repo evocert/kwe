@@ -234,6 +234,8 @@ try {
 	console.log(e.message);
 }
 ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
+ssn.dbms().register("oner-api","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
+ssn.fs().mkdir("/oner","C:/projects/mystuff/oner");
 ssn.listen("tcp",":1030");
 ssn.cas().register(20,{"orginization":"bla"});
 ssn.cas().ca(20).register(30);

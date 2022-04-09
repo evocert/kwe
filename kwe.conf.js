@@ -7,3 +7,4 @@ ssn.fs().mkdir("/movies","C:/movies");
 ssn.fs().mkdir("/music","C:/music");
 ssn.env().set("kwetl-path","/kwetl");
 ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
+ssn.dbms().register("oner-api","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
