@@ -834,10 +834,12 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 											pathroot = pathroot[:len(pathroot)-1]
 										}
 
-										lstcode += "<ul>"
 										if strings.LastIndex(pathroot, "/") > 0 {
-											lstcode += `<li><a href="/ls:` + pathroot[:strings.LastIndex(pathroot, "/")+1] + pathext + `">..<a></li>`
+											lstcode += `<a href="/ls:` + pathroot[:strings.LastIndex(pathroot, "/")+1] + pathext + `">` + pathroot[:strings.LastIndex(pathroot, "/")+1] + `..<a>`
+										} else if strings.LastIndex(pathroot, "/") == -1 {
+											lstcode += `<a href="/ls:` + pathroot + "/" + pathext + `">./<a>`
 										}
+										lstcode += "<ul>"
 										for _, fls := range finfos {
 											fspath := fls.Path()
 											if fls.IsDir() {
@@ -924,9 +926,6 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 								}
 							}
 						}
-						if rs == nil && path == "dummy.js" {
-							rs = iorw.NewEOFCloseSeekReader(strings.NewReader("<@ /**/ @>"))
-						}
 					}
 					if rs != nil {
 						if isactive {
@@ -999,6 +998,12 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							}
 							func() {
 								var evalerr error = nil
+								if eofrs, _ := rs.(*iorw.EOFCloseSeekReader); eofrs != nil {
+									if eofrs.CanClose == false {
+										eofrs.CanClose = true
+									}
+									rs = eofrs
+								}
 								evalerr = ssn.atv.Eval(rspns, rqst, path, convertactive, rs)
 								if evalerr != nil {
 									if rspns != nil {

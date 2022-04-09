@@ -511,19 +511,21 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 						fspath += "/"
 					}
 					if fsrs, _ := rscngepnt.fs.Open(fspath + path); fsrs != nil {
-						rs = newRS(rscngepnt, path, fsrs)
+						if rc, _ := fsrs.(io.ReadCloser); rc != nil {
+							rs = rc
+						} else {
+							rs = iorw.NewEOFCloseSeekReader(fsrs)
+						}
 						return
 					}
 				}
 				if embdrs, embdrsok := rscngepnt.embeddedResources[embedpath]; embdrsok {
 					if embdrs != nil {
 						modified = embdrs.modified
-						rs = newRS(rscngepnt, path, embdrs.Reader())
+						rs = embdrs.Reader()
 					}
 				} else if rscngepnt.isLocal {
 					func() {
-						//rscngepnt.lck.Lock()
-						//defer rscngepnt.lck.Unlock()
 						var tmppath = ""
 						var tmppaths = strings.Split(path, "/")
 						for pn, ps := range tmppaths {
@@ -531,7 +533,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 								if strings.HasPrefix(tmppath, "/") && strings.HasSuffix(rscngepnt.path, "/") {
 									tmppath = tmppath[1:]
 								}
-								if /*fi*/ _, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil /*&& fi.IsDir()*/ {
+								if _, fierr := os.Stat(rscngepnt.path + tmppath + ps + ".zip"); fierr == nil {
 									var testpath = strings.Join(tmppaths[pn+1:tmpl], "/")
 									if testpath != "" {
 										if r, err := zip.OpenReader(rscngepnt.path + tmppath + ps + ".zip"); err == nil {
@@ -539,7 +541,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 												if f.Name == testpath {
 													if rc, rcerr := f.Open(); rcerr == nil {
 														modified = f.Modified
-														rs = rc //newRS(rscngepnt, path, rc)
+														rs = rc
 													} else if rcerr != nil {
 														err = rcerr
 													}
@@ -559,7 +561,7 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 						if fi, fierr := os.Stat(rscngepnt.path + path); fierr == nil && !fi.IsDir() {
 							if f, ferr := os.Open(rscngepnt.path + path); ferr == nil && f != nil {
 								modified = fi.ModTime()
-								rs = newRS(rscngepnt, path, f)
+								rs = f
 							} else if ferr != nil {
 								err = ferr
 							}
@@ -600,7 +602,11 @@ func (rscngepnt *ResourcingEndpoint) findRS(path string) (rs io.ReadCloser, modi
 					func() {
 						if r, rerr := web.DefaultClient.Send(rscngepnt.schema+"://"+strings.Replace(rscngepnt.host+rscngepnt.path+path, "//", "/", -1), remoteHeaders, nil, rqstr); rerr == nil {
 							modified = time.Now()
-							rs = newRS(rscngepnt, path, r)
+							if rc, _ := r.(io.ReadCloser); rc != nil {
+								rs = rc
+							} else {
+								rs = iorw.NewEOFCloseSeekReader(r)
+							}
 						} else if rerr != nil {
 							err = rerr
 						}
