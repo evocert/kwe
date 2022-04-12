@@ -328,7 +328,9 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 	} else {
 		var psblprmnme = make([]rune, 8192)
 		var psblprmnmei = 0
-		iorw.ReadRunesEOFFunc(rnrr, func(r rune) error {
+		var unparsedbuf = iorw.NewBuffer()
+
+		var parseRune = func(r rune) (err error) {
 			if foundTxt {
 				appr(r)
 				if r == '\'' {
@@ -389,7 +391,7 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 									if !fndprm {
 										apprs(prmslbl[0])
 										apprs(psblprmnme[:psblprmnmei])
-										apprs(prmslbl[1])
+										unparsedbuf.WriteRunes(prmslbl[1]...)
 									}
 								} else {
 									apprs(prmslbl[0])
@@ -436,6 +438,21 @@ func queryToStatement(exctr *Executor, query interface{}, args ...interface{}) (
 				}
 			}
 			return nil
+		}
+
+		iorw.ReadRunesEOFFunc(rnrr, func(r rune) (err error) {
+			if err = parseRune(r); err == nil {
+				if unparsedbuf.Size() > 0 {
+					var unparsedrns = []rune(unparsedbuf.String())
+					unparsedbuf.Clear()
+					for _, ur := range unparsedrns {
+						if err = parseRune(ur); err != nil {
+							break
+						}
+					}
+				}
+			}
+			return err
 		})
 
 		if sqlbuf != nil {

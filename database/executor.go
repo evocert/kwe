@@ -19,7 +19,7 @@ import (
 //Executor - struct
 type Executor struct {
 	orgstmnt     string
-	stmnt        string
+	Stmnt        string
 	jsndcdr      *json.Decoder
 	lastdlm      string
 	tknlvl       int
@@ -69,7 +69,7 @@ func newExecutor(cn *Connection, db *sql.DB, query interface{}, strmqrystngs map
 		}
 	}
 	exctr = &Executor{db: db, cn: cn, strmqrystngs: strmqrystngs, script: script, canRepeat: canRepeat, OnSuccess: onsuccess, OnError: onerror, OnFinalize: onfinalize}
-	exctr.stmnt, exctr.argNames, exctr.mappedArgs = queryToStatement(exctr, query, args...)
+	exctr.Stmnt, exctr.argNames, exctr.mappedArgs = queryToStatement(exctr, query, args...)
 	return
 }
 
@@ -246,8 +246,8 @@ func (exctr *Executor) execute(forrows ...bool) (rws RWSAPI, cltpes []*ColumnTyp
 	} else {
 		if exctr.stmt == nil {
 			if len(exctr.strmqrystngs) == 0 {
-				if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.stmnt); exctr.lasterr != nil {
-					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+				if exctr.stmt, exctr.lasterr = exctr.db.Prepare(exctr.Stmnt); exctr.lasterr != nil {
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.Stmnt)
 				}
 			}
 		}
@@ -307,12 +307,14 @@ func (exctr *Executor) execute(forrows ...bool) (rws RWSAPI, cltpes []*ColumnTyp
 						}
 					}
 				} else if exctr.lasterr != nil {
-					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.Stmnt)
 					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			} else {
 				if rslt, rslterr := exctr.stmt.Exec(exctr.qryArgs...); rslterr == nil {
-					if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
+					if exctr.cn.driverName == "sqlserver" {
+						exctr.lastInsertID = -1
+					} else if exctr.lastInsertID, rslterr = rslt.LastInsertId(); rslterr != nil {
 						exctr.lastInsertID = -1
 					}
 					if exctr.rowsAffected, rslterr = rslt.RowsAffected(); rslterr != nil {
@@ -321,7 +323,7 @@ func (exctr *Executor) execute(forrows ...bool) (rws RWSAPI, cltpes []*ColumnTyp
 					invokeSuccess(exctr.script, exctr.OnSuccess, exctr)
 				} else {
 					exctr.lasterr = rslterr
-					exctr.lasterr = newExecErr(exctr.lasterr, exctr.stmnt)
+					exctr.lasterr = newExecErr(exctr.lasterr, exctr.Stmnt)
 					invokeError(exctr.script, exctr.lasterr, exctr.OnError)
 				}
 			}
@@ -352,9 +354,9 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 				}
 			}
 			if forrows {
-				rqstmpstngs["query"] = exctr.stmnt
+				rqstmpstngs["query"] = exctr.Stmnt
 			} else {
-				rqstmpstngs["execute"] = exctr.stmnt
+				rqstmpstngs["execute"] = exctr.Stmnt
 			}
 
 			rqstmp := map[string]interface{}{"1": rqstmpstngs}

@@ -156,6 +156,7 @@ func (atvdbms *ActiveDBMS) Execute(a interface{}, excargs ...interface{}) (exctr
 		}
 		if exctr = atvdbms.dbms.Execute(a, excargs...); exctr != nil {
 			exctr.OnClose = atvdbms.closeExecutor
+			atvdbms.exctrs[exctr] = exctr
 		}
 	}
 	return
