@@ -31,6 +31,7 @@ import (
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/security"
 	"github.com/evocert/kwe/web"
+	"github.com/evocert/kwe/xml"
 )
 
 func NewSession(a ...interface{}) (session channelingapi.SessionAPI) {
@@ -602,28 +603,20 @@ func (ssn *Session) Faf(nxtpth ...string) (err error) {
 	return
 }
 
-/*func (ssn *Session) FafJoin(nxtpth ...string) (err error) {
-	if ssn != nil {
-		if nxtpthl := len(nxtpth); nxtpthl > 0 {
-			func() {
-				ssns := NewSessions(nil)
-				defer ssns.Close()
-				for _, nxpth := range nxtpth {
-					go func(bndssn api.SessionAPI, path string) {
-						defer func() {
-							bndssn.Close()
-							bndssn = nil
-						}()
-						//rqst := requesting.NewRequest(nil, path)
-						//defer rqst.Close()
-						bndssn.Execute(nxtpth)
-					}(ssn.InvokeSession(ssns), nxpth)
-				}
-			}()
-		}
-	}
+func (ssn *Session) XmlJsonToString(level int, a ...interface{}) (s string, err error) {
+	s, err = xml.XmlJsonToString(level, a...)
 	return
-}*/
+}
+
+func (ssn *Session) WriteXmlJson(w io.Writer, level int, a ...interface{}) (err error) {
+	err = xml.WriteXmlJson(w, level, a...)
+	return
+}
+
+func (ssn *Session) PrintXmlJson(level int, a ...interface{}) (err error) {
+	err = ssn.WriteXmlJson(ssn, level, a...)
+	return
+}
 
 func (ssn *Session) AddPath(nxtpth ...string) {
 	if ssn != nil && ssn.addNextPath != nil {
