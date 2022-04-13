@@ -655,6 +655,17 @@ func (atvrntme *atvruntime) parseEval(invertactv bool, a ...interface{}) (val in
 	//return parsing.ParseEval(atvrntme.prsng, forceCode, atvrntme.corerun, a...)
 }
 
+func (atvrntme *atvruntime) parseEvalInline(invertactv bool, path string) (val interface{}, err error) {
+	if atvrntme.atv != nil {
+		r, _ := atvrntme.atv.AltLookupTemplate(path)
+		err = parsing.EvalParsing(nil, nil, nil, "", true, !invertactv, r, func(prsng *parsing.Parsing) (err error) {
+			_, err = atvrntme.run(prsng)
+			return
+		}, atvrntme.atv)
+	}
+	return
+}
+
 func (atvrntme *atvruntime) removeBuffer(buff *iorw.Buffer) {
 	if len(atvrntme.intrnbuffs) > 0 {
 		if bf, bfok := atvrntme.intrnbuffs[buff]; bfok && bf == buff {
@@ -864,6 +875,12 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 		},
 		"parseEval": func(a ...interface{}) (val interface{}, err error) {
 			return atvrntme.parseEval(false, a...)
+		},
+		"_parseInline": func(path string) (val interface{}, err error) {
+			return atvrntme.parseEvalInline(true, path)
+		},
+		"parseInline": func(path string) (val interface{}, err error) {
+			return atvrntme.parseEvalInline(false, path)
 		},
 		//WRITER
 		"incprint": func(w io.Writer) {
