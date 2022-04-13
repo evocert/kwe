@@ -15,6 +15,7 @@ import (
 type ReaderHandle interface {
 	ColumnTypes() []ColumnTypeHandle
 	Columns() []string
+	Field(string) interface{}
 	Data() []interface{}
 	Next() (bool, error)
 	ToJSON(w io.Writer) error
@@ -77,6 +78,19 @@ func (rdr *Reader) Data() []interface{} {
 		rdr.dispdata[n] = castSQLTypeValue(rdr.data[n], rdr.cltpes[n])
 	}
 	return rdr.dispdata[:]
+}
+
+func (rdr *Reader) Field(name string) (val interface{}) {
+	if rdr != nil && rdr.rws != nil && name != "" {
+		if clsl := len(rdr.cls); clsl > 0 && len(rdr.data) == clsl {
+			for coln, col := range rdr.cls {
+				if strings.EqualFold(name, col) {
+					val = rdr.data[coln]
+				}
+			}
+		}
+	}
+	return
 }
 
 var emptymap = map[string]interface{}{}
