@@ -3,6 +3,7 @@ ssn.fs().mkdir("kwetl","C:/GitHub/kwetl");
 ssn.fs().mkdir("kweslnk","C:/projects/slnks");
 ssn.fs().mkdir("collect","C:/projects/collect");
 ssn.fs().mkdir("/oner","C:/projects/mystuff/oner");
+ssn.fs().mkdir("/tvseries","C:/tvseries");
 ssn.fs().mkdir("/movies","C:/movies");
 ssn.fs().mkdir("/music","C:/music");
 ssn.env().set("kwetl-path","/kwetl");

@@ -5,8 +5,48 @@ try {
 	console.log(e.message);
 }
 
+ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; database=ONER; user id=ONER; password=ONER;");
+var exec=ssn.dbms().execute({"alias":"test","query":`EXECUTE  [ONER].[spLOGCOMMENT] 
+@OWNERREFID = @OWNERREFID@
+,@OWNERREFKEY =''
+,@COMMENT=''
+,@COMMENTERID = 0
+,@COMMENTERNAME = ''
+,@REFID = 0
+,@REFKEY = ''
+,@CLASSSECTIONID = 0
+,@CLASSCODE = @CLASSCODE@`},{"OWNERREFID":0,"CLASSCODE":0});
+
+if (exec!==undefined && exec!=null){
+	console.log(exec.stmnt);
+}
+
 ssn.dbms().register("avon","oracle","oracle://SYSTEM:60N61ng0@localhost:1521/XE?MIN POOL SIZE=0&DECR POOL SIZE=1");
-ssn.dbms().query({"alias":"avon","query":"select sysdate from dual"}).next();
+var reccomments=ssn.dbms().query({"alias":"avon","query":"select sysdate from dual"});
+if(reccomments!==undefined && reccomments!==null){
+	var cols=reccomments.columns();
+	
+	console.log("[")
+	while(reccomments.next()){
+		console.log("{")
+		var data=reccomments.data();
+		console.log(data);
+		cols.forEach((col,coln)=>{
+			console.log(`"${col}":${JSON.stringify(data[coln])}`);
+			if(coln<cols.length-1){
+				console.log(",");
+			}
+		});                                
+		console.log("}");
+		if(reccomments.isMore()){
+			console.log(",");
+		}
+	}
+	
+	console.log("]");
+} else {
+	print("[]");
+}
 /*ssn.caching().put("a",{"b":[1,2,{"f":[7,8,9,18]},3,{"g":[17,18,19,118]},4]});
 console.log(ssn.caching().string());
 if (ssn.caching().existsAt("a","b",2)) {
@@ -239,6 +279,7 @@ ssn.fs().mkdir("/oner","C:/projects/mystuff/oner");
 ssn.listen("tcp",":1030");
 ssn.cas().register(20,{"orginization":"bla"});
 ssn.cas().ca(20).register(30);
+ssn.fs().mkdir("/tvseries","C:/tvseries");
 ssn.fs().mkdir("/movies","C:/movies");
 ssn.fs().mkdir("/music","C:/music");
 //ssn.certifyAddr("20","30",":1030")

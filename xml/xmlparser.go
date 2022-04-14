@@ -15,25 +15,27 @@ type Attr struct {
 }
 
 type XmlSax struct {
-	r             io.Reader
-	Object        interface{}
-	Level         int
-	LevelNames    map[int][]string
-	LevelAttrs    map[int][]Attr
-	xmldcdr       *xml.Decoder
-	CallFunc      func(interface{}, ...interface{}) interface{}
-	errfunc       interface{}
-	Error         func(xmlsx *XmlSax, lasterr error)
-	startelemfunc interface{}
-	StartElement  func(xmlsx *XmlSax, space string, name string, attrs ...[]Attr) (done bool)
-	elemdatafunc  interface{}
-	ElemData      func(xmlsx *XmlSax, data []byte)
-	endelemfunc   interface{}
-	EndElement    func(xmlsx *XmlSax, space string, name string) (done bool)
-	closefunc     interface{}
-	OnClose       func(xmlsx *XmlSax)
-	eoffunc       interface{}
-	Eof           func(xmlsx *XmlSax)
+	r              io.Reader
+	Object         interface{}
+	Level          int
+	lastStartLevel int
+	lastEndLevel   int
+	LevelNames     map[int][]string
+	LevelAttrs     map[int][]Attr
+	xmldcdr        *xml.Decoder
+	CallFunc       func(interface{}, ...interface{}) interface{}
+	errfunc        interface{}
+	Error          func(xmlsx *XmlSax, lasterr error)
+	startelemfunc  interface{}
+	StartElement   func(xmlsx *XmlSax, space string, name string, attrs ...Attr) (done bool)
+	elemdatafunc   interface{}
+	ElemData       func(xmlsx *XmlSax, data []byte)
+	endelemfunc    interface{}
+	EndElement     func(xmlsx *XmlSax, space string, name string) (done bool)
+	closefunc      interface{}
+	OnClose        func(xmlsx *XmlSax)
+	eoffunc        interface{}
+	Eof            func(xmlsx *XmlSax)
 }
 
 func NewXmlSAX(a ...interface{}) (xmlsx *XmlSax) {
@@ -160,7 +162,7 @@ func (xmlsx *XmlSax) Next() (canContinue bool, err error) {
 				xmlsx.LevelAttrs[xmlsx.Level] = attrs
 			}
 			if xmlsx.StartElement != nil {
-				canContinue = !xmlsx.StartElement(xmlsx, xmlsx.LevelNames[xmlsx.Level][0], xmlsx.LevelNames[xmlsx.Level][1], xmlsx.LevelAttrs[xmlsx.Level])
+				canContinue = !xmlsx.StartElement(xmlsx, xmlsx.LevelNames[xmlsx.Level][0], xmlsx.LevelNames[xmlsx.Level][1], xmlsx.LevelAttrs[xmlsx.Level]...)
 			}
 		case xml.EndElement:
 			if xmlsx.EndElement != nil {
@@ -198,5 +200,100 @@ func (xmlsx *XmlSax) Next() (canContinue bool, err error) {
 		}
 		err = tknerr
 	}
+	return
+}
+
+func XmlJsonToString(level int, a ...interface{}) (s string, err error) {
+	func() {
+		buff := iorw.NewBuffer()
+		defer buff.Close()
+		if err = WriteXmlJson(buff, level, a...); err == nil {
+			s = buff.String()
+		}
+	}()
+	return
+}
+
+func WriteXmlJson(w io.Writer, level int, a ...interface{}) (err error) {
+	if len(a) > 0 {
+		a = append([]interface{}{`<?xml version="1.0" encoding="UTF-8"?>`}, a...)
+		xml := iorw.NewMultiArgsReader(a...)
+		if json, jsonerr := Convert(xml); jsonerr == nil {
+			io.Copy(w, json)
+		} else {
+			err = jsonerr
+		}
+	}
+	/*func() {
+		dec := NewXmlSAX(a...)
+		buf := iorw.NewBuffer()
+		defer buf.Close()
+		enc := json.NewEncoder(buf)
+		enc.SetIndent("", "")
+		enc.SetEscapeHTML(false)
+		if al := len(a); al > 0 {
+			dec.StartElement = func(xmlsx *XmlSax, space, name string, attrs ...Attr) (done bool) {
+				if xmlsx.Level >= level {
+					if xmlsx.lastStartLevel != xmlsx.Level {
+						iorw.Fprint(w, "{")
+					} else if xmlsx.lastStartLevel == xmlsx.Level {
+						iorw.Fprint(w, ",")
+					}
+					if attrsl := len(attrs); attrsl > 0 {
+						iorw.Fprint(w, "{")
+						for attn, atr := range attrs {
+							iorw.Fprint(w, "@")
+							enc.Encode(atr.Name)
+							iorw.Fprint(w, strings.TrimSpace(buf.String()))
+							buf.Clear()
+							iorw.Fprint(w, ":")
+							enc.Encode(atr.Value)
+							iorw.Fprint(w, strings.TrimSpace(buf.String()))
+							buf.Clear()
+							if attn < attrsl {
+								iorw.Fprint(w, ",")
+							}
+						}
+					}
+					if space != "" {
+						name = space + ":" + name
+					}
+					enc.Encode(name)
+					iorw.Fprint(w, strings.TrimSpace(buf.String()))
+					buf.Clear()
+					iorw.Fprint(w, ":")
+				}
+				return
+			}
+
+			dec.ElemData = func(xmlsx *XmlSax, data []byte) {
+				if xmlsx.Level > 0 {
+					enc.Encode(string(data))
+					iorw.Fprint(w, strings.TrimSpace(buf.String()))
+					buf.Clear()
+				}
+			}
+
+			dec.EndElement = func(xmlsx *XmlSax, space, name string) (done bool) {
+				if xmlsx.lastEndLevel != xmlsx.lastStartLevel {
+					if xmlsx.Level >= level-1 {
+						iorw.Fprint(w, "}")
+					}
+				}
+				return
+			}
+
+			for err == nil {
+				if next, errnext := dec.Next(); (!next && errnext == nil) || errnext != nil {
+					if errnext != io.EOF {
+						err = errnext
+					}
+					break
+				}
+			}
+		} else {
+			enc.Encode(nil)
+		}
+	}()*/
 	return
 }

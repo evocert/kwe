@@ -3,6 +3,7 @@ module github.com/evocert/kwe
 go 1.16
 
 require (
+	github.com/basgys/goxml2json v1.1.0
 	github.com/denisenkom/go-mssqldb v0.12.0
 	github.com/dop251/goja v0.0.0-20220408131256-ffe77e20c6f1
 	github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d
