@@ -11,8 +11,8 @@ var ml5js string
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/ml5/js", "")
-	gblrsngfs.MKDIR("/ml5", "")
+	gblrsngfs.MKDIR("/raw:ml5/js", "")
+	gblrsngfs.MKDIR("/raw:ml5", "")
 	gblrsngfs.SET("/ml5/js/ml5.min.js", ml5js)
 	gblrsngfs.SET("/ml5/head.html", `<script type="application/javascript" src="/ml5/js/ml5.min.js"></script>`)
 }

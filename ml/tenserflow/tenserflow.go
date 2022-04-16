@@ -11,8 +11,8 @@ var tfjs string
 
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
-	gblrsngfs.MKDIR("/tflw/js", "")
-	gblrsngfs.MKDIR("/tflw", "")
+	gblrsngfs.MKDIR("/raw:tflw/js", "")
+	gblrsngfs.MKDIR("/raw:tflw", "")
 	gblrsngfs.SET("/tflw/js/tf.min.js", "var global={};\r\n", tfjs)
 	gblrsngfs.SET("/tflw/head.html", `<script type="application/javascript" src="/tflw/js/tf.min.js"></script>`)
 }
