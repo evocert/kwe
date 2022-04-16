@@ -12,7 +12,7 @@ var mousetrapjs string
 func init() {
 	gblrsngfs := resources.GLOBALRSNG().FS()
 	gblrsngfs.MKDIR("/mousetrap/js", "")
-	gblrsngfs.SET("//mousetrap/js/mousetrap.min.js", mousetrapjs)
+	gblrsngfs.SET("/mousetrap/js/mousetrap.min.js", mousetrapjs)
 	gblrsngfs.MKDIR("/mousetrap", "")
 	gblrsngfs.SET("/mousetrap/head.html", `<script type="application/javascript" src="/mousetrap/js/mousetrap.min.js"></script>`)
 }
