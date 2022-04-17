@@ -324,7 +324,7 @@ func ReadHandle(r io.Reader, handle func([]byte), maxrlen int) (n int, err error
 			break
 		case sn == 0: // EOF
 			if si > 0 {
-				handle(s[0:si])
+				handle(s[:si])
 				si = 0
 			}
 			err = serr
@@ -336,7 +336,7 @@ func ReadHandle(r io.Reader, handle func([]byte), maxrlen int) (n int, err error
 		}
 	}
 	if si > 0 {
-		handle(s[0:si])
+		handle(s[:si])
 	}
 	if n == 0 && err == nil {
 		err = io.EOF
