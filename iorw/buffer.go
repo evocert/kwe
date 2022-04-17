@@ -630,28 +630,41 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 							rbtsl = (rl + bufr.rbytesi)
 						}
 					}
-					if cl := (rbtsl - bufr.rbytesi); (pl - n) >= cl {
-						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
-						n += cl
-						bufr.roffset += int64(cl)
-						bufr.rbytesi += cl
-						if bufr.MaxRead > 0 {
-							bufr.MaxRead -= int64(cl)
-							if bufr.MaxRead < 0 {
-								bufr.MaxRead = 0
+					var cl = 0
+					for n < pl && bufr.rbytesi < rbtsl {
+						if cl, n, bufr.rbytesi = CopyBytes(p[:pl], n, bufr.rbytes[:rbtsl], bufr.rbytesi); cl > 0 {
+							bufr.roffset += int64(cl)
+							if bufr.MaxRead > 0 {
+								bufr.MaxRead -= int64(cl)
+								if bufr.MaxRead < 0 {
+									bufr.MaxRead = 0
+								}
 							}
 						}
-					} else if cl := (pl - n); cl < (rbtsl - bufr.rbytesi) {
-						copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
-						n += cl
-						bufr.roffset += int64(cl)
-						bufr.rbytesi += cl
-						if bufr.MaxRead > 0 {
-							bufr.MaxRead -= int64(cl)
-							if bufr.MaxRead < 0 {
-								bufr.MaxRead = 0
+						/*if rbtsl, pbtsl := (rbtsl - bufr.rbytesi), (pl - n); pbtsl > 0 && rbtsl > 0 {
+							if cl = func() int {
+								if pbtsl >= rbtsl {
+									return rbtsl
+								} else if pbtsl < rbtsl {
+									return pbtsl
+								}
+								return 0
+							}(); cl > 0 {
+								cl = copy(p[n:n+cl], bufr.rbytes[bufr.rbytesi:bufr.rbytesi+cl])
+								n += cl
+								bufr.roffset += int64(cl)
+								bufr.rbytesi += cl
+								if bufr.MaxRead > 0 {
+									bufr.MaxRead -= int64(cl)
+									if bufr.MaxRead < 0 {
+										bufr.MaxRead = 0
+									}
+								}
 							}
-						}
+
+						} else {
+							break
+						}*/
 					}
 				}
 			}

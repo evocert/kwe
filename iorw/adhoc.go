@@ -55,19 +55,17 @@ func Fprint(w io.Writer, a ...interface{}) {
 }
 
 func CopyBytes(dest []byte, desti int, src []byte, srci int) (lencopied int, destn int, srcn int) {
-	if destl := len(dest); destl > 0 && desti < destl {
-		if srcl := len(src); srcl > 0 && srci < srcl {
-			if cpyl := (srcl - srci); cpyl <= (destl - desti) {
-				cpyl = copy(dest[desti:desti+cpyl], src[srci:srci+cpyl])
-				srcn = srci + cpyl
-				destn = desti + cpyl
-				lencopied = cpyl
-			} else if cpyl := (destl - desti); cpyl < (srcl - srci) {
-				cpyl = copy(dest[desti:desti+cpyl], src[srci:srci+cpyl])
-				srcn = srci + cpyl
-				destn = desti + cpyl
-				lencopied = cpyl
-			}
+	if destl, srcl := len(dest), len(src); (destl > 0 && desti < destl) && (srcl > 0 && srci < srcl) {
+		if (srcl - srci) <= (destl - desti) {
+			cpyl := copy(dest[desti:desti+(srcl-srci)], src[srci:srci+(srcl-srci)])
+			srcn = srci + cpyl
+			destn = desti + cpyl
+			lencopied = cpyl
+		} else if (destl - desti) < (srcl - srci) {
+			cpyl := copy(dest[desti:desti+(destl-desti)], src[srci:srci+(destl-desti)])
+			srcn = srci + cpyl
+			destn = desti + cpyl
+			lencopied = cpyl
 		}
 	}
 	return
