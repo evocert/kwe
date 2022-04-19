@@ -73,11 +73,41 @@ func (rdr *Reader) Columns() []string {
 }
 
 //Data return Displayable data in the form of a slice, 'array', of interface{} values
-func (rdr *Reader) Data() []interface{} {
+func (rdr *Reader) Data(cols ...string) (dspdata []interface{}) {
+	var colsl = len(cols)
 	for n := range rdr.data {
 		rdr.dispdata[n] = castSQLTypeValue(rdr.data[n], rdr.cltpes[n])
+		if colsl == 0 {
+			dspdata = append(dspdata, rdr.dispdata[n])
+		}
 	}
-	return rdr.dispdata[:]
+	if clnsl := len(rdr.cls); colsl > 0 && clnsl > 0 {
+		var dtaidx []int = []int{}
+		var cn = 0
+		var lstn = 0
+		var cni = 0
+		for cn < colsl {
+			if cni == clnsl {
+				cni = 0
+			}
+			for cni < clnsl {
+				if strings.EqualFold(cols[cn], rdr.cls[cni]) {
+					if lstn <= cn {
+						dspdata = append(dspdata, rdr.dispdata[cni])
+					} else {
+						dtaidx = append(dtaidx, cni)
+					}
+					lstn = cn
+				}
+				cni++
+			}
+			cn++
+		}
+		for _, cni := range dtaidx {
+			dspdata = append(dspdata, rdr.dispdata[cni])
+		}
+	}
+	return dspdata[:]
 }
 
 func (rdr *Reader) Field(name string) (val interface{}) {
@@ -85,7 +115,7 @@ func (rdr *Reader) Field(name string) (val interface{}) {
 		if clsl := len(rdr.cls); clsl > 0 && len(rdr.data) == clsl {
 			for coln, col := range rdr.cls {
 				if strings.EqualFold(name, col) {
-					val = rdr.data[coln]
+					val = castSQLTypeValue(rdr.data[coln], rdr.cltpes[coln])
 					break
 				}
 			}
