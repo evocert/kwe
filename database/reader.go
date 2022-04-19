@@ -86,6 +86,7 @@ func (rdr *Reader) Field(name string) (val interface{}) {
 			for coln, col := range rdr.cls {
 				if strings.EqualFold(name, col) {
 					val = rdr.data[coln]
+					break
 				}
 			}
 		}
