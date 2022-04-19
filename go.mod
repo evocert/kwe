@@ -14,8 +14,8 @@ require (
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/mattn/go-sqlite3 v1.14.12
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
-	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
-	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5
+	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	modernc.org/ccgo/v3 v3.16.2 // indirect
