@@ -16,10 +16,12 @@ type ReaderHandle interface {
 	ColumnTypes() []ColumnTypeHandle
 	Columns() []string
 	Field(string) interface{}
-	Data() []interface{}
+	Data(...string) []interface{}
 	Next() (bool, error)
 	ToJSON(w io.Writer) error
+	ToJSONData(w io.Writer) error
 	JSON() (string, error)
+	JSONData(...string) (string, error)
 	Close() error
 }
 
@@ -355,6 +357,37 @@ func (rdr *Reader) ToJSON(w io.Writer) (err error) {
 	return
 }
 
+//ToJSONData write *Reader out to json of current record data
+func (rdr *Reader) ToJSONData(w io.Writer, cols ...string) (err error) {
+	if w != nil {
+		dspdata := rdr.Data(cols...)
+		if colsl := len(cols); colsl == 0 {
+			cols = rdr.cls[:]
+		}
+		iorw.Fprint(w, "{")
+		if len(dspdata) == len(cols) && len(cols) > 0 {
+			func() {
+				var bufr = iorw.NewBuffer()
+				defer bufr.Close()
+				enc := json.NewEncoder(bufr)
+				for cn, col := range cols {
+					enc.Encode(col)
+					iorw.Fprint(w, strings.TrimSpace(bufr.String()), ":")
+					bufr.Clear()
+					enc.Encode(dspdata[cn])
+					iorw.Fprint(w, strings.TrimSpace(bufr.String()))
+					bufr.Clear()
+					if cn < len(cols)-1 {
+						iorw.Fprint(w, ",")
+					}
+				}
+			}()
+		}
+		iorw.Fprint(w, "}")
+	}
+	return
+}
+
 //JSONReader return *JSONReader
 func (rdr *Reader) JSONReader() (jsnrdr *JSONReader) {
 	jsnrdr = NewJSONReader(rdr, nil, nil)
@@ -367,6 +400,18 @@ func (rdr *Reader) JSON() (s string, err error) {
 	func() {
 		defer bufr.Close()
 		if err = rdr.ToJSON(bufr); err == nil {
+			s = bufr.String()
+		}
+	}()
+	return
+}
+
+//JSONData readall *Reader of current record data and return json as string
+func (rdr *Reader) JSONData(cols ...string) (s string, err error) {
+	bufr := iorw.NewBuffer()
+	func() {
+		defer bufr.Close()
+		if err = rdr.ToJSONData(bufr, cols...); err == nil {
 			s = bufr.String()
 		}
 	}()
