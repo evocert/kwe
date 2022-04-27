@@ -68,16 +68,20 @@ func (srvs *Service) startService(args ...string) {
 		func() {
 			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+"."+conflabel+".js", in, out)
 			if rqst != nil {
-				defer rqst.Close()
-				ServeRequest(rqst)
+				func() {
+					defer rqst.Close()
+					ServeRequest(rqst)
+				}()
 			}
 		}()
 
 		func() {
 			rqst := requesting.NewRequest(nil, "/active:"+srvs.ServiceName()+".init.js", in, out)
 			if rqst != nil {
-				defer rqst.Close()
-				ServeRequest(rqst)
+				func() {
+					defer rqst.Close()
+					ServeRequest(rqst)
+				}()
 			}
 		}()
 	}
