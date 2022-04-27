@@ -31,6 +31,55 @@ func (buff *Buffer) BuffersLen() (s int) {
 	return len(buff.buffer)
 }
 
+//Contains return true if *Buffer contains teststring
+func (buff *Buffer) Contains(teststring string) (contains bool) {
+	if buff != nil && teststring != "" {
+		contains = buff.ContainsBytes([]byte(teststring)...)
+	}
+	return
+}
+
+//ContainsBytes return true if *Buffer contains testbts...
+func (buff *Buffer) ContainsBytes(testbts ...byte) (contains bool) {
+	if testbtsl := len(testbts); testbtsl > 0 && buff != nil && buff.Size() > 0 {
+		testbtsi := 0
+		prvb := byte(0)
+		var foundMatch = func(bts ...byte) (fnd bool) {
+			for _, bt := range bts {
+				if testbtsi > 0 && testbts[testbtsi-1] == prvb && testbts[testbtsi] != bt {
+					testbtsi = 0
+				}
+				if testbts[testbtsi] == bt {
+					testbtsi++
+					if testbtsi == testbtsl {
+						fnd = true
+						contains = true
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					if testbtsi > 0 {
+						testbtsi = 0
+					}
+					prvb = bt
+				}
+			}
+			return
+		}
+
+		for _, bts := range buff.buffer {
+			if foundMatch(bts...) {
+				break
+			}
+		}
+		if !contains {
+			foundMatch(buff.bytes...)
+		}
+	}
+	return
+}
+
 //Clone - return *Buffer clone
 func (buff *Buffer) Clone() (clnbf *Buffer) {
 	clnbf = NewBuffer()

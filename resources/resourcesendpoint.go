@@ -80,6 +80,14 @@ type ResourcingEndpoint struct {
 func (rscngepnt *ResourcingEndpoint) FS() *fsutils.FSUtils {
 	if rscngepnt.fsutils == nil {
 		rscngepnt.fsutils = &fsutils.FSUtils{
+			FINDROOT: func(path ...string) (root string) {
+				root, _ = rscngepnt.fsfindroot(path...)
+				return
+			},
+			FINDROOTS: func(path ...string) (roots []string) {
+				roots, _ = rscngepnt.fsfindroots(path...)
+				return
+			},
 			FIND: func(path ...string) (finfos []fsutils.FileInfo) {
 				finfos, _ = rscngepnt.fsfind(path...)
 				return
@@ -427,6 +435,44 @@ func (rscngepnt *ResourcingEndpoint) fsls(path ...string) (finfos []fsutils.File
 				}
 			}
 		}
+	}
+	return
+}
+
+func (rscngepnt *ResourcingEndpoint) fsfindroot(path ...string) (root string, err error) {
+	var roots []string = nil
+	if roots, err = rscngepnt.fsfindroots(path...); err == nil && len(roots) > 0 {
+		root = roots[0]
+	}
+	roots = nil
+	return
+}
+
+func (rscngepnt *ResourcingEndpoint) fsfindroots(path ...string) (roots []string, err error) {
+	if fios, fioserr := rscngepnt.fsfind(path...); fioserr == nil && len(fios) > 0 {
+		pathsfound := []string{}
+		maxlen := 0
+		for _, fio := range fios {
+			if fio.IsDir() {
+				if fiopath := fio.Path(); strings.HasPrefix(fiopath, path[0]) {
+					if len(fiopath) > maxlen {
+						pathsfound = append(pathsfound, fiopath)
+						maxlen = len(fiopath)
+					}
+				}
+			}
+		}
+		for _, pthsfnd := range pathsfound {
+			if len(pthsfnd) == maxlen {
+				if len(path) > 1 {
+					roots = append(roots, path[1]+pthsfnd[len(path[0]):])
+				} else {
+					roots = append(roots, pthsfnd)
+				}
+			}
+		}
+	} else {
+		err = fioserr
 	}
 	return
 }

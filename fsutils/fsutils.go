@@ -295,6 +295,44 @@ func ABS(path string) (abspath string, err error) {
 	return
 }
 
+func FINDROOT(path string, altpath ...string) (root string, err error) {
+	var roots []string = nil
+	if roots, err = FINDROOTS(path, altpath...); err == nil && len(roots) > 0 {
+		root = roots[0]
+	}
+	roots = nil
+	return
+}
+
+func FINDROOTS(path string, altpath ...string) (roots []string, err error) {
+	if fios, fioserr := FIND(path, altpath...); fioserr == nil {
+		pathsfound := []string{}
+		maxlen := 0
+		for _, fio := range fios {
+			if fio.IsDir() {
+				if fiopath := fio.Path(); strings.HasPrefix(fiopath, path) {
+					if len(fiopath) > maxlen {
+						pathsfound = append(pathsfound, fiopath)
+						maxlen = len(fiopath)
+					}
+				}
+			}
+		}
+		for _, pthsfnd := range pathsfound {
+			if len(pthsfnd) == maxlen {
+				if len(altpath) > 0 {
+					roots = append(roots, altpath[0]+pthsfnd[len(path):])
+				} else {
+					roots = append(roots, pthsfnd)
+				}
+			}
+		}
+	} else {
+		err = fioserr
+	}
+	return
+}
+
 //FIND list recursive dir content
 func FIND(path string, altpath ...string) (finfos []FileInfo, err error) {
 	var nxtfisfunc func(fi os.FileInfo, fipath string, fialtpath string) = nil
@@ -673,6 +711,8 @@ type FSUtils struct {
 	ABS            func(path string) string                                                                                     `json:"abs"`
 	LS             func(path ...string) (finfos []FileInfo)                                                                     `json:"ls"`
 	FIND           func(path ...string) (finfos []FileInfo)                                                                     `json:"find"`
+	FINDROOT       func(path ...string) (root string)                                                                           `json:"findroot"`
+	FINDROOTS      func(path ...string) (roots []string)                                                                        `json:"findroots"`
 	MKDIR          func(path ...interface{}) bool                                                                               `json:"mkdir"`
 	MKDIRALL       func(path ...interface{}) bool                                                                               `json:"mkdirall"`
 	RM             func(path string) bool                                                                                       `json:"rm"`
@@ -702,6 +742,22 @@ func NewFSUtils() (fsutlsstrct FSUtils) {
 				finfos, _ = FIND(path[0])
 			} else if len(path) == 2 {
 				finfos, _ = FIND(path[0], path[1])
+			}
+			return
+		},
+		FINDROOT: func(path ...string) (root string) {
+			if len(path) == 1 {
+				root, _ = FINDROOT(path[0])
+			} else if len(path) == 2 {
+				root, _ = FINDROOT(path[0], path[1])
+			}
+			return
+		},
+		FINDROOTS: func(path ...string) (roots []string) {
+			if len(path) == 1 {
+				roots, _ = FINDROOTS(path[0])
+			} else if len(path) == 2 {
+				roots, _ = FINDROOTS(path[0], path[1])
 			}
 			return
 		},

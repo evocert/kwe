@@ -24,6 +24,7 @@ type SessionAPI interface {
 	Parameters() parameters.ParametersAPI
 	In() requesting.RequestAPI
 	Out() requesting.ResponseAPI
+	Proxy(string, string, string, ...interface{}) error
 	Send(string, ...interface{}) (iorw.Reader, error)
 	SendRecieve(string, ...interface{}) (iorw.PrinterReader, error)
 	SessionSend(string, ...interface{}) (iorw.Reader, error)

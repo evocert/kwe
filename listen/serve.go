@@ -12,6 +12,7 @@ import (
 	//"net/http/pprof"
 	"strings"
 
+	"github.com/evocert/kwe/iorw"
 	"github.com/evocert/kwe/requesting"
 )
 
@@ -90,10 +91,11 @@ func (w *responseWriter) writeHeader() {
 				ischunked := false
 				if len(w.header) > 0 {
 					for hdr, hdv := range w.header {
-						fmt.Fprintln(w.bufw, hdr+": "+strings.Join(hdv, ";"))
+
+						iorw.Fprint(w.bufw, hdr+": "+strings.Join(hdv, ";"), "\r\n")
 					}
 				}
-				fmt.Fprintln(w.bufw)
+				iorw.Fprint(w.bufw, "\r\n") //fmt.Fprintln(w.bufw)
 				w.Flush()
 				if ischunked {
 					w.chunkedWriter = httputil.NewChunkedWriter(w.orgwtr)

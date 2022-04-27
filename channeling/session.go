@@ -27,6 +27,7 @@ import (
 	"github.com/evocert/kwe/mqtt"
 	"github.com/evocert/kwe/osprc"
 	"github.com/evocert/kwe/parameters"
+	"github.com/evocert/kwe/proxy"
 	"github.com/evocert/kwe/requesting"
 	"github.com/evocert/kwe/resources"
 	"github.com/evocert/kwe/security"
@@ -354,6 +355,15 @@ func (ssn *Session) Shutdown(addr ...string) (err error) {
 func (ssn *Session) Send(rqstpath string, a ...interface{}) (rdr iorw.Reader, err error) {
 	if ssn != nil {
 		rdr, err = internSend(ssn.atv, ssn.FS(), ssn.SessionFS(), ssn.FSUTILS(), ssn.rqst, rqstpath, false, a...)
+	}
+	return
+}
+
+func (ssn *Session) Proxy(rqstpathBase, rqstpath string, rqsttopath string, a ...interface{}) (err error) {
+	if ssn != nil {
+		if rqst, rspns := ssn.In(), ssn.Out(); rqst != nil && rspns != nil {
+			proxy.Proxy(rqstpathBase, rqstpath, rqsttopath, rqst, rspns)
+		}
 	}
 	return
 }
@@ -817,6 +827,10 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 							isactive = convertactive
 						}
 					}
+					var rqstroot = ssn.FS().FINDROOT(path)
+					if rqstroot != "" {
+
+					}
 					if rspns != nil {
 						rspns.SetHeader("Content-Type", mimetype)
 					}
@@ -924,6 +938,33 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 											if rspns != nil {
 												rspns.SetHeader("Content-Type", mimetype)
 											}
+											break
+										}
+									}
+								}
+							}
+						} else if rs == nil {
+							var tmppaths = strings.Split(path, "/")
+							if len(tmppaths) > 0 && strings.LastIndex(tmppaths[len(tmppaths)-1], ".") > 0 {
+								tmppaths = tmppaths[:len(tmppaths)-1]
+							}
+							if tmppthsl := len(tmppaths); tmppthsl > 0 {
+								for tmppthsn := len(tmppaths) - 1; tmppthsn >= 0; tmppthsn-- {
+									tmpth := strings.Join(tmppaths[:tmppthsn+1], "/")
+									if !strings.HasSuffix(tmpth, "/") {
+										tmpth = tmpth + "/"
+									}
+									for _, pth := range strings.Split("js", ",") {
+										if rs = ssn.FS().CAT(tmpth+"default"+"."+pth, fnactiveraw); rs != nil {
+											pathext = "." + pth
+											mimetype, isactive, ismedia = mimes.FindMimeType(tmpth+"default"+"."+pth, "text/plain")
+											if rspns != nil {
+												rspns.SetHeader("Content-Type", mimetype)
+												if expth != nil {
+													expth.pathbase = tmpth
+												}
+											}
+											tmppthsn = -1
 											break
 										}
 									}
@@ -1253,9 +1294,10 @@ func init() {
 }
 
 type exepath struct {
-	path string
-	args []interface{}
-	prms *parameters.Parameters
+	path     string
+	pathbase string
+	args     []interface{}
+	prms     *parameters.Parameters
 }
 
 func (expth *exepath) Ext() (ext string) {
@@ -1293,6 +1335,19 @@ func (expth *exepath) PathRoot() (pathroot string) {
 			pathroot = expth.path[0 : strings.LastIndex(expth.path, "/")+1]
 		} else {
 			pathroot = "/"
+		}
+	}
+	return
+}
+
+func (expth *exepath) PathBase() (pathbase string) {
+	if expth != nil {
+		if pathbase = expth.pathbase; pathbase == "" {
+			if strings.LastIndex(expth.path, "/") > -1 {
+				pathbase = expth.path[0 : strings.LastIndex(expth.path, "/")+1]
+			} else {
+				pathbase = "/"
+			}
 		}
 	}
 	return
