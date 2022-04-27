@@ -49,6 +49,7 @@ func NewAddressing(lcladdr string, rmtaddr string) (addrsng *addrssing) {
 type Request struct {
 	ctx         context.Context
 	path        string
+	querystring string
 	prms        parameters.ParametersAPI
 	prtcl       string
 	prtclmthd   string
@@ -67,6 +68,7 @@ var ConnContextKey = "http-con"
 func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 	var rqst *Request = nil
 	var path string = ""
+	var querystring = ""
 	var prtcl string = ""
 	var prtclmthd string = ""
 	var prtclrangetype = ""
@@ -154,6 +156,9 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 		addrsng, _ = rdr.(Addressing)
 	}
 	if httpr != nil {
+		if querystring == "" {
+			querystring = httpr.URL.RawQuery
+		}
 		if path == "" {
 			path = httpr.URL.Path
 		}
@@ -184,11 +189,18 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 		}
 	}
 
-	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, prms: prms, rangeType: prtclrangetype, rangeOffset: prtclrangeoffset}
+	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, querystring: querystring, prms: prms, rangeType: prtclrangetype, rangeOffset: prtclrangeoffset}
 
 	rqst.rspns = NewResponse(wtr, rqst, httpw)
 
 	rqstapi = rqst
+	return
+}
+
+func (rqst *Request) QueryString() (querystring string) {
+	if rqst != nil {
+		querystring = rqst.querystring
+	}
 	return
 }
 

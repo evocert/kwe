@@ -10,6 +10,7 @@ type RequesterAPI interface {
 }
 
 type RequestAPI interface {
+	QueryString() string
 	Parameters() parameters.ParametersAPI
 	Proto() string
 	Method() string
