@@ -246,11 +246,15 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 		}
 	}
 	if rwsrdr.xmlsx != nil {
+		var lastDataLevel = -1
 		if len(rwsrdr.cls) == 0 {
 			rwsrdr.xmlsx.StartElement = nil
 
 			rwsrdr.xmlsx.ElemData = func(xmlsn *xml.XmlSax, data []byte) {
-				if xmlsn.Level == 3 {
+				if lastDataLevel < 0 && xmlsn.Level > 1 {
+					lastDataLevel = xmlsn.Level
+				}
+				if xmlsn.Level == lastDataLevel {
 					if cl, dl := len(rwsrdr.cls), len(rwsrdr.data); (cl == 0 && dl == 0) || dl == cl {
 						rwsrdr.data = append(rwsrdr.data, string(data))
 					} else if cl != dl && dl >= cl {
@@ -273,7 +277,8 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 			}
 
 			rwsrdr.xmlsx.EndElement = func(xmlsn *xml.XmlSax, space, name string) (done bool) {
-				if xmlsn.Level == 2 {
+				if lastDataLevel > 1 && xmlsn.Level == (lastDataLevel-1) {
+					lastDataLevel = -1
 					done = true
 					rwsrdr.firstdata = len(rwsrdr.data) > 0
 				}
@@ -292,7 +297,10 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 			rwsrdr.xmlsx.StartElement = nil
 
 			rwsrdr.xmlsx.ElemData = func(xmlsn *xml.XmlSax, data []byte) {
-				if xmlsn.Level == 3 {
+				if lastDataLevel < 0 && xmlsn.Level > 1 {
+					lastDataLevel = xmlsn.Level
+				}
+				if xmlsn.Level == lastDataLevel {
 					if dtai := rwsrdr.indexOfColumn(xmlsn.LevelNames[xmlsn.Level][1]); dtai > -1 {
 						if cl := len(rwsrdr.cls); cl > 0 && len(rwsrdr.data) != cl {
 							rwsrdr.data = make([]interface{}, cl)
@@ -303,7 +311,8 @@ func parseXMLRWS(rwsrdr *RWSReader, rdr io.RuneReader, readcols bool) (err error
 			}
 
 			rwsrdr.xmlsx.EndElement = func(xmlsn *xml.XmlSax, space, name string) (done bool) {
-				if xmlsn.Level == 2 {
+				if lastDataLevel > 1 && xmlsn.Level == (lastDataLevel-1) {
+					lastDataLevel = -1
 					done = true
 				}
 				return
