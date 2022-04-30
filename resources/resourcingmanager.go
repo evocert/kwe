@@ -322,6 +322,10 @@ func (rscngmngr *ResourcingManager) fsrm(path string) (rmd bool) {
 
 func (rscngmngr *ResourcingManager) fsmkdirall(path ...interface{}) (mkdall bool) {
 	if pthl := len(path); pthl > 0 {
+		if pthl == 1 {
+			path = append(path, "")
+			pthl++
+		}
 		var pth1, _ = path[0].(string)
 		pth1 = strings.TrimSpace(pth1)
 		var pth2 = ""
@@ -359,7 +363,12 @@ func (rscngmngr *ResourcingManager) fsmkdirall(path ...interface{}) (mkdall bool
 func (rscngmngr *ResourcingManager) fsmkdir(path ...interface{}) (mkd bool) {
 	var fs FS = nil
 	var pthl = len(path)
+
 	if pthl > 0 {
+		if pthl == 1 {
+			path = append(path, "")
+			pthl++
+		}
 		var pthi = 0
 		for pthi < pthl {
 			if d := path[pthi]; d != nil {
