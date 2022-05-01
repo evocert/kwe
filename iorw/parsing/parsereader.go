@@ -241,20 +241,30 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 				crntmtmltiargsrdrd = nil
 			}()
 			cntxcncl()
-			for errrns == nil {
+			for {
 				if mltiargsrdrd := crntmtmltiargsrdrd(); mltiargsrdrd == nil {
 					break
 				} else {
 					cchdr, cchdsize, errrns = mltiargsrdrd.ReadRune()
-					if cchdsize > 0 {
+					if cchdsize > 0 && errrns == nil {
 						intparsechar(cchdr)
-					}
-					if errrns == io.EOF {
-						if len(prsngrdr.mltiargsrdrdrs) > 0 {
-							prsngrdr.mltiargsrdrdrs = prsngrdr.mltiargsrdrdrs[1:]
+					} else if errrns != nil {
+						if cchdsize > 0 {
+							intparsechar(cchdr)
+						}
+						if errrns == io.EOF {
 							if len(prsngrdr.mltiargsrdrdrs) > 0 {
-								errrns = nil
+								prsngrdr.mltiargsrdrdrs = prsngrdr.mltiargsrdrdrs[1:]
+								if len(prsngrdr.mltiargsrdrdrs) > 0 {
+									errrns = nil
+								} else {
+									break
+								}
+							} else {
+								break
 							}
+						} else {
+							break
 						}
 					}
 				}
