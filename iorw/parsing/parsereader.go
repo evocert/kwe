@@ -15,6 +15,7 @@ type ParsingReader struct {
 	prsng          *Parsing
 	started        bool
 	tmplts         map[string]*iorw.Buffer
+	includes       map[string]*iorw.Buffer
 }
 
 func NewParseReader(prsng *Parsing, a ...interface{}) (prsngrdr *ParsingReader) {
@@ -35,11 +36,23 @@ func processPreParsingFrase(bufrnwtrr *bufio.Writer, prsng *Parsing, prsngrdr *P
 					var ln = len([]byte("include "))
 					var frases = strings.TrimSpace(bufr.SubString(int64(ln), frasebuf.Size()))
 					if frases != "" {
-						if tmplbuf, _ := prsngrdr.tmplts[frases]; tmplbuf != nil {
-
+						if inclbuf, _ := prsngrdr.includes[frases]; inclbuf != nil {
+							func() {
+								if prsngrdr.mltiargsrdrdrs == nil {
+									prsngrdr.mltiargsrdrdrs = []*iorw.MultiArgsReader{}
+								}
+								prsngrdr.mltiargsrdrdrs = append([]*iorw.MultiArgsReader{iorw.NewMultiArgsReader(inclbuf.Reader())}, prsngrdr.mltiargsrdrdrs...)
+								frases = ""
+							}()
 						} else if prsng.LookupTemplate != nil {
 							if r, _ := prsng.LookupTemplate(frases); r != nil {
 								func() {
+									if prsngrdr.includes == nil {
+										prsngrdr.includes = map[string]*iorw.Buffer{}
+									}
+									prsngrdr.includes[frases] = iorw.NewBuffer()
+									prsngrdr.includes[frases].ReadFrom(r)
+									r = prsngrdr.includes[frases].Reader()
 									if prsngrdr.mltiargsrdrdrs == nil {
 										prsngrdr.mltiargsrdrdrs = []*iorw.MultiArgsReader{}
 									}
@@ -50,6 +63,12 @@ func processPreParsingFrase(bufrnwtrr *bufio.Writer, prsng *Parsing, prsngrdr *P
 						} else if prsng.AtvActv != nil {
 							if r, _ := prsng.AtvActv.AltLookupTemplate(frases); r != nil {
 								func() {
+									if prsngrdr.includes == nil {
+										prsngrdr.includes = map[string]*iorw.Buffer{}
+									}
+									prsngrdr.includes[frases] = iorw.NewBuffer()
+									prsngrdr.includes[frases].ReadFrom(r)
+									r = prsngrdr.includes[frases].Reader()
 									if prsngrdr.mltiargsrdrdrs == nil {
 										prsngrdr.mltiargsrdrdrs = []*iorw.MultiArgsReader{}
 									}
@@ -129,23 +148,12 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 			var errrns error = nil
 			var frasebuf = iorw.NewBuffer()
 			bufrnwtrr := bufio.NewWriter(pw)
-			defer func() {
-				frasebuf.Close()
-				if errrns == nil || errrns == io.EOF {
-					bufrnwtrr.Flush()
-					pw.Close()
-				} else if errrns != nil {
-					pw.CloseWithError(errrns)
-				}
-			}()
 			finrunes := make([]rune, 4096)
 			finrunesi := 0
 			cchdr := rune(0)
 			cchdsize := 0
-
 			var prvpr rune = rune(0)
 			var intlbli = []int{0, 0}
-
 			var flushfin = func() {
 				if finrunesi > 0 {
 					bufrnwtrr.WriteString(string(finrunes[:finrunesi]))
@@ -153,7 +161,6 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 					bufrnwtrr.Flush()
 				}
 			}
-
 			var fincrn = func(frs ...rune) {
 				for _, fr := range frs {
 					finrunes[finrunesi] = fr
@@ -163,7 +170,6 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 					}
 				}
 			}
-
 			var intparsechar = func(pr rune) {
 				if intlbli[1] == 0 && intlbli[0] < len(intlbl[0]) {
 					if intlbli[0] > 0 && intlbl[0][intlbli[0]-1] == prvpr && intlbl[0][intlbli[0]] != pr {
@@ -173,7 +179,6 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 					if intlbl[0][intlbli[0]] == pr {
 						intlbli[0]++
 						if intlbli[0] == len(intlbl[0]) {
-
 							prvpr = rune(0)
 						} else {
 							prvpr = pr
@@ -212,13 +217,30 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 					}
 				}
 			}
-			cntxcncl()
 			var crntmtmltiargsrdrd = func() (mrgsrdr *iorw.MultiArgsReader) {
 				if len(prsngrdr.mltiargsrdrdrs) > 0 {
 					mrgsrdr = prsngrdr.mltiargsrdrdrs[0]
 				}
 				return
 			}
+			defer func() {
+				frasebuf.Close()
+				if errrns == nil || errrns == io.EOF {
+					bufrnwtrr.Flush()
+					pw.Close()
+				} else if errrns != nil {
+					pw.CloseWithError(errrns)
+				}
+				bufrnwtrr = nil
+				finrunes = nil
+				intlbli = nil
+
+				flushfin = nil
+				fincrn = nil
+				intparsechar = nil
+				crntmtmltiargsrdrd = nil
+			}()
+			cntxcncl()
 			for errrns == nil {
 				if mltiargsrdrd := crntmtmltiargsrdrd(); mltiargsrdrd == nil {
 					break
@@ -234,7 +256,6 @@ func (prsngrdr *ParsingReader) Start() (rnerdr io.RuneReader) {
 								errrns = nil
 							}
 						}
-
 					}
 				}
 			}
@@ -273,12 +294,21 @@ func (prsngrdr *ParsingReader) Close() (err error) {
 		if prsngrdr.prsng != nil {
 			prsngrdr.prsng = nil
 		}
+		if prsngrdr.includes != nil {
+			for incld := range prsngrdr.includes {
+				prsngrdr.includes[incld].Close()
+				prsngrdr.includes[incld] = nil
+				delete(prsngrdr.includes, incld)
+			}
+			prsngrdr.includes = nil
+		}
 		if prsngrdr.tmplts != nil {
 			for tmpl := range prsngrdr.tmplts {
 				prsngrdr.tmplts[tmpl].Close()
 				prsngrdr.tmplts[tmpl] = nil
 				delete(prsngrdr.tmplts, tmpl)
 			}
+			prsngrdr.tmplts = nil
 		}
 		prsngrdr = nil
 	}

@@ -691,9 +691,28 @@ func (prsng *Parsing) flushCde() (err error) {
 }
 
 func ParsePrsng(prsng *Parsing, canexec bool, performParsing func(prsng *Parsing) (err error), a ...interface{}) (err error) {
-	var rnr = NewParseReader(prsng, a...)
+	var prntctx context.Context = nil
+	if al := len(a); al > 0 {
+		ai := 0
+		for ai < al {
+			if prntctxd, _ := a[ai].(context.Context); prntctxd != nil {
+				if prntctx == nil {
+					prntctx = prntctxd
+				}
+				a = append(a[:ai], a[ai+1:])
+				break
+			}
+			ai++
+		}
+	}
+	if prntctx == nil {
+		prntctx = context.Background()
+	}
 	func() {
-		defer rnr.Close()
+		var rnr = NewParseReader(prsng, a...)
+		defer func() {
+			rnr.Close()
+		}()
 		for err == nil {
 			r, rsize, rerr := rnr.ReadRune()
 			if rsize > 0 {
