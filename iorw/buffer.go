@@ -80,6 +80,183 @@ func (buff *Buffer) ContainsBytes(testbts ...byte) (contains bool) {
 	return
 }
 
+//HasPrefix return true if *Buffer has prefix teststring
+func (buff *Buffer) HasPrefix(teststring string) (isprefixed bool) {
+	if buff != nil && teststring != "" {
+		isprefixed = buff.HasPrefixBytes([]byte(teststring)...)
+	}
+	return
+}
+
+//HasPrefixBytes return true if *Buffer has prefix testbts...
+func (buff *Buffer) HasPrefixBytes(testbts ...byte) (isprefixed bool) {
+	if testbtsl := len(testbts); testbtsl > 0 && buff != nil && buff.Size() > 0 {
+		testbtsi := 0
+		prvb := byte(0)
+		var alreadychecked = false
+		var foundMatch = func(bts ...byte) (fnd bool) {
+			for _, bt := range bts {
+				if testbtsi > 0 && testbts[testbtsi-1] == prvb && testbts[testbtsi] != bt {
+					fnd = true
+					isprefixed = false
+					alreadychecked = true
+					testbtsi = 0
+					break
+				}
+				if testbts[testbtsi] == bt {
+					testbtsi++
+					if testbtsi == testbtsl {
+						fnd = true
+						isprefixed = true
+						alreadychecked = true
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					fnd = true
+					isprefixed = false
+					alreadychecked = true
+					break
+				}
+			}
+			return
+		}
+
+		for _, bts := range buff.buffer {
+			if foundMatch(bts...) {
+				break
+			}
+		}
+		if !alreadychecked {
+			foundMatch(buff.bytes...)
+		}
+	}
+	return
+}
+
+//IndexOf return int64 index of *Buffer prefix teststring else -1 if not found
+func (buff *Buffer) IndexOf(teststring string) (index int64) {
+	if buff != nil && teststring != "" {
+		index = buff.IndexOfBytes([]byte(teststring)...)
+	}
+	return
+}
+
+//IndexOfBytes return int64 index of *Buffer prefix testbts... else -1 of not found
+func (buff *Buffer) IndexOfBytes(testbts ...byte) (index int64) {
+	index = -1
+	if testbtsl := len(testbts); testbtsl > 0 && buff != nil && buff.Size() > 0 {
+		testbtsi := 0
+		prvb := byte(0)
+		var alreadychecked = false
+		var tmpindex = int64(0)
+		var foundMatch = func(bts ...byte) (fnd bool) {
+			for _, bt := range bts {
+				if testbtsi > 0 && testbts[testbtsi-1] == prvb && testbts[testbtsi] != bt {
+					tmpindex += int64(testbtsi)
+					testbtsi = 0
+				}
+				if testbts[testbtsi] == bt {
+					testbtsi++
+					tmpindex += 1
+					if testbtsi == testbtsl {
+						fnd = true
+						index = tmpindex - int64(testbtsl)
+						alreadychecked = true
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					if testbtsi > 0 {
+						tmpindex += int64(testbtsi)
+						testbtsi = 0
+					}
+					tmpindex += 1
+					prvb = bt
+				}
+			}
+			return
+		}
+
+		for _, bts := range buff.buffer {
+			if foundMatch(bts...) {
+				break
+			}
+		}
+		if !alreadychecked {
+			foundMatch(buff.bytes...)
+		}
+	}
+	return
+}
+
+//HasSuffix return true if *Buffer has suffix teststring
+func (buff *Buffer) HasSuffix(teststring string) (isprefixed bool) {
+	if buff != nil && teststring != "" {
+		isprefixed = buff.HasPrefixBytes([]byte(teststring)...)
+	}
+	return
+}
+
+//HasSuffixBytes return true if *Buffer has suffix testbts...
+func (buff *Buffer) HasSuffixBytes(testbts ...byte) (isprefixed bool) {
+	if testbtsl := len(testbts); testbtsl > 0 && buff != nil && buff.Size() > 0 {
+		testbtsi := 0
+		tmptestbts := make([]byte, testbtsl)
+		for tstn := range testbts {
+			tmptestbts[tstn] = testbts[len(testbts)-(tstn+1)]
+		}
+		testbts = tmptestbts[:]
+		prvb := byte(0)
+		var alreadychecked = false
+
+		var foundMatch = func(bts ...byte) (fnd bool) {
+			for btn := range bts {
+				bt := bts[len(bts)-(btn+1)]
+
+				if testbtsi > 0 && testbts[testbtsi-1] == prvb && testbts[testbtsi] != bt {
+					fnd = true
+					isprefixed = false
+					alreadychecked = true
+					testbtsi = 0
+					break
+				}
+				if testbts[testbtsi] == bt {
+					testbtsi++
+					if testbtsi == testbtsl {
+						fnd = true
+						isprefixed = true
+						alreadychecked = true
+						break
+					} else {
+						prvb = bt
+					}
+				} else {
+					fnd = true
+					isprefixed = false
+					alreadychecked = true
+					break
+				}
+			}
+			return
+		}
+
+		if !alreadychecked {
+			foundMatch(buff.bytes...)
+		}
+
+		for btsn := range buff.buffer {
+			if foundMatch(buff.buffer[len(buff.buffer)-(btsn+1)]...) {
+				break
+			}
+		}
+
+	}
+	return
+}
+
 //Clone - return *Buffer clone
 func (buff *Buffer) Clone() (clnbf *Buffer) {
 	clnbf = NewBuffer()
@@ -198,6 +375,69 @@ func (buff *Buffer) Size() (s int64) {
 	return s
 }
 
+//ReadRunesFrom - fere io.ReaderFrom
+func (buff *Buffer) ReadRunesFrom(r io.Reader) (n int64, err error) {
+	if r != nil {
+		var rnsr io.RuneReader = nil
+		if rnsr, _ = r.(io.RuneReader); rnsr == nil {
+			rnsr = bufio.NewReader(r)
+		}
+		var p = make([]rune, 4096)
+		var ppi = 0
+		for {
+			pr, pn, pnerr := rnsr.ReadRune()
+			if pn > 0 {
+				n += int64(pn)
+
+				p[ppi] = pr
+				ppi++
+				if ppi == len(p) {
+					var pi = 0
+					for pi < ppi {
+						wn, wnerr := buff.WriteRunes(p[pi : pi+(ppi-pi)]...)
+						if wn > 0 {
+							pi += wn
+						}
+						if wnerr != nil {
+							pnerr = wnerr
+							break
+						}
+						if wn == 0 {
+							break
+						}
+					}
+				}
+			}
+			if pnerr != nil {
+				err = pnerr
+				break
+			} else {
+				if pn == 0 {
+					err = io.EOF
+					break
+				}
+			}
+		}
+		if ppi > 0 {
+			var pi = 0
+			for pi < ppi {
+				wn, wnerr := buff.WriteRunes(p[pi : pi+(ppi-pi)]...)
+				if wn > 0 {
+					pi += wn
+				}
+				if wnerr != nil {
+					err = wnerr
+					break
+				}
+				if wn == 0 {
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
 //ReadFrom - fere io.ReaderFrom
 func (buff *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 	if r != nil {
@@ -237,17 +477,17 @@ func (buff *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 
 //WriteRune - Write singe rune
 func (buff *Buffer) WriteRune(r rune) (err error) {
-	err = buff.WriteRunes(r)
+	_, err = buff.WriteRunes(r)
 	return
 }
 
 //WriteRunes - Write runes
-func (buff *Buffer) WriteRunes(p ...rune) (err error) {
+func (buff *Buffer) WriteRunes(p ...rune) (n int, err error) {
 	if pl := len(p); pl > 0 {
 		if bs := RunesToUTF8(p[:pl]); len(bs) > 0 {
-			//_, err = buff.Write([]byte(string(p[:pl])))
 			_, err = buff.Write(bs)
 		}
+		n = pl
 	}
 	return
 }

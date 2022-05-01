@@ -1,8 +1,30 @@
+[@include test@]
 ssn.fs().mkdir("/gendocs","./gendocs");
 try {
 	eval(ssn.send("/gendocs/gendocs.js").readAll());
 } catch(e){
 	console.log(e.message);
+}
+
+var testxml=`<comments><data><CUSTOMERID>1107782</CUSTOMERID><COMMENT>Koos Comment test 2</COMMENT><COMMENTERID>0</COMMENTERID><COMMENTERNAME></COMMENTERNAME><CONTACTID>30428541</CONTACTID><CLASSSECTIONID>133912</CLASSSECTIONID><CLASSSECTIONNAME>Contact Centre</CLASSSECTIONNAME><CLASSCODE>133912</CLASSCODE><CLASSCODENAME>Balance&#x0D;
+</CLASSCODENAME><DateTime>2022-04-27T17:07:36.860</DateTime></data><data><CUSTOMERID>1107782</CUSTOMERID><COMMENT>Koos Test  Avon Oneview comment testing at multiple account level</COMMENT><COMMENTERID>0</COMMENTERID><COMMENTERNAME></COMMENTERNAME><CONTACTID>30428541</CONTACTID><CLASSSECTIONID>133912</CLASSSECTIONID><CLASSSECTIONNAME>Contact Centre</CLASSSECTIONNAME><CLASSCODE>133912</CLASSCODE><CLASSCODENAME>Balance&#x0D;
+</CLASSCODENAME><DateTime>2022-04-27T17:06:50.103</DateTime></data><data><CUSTOMERID>1107782</CUSTOMERID><COMMENT>Koos  Br 01 Test</COMMENT><COMMENTERID>0</COMMENTERID><COMMENTERNAME></COMMENTERNAME><CONTACTID>30428541</CONTACTID><CLASSSECTIONID>133912</CLASSSECTIONID><CLASSSECTIONNAME>Contact Centre</CLASSSECTIONNAME><CLASSCODE>133912</CLASSCODE><CLASSCODENAME>Balance&#x0D;
+</CLASSCODENAME><DateTime>2022-04-27T16:58:42.383</DateTime></data></comments>`;
+
+var cmntrec=ssn.dbms().query({"xml":{"data":testxml}});
+if (cmntrec!=undefined && cmntrec!=null){
+	console.log(cmntrec.json());
+	/*print(`[`);
+	var cmntcnt=0;
+	while(cmntrec.next()){
+		print(`{"data":`);
+		print(JSON.stringify(cmntrec.dataMap()));
+		print("}");
+		if (cmntrec.isMore()){
+			print(",");
+		}
+	}
+	print("]");*/
 }
 
 ssn.dbms().register("test","sqlserver","server=LAPTOP-LPIKRBBA; database=ONER; user id=ONER; password=ONER;");
@@ -282,4 +304,5 @@ ssn.cas().ca(20).register(30);
 ssn.fs().mkdir("/tvseries","C:/tvseries");
 ssn.fs().mkdir("/movies","C:/movies");
 ssn.fs().mkdir("/music","C:/music");
+ssn.fs().mkdir("/oner","C:/projects/oner")
 //ssn.certifyAddr("20","30",":1030")

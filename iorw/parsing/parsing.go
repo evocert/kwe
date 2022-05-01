@@ -586,7 +586,7 @@ func (prsng *Parsing) writePsv(p ...rune) (err error) {
 				if prsng.psvoffsetstart == -1 {
 					prsng.psvoffsetstart = prsng.Size()
 				}
-				err = prsng.WriteRunes(p[:pl]...)
+				_, err = prsng.WriteRunes(p[:pl]...)
 			} else {
 				if bs := iorw.RunesToUTF8(p[:pl]); len(bs) > 0 {
 					for _, bsb := range bs {
@@ -608,7 +608,7 @@ func (prsng *Parsing) writePsv(p ...rune) (err error) {
 					}
 				}
 			} else {
-				err = prsng.crntpsvsctn.CachedBuf().WriteRunes(p[:pl]...)
+				_, err = prsng.crntpsvsctn.CachedBuf().WriteRunes(p[:pl]...)
 			}
 		}
 	}
@@ -620,7 +620,7 @@ func (prsng *Parsing) writeCde(p []rune) (err error) {
 		if prsng.cdeoffsetstart == -1 {
 			prsng.cdeoffsetstart = prsng.cdeBuff().Size()
 		}
-		err = prsng.cdeBuff().WriteRunes(p[:pl]...)
+		_, err = prsng.cdeBuff().WriteRunes(p[:pl]...)
 	}
 	return
 }
@@ -691,7 +691,7 @@ func (prsng *Parsing) flushCde() (err error) {
 }
 
 func ParsePrsng(prsng *Parsing, canexec bool, performParsing func(prsng *Parsing) (err error), a ...interface{}) (err error) {
-	var rnr = iorw.NewMultiArgsReader(a...)
+	var rnr = NewParseReader(prsng, a...)
 	func() {
 		defer rnr.Close()
 		for err == nil {
@@ -742,7 +742,7 @@ func parseprsngrune(prsng *Parsing, prslbli []int, prslblprv []rune, pr rune) (e
 			prslbli[0]++
 			if prslbli[0] == len(prslbl[0]) {
 				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[0]...); err != nil {
+					if _, err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[0]...); err != nil {
 						return
 					}
 				}
@@ -766,7 +766,7 @@ func parseprsngrune(prsng *Parsing, prslbli []int, prslblprv []rune, pr rune) (e
 			prslbli[1]++
 			if prslbli[1] == len(prslbl[1]) {
 				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1]...); err != nil {
+					if _, err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1]...); err != nil {
 						return
 					}
 				}
@@ -780,7 +780,7 @@ func parseprsngrune(prsng *Parsing, prslbli []int, prslblprv []rune, pr rune) (e
 			if prsl := prslbli[1]; prsl > 0 {
 				prslbli[1] = 0
 				if prsng.crntpsvsctn != nil {
-					if err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1][:prsl]...); err != nil {
+					if _, err = prsng.crntpsvsctn.CachedBuf().WriteRunes(prslbl[1][:prsl]...); err != nil {
 						return
 					}
 				} else {
