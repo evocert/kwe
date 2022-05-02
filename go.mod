@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/basgys/goxml2json v1.1.0
 	github.com/denisenkom/go-mssqldb v0.12.0
-	github.com/dop251/goja v0.0.0-20220430115111-e1f9dc0755e7
+	github.com/dop251/goja v0.0.0-20220501172647-e1eca0b61fa9
 	github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-sql-driver/mysql v1.6.0
@@ -15,9 +15,9 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.12
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
-	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32
+	golang.org/x/sys v0.0.0-20220502124256-b6088ccd6cba
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
-	modernc.org/ccgo/v3 v3.16.3 // indirect
+	modernc.org/ccgo/v3 v3.16.6 // indirect
 	modernc.org/sqlite v1.17.0
 )
