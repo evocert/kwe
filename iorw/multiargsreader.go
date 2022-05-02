@@ -1,19 +1,18 @@
 package iorw
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"strings"
 )
 
 type MultiArgsReader struct {
-	args  []interface{}
-	crntr io.Reader
-	rnr   io.RuneReader
-	buf   []byte
-	bufi  int
-	bufl  int
+	args    []interface{}
+	crntr   io.Reader
+	crntrnr io.RuneReader
+	buf     []byte
+	bufi    int
+	bufl    int
 }
 
 type multistringreader struct {
@@ -21,11 +20,12 @@ type multistringreader struct {
 }
 
 func NewMultiArgsReader(a ...interface{}) (mltiargsr *MultiArgsReader) {
-	mltiargsr = &MultiArgsReader{args: a}
+	mltiargsr = &MultiArgsReader{}
+	mltiargsr.InsertArgs(a...)
 	return
 }
 
-func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader) {
+func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader, nxtrnrdr io.RuneReader) {
 	if mltiargsr != nil {
 		for nxtrdr == nil && len(mltiargsr.args) > 0 {
 			d := mltiargsr.args[0]
@@ -42,6 +42,11 @@ func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader) {
 				continue
 			}
 		}
+		if nxtrdr != nil {
+			if nxtrnrdr, _ = nxtrdr.(io.RuneReader); nxtrnrdr == nil {
+				nxtrnrdr = NewEOFCloseSeekReader(nxtrdr, false)
+			}
+		}
 	}
 	return
 }
@@ -55,7 +60,7 @@ func multiArgsRead(mltiargsr *MultiArgsReader, p []byte) (n int, err error) {
 					n += crntn
 					if cnrterr != nil {
 						if cnrterr == io.EOF {
-							if mltiargsr.crntr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
+							if mltiargsr.crntr, mltiargsr.crntrnr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
 								break
 							}
 						} else {
@@ -64,7 +69,7 @@ func multiArgsRead(mltiargsr *MultiArgsReader, p []byte) (n int, err error) {
 						}
 					}
 				} else if mltiargsr.crntr == nil {
-					if mltiargsr.crntr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
+					if mltiargsr.crntr, mltiargsr.crntrnr = mltiargsr.nextrdr(); mltiargsr.crntr == nil {
 						break
 					}
 				}
@@ -113,15 +118,54 @@ func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
 }
 
 func (mltiargsr *MultiArgsReader) ReadRune() (r rune, size int, err error) {
+	r, size, err = mutiArgsReadRune(mltiargsr)
+	return
+}
+
+func mutiArgsReadRune(mltiargsr *MultiArgsReader) (r rune, size int, err error) {
 	if mltiargsr != nil {
-		if mltiargsr.rnr == nil {
-			mltiargsr.rnr = bufio.NewReader(mltiargsr)
+		if mltiargsr.crntrnr == nil {
+			if mltiargsr.crntr == nil {
+				mltiargsr.crntr, mltiargsr.crntrnr = mltiargsr.nextrdr()
+			}
+			if mltiargsr.crntrnr != nil {
+				r, size, err = mltiargsr.crntrnr.ReadRune()
+				if err != nil {
+					mltiargsr.crntrnr = nil
+					mltiargsr.crntr = nil
+					if err == io.EOF {
+						r, size, err = mutiArgsReadRune(mltiargsr)
+					}
+				}
+			} else {
+				err = io.EOF
+			}
+		} else {
+			r, size, err = mltiargsr.crntrnr.ReadRune()
+			if err != nil {
+				mltiargsr.crntrnr = nil
+				mltiargsr.crntr = nil
+				if err == io.EOF {
+					r, size, err = mutiArgsReadRune(mltiargsr)
+				}
+			}
 		}
-		r, size, err = mltiargsr.rnr.ReadRune()
 	} else {
 		err = io.EOF
 	}
 	return
+}
+
+func (mltiargsr *MultiArgsReader) InsertArgs(a ...interface{}) {
+	if mltiargsr != nil && len(a) > 0 {
+		if mltiargsr.crntr != nil {
+			mltiargsr.args = append([]interface{}{mltiargsr.crntr}, mltiargsr.args...)
+			mltiargsr.args = append(a, mltiargsr.args...)
+		} else {
+			mltiargsr.args = append(a, mltiargsr.args...)
+		}
+		mltiargsr.crntr, mltiargsr.crntrnr = mltiargsr.nextrdr()
+	}
 }
 
 func (mltiargsr *MultiArgsReader) Close() (err error) {
@@ -140,8 +184,11 @@ func (mltiargsr *MultiArgsReader) Close() (err error) {
 				mltiargsr.args = nil
 			}
 		}
-		if mltiargsr.rnr != nil {
-			mltiargsr.rnr = nil
+		if mltiargsr.crntr != nil {
+			mltiargsr.crntr = nil
+		}
+		if mltiargsr.crntrnr != nil {
+			mltiargsr.crntrnr = nil
 		}
 		if mltiargsr.buf != nil {
 			mltiargsr.buf = nil
