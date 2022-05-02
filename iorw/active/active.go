@@ -1101,7 +1101,6 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			if adhocPrgm != nil {
 				vm.RunProgram(adhocPrgm)
 			}
-			var dne = make(chan bool, 1)
 			if atvrntme.vmregister == nil {
 				vmregister := require.NewRegistryWithLoader(func(path string) (sourcebytes []byte, sourceerr error) {
 					if atvrntme != nil && atvrntme.atv != nil {
@@ -1140,12 +1139,8 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 				vmreq := atvrntme.vmregister.Enable(vm)
 				atvrntme.vmreq = vmreq
 			}
-			//go func(vm *goja.Runtime) {
-			//	defer func() { dne <- true }()
 			jsext.Register(vm)
 			atvrntme.vm = vm
-			//}(atvrntme.vm)
-			//<-dne
 			if definternmapref := defaultAtvRuntimeInternMap(atvrntme); len(definternmapref) > 0 {
 				if len(definternmapref) > 0 {
 					for k := range definternmapref {
@@ -1160,9 +1155,7 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 			}
 			var modstoload = RetrieveModule()
 			modstoload = append([]*goja.Program{requirejsprgm}, modstoload...)
-			go loadInternalModules(dne, atvrntme.vm, modstoload...)
-			<-dne
-			defer close(dne)
+			loadInternalModules(atvrntme.vm, modstoload...)
 		} else {
 			if len(objmapref) > 0 && objmapref[0] != nil {
 				for k := range objmapref[0] {
@@ -1175,8 +1168,7 @@ func (atvrntme *atvruntime) lclvm(objmapref ...map[string]interface{}) (vm *goja
 	return
 }
 
-func loadInternalModules(dne chan bool, vm *goja.Runtime, prgrms ...*goja.Program) {
-	defer func() { dne <- true }()
+func loadInternalModules(vm *goja.Runtime, prgrms ...*goja.Program) {
 	if len(prgrms) > 0 {
 		for prgmn := range prgrms {
 			if prgm := prgrms[prgmn]; prgm != nil {
