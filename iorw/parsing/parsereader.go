@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"context"
 	"io"
 	"strings"
 	"sync"
@@ -9,10 +10,14 @@ import (
 )
 
 type ParsingReader struct {
-	mltiargsrdr *iorw.MultiArgsReader
-	prsng       *Parsing
-	tmplts      map[string]*iorw.Buffer
-	includes    map[string]*iorw.Buffer
+	mltiargsrdr     *iorw.MultiArgsReader
+	prsng           *Parsing
+	tmplts          map[string]*iorw.Buffer
+	includes        map[string]*iorw.Buffer
+	cchdrunes       []rune
+	lstcchdruneserr error
+	cchdrunesi      int
+	cchdrunesl      int
 	//
 	intlbli   []int
 	frasebuf  *iorw.Buffer
@@ -119,7 +124,9 @@ func newprsngrdr() (prsngrdr *ParsingReader) {
 		frasebuf:  iorw.NewBuffer(),
 		finrunes:  make([]rune, 4096),
 		finrunesi: 0, cchdr: rune(0), cchdsize: 0, prvpr: rune(0),
-		bufoutwtr: iorw.NewBuffer()}
+		bufoutwtr: iorw.NewBuffer(),
+		cchdrunes: make([]rune, 8192), cchdrunesi: 0, lstcchdruneserr: nil, cchdrunesl: 0,
+	}
 	return
 }
 
@@ -161,6 +168,9 @@ func resetprsngrdr(prsngrdr *ParsingReader) {
 	prsngrdr.finrunesi = 0
 	prsngrdr.cchdr = rune(0)
 	prsngrdr.cchdsize = 0
+	prsngrdr.cchdrunesi = 0
+	prsngrdr.cchdrunesl = 0
+	prsngrdr.lstcchdruneserr = nil
 }
 
 var intlbl = [][]rune{[]rune("[@"), []rune("@]")}
@@ -265,7 +275,36 @@ func processPreParsingFrase(bufrnwtrr *iorw.Buffer, prsng *Parsing, prsngrdr *Pa
 }
 
 func (prsngrdr *ParsingReader) ReadRune() (r rune, size int, err error) {
-	r, size, err = internalReadRune(prsngrdr, prsngrdr.mltiargsrdr)
+	if prsngrdr.lstcchdruneserr == nil && (prsngrdr.cchdrunesl == 0 || (prsngrdr.cchdrunesl > 0 && prsngrdr.cchdrunesi == prsngrdr.cchdrunesl)) {
+		prsngrdr.cchdrunesl = 0
+		prsngrdr.cchdrunesi = 0
+		ctx, ctxcncl := context.WithCancel(context.Background())
+		go func() {
+			defer ctxcncl()
+			for {
+				inr, insize, inerr := internalReadRune(prsngrdr, prsngrdr.mltiargsrdr)
+				if insize > 0 {
+					prsngrdr.cchdrunes[prsngrdr.cchdrunesl] = inr
+					prsngrdr.cchdrunesl++
+					if prsngrdr.cchdrunesl == len(prsngrdr.cchdrunes) {
+						break
+					}
+				}
+				if inerr != nil {
+					prsngrdr.lstcchdruneserr = inerr
+					break
+				}
+			}
+		}()
+		<-ctx.Done()
+	}
+	if prsngrdr.cchdrunesi < prsngrdr.cchdrunesl {
+		size = 1
+		r = prsngrdr.cchdrunes[prsngrdr.cchdrunesi]
+		prsngrdr.cchdrunesi++
+	} else if prsngrdr.lstcchdruneserr != nil {
+		err = prsngrdr.lstcchdruneserr
+	}
 	return
 }
 
