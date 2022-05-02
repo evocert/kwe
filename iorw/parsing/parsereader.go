@@ -3,6 +3,7 @@ package parsing
 import (
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/evocert/kwe/iorw"
 )
@@ -92,15 +93,74 @@ func (prsngrdr *ParsingReader) intparsechar(pr rune) {
 
 func NewParseReader(prsng *Parsing, a ...interface{}) (prsngrdr *ParsingReader) {
 	if len(a) > 0 && prsng != nil {
-		prsngrdr = &ParsingReader{prsng: prsng, mltiargsrdr: iorw.NewMultiArgsReader(a...),
-			intlbli:   []int{0, 0},
-			frasebuf:  iorw.NewBuffer(),
-			finrunes:  make([]rune, 4096),
-			finrunesi: 0, cchdr: rune(0), cchdsize: 0, prvpr: rune(0),
-			bufoutwtr: iorw.NewBuffer()}
+		if prsngrdr, _ = prsgnrdrpool.Get().(*ParsingReader); prsngrdr == nil {
+			prsngrdr = newprsngrdr()
+		}
+
+		if prsngrdr.prsng != prsng {
+			prsngrdr.prsng = prsng
+		}
+		prsngrdr.mltiargsrdr = iorw.NewMultiArgsReader(a...)
+
+		if prsngrdr.bufoutrdr != nil {
+			prsngrdr.bufoutrdr.Close()
+			prsngrdr.bufoutrdr = nil
+		}
 		prsngrdr.bufoutrdr = prsngrdr.bufoutwtr.Reader()
 	}
 	return
+}
+
+var prsgnrdrpool = &sync.Pool{New: func() interface{} { return newprsngrdr() }}
+
+func newprsngrdr() (prsngrdr *ParsingReader) {
+	prsngrdr = &ParsingReader{
+		intlbli:   []int{0, 0},
+		frasebuf:  iorw.NewBuffer(),
+		finrunes:  make([]rune, 4096),
+		finrunesi: 0, cchdr: rune(0), cchdsize: 0, prvpr: rune(0),
+		bufoutwtr: iorw.NewBuffer()}
+	return
+}
+
+func resetprsngrdr(prsngrdr *ParsingReader) {
+	if prsngrdr.mltiargsrdr != nil {
+		prsngrdr.mltiargsrdr.Close()
+		prsngrdr.mltiargsrdr = nil
+	}
+	if prsngrdr.prsng != nil {
+		prsngrdr.prsng = nil
+	}
+	if prsngrdr.includes != nil {
+		for incld := range prsngrdr.includes {
+			prsngrdr.includes[incld].Close()
+			prsngrdr.includes[incld] = nil
+			delete(prsngrdr.includes, incld)
+		}
+		prsngrdr.includes = nil
+	}
+	if prsngrdr.tmplts != nil {
+		for tmpl := range prsngrdr.tmplts {
+			prsngrdr.tmplts[tmpl].Close()
+			prsngrdr.tmplts[tmpl] = nil
+			delete(prsngrdr.tmplts, tmpl)
+		}
+		prsngrdr.tmplts = nil
+	}
+	if prsngrdr.bufoutwtr != nil {
+		prsngrdr.bufoutwtr.Clear()
+	}
+	if prsngrdr.bufoutrdr != nil {
+		prsngrdr.bufoutrdr.Close()
+		prsngrdr.bufoutrdr = nil
+	}
+	prsngrdr.intlbli[0] = 0
+	prsngrdr.intlbli[1] = 0
+	prsngrdr.prvpr = rune(0)
+	prsngrdr.frasebuf.Clear()
+	prsngrdr.finrunesi = 0
+	prsngrdr.cchdr = rune(0)
+	prsngrdr.cchdsize = 0
 }
 
 var intlbl = [][]rune{[]rune("[@"), []rune("@]")}
@@ -246,37 +306,8 @@ func internalReadRune(prsngrdr *ParsingReader, mltiargsrdrd *iorw.MultiArgsReade
 
 func (prsngrdr *ParsingReader) Close() (err error) {
 	if prsngrdr != nil {
-		if prsngrdr.mltiargsrdr != nil {
-			prsngrdr.mltiargsrdr.Close()
-			prsngrdr.mltiargsrdr = nil
-		}
-		if prsngrdr.prsng != nil {
-			prsngrdr.prsng = nil
-		}
-		if prsngrdr.includes != nil {
-			for incld := range prsngrdr.includes {
-				prsngrdr.includes[incld].Close()
-				prsngrdr.includes[incld] = nil
-				delete(prsngrdr.includes, incld)
-			}
-			prsngrdr.includes = nil
-		}
-		if prsngrdr.tmplts != nil {
-			for tmpl := range prsngrdr.tmplts {
-				prsngrdr.tmplts[tmpl].Close()
-				prsngrdr.tmplts[tmpl] = nil
-				delete(prsngrdr.tmplts, tmpl)
-			}
-			prsngrdr.tmplts = nil
-		}
-		if prsngrdr.bufoutwtr != nil {
-			prsngrdr.bufoutwtr.Close()
-			prsngrdr.bufoutwtr = nil
-		}
-		if prsngrdr.bufoutrdr != nil {
-			prsngrdr.bufoutrdr.Close()
-			prsngrdr.bufoutrdr = nil
-		}
+		resetprsngrdr(prsngrdr)
+		prsgnrdrpool.Put(prsngrdr)
 		prsngrdr = nil
 	}
 	return
