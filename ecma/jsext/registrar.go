@@ -1,6 +1,6 @@
 package jsext
 
-import "github.com/dop251/goja"
+import "github.com/evocert/kwe/goja"
 
 var localobjmap map[string]interface{} = make(map[string]interface{})
 

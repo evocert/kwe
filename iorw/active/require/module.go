@@ -12,8 +12,8 @@ import (
 	"text/template"
 	"time"
 
-	js "github.com/dop251/goja"
-	"github.com/dop251/goja/parser"
+	js "github.com/evocert/kwe/goja"
+	"github.com/evocert/kwe/goja/parser"
 	"github.com/evocert/kwe/iorw/parsing"
 )
 

@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dop251/goja/parser"
+	"github.com/evocert/kwe/goja/parser"
 
-	"github.com/dop251/goja"
+	"github.com/evocert/kwe/goja"
 
 	"github.com/evocert/kwe/ecma/jsext"
 	"github.com/evocert/kwe/iorw/active/require"

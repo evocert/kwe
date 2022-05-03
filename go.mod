@@ -5,9 +5,9 @@ go 1.16
 require (
 	github.com/basgys/goxml2json v1.1.0
 	github.com/denisenkom/go-mssqldb v0.12.0
-	github.com/dop251/goja v0.0.0-20220501172647-e1eca0b61fa9
-	github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d
+	github.com/dlclark/regexp2 v1.4.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/ibmdb/go_ibm_db v0.4.1
