@@ -691,23 +691,23 @@ func (prsng *Parsing) flushCde() (err error) {
 }
 
 func ParsePrsng(prsng *Parsing, canexec bool, performParsing func(prsng *Parsing) (err error), a ...interface{}) (err error) {
-	//func() {
-	var rnr = NewParseReader(prsng, a...)
-	defer func() {
-		rnr.Close()
-	}()
-	for err == nil {
-		r, rsize, rerr := rnr.ReadRune()
-		if rsize > 0 {
-			if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
-				break
+	func() {
+		var rnr = NewParseReader(prsng, a...)
+		defer func() {
+			rnr.Close()
+		}()
+		for err == nil {
+			r, rsize, rerr := rnr.ReadRune()
+			if rsize > 0 {
+				if err = parseprsngrune(prsng, prsng.prslbli, prsng.prslblprv, r); err != nil {
+					break
+				}
+			}
+			if rerr != nil {
+				err = rerr
 			}
 		}
-		if rerr != nil {
-			err = rerr
-		}
-	}
-	//}()
+	}()
 	if err == io.EOF || err == nil {
 		if err == io.EOF {
 			err = nil
