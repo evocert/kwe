@@ -492,6 +492,40 @@ func (buff *Buffer) WriteRunes(p ...rune) (n int, err error) {
 	return
 }
 
+func (buff *Buffer) WriteTo(w io.Writer) (n int64, err error) {
+	if buff.Size() > 0 {
+		var btsi = 0
+		for _, bts := range buff.buffer {
+			btsi = 0
+			for btsi < len(bts) {
+				wn, werr := w.Write(bts[btsi : btsi+(len(bts)-btsi)])
+				if wn > 0 {
+					btsi += wn
+					n += int64(wn)
+				}
+				if werr != nil {
+					err = werr
+				}
+			}
+		}
+		if err == nil {
+			btsi = 0
+			bts := buff.bytes[:buff.bytesi]
+			for btsi < len(bts) {
+				wn, werr := w.Write(bts[btsi : btsi+(len(bts)-btsi)])
+				if wn > 0 {
+					btsi += wn
+					n += int64(wn)
+				}
+				if werr != nil {
+					err = werr
+				}
+			}
+		}
+	}
+	return
+}
+
 //Write - refer io.Writer
 func (buff *Buffer) Write(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
