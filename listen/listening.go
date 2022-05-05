@@ -437,6 +437,7 @@ func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err 
 						cn, err = lstnr.accepts(lstn.addr, cn)
 					}
 				}
+				//cn = NewCon(cn)
 				return
 			}}
 	} else if lnerr != nil {

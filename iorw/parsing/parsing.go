@@ -712,18 +712,20 @@ func ParsePrsng(prsng *Parsing, canexec bool, performParsing func(prsng *Parsing
 		if err == io.EOF {
 			err = nil
 		}
-		prsng.flushPsv()
-		if canexec {
-			prsng.flushCde()
-			if prsng.foundCode() {
-				if performParsing != nil {
-					err = performParsing(prsng)
-				}
-			} else {
-				if rdr := prsng.Reader(); rdr != nil {
-					io.Copy(prsng.wout, rdr)
-					rdr.Close()
-					rdr = nil
+		if err = prsng.flushPsv(); err == nil {
+			if canexec {
+				if err = prsng.flushCde(); err == nil {
+					if prsng.foundCode() {
+						if performParsing != nil {
+							err = performParsing(prsng)
+						}
+					} else {
+						if rdr := prsng.Reader(); rdr != nil {
+							_, err = io.Copy(prsng.wout, rdr)
+							rdr.Close()
+							rdr = nil
+						}
+					}
 				}
 			}
 		}
