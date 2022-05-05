@@ -129,7 +129,7 @@ var DefaultHandlePprof func(w http.ResponseWriter, r *http.Request) (hndldpprof 
 func internalServe(ln net.Listener, httpHnflr http.Handler) {
 	if ln != nil {
 		go func() {
-			var connschn chan net.Conn = make(chan net.Conn)
+			//var connschn chan net.Conn = make(chan net.Conn)
 			go func() {
 				for {
 					var conn, connerr = ln.Accept()
@@ -138,35 +138,31 @@ func internalServe(ln net.Listener, httpHnflr http.Handler) {
 					}
 
 					if conn != nil {
-						connschn <- conn
-
+						go func(conn net.Conn) {
+							defer conn.Close()
+							if req, reqerr := http.ReadRequest(bufio.NewReader(conn)); reqerr == nil {
+								if req != nil {
+									if httpHnflr != nil {
+										if w := newResponseWriter(req, conn); w != nil {
+											func() {
+												defer w.Close()
+												req = req.WithContext(context.WithValue(req.Context(), requesting.ConnContextKey, conn))
+												if DefaultHandlePprof != nil {
+													if !DefaultHandlePprof(w, req) {
+														httpHnflr.ServeHTTP(w, req)
+													}
+												} else {
+													httpHnflr.ServeHTTP(w, req)
+												}
+											}()
+										}
+									}
+								}
+							}
+						}(NewCon(conn))
 					}
 				}
 			}()
-			for {
-				go func(conn net.Conn) {
-					defer conn.Close()
-					if req, reqerr := http.ReadRequest(bufio.NewReader(conn)); reqerr == nil {
-						if req != nil {
-							if httpHnflr != nil {
-								if w := newResponseWriter(req, conn); w != nil {
-									func() {
-										defer w.Close()
-										req = req.WithContext(context.WithValue(req.Context(), requesting.ConnContextKey, conn))
-										if DefaultHandlePprof != nil {
-											if !DefaultHandlePprof(w, req) {
-												httpHnflr.ServeHTTP(w, req)
-											}
-										} else {
-											httpHnflr.ServeHTTP(w, req)
-										}
-									}()
-								}
-							}
-						}
-					}
-				}(<-connschn)
-			}
 		}()
 	}
 }
