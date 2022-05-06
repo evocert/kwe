@@ -412,8 +412,8 @@ func newlisten(lstnr *Listener, network string, addr string) (lstn *listen, err 
 			accpt: func() (cn net.Conn, err error) {
 				if lstn.tcpln != nil {
 					if tc, tcerr := lstn.tcpln.AcceptTCP(); tcerr == nil {
+						tc.SetLinger(0)
 						tc.SetNoDelay(true)
-
 						tc.SetReadBuffer(64 * 1024)
 						tc.SetWriteBuffer(64 * 1024)
 						if tcerr = tc.SetKeepAlive(true); tcerr == nil {
