@@ -14,8 +14,6 @@ type Conn struct {
 	rdur     time.Duration
 	rcnt     int32
 	crntrdur time.Duration
-	bufr     *bufio.Reader
-	bufrw    *bufio.ReadWriter
 	wcnt     int32
 	initwdur time.Duration
 	wdur     time.Duration
@@ -31,9 +29,8 @@ type Conn struct {
 
 func NewCon(connn net.Conn) (conn *Conn) {
 	conn = &Conn{conn: connn, initrdur: 30 * time.Second, rdur: 10 * time.Millisecond, crntrdur: 0, crntwdur: 0}
-	conn.bufr = bufio.NewReaderSize(conn.conn, 1024*1024)
-	conn.bufw = bufio.NewWriterSize(conn.conn, 1024*1024)
-	conn.bufrw = bufio.NewReadWriter(conn.bufr, conn.bufw)
+	//conn.bufr = bufio.NewReader(conn.conn, 1024*1024)
+	//conn.bufw = bufio.NewWriter(conn.conn, 1024*1024)
 	return
 }
 
@@ -42,7 +39,7 @@ func NewCon(connn net.Conn) (conn *Conn) {
 // time limit; see SetDeadline and SetReadDeadline.
 func (conn *Conn) Read(b []byte) (n int, err error) {
 	if bl := len(b); bl > 0 {
-		conn.bufrw.Flush()
+		//conn.bufw.Flush()
 		conn.crntwdur = 0
 		if conn.crntrdur == 0 {
 			conn.crntrdur = conn.initrdur
@@ -50,7 +47,7 @@ func (conn *Conn) Read(b []byte) (n int, err error) {
 			conn.crntrdur = conn.rdur
 		}
 		for n < bl && err == nil {
-			rn, rerr := conn.bufrw.Read(b[n : n+(bl-n)])
+			rn, rerr := conn.conn.Read(b[n : n+(bl-n)])
 			if rn > 0 {
 				conn.conn.SetReadDeadline(time.Now().Add(conn.rdur))
 				n += rn
@@ -81,14 +78,15 @@ func (conn *Conn) Write(b []byte) (n int, err error) {
 		}
 		conn.crntrdur = 0
 		for n < bl && err == nil {
-			wn, werr := conn.bufrw.Write(b[n : n+(bl-n)])
+			wn, werr := conn.conn.Write(b[n : n+(bl-n)])
 			if werr == nil {
-				if err = conn.bufrw.Flush(); err == nil {
-					if wn > 0 {
-						n += wn
-						break
-					}
+				if wn > 0 {
+					n += wn
+					break
 				}
+			} else {
+				err = werr
+				break
 			}
 			if wn == 0 && err == nil {
 				break
@@ -101,7 +99,13 @@ func (conn *Conn) Write(b []byte) (n int, err error) {
 // Close closes the connection.
 // Any blocked Read or Write operations will be unblocked and return errors.
 func (conn *Conn) Close() (err error) {
-	err = conn.conn.Close()
+	if conn.conn != nil {
+		err = conn.conn.Close()
+	}
+	if conn.bufw != nil {
+		conn.bufw = nil
+	}
+	conn.conn = nil
 	return
 }
 
