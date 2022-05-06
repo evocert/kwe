@@ -36,12 +36,12 @@ type ResponseAPI interface {
 	Headers() []string
 	Header(string) string
 	SetHeader(string, string)
-	//SetContentType(string)
-	//ContentType() string
 	SetStatus(int)
 	Print(...interface{})
 	Println(...interface{})
 	Write([]byte) (int, error)
+	SetErrNotify(func(err error))
+	Error() error
 	Flush()
 	Close() error
 }
