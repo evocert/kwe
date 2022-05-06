@@ -20,6 +20,8 @@ type Response struct {
 	startw       bool
 	status       int
 	startWriting func() error
+	err          error
+	ntfyerr      func(error)
 }
 
 func NewResponse(wtr io.Writer, a ...interface{}) (rspnsapi ResponseAPI) {
@@ -168,6 +170,19 @@ func (rspns *Response) Println(a ...interface{}) {
 	}
 }
 
+func (rspns *Response) SetErrNotify(ntfyerr func(err error)) {
+	if rspns.ntfyerr == nil && ntfyerr != nil {
+		rspns.ntfyerr = ntfyerr
+	}
+}
+
+func (rspns *Response) Error() (err error) {
+	if rspns != nil {
+		err = rspns.err
+	}
+	return
+}
+
 func (rspns *Response) Write(p []byte) (n int, err error) {
 	if rspns != nil && rspns.wtr != nil {
 		if pl := len(p); pl > 0 {
@@ -181,7 +196,12 @@ func (rspns *Response) Write(p []byte) (n int, err error) {
 					rspns.Flush()
 				}
 			}
-			n, err = rspns.wtr.Write(p)
+			if n, err = rspns.wtr.Write(p); err != nil {
+				rspns.err = err
+				if rspns.ntfyerr != nil {
+					rspns.ntfyerr(err)
+				}
+			}
 		}
 	}
 	return
