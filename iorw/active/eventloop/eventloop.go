@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/evocert/kwe/goja"
 	"github.com/evocert/kwe/iorw/active/console"
 	"github.com/evocert/kwe/iorw/active/require"
 )
