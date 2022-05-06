@@ -722,6 +722,9 @@ func ParsePrsng(prsng *Parsing, canexec bool, performParsing func(prsng *Parsing
 					} else {
 						if rdr := prsng.Reader(); rdr != nil {
 							_, err = io.Copy(prsng.wout, rdr)
+							if err != nil && err == io.EOF {
+								err = nil
+							}
 							rdr.Close()
 							rdr = nil
 						}
