@@ -46,7 +46,7 @@ func parsepsvphrase(prsng *Parsing, psvsctn *psvsection, phrslbli []int, rn rune
 				psvsctn.CachedBuf().WriteRunes(phrslbl[0][:phrsi]...)
 			}
 			psvsctn.phrsprvrn = rn
-			psvsctn.CachedBuf().WriteRune(rn)
+			err = psvsctn.CachedBuf().WriteRune(rn)
 		}
 	} else if phrslbli[0] == len(phrslbl[0]) && phrslbli[1] < len(phrslbl[1]) {
 		if phrslbl[1][phrslbli[1]] == rn {

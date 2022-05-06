@@ -158,16 +158,18 @@ func (rspns *Response) SetStatus(status int) {
 	}
 }
 
-func (rspns *Response) Print(a ...interface{}) {
+func (rspns *Response) Print(a ...interface{}) (err error) {
 	if rspns != nil && rspns.wtr != nil {
-		iorw.Fprint(rspns, a...)
+		err = iorw.Fprint(rspns, a...)
 	}
+	return
 }
 
-func (rspns *Response) Println(a ...interface{}) {
+func (rspns *Response) Println(a ...interface{}) (err error) {
 	if rspns != nil && rspns.wtr != nil {
-		iorw.Fprintln(rspns, a...)
+		err = iorw.Fprintln(rspns, a...)
 	}
+	return
 }
 
 func (rspns *Response) SetErrNotify(ntfyerr func(err error)) {

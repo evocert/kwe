@@ -26,11 +26,11 @@ import (
 
 //Active - struct
 type Active struct {
-	Print          func(a ...interface{})
-	Println        func(a ...interface{})
+	Print          func(a ...interface{}) (err error)
+	Println        func(a ...interface{}) (err error)
 	BinWrite       func(b ...byte) (n int, err error)
-	FPrint         func(w io.Writer, a ...interface{})
-	FPrintLn       func(w io.Writer, a ...interface{})
+	FPrint         func(w io.Writer, a ...interface{}) error
+	FPrintLn       func(w io.Writer, a ...interface{}) error
 	FBinWrite      func(w io.Writer, b ...byte) (n int, err error)
 	Seek           func(offset int64, whence int) (n int64, err error)
 	Readln         func() (string, error)
@@ -62,16 +62,18 @@ func (atv *Active) AltLookupTemplate(path string, a ...interface{}) (r io.Reader
 	return
 }
 
-func (atv *Active) AltPrint(w io.Writer, a ...interface{}) {
+func (atv *Active) AltPrint(w io.Writer, a ...interface{}) (err error) {
 	if atv != nil {
-		atv.print(w, a...)
+		err = atv.print(w, a...)
 	}
+	return
 }
 
-func (atv *Active) AltPrintln(w io.Writer, a ...interface{}) {
+func (atv *Active) AltPrintln(w io.Writer, a ...interface{}) (err error) {
 	if atv != nil {
-		atv.println(w, a...)
+		err = atv.println(w, a...)
 	}
+	return
 }
 
 func (atv *Active) AltBinWrite(w io.Writer, b ...byte) (n int, err error) {
@@ -123,18 +125,6 @@ func (atv *Active) AltObjectRef() (objref map[string]interface{}) {
 		}
 	}
 	return
-}
-
-func (atv *Active) LockPrint() {
-	/*if atv != nil && atv.lckprnt != nil {
-		atv.lckprnt.Lock()
-	}*/
-}
-
-func (atv *Active) UnlockPrint() {
-	/*if atv != nil && atv.lckprnt != nil {
-		atv.lckprnt.Unlock()
-	}*/
 }
 
 //InvokeFunction ivoke *Acive.actvruntime function
@@ -197,58 +187,59 @@ func NewActive() (atv *Active) {
 	return
 }
 
-func (atv *Active) print(w io.Writer, a ...interface{}) {
+func (atv *Active) print(w io.Writer, a ...interface{}) (err error) {
 	if prntr, prntrok := w.(iorw.Printer); prntrok {
-		prntr.Print(a...)
+		err = prntr.Print(a...)
 	} else {
 		if atv.Print != nil {
 			if len(a) > 0 {
 				func() {
-					atv.Print(a...)
+					err = atv.Print(a...)
 				}()
 			}
 		} else {
 			if atv.FPrint != nil && w != nil {
 				if len(a) > 0 {
-					atv.FPrint(w, a...)
+					err = atv.FPrint(w, a...)
 				}
 			} else if w != nil {
 				if len(a) > 0 {
 					if prntr, prntrok := w.(iorw.Printer); prntrok {
-						prntr.Print(a...)
+						err = prntr.Print(a...)
 					} else {
-
-						iorw.Fprint(w, a...)
+						err = iorw.Fprint(w, a...)
 					}
 				}
 			}
 		}
 	}
+	return
 }
 
-func (atv *Active) println(w io.Writer, a ...interface{}) {
+func (atv *Active) println(w io.Writer, a ...interface{}) (err error) {
 	if prntr, prntrok := w.(iorw.Printer); prntrok {
 		prntr.Println(a...)
 	} else {
 		if atv.Println != nil {
 			if len(a) > 0 {
 				func() {
-					atv.Println(a...)
+					err = atv.Println(a...)
 				}()
 			}
 		} else if atv.FPrintLn != nil && w != nil {
-			atv.FPrintLn(w, a...)
+			err = atv.FPrintLn(w, a...)
 		} else if w != nil {
 			if prntr, prntrok := w.(iorw.Printer); prntrok {
-				prntr.Println(a...)
+				err = prntr.Println(a...)
 			} else {
 				if len(a) > 0 {
-					fmt.Fprint(w, a...)
+					_, err = fmt.Fprint(w, a...)
 				}
-				fmt.Fprintln(w)
+				_, err = fmt.Fprintln(w)
 			}
 		}
 	}
+	return
 }
 
 func (atv *Active) binwrite(w io.Writer, b ...byte) (n int, err error) {
@@ -291,7 +282,6 @@ func (atv *Active) binread(r io.Reader, size int) (b []byte, err error) {
 		} else if atv.FBinRead != nil && r != nil {
 			b, err = atv.FBinRead(r, size)
 		} else if r != nil {
-			atv.UnlockPrint()
 			if size > 0 {
 				p := make([]byte, size)
 				pn, perr := r.Read(p)
@@ -486,6 +476,7 @@ func (atv *Active) Interrupt() {
 
 type atvruntime struct {
 	prsng          *parsing.Parsing
+	lstprinterr    error
 	atv            parsing.AltActiveAPI //*Active
 	LookupTemplate func(string, ...interface{}) (io.Reader, error)
 	vm             *goja.Runtime
@@ -605,32 +596,31 @@ func (atvrntme *atvruntime) corerun(prsng *parsing.Parsing, code string, objmapr
 		}()
 		if err != nil {
 			if errs := err.Error(); errs != "" && !strings.HasPrefix(errs, "exit at <eval>:") {
-				//fmt.Println(err.Error())
-				//fmt.Println(code)
-				//err = nil
+
 			}
 
 		}
 	} else {
 		if err != nil {
 			if errs := err.Error(); errs != "" && !strings.HasPrefix(errs, "exit at <eval>:") {
-				//fmt.Println(err.Error())
-				//fmt.Println(code)
-				//err = nil
+
 			}
 		}
 	}
 	if err != nil {
-		cde := ""
-		excpath := ""
-		if prsng != nil {
-			excpath = prsng.Prsvpth
+		if atvrntme.lstprinterr == nil {
+
+			cde := ""
+			excpath := ""
+			if prsng != nil {
+				excpath = prsng.Prsvpth
+			}
+			for cdn, cd := range strings.Split(code, "\n") {
+				cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
+			}
+			cdeerr := codeException(cde, excpath, err)
+			err = cdeerr
 		}
-		for cdn, cd := range strings.Split(code, "\n") {
-			cde += fmt.Sprintf("%d:%s\r\n", (cdn + 1), strings.TrimSpace(cd))
-		}
-		cdeerr := codeException(cde, excpath, err)
-		err = cdeerr
 	}
 	return
 }
@@ -898,19 +888,21 @@ func defaultAtvRuntimeInternMap(atvrntme *atvruntime) (internmapref map[string]i
 				atvrntme.prsng.DecPrint()
 			}
 		},
-		"print": func(a ...interface{}) {
+		"print": func(a ...interface{}) error {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.Print(a...)
+				atvrntme.lstprinterr = atvrntme.prsng.Print(a...)
 			} else if atvrntme.atv != nil {
-				atvrntme.atv.AltPrint(nil, a...)
+				atvrntme.lstprinterr = atvrntme.atv.AltPrint(nil, a...)
 			}
+			return atvrntme.lstprinterr
 		},
-		"println": func(a ...interface{}) {
+		"println": func(a ...interface{}) error {
 			if atvrntme.prsng != nil {
-				atvrntme.prsng.Println(a...)
+				atvrntme.lstprinterr = atvrntme.prsng.Println(a...)
 			} else if atvrntme.atv != nil {
-				atvrntme.atv.AltPrintln(nil, a...)
+				atvrntme.lstprinterr = atvrntme.atv.AltPrintln(nil, a...)
 			}
+			return atvrntme.lstprinterr
 		},
 		"binwrite": func(b ...byte) (n int, err error) {
 			if atvrntme.prsng != nil {
@@ -1352,10 +1344,4 @@ func init() {
 		}
 		return
 	}
-
-	//globalModuleslck = &sync.RWMutex{}
-	/*var errpgrm error = nil
-	if requirejsprgm, errpgrm = goja.Compile("", requirejs.RequireJSString(), false); errpgrm != nil {
-		fmt.Println(errpgrm.Error())
-	}*/
 }

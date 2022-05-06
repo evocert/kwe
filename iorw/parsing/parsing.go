@@ -17,8 +17,8 @@ var argslbl = [][]rune{[]rune("{@"), []rune("@}")}
 
 type AltActiveAPI interface {
 	AltLookupTemplate(string, ...interface{}) (io.Reader, error)
-	AltPrint(w io.Writer, a ...interface{})
-	AltPrintln(w io.Writer, a ...interface{})
+	AltPrint(w io.Writer, a ...interface{}) error
+	AltPrintln(w io.Writer, a ...interface{}) error
 	AltBinWrite(w io.Writer, b ...byte) (n int, err error)
 	AltReadln(r io.Reader) (ln string, err error)
 	AltSeek(r io.Reader, offset int64, whence int) (n int64, err error)
@@ -338,24 +338,26 @@ func (prsng *Parsing) tmpltrdr(tmpltnme string) (rdr *iorw.BuffReader, mxlen int
 	return
 }
 
-func (prsng *Parsing) Print(a ...interface{}) {
+func (prsng *Parsing) Print(a ...interface{}) (err error) {
 	if prsng.AtvActv != nil {
 		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.AtvActv.AltPrint(prsng.prntrs[pl-1], a...)
+			err = prsng.AtvActv.AltPrint(prsng.prntrs[pl-1], a...)
 		} else {
-			prsng.AtvActv.AltPrint(prsng.wout, a...)
+			err = prsng.AtvActv.AltPrint(prsng.wout, a...)
 		}
 	}
+	return
 }
 
-func (prsng *Parsing) Println(a ...interface{}) {
+func (prsng *Parsing) Println(a ...interface{}) (err error) {
 	if prsng.AtvActv != nil {
 		if pl := len(prsng.prntrs); pl > 0 {
-			prsng.AtvActv.AltPrintln(prsng.prntrs[pl-1], a...)
+			err = prsng.AtvActv.AltPrintln(prsng.prntrs[pl-1], a...)
 		} else {
-			prsng.AtvActv.AltPrintln(prsng.wout, a...)
+			err = prsng.AtvActv.AltPrintln(prsng.wout, a...)
 		}
 	}
+	return
 }
 
 func (prsng *Parsing) BinWrite(b ...byte) (n int, err error) {

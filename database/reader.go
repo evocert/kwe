@@ -364,26 +364,34 @@ func (rdr *Reader) ToJSONData(w io.Writer, cols ...string) (err error) {
 		if colsl := len(cols); colsl == 0 {
 			cols = rdr.cls[:]
 		}
-		iorw.Fprint(w, "{")
-		if len(dspdata) == len(cols) && len(cols) > 0 {
+		err = iorw.Fprint(w, "{")
+		if err == nil && len(dspdata) == len(cols) && len(cols) > 0 {
 			func() {
 				var bufr = iorw.NewBuffer()
 				defer bufr.Close()
 				enc := json.NewEncoder(bufr)
 				for cn, col := range cols {
 					enc.Encode(col)
-					iorw.Fprint(w, strings.TrimSpace(bufr.String()), ":")
+					if err = iorw.Fprint(w, strings.TrimSpace(bufr.String()), ":"); err != nil {
+						break
+					}
 					bufr.Clear()
 					enc.Encode(dspdata[cn])
-					iorw.Fprint(w, strings.TrimSpace(bufr.String()))
+					if err = iorw.Fprint(w, strings.TrimSpace(bufr.String())); err != nil {
+						break
+					}
 					bufr.Clear()
 					if cn < len(cols)-1 {
-						iorw.Fprint(w, ",")
+						if err = iorw.Fprint(w, ","); err != nil {
+							break
+						}
 					}
 				}
 			}()
 		}
-		iorw.Fprint(w, "}")
+		if err == nil {
+			err = iorw.Fprint(w, "}")
+		}
 	}
 	return
 }

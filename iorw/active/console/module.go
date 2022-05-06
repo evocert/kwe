@@ -3,7 +3,7 @@ package console
 import (
 	"log"
 
-	"github.com/dop251/goja"
+	"github.com/evocert/kwe/goja"
 	"github.com/evocert/kwe/iorw/active/require"
 	_ "github.com/evocert/kwe/iorw/active/util"
 )

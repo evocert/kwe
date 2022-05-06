@@ -1057,9 +1057,11 @@ func (ssn *Session) Execute(a ...interface{}) (err error) {
 								}()
 								if evalerr != nil {
 									if rspns != nil {
-										rspns.SetHeader("Content-Type", "application/javascript")
-										rspns.SetStatus(500)
-										rspns.Print(evalerr)
+										if rspns.Error() == nil {
+											rspns.SetHeader("Content-Type", "application/javascript")
+											rspns.SetStatus(500)
+											rspns.Print(evalerr)
+										}
 									} else {
 										println(evalerr.Error())
 									}

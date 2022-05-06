@@ -331,19 +331,23 @@ func (wsrw *ReaderWriter) Flush() (err error) {
 }
 
 //Print - refer to fmt.Fprint
-func (wsrw *ReaderWriter) Print(a ...interface{}) {
+func (wsrw *ReaderWriter) Print(a ...interface{}) (err error) {
 	if wsrw != nil {
-		iorw.Fprint(wsrw, a...)
-		wsrw.Flush()
+		if err = iorw.Fprint(wsrw, a...); err == nil {
+			err = wsrw.Flush()
+		}
 	}
+	return
 }
 
 //Println - refer to fmt.Fprintln
-func (wsrw *ReaderWriter) Println(a ...interface{}) {
+func (wsrw *ReaderWriter) Println(a ...interface{}) (err error) {
 	if wsrw != nil {
-		iorw.Fprintln(wsrw, a...)
-		wsrw.Flush()
+		if err = iorw.Fprintln(wsrw, a...); err == nil {
+			err = wsrw.Flush()
+		}
 	}
+	return
 }
 
 //Write - refer io.Writer

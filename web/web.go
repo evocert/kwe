@@ -243,7 +243,7 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 
 		var rqstheaders http.Header
 		var rspnselts []interface{} = nil
-		for ai < len(a) {
+		for err == nil && ai < len(a) {
 			d := a[ai]
 			if r == nil {
 				if rs, rsok := d.(string); rsok {

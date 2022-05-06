@@ -521,63 +521,69 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 		if mpl := len(mpin); mpl > 0 {
 			if out != nil {
 				hasoutput = true
-				iorw.Fprint(out, "{")
+				err = iorw.Fprint(out, "{")
 			}
-			for mk := range mpin {
-				mv := mpin[mk]
-				mpl--
-				if out != nil {
-					hasoutput = true
-					iorw.Fprint(out, "\""+mk+"\":")
-				}
-				if mvp, mvpok := mv.(map[string]interface{}); mvpok {
-					if cmd, cmdok := mvp["execute"]; cmdok {
-						delete(mvp, "execute")
-						exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
-						if out != nil {
-							hasoutput = true
-							jsnrdr := NewJSONReader(nil, exctr, exctrerr)
-							io.Copy(out, jsnrdr)
-							jsnrdr = nil
+			if err == nil {
+				for mk := range mpin {
+					mv := mpin[mk]
+					mpl--
+					if out != nil {
+						hasoutput = true
+						if err = iorw.Fprint(out, "\""+mk+"\":"); err != nil {
+							break
 						}
-					} else if cmd, cmdok := mvp["query"]; cmdok {
-						delete(mvp, "query")
-						rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
-						if out != nil {
-							hasoutput = true
-							jsnrdr := NewJSONReader(rdr, nil, rdrerr)
-							io.Copy(out, jsnrdr)
-							jsnrdr = nil
-						}
-						if rdr != nil {
-							rdr.Close()
+					}
+					if mvp, mvpok := mv.(map[string]interface{}); mvpok {
+						if cmd, cmdok := mvp["execute"]; cmdok {
+							delete(mvp, "execute")
+							exctr, exctrerr := cn.GblExecute(cmd, mvp, ioargs)
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, exctr, exctrerr)
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+						} else if cmd, cmdok := mvp["query"]; cmdok {
+							delete(mvp, "query")
+							rdr, rdrerr := cn.GblQuery(cmd, mvp, ioargs)
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(rdr, nil, rdrerr)
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
+							if rdr != nil {
+								rdr.Close()
+							}
+						} else {
+							if out != nil {
+								hasoutput = true
+								jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
+								io.Copy(out, jsnrdr)
+								jsnrdr = nil
+							}
 						}
 					} else {
 						if out != nil {
 							hasoutput = true
-							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("no request"))
+							jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
 							io.Copy(out, jsnrdr)
 							jsnrdr = nil
 						}
 					}
-				} else {
-					if out != nil {
-						hasoutput = true
-						jsnrdr := NewJSONReader(nil, nil, fmt.Errorf("invalid request"))
-						io.Copy(out, jsnrdr)
-						jsnrdr = nil
+					if mpl >= 1 {
+						if out != nil {
+							hasoutput = true
+							if err = iorw.Fprint(out, ","); err != nil {
+								break
+							}
+						}
 					}
 				}
-				if mpl >= 1 {
-					if out != nil {
-						hasoutput = true
-						iorw.Fprint(out, ",")
-					}
+				if out != nil {
+					hasoutput = true
+					err = iorw.Fprint(out, "}")
 				}
-			}
-			if out != nil {
-				hasoutput = true
-				iorw.Fprint(out, "}")
 			}
 		}
 	}
@@ -585,7 +591,7 @@ func (cn *Connection) inMapOut(mpin map[string]interface{}, out io.Writer, ioarg
 }
 
 //InOut - OO{ in interface{} -> out io.Writer } loop till no input
-func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) {
+func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (err error) {
 	if in != nil {
 		var hasoutput = false
 		var ioerr error = nil
@@ -599,17 +605,18 @@ func (cn *Connection) InOut(in interface{}, out io.Writer, ioargs ...interface{}
 		if !hasoutput {
 			if out != nil {
 				if ioerr != nil {
-					iorw.Fprint(out, "{\"error\":\""+ioerr.Error()+"\"}")
+					err = iorw.Fprint(out, "{\"error\":\""+ioerr.Error()+"\"}")
 				} else {
-					iorw.Fprint(out, "{}")
+					err = iorw.Fprint(out, "{}")
 				}
 			}
 		}
 	} else {
 		if out != nil {
-			iorw.Fprint(out, "{}")
+			err = iorw.Fprint(out, "{}")
 		}
 	}
+	return
 }
 
 func internquery(cn *Connection, query interface{}, strmqrystngs map[string]interface{}, noreader bool, execargs []map[string]interface{}, onsuccess, onerror, onfinalize interface{}, args ...interface{}) (reader *Reader, exctr *Executor, err error) {

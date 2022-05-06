@@ -11,8 +11,8 @@ import (
 
 //Printer - interface
 type Printer interface {
-	Print(a ...interface{})
-	Println(a ...interface{})
+	Print(a ...interface{}) error
+	Println(a ...interface{}) error
 	Write(p []byte) (int, error)
 }
 
@@ -34,24 +34,33 @@ type PrinterReader interface {
 }
 
 //Fprint - refer to fmt.Fprint
-func Fprint(w io.Writer, a ...interface{}) {
+func Fprint(w io.Writer, a ...interface{}) (err error) {
 	if len(a) > 0 && w != nil {
 		for dn := range a {
 			if s, sok := a[dn].(string); sok {
-				w.Write([]byte(s))
+				if _, err = w.Write([]byte(s)); err != nil {
+					break
+				}
 			} else if ir, irok := a[dn].(io.Reader); irok {
-				WriteToFunc(ir, func(b []byte) (int, error) {
+				if _, err = WriteToFunc(ir, func(b []byte) (int, error) {
 					return w.Write(b)
-				})
+				}); err != nil {
+					break
+				}
 			} else if aa, aaok := a[dn].([]interface{}); aaok {
 				if len(aa) > 0 {
-					Fprint(w, aa...)
+					if err = Fprint(w, aa...); err != nil {
+						break
+					}
 				}
 			} else {
-				fmt.Fprint(w, a[dn])
+				if _, err = fmt.Fprint(w, a[dn]); err != nil {
+					break
+				}
 			}
 		}
 	}
+	return
 }
 
 func CopyBytes(dest []byte, desti int, src []byte, srci int) (lencopied int, destn int, srcn int) {
@@ -72,11 +81,14 @@ func CopyBytes(dest []byte, desti int, src []byte, srci int) (lencopied int, des
 }
 
 //Fprintln - refer to fmt.Fprintln
-func Fprintln(w io.Writer, a ...interface{}) {
+func Fprintln(w io.Writer, a ...interface{}) (err error) {
 	if len(a) > 0 && w != nil {
-		Fprint(w, a...)
+		err = Fprint(w, a...)
 	}
-	Fprint(w, "\r\n")
+	if err == nil {
+		err = Fprint(w, "\r\n")
+	}
+	return
 }
 
 //ReadLines from r io.Reader as lines []string

@@ -341,8 +341,13 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 			pi = nil
 		}()
 		go func() {
+			var pwerr error = nil
 			defer func() {
-				pw.Close()
+				if pwerr != nil {
+					pw.CloseWithError(pwerr)
+				} else {
+					pw.Close()
+				}
 			}()
 			ctxcancel()
 			encw := json.NewEncoder(pw)
@@ -378,7 +383,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args := append(args, exctr.cn.args...)
 					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
-							iorw.Fprint(out, rspr)
+							err = iorw.Fprint(out, rspr)
 						}
 					} else {
 						err = rsprerr
@@ -387,7 +392,7 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args = append(args, pi)
 					if rspr, rsprerr := web.DefaultClient.Send(datasource, args...); rsprerr == nil {
 						if rspr != nil {
-							iorw.Fprint(out, rspr)
+							err = iorw.Fprint(out, rspr)
 						}
 					} else if rsprerr != nil {
 						err = rsprerr
@@ -406,10 +411,10 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					args := append(args, exctr.cn.args...)
 					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
 						if pi != nil {
-							rsprw.Print(pi)
+							err = rsprw.Print(pi)
 						}
 						if rsprw != nil {
-							iorw.Fprint(out, rsprw)
+							err = iorw.Fprint(out, rsprw)
 						}
 					} else {
 						err = rsprerr
@@ -418,10 +423,10 @@ func (exctr *Executor) webquery(forrows bool, out io.Writer, iorags ...interface
 					//args = append(args, pi)
 					if rsprw, rsprerr := web.DefaultClient.SendReceive(datasource, args...); rsprerr == nil {
 						if pi != nil {
-							rsprw.Print(pi)
+							err = rsprw.Print(pi)
 						}
 						if rsprw != nil {
-							iorw.Fprint(out, rsprw)
+							err = iorw.Fprint(out, rsprw)
 						}
 					} else if rsprerr != nil {
 						err = rsprerr

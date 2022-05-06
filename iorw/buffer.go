@@ -276,13 +276,15 @@ func (buff *Buffer) Clone() (clnbf *Buffer) {
 }
 
 //Print - same as fmt.Print just on buffer
-func (buff *Buffer) Print(a ...interface{}) {
-	Fprint(buff, a...)
+func (buff *Buffer) Print(a ...interface{}) (err error) {
+	err = Fprint(buff, a...)
+	return
 }
 
 //Println - same as fmt.Println just on buffer
-func (buff *Buffer) Println(a ...interface{}) {
-	Fprintln(buff, a...)
+func (buff *Buffer) Println(a ...interface{}) (err error) {
+	err = Fprintln(buff, a...)
+	return
 }
 
 //SubString - return buffer as string value based on offset ...int64

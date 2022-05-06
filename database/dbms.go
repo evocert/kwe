@@ -466,8 +466,11 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 	if mpl := len(mpin); mpl > 0 {
 		if out != nil {
 			hasoutput = true
-			iorw.Fprint(out, "{")
+			if err = iorw.Fprint(out, "{"); err != nil {
+				return
+			}
 		}
+
 		var dfltalias string = ""
 		var dfltcn, crntcn *Connection = nil, nil
 		if aliasv, aliasok := mpin["alias"]; aliasok {
@@ -487,7 +490,9 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 			mpl--
 			if out != nil {
 				hasoutput = true
-				iorw.Fprint(out, "\""+mk+"\":")
+				if err = iorw.Fprint(out, "\""+mk+"\":"); err != nil {
+					return
+				}
 			}
 			if mvp, mvpok := mv.(map[string]interface{}); mvpok {
 				crntcn = nil
@@ -566,13 +571,15 @@ func (dbms *DBMS) inMapOut(mpin map[string]interface{}, out io.Writer, ioargs ..
 			if mpl >= 1 {
 				if out != nil {
 					hasoutput = true
-					iorw.Fprint(out, ",")
+					if err = iorw.Fprint(out, ","); err != nil {
+						return
+					}
 				}
 			}
 		}
 		if out != nil {
 			hasoutput = true
-			iorw.Fprint(out, "}")
+			err = iorw.Fprint(out, "}")
 		}
 	}
 	return
@@ -601,15 +608,15 @@ func (dbms *DBMS) InOut(in interface{}, out io.Writer, ioargs ...interface{}) (e
 		if !hasoutput {
 			if out != nil {
 				if err != nil {
-					iorw.Fprint(out, "{\"error\":\""+err.Error()+"\"}")
+					err = iorw.Fprint(out, "{\"error\":\""+err.Error()+"\"}")
 				} else {
-					iorw.Fprint(out, "{}")
+					err = iorw.Fprint(out, "{}")
 				}
 			}
 		}
 	} else {
 		if out != nil {
-			iorw.Fprint(out, "{}")
+			err = iorw.Fprint(out, "{}")
 		}
 	}
 	return

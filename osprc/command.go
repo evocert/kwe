@@ -102,18 +102,22 @@ func (cmd *Command) PrcID() int {
 }
 
 //Print - similar to fmt.Fprint just direct on *Command
-func (cmd *Command) Print(a ...interface{}) {
+func (cmd *Command) Print(a ...interface{}) (err error) {
 	if len(a) > 0 {
-		iorw.Fprint(cmd, a...)
+		err = iorw.Fprint(cmd, a...)
 	}
+	return
 }
 
 //Println - similar to fmt.Fprint just direct on *Command
-func (cmd *Command) Println(a ...interface{}) {
+func (cmd *Command) Println(a ...interface{}) (err error) {
 	if len(a) > 0 {
-		iorw.Fprint(cmd, a...)
+		err = iorw.Fprint(cmd, a...)
 	}
-	iorw.Fprint(cmd, "\n")
+	if err == nil {
+		err = iorw.Fprint(cmd, "\n")
+	}
+	return
 }
 
 //Seek - refer tio iorw.Reader empty implementation

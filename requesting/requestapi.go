@@ -37,8 +37,8 @@ type ResponseAPI interface {
 	Header(string) string
 	SetHeader(string, string)
 	SetStatus(int)
-	Print(...interface{})
-	Println(...interface{})
+	Print(...interface{}) (err error)
+	Println(...interface{}) (err error)
 	Write([]byte) (int, error)
 	SetErrNotify(func(err error))
 	Error() error
