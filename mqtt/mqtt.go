@@ -23,7 +23,15 @@ func (mqttsubscrptn *mqttsubscription) String() (s string) {
 		pr, pw := io.Pipe()
 		ctx, ctxcanncel := context.WithCancel(context.Background())
 		go func() {
-			defer pw.Close()
+			var perr error = nil
+
+			defer func() {
+				if perr != nil {
+					pw.CloseWithError(perr)
+				} else {
+					pw.Close()
+				}
+			}()
 			ctxcanncel()
 			mqttsubscrptn.Fprint(pw)
 		}()
@@ -35,16 +43,24 @@ func (mqttsubscrptn *mqttsubscription) String() (s string) {
 	return
 }
 
-func (mqttsubscrptn *mqttsubscription) Fprint(w io.Writer) {
+func (mqttsubscrptn *mqttsubscription) Fprint(w io.Writer) (err error) {
 	if mqttsubscrptn != nil && w != nil {
 		enc := json.NewEncoder(w)
-		iorw.Fprint(w, "{")
-		iorw.Fprint(w, "\"topic\":")
-		enc.Encode(mqttsubscrptn.topic)
-		iorw.Fprint(w, ",\"qos\":")
-		enc.Encode(mqttsubscrptn.qos)
-		iorw.Fprint(w, "}")
+		if err = iorw.Fprint(w, "{"); err == nil {
+
+			if err = iorw.Fprint(w, "\"topic\":"); err == nil {
+				enc.Encode(mqttsubscrptn.topic)
+
+				if err = iorw.Fprint(w, ",\"qos\":"); err == nil {
+					enc.Encode(mqttsubscrptn.qos)
+					if err = iorw.Fprint(w, "}"); err == nil {
+
+					}
+				}
+			}
+		}
 	}
+	return
 }
 
 type MQTTConnection struct {
@@ -235,54 +251,93 @@ type mqttMessage struct {
 	tokenpath string
 }
 
-func (mqttmsg *mqttMessage) FPrint(w io.Writer) {
+func (mqttmsg *mqttMessage) FPrint(w io.Writer) (err error) {
 	if mqttmsg != nil && w != nil {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "")
-		iorw.Fprint(w, "{")
+		if err = iorw.Fprint(w, "{"); err != nil {
+			return
+		}
 		enc.Encode("msgid")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.msg.MessageID())
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("clientid")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.mqttcn.ClientId)
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("duplicate")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.msg.Duplicate())
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		payload := mqttmsg.msg.Payload()
 		enc.Encode("payload")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(string(payload))
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("bin-payload")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		arrpayload := make([]interface{}, len(payload))
 		for pn := range payload {
 			arrpayload[pn] = payload[pn]
 		}
 		enc.Encode(arrpayload)
 		arrpayload = nil
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("topic")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.msg.Topic())
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("qos")
 		iorw.Fprint(w, ":")
-		enc.Encode(mqttmsg.msg.Qos())
-		iorw.Fprint(w, ",")
+		if err = enc.Encode(mqttmsg.msg.Qos()); err != nil {
+			return
+		}
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("retained")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.msg.Retained())
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 		enc.Encode("topicpath")
-		iorw.Fprint(w, ":")
+		if err = iorw.Fprint(w, ":"); err != nil {
+			return
+		}
 		enc.Encode(mqttmsg.tokenpath)
-		iorw.Fprint(w, "}")
+		if err = iorw.Fprint(w, "}"); err != nil {
+			return
+		}
 	}
+	return
 }
 
 func (mqttmsg *mqttMessage) String() (s string) {
@@ -343,23 +398,39 @@ func (mqttmsg *mqttMessage) Ack() {
 	mqttmsg.msg.Ack()
 }
 
-func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
+func (mqttcn *MQTTConnection) Fprint(w io.Writer) (err error) {
 	if mqttcn != nil && w != nil {
 		enc := json.NewEncoder(w)
-		iorw.Fprint(w, "{")
-		iorw.Fprint(w, "\"ClientID\":")
+		if err = iorw.Fprint(w, "{"); err != nil {
+			return
+		}
+		if iorw.Fprint(w, "\"ClientID\":"); err != nil {
+			return
+		}
 		enc.Encode(mqttcn.ClientId)
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 
-		iorw.Fprint(w, "\"broker\":")
+		if err = iorw.Fprint(w, "\"broker\":"); err != nil {
+			return
+		}
 		enc.Encode(mqttcn.broker)
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 
-		iorw.Fprint(w, "\"port\":")
+		if err = iorw.Fprint(w, "\"port\":"); err != nil {
+			return
+		}
 		enc.Encode(mqttcn.port)
-		iorw.Fprint(w, ",")
+		if err = iorw.Fprint(w, ","); err != nil {
+			return
+		}
 
-		iorw.Fprint(w, "\"user\":")
+		if iorw.Fprint(w, "\"user\":"); err != nil {
+			return
+		}
 		enc.Encode(mqttcn.user)
 		iorw.Fprint(w, ",")
 
@@ -398,6 +469,7 @@ func (mqttcn *MQTTConnection) Fprint(w io.Writer) {
 		iorw.Fprint(w, "]")
 		iorw.Fprint(w, "}")
 	}
+	return
 }
 
 func (mqttcn *MQTTConnection) String() (s string) {
