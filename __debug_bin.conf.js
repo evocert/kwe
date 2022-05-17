@@ -299,10 +299,66 @@ ssn.dbms().register("avonone","sqlserver","server=localhost; database=ONER; user
 ssn.dbms().register("oner-api","sqlserver","server=localhost; database=ONER; user id=ONER; password=ONER");
 ssn.fs().mkdir("/oner","C:/projects/mystuff/oner");
 ssn.listen("tcp",":1030");
+ssn.listen("tcp",":1032");
 ssn.cas().register(20,{"orginization":"bla"});
 ssn.cas().ca(20).register(30);
 ssn.fs().mkdir("/tvseries","C:/tvseries");
 ssn.fs().mkdir("/movies","C:/movies");
 ssn.fs().mkdir("/music","C:/music");
-ssn.fs().mkdir("/oner","C:/projects/oner")
+ssn.fs().mkdir("/oner","C:/projects/oner");
+
+ssn.certifyAddr(20,30,":1032");
+ssn.listen("tcp",":3336");
+ssn.certifyAddr(`-----BEGIN CERTIFICATE-----
+MIIDpTCCAo2gAwIBAgIUHZM13kT8YYe3WBwkcaf6LCGcjPswDQYJKoZIhvcNAQEL
+BQAwYjELMAkGA1UEBhMCWkExEDAOBgNVBAgMB0dBVVRFTkcxETAPBgNVBAcMCFBy
+ZXRvcmlhMQ4wDAYDVQQKDAVJbm92bzEOMAwGA1UECwwFSW5vdm8xDjAMBgNVBAMM
+BUlub3ZvMB4XDTIyMDUxNjEzMjcwM1oXDTIzMDUxNjEzMjcwM1owYjELMAkGA1UE
+BhMCWkExEDAOBgNVBAgMB0dBVVRFTkcxETAPBgNVBAcMCFByZXRvcmlhMQ4wDAYD
+VQQKDAVJbm92bzEOMAwGA1UECwwFSW5vdm8xDjAMBgNVBAMMBUlub3ZvMIIBIjAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnNSbzrsDZXh4gET28qqxAEd9YAA5
+vx+Cr/BTmz+cok6oJo7UZ9OVyXHwSVopmTuQZaiMPUBlT0LX51NLArsI7vWW3x70
+u9N/L7K/nMZUKtEpvwi4R5gVmnVlfHH/XdkZN1VIehp1jDe8Bj9eoWRzKrjj0eC6
+UT4Wi3Oa2MKj21ETp0/aDO1E52UKD+FNcXLH0ZpdlkPCBvCSsYd7J/6f43W3Mg+q
+7IGNftgG0eGRFKKb/7RyWkUlwg8Vi/+xzLh1AZjCztHiP6Jep1SaVj8p9+jDuNsL
+TEfJhT/jrWHkp+YBnu6xZuYlK3Z8/urkTDgY029qJnsqlWfMGsHQtL75/wIDAQAB
+o1MwUTAdBgNVHQ4EFgQU8L4rbj1Bhn4QRqps1krM4wmKpIIwHwYDVR0jBBgwFoAU
+8L4rbj1Bhn4QRqps1krM4wmKpIIwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0B
+AQsFAAOCAQEAkxzHuvRrgqtUPf9fEipD2EukoUyEyQG4G3uTp5wB2xm+YrvC7N19
+a7RdXHS+3DmXQBLkO+P9mg0fUTOh+4LhUPUjOgAfDQ9dAyTH/3qVnPhScKSr6rbR
+XbmpPDWmC1JNRARhH/IcY3kY3IdRdkZWnn2kJbz+E7CQkXEY+W0LdfZQYDoXfJaO
+/85NN8ryf1zKsIxJWov3z3//Zg/kzEe8iRTbngkywVdCw00fwErBRcM5K5AYZlkW
+flE3F7P+o5jtrgPo9m4w3E1H7Nwd3WbjnQmhE8HEqGjIJDmwhf8uNvo+o7PbZ01E
+Aqogutte2JNnmVfaAUxk6NkEw0xWndgchg==
+-----END CERTIFICATE-----
+`,`-----BEGIN PRIVATE KEY-----
+MIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQCc1JvOuwNleHiA
+RPbyqrEAR31gADm/H4Kv8FObP5yiTqgmjtRn05XJcfBJWimZO5BlqIw9QGVPQtfn
+U0sCuwju9ZbfHvS7038vsr+cxlQq0Sm/CLhHmBWadWV8cf9d2Rk3VUh6GnWMN7wG
+P16hZHMquOPR4LpRPhaLc5rYwqPbUROnT9oM7UTnZQoP4U1xcsfRml2WQ8IG8JKx
+h3sn/p/jdbcyD6rsgY1+2AbR4ZEUopv/tHJaRSXCDxWL/7HMuHUBmMLO0eI/ol6n
+VJpWPyn36MO42wtMR8mFP+OtYeSn5gGe7rFm5iUrdnz+6uRMOBjTb2omeyqVZ8wa
+wdC0vvn/AgMBAAECgf86z3+eBoM/ie2mLDZuyZOWhzh8x5jgEvDvCTBRB4m1U8m6
+q9T7Gl0RLajt2OHAlJWRiaMNVRiooGhWVuXKIFk5Qt9QzEr6JFWNjXpNUBI//C+r
+c5mnP2DaiyuDfzxD9SV/mnuTTljGPCBGN31FCGYnny3PhnZYAPBzWua2YkcP9sCI
+nYPiWc0a61JjLEsUiaaSItfiqxMPKNn9g7QNZ7Ymtk0wq3N0tTdUaHpblHXPE4IB
+ugQgBw4vamPTbPP2Po0JRbqj291JvWgoa978/VbxQVsV8fvBiIi4M4b3tHiOd9X2
+eUFpi/mHshQUbreWthiSCrjOSN3IOVcLjlvuxQECgYEAt1PrTfqiBFGUp1q3gn41
+tcfxDkCsjng13RkfwRcDrugOVSvHxOD5dBsTd/Ez+UV+0rLXR9GFzk6igKpD81Qb
+EBEGjWLQqWIF0+0M/2RJpNMh7AFii3m8eeyF1ewBIYeDrn82kOsYO5PYSYyTWnWJ
+UVU1iMOrm+rSu9MI+oq3LQ0CgYEA2v+/FWf8F16PPzktT5uwdGo630bkpEjFnTIY
+iziw53+bgkkGMGBw+UoaZ4CGFBsK8RQ9Gu323DeAYZI5qsVsBtu1gFJv4HlVWwAS
+MdpUpVMwts6q+0kqiZbED/jCQm3hR07k4MmqNrh/PrZQFHLfnr3bxHV1w9JXZ4//
+wjGv+DsCgYAikyklo8c6mUg359wEOFlY10SXM4tXs0Q1Vq+ucvC24/0QAxnB/8wM
+Ia8iR9NNh9XLVv9TBCkAJ8RuD66RDaOs/AkIUUKZL2t59JMm93sMIuWa5Qf41hS9
+yeXT2pa8BBrJpiRcYHpJgjCgbmq7/L7RIAjgqkaLOVZVJg/jcJXrYQKBgQC51IgV
+pv3/6opNELyFL8xEjJvWOLbtPJ8LK6YuBPYACoUvwb1RsZRLxPiw2Rts1iGrvgu3
+3TM7XJFAui7a3Nk03Jyf/dPXO74VEPNfgC+Rdg0BIk9uGYDR7bADCYf1jH2735NR
+t24LLvUyhste/rcIYXypsS4z8zmdtFBHPZhfXwKBgF/41kLBOzCTA40N3JSjmGAe
+6WFpWs+PUkcThL87KW3y4aMV0b3htOJgii6lNMaU7aG4obZ9nEzlQDERYzTbuQ5W
+UxAnla0cPaZWvzuYXqphs1jjRLTB3lSLPr/rup40BWbW0hzG13PFZoTNyLF+pALc
+25kPoEQPh7whHhhjEfg+
+-----END PRIVATE KEY-----
+`,":3336");
+
 //ssn.certifyAddr("20","30",":1030")
