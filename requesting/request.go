@@ -188,7 +188,6 @@ func NewRequest(rdr io.Reader, a ...interface{}) (rqstapi RequestAPI) {
 			path = path[:strings.Index(path, "?")]
 		}
 	}
-
 	rqst = &Request{rdr: rdr, ctx: ctx, rqstr: iorw.NewEOFCloseSeekReader(rdr, false), lcladdr: lcladdr, rmtaddr: rmtaddr, path: path, prtcl: prtcl, prtclmthd: prtclmthd, headers: headers, querystring: querystring, prms: prms, rangeType: prtclrangetype, rangeOffset: prtclrangeoffset}
 
 	rqst.rspns = NewResponse(wtr, rqst, httpw)
