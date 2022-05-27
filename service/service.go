@@ -84,6 +84,30 @@ func (srvs *Service) startService(args ...string) {
 				}()
 			}
 		}()
+
+		if len(args) > 0 {
+			var loadjs = ""
+			for an, d := range args {
+				if an > 0 && d != "" {
+					if args[an-1] == "-load" {
+						if loadjs == "" {
+							loadjs = d
+						}
+					}
+				}
+			}
+			if loadjs != "" {
+				func() {
+					rqst := requesting.NewRequest(nil, "/active:"+loadjs, in, out)
+					if rqst != nil {
+						func() {
+							defer rqst.Close()
+							ServeRequest(rqst)
+						}()
+					}
+				}()
+			}
+		}
 	}
 }
 
