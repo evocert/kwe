@@ -305,6 +305,9 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 										for hdrk, hdrv := range hdrs {
 											if hdrv != nil {
 												if s, sok := hdrv.(string); sok {
+													if rqstheaders == nil {
+														rqstheaders = http.Header{}
+													}
 													rqstheaders.Set(hdrk, s)
 												}
 											}
@@ -346,7 +349,7 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 			pr, pw := io.Pipe()
 			ctx, ctxcancel := context.WithCancel(context.Background())
 			go func() {
-				pw.Close()
+				defer pw.Close()
 				ctxcancel()
 				iorw.Fprint(pw, rspnselts...)
 			}()
@@ -363,7 +366,6 @@ func (clnt *Client) Send(rqstpath string, a ...interface{}) (rspr iorw.Reader, e
 		} else if method == "" {
 			method = "GET"
 		}
-
 		var rqst, rqsterr = http.NewRequest(method, rqstpath, r)
 		if rqsterr == nil {
 			if len(rqstheaders) > 0 {

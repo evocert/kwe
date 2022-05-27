@@ -11,7 +11,8 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "output": "${workspaceFolder}/__debug_bin.exe",
-            "buildFlags": "-tags 'databaseall web fonts ui ml p5 jssip'"
+            "buildFlags": "-tags 'databaseall web fonts ui ml p5 jssip'",
+            "args": ["-load","test.js"]
         }
     ]
 }

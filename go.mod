@@ -7,6 +7,7 @@ require (
 	github.com/denisenkom/go-mssqldb v0.12.0
 	github.com/dlclark/regexp2 v1.4.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/emersion/go-message v0.15.0
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/websocket v1.5.0
