@@ -16,6 +16,7 @@ import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/channeling/channelingapi"
 	"github.com/evocert/kwe/database"
+	"github.com/evocert/kwe/email"
 	"github.com/evocert/kwe/enumeration"
 	"github.com/evocert/kwe/env"
 	"github.com/evocert/kwe/fsutils"
@@ -119,6 +120,21 @@ type Session struct {
 	cmnds       map[int]*osprc.Command
 	intrvlslck  *sync.RWMutex
 	intrvls     map[string]*schdlinterval
+	emairdrs    map[*email.EmailReader]*email.EmailReader
+}
+
+func (ssn *Session) ReadMail(a ...interface{}) (mail *email.EmailReader, err error) {
+	if mail, err = email.ReadMail(a...); err == nil {
+		if ssn.emairdrs == nil {
+			ssn.emairdrs = map[*email.EmailReader]*email.EmailReader{}
+		}
+		ssn.emairdrs[mail] = mail
+		mail.OnClose = func(ml *email.EmailReader) error {
+			delete(ssn.emairdrs, ml)
+			return nil
+		}
+	}
+	return
 }
 
 func (ssn *Session) closecmd(prcid int) {
@@ -505,9 +521,19 @@ func (ssn *Session) Close() (err error) {
 					for prcid := range prcsids {
 						ssn.cmnds[prcsids[prcid]].Close()
 					}
-					ssn.cmnds = nil
+
 				}
 			}()
+			ssn.cmnds = nil
+		}
+
+		if ssn.emairdrs != nil {
+			func() {
+				for emlrdr := range ssn.emairdrs {
+					emlrdr.Close()
+				}
+			}()
+			ssn.emairdrs = nil
 		}
 		if ssn.intrvls != nil {
 			if func() (intvll int) {

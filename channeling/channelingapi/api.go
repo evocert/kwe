@@ -3,6 +3,7 @@ package channelingapi
 import (
 	"github.com/evocert/kwe/caching"
 	"github.com/evocert/kwe/database"
+	"github.com/evocert/kwe/email"
 	"github.com/evocert/kwe/env"
 	"github.com/evocert/kwe/fsutils"
 	"github.com/evocert/kwe/iorw"
@@ -39,9 +40,9 @@ type SessionAPI interface {
 	Bind(nxtpth ...string) error
 	Join(nxtpth ...string) error
 	Faf(nxtpth ...string) error
-	//FafJoin(nxtpth ...string) error
 	FAFExecute(...interface{}) error
 	Env() env.EnvAPI
+	ReadMail(...interface{}) (*email.EmailReader, error)
 	Listen(network string, addr ...string) (err error)
 	Shutdown(addr ...string) (err error)
 	UnCertifyAddr(...string)
