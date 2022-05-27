@@ -159,6 +159,8 @@ func (svr *Service) Execute(args ...string) (err error) {
 	if len(args) > 0 {
 		args = args[1:]
 	}
+
+	var tmpargs = []string{}
 	for argi < len(args) {
 		var arg = args[argi]
 
@@ -182,8 +184,13 @@ func (svr *Service) Execute(args ...string) (err error) {
 				}
 			}
 			break
+		} else {
+			tmpargs = append(tmpargs, arg)
 		}
 		argi++
+	}
+	if len(tmpargs) > 0 {
+		svr.args = append(svr.args, tmpargs...)
 	}
 	if svccmd == "" && !svr.isBroker && !svr.isConsole && !svr.isService {
 		svr.isService = true
