@@ -98,11 +98,11 @@ func (srvs *Service) startService(args ...string) {
 			}
 			if loadjs != "" {
 				func() {
-					rqst := requesting.NewRequest(nil, "/active:"+loadjs, in, out)
+					rqst := requesting.NewRequest(nil, in, out)
 					if rqst != nil {
 						func() {
 							defer rqst.Close()
-							ServeRequest(rqst)
+							ServeRequest(rqst, "/active:"+loadjs)
 						}()
 					}
 				}()
