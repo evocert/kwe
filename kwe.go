@@ -43,7 +43,8 @@ func main() {
 	}
 
 	service.ServeRequest = func(rqst requesting.RequestAPI, a ...interface{}) error {
-		return serveRequest(rqst, lstnr)
+		a = append(a, rqst, lstnr)
+		return serveRequest(a...)
 	}
 	service.RunService(os.Args...)
 }
