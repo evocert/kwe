@@ -258,6 +258,7 @@ func (dbms *DBMS) Unregister(alias string) (unregistered bool) {
 			unregistered = true
 		}
 	}
+
 	return
 }
 
